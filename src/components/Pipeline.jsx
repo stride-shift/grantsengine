@@ -165,7 +165,7 @@ const parseScoutResults = (text) => {
   return null;
 };
 
-export default function Pipeline({ grants, team, stages, funderTypes, onSelectGrant, onUpdateGrant, onAddGrant, api }) {
+export default function Pipeline({ grants, team, stages, funderTypes, onSelectGrant, onUpdateGrant, onAddGrant, onRunAI, api }) {
   const [pView, setPView] = useState("kanban");
   const [q, setQ] = useState("");
   const [sf, setSf] = useState("all");
@@ -178,6 +178,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
   const [newAsk, setNewAsk] = useState("");
   const [scouting, setScouting] = useState(false);
   const [scoutResults, setScoutResults] = useState([]);
+  const [urlInput, setUrlInput] = useState("");
+  const [urlBusy, setUrlBusy] = useState(false);
+  const [showUrlTool, setShowUrlTool] = useState(false);
 
   const STAGES = stages || [];
 
@@ -293,13 +296,93 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
             <option value="priority">By priority</option>
           </select>
           <div style={{ display: "flex", border: `1.5px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
-            <button onClick={() => setPView("kanban")} style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: pView === "kanban" ? C.primary : C.white, color: pView === "kanban" ? "#fff" : C.t3, border: "none", cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>Board</button>
-            <button onClick={() => setPView("list")} style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: pView === "list" ? C.primary : C.white, color: pView === "list" ? "#fff" : C.t3, border: "none", cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>List</button>
+            {[["kanban","Board"],["list","List"],["person","Person"]].map(([k,l]) => (
+              <button key={k} onClick={() => setPView(k)} style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: pView === k ? C.primary : C.white, color: pView === k ? "#fff" : C.t3, border: "none", cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>{l}</button>
+            ))}
           </div>
           <Btn onClick={aiScout} disabled={scouting} v="ghost" style={{ fontSize: 12, padding: "6px 14px", color: C.purple, borderColor: C.purple + "40" }}>{scouting ? "Scouting..." : "\u2609 Scout"}</Btn>
+          {onRunAI && <Btn onClick={() => setShowUrlTool(!showUrlTool)} v="ghost" style={{ fontSize: 12, padding: "6px 14px", color: C.blue, borderColor: C.blue + "40" }}>{"\uD83D\uDD17"} URL</Btn>}
           <Btn onClick={() => setShowAdd(!showAdd)} v="primary" style={{ fontSize: 12, padding: "6px 14px" }}>+ Add</Btn>
         </div>
       </div>
+
+      {/* URL Extract tool — paste a grant URL to auto-create */}
+      {showUrlTool && onRunAI && (
+        <div style={{
+          display: "flex", gap: 8, marginBottom: 14, alignItems: "center",
+          padding: "12px 16px", background: `linear-gradient(135deg, ${C.blueSoft}40 0%, ${C.white} 100%)`,
+          borderRadius: 14, boxShadow: C.cardShadow, border: `1.5px solid ${C.blue}15`,
+        }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+            background: C.blueSoft, color: C.blue, fontSize: 13, fontWeight: 700, flexShrink: 0,
+            animation: urlBusy ? "ge-pulse 1.4s ease-in-out infinite" : "none",
+          }}>{urlBusy ? "\u2026" : "\uD83D\uDD17"}</div>
+          <input
+            value={urlInput} onChange={e => setUrlInput(e.target.value)}
+            placeholder="Paste a grant URL to auto-fill details..."
+            style={{
+              flex: 1, padding: "8px 12px", fontSize: 13, border: `1px solid ${C.line}`,
+              borderRadius: 8, fontFamily: FONT, background: C.white,
+            }}
+            onKeyDown={e => {
+              if (e.key === "Enter" && urlInput.trim() && !urlBusy) {
+                e.preventDefault();
+                (async () => {
+                  setUrlBusy(true);
+                  try {
+                    const r = await onRunAI("urlextract", { name: "", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "Cold", notes: "", deadline: null, stage: "scouted" }, urlInput.trim());
+                    const parsed = JSON.parse(r);
+                    const g = {
+                      id: uid(), name: parsed.name || "Untitled Grant", funder: parsed.funder || "",
+                      type: parsed.type || "Foundation", stage: "scouted",
+                      ask: parsed.ask || 0, deadline: parsed.deadline || null,
+                      focus: parsed.focus || [], geo: [], rel: "Cold", pri: 3, hrs: 0,
+                      notes: parsed.notes || "", applyUrl: parsed.applyUrl || urlInput.trim(),
+                      log: [{ d: td(), t: `Created from URL: ${urlInput.trim().slice(0, 60)}` }],
+                      on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null,
+                    };
+                    onAddGrant(g);
+                    setUrlInput("");
+                    setShowUrlTool(false);
+                  } catch (e) {
+                    alert("Could not parse grant from URL. Try adding manually.");
+                  }
+                  setUrlBusy(false);
+                })();
+              }
+            }}
+          />
+          <Btn
+            onClick={async () => {
+              if (!urlInput.trim() || urlBusy) return;
+              setUrlBusy(true);
+              try {
+                const r = await onRunAI("urlextract", { name: "", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "Cold", notes: "", deadline: null, stage: "scouted" }, urlInput.trim());
+                const parsed = JSON.parse(r);
+                const g = {
+                  id: uid(), name: parsed.name || "Untitled Grant", funder: parsed.funder || "",
+                  type: parsed.type || "Foundation", stage: "scouted",
+                  ask: parsed.ask || 0, deadline: parsed.deadline || null,
+                  focus: parsed.focus || [], geo: [], rel: "Cold", pri: 3, hrs: 0,
+                  notes: parsed.notes || "", applyUrl: parsed.applyUrl || urlInput.trim(),
+                  log: [{ d: td(), t: `Created from URL: ${urlInput.trim().slice(0, 60)}` }],
+                  on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null,
+                };
+                onAddGrant(g);
+                setUrlInput("");
+                setShowUrlTool(false);
+              } catch (e) {
+                alert("Could not parse grant from URL. Try adding manually.");
+              }
+              setUrlBusy(false);
+            }}
+            disabled={!urlInput.trim() || urlBusy}
+            style={{ fontSize: 12, padding: "6px 14px", background: C.blue, borderColor: C.blue }}
+          >{urlBusy ? "Extracting..." : "Extract"}</Btn>
+          <Btn onClick={() => { setShowUrlTool(false); setUrlInput(""); }} v="ghost" style={{ fontSize: 12, padding: "6px 10px" }}>Cancel</Btn>
+        </div>
+      )}
 
       {/* Add grant inline */}
       {showAdd && (
@@ -490,6 +573,101 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
           })}
         </div>
       )}
+
+      {/* Person view — grouped by team member */}
+      {pView === "person" && (() => {
+        // Build person groups from sorted grants
+        const personMap = new Map();
+        sorted.forEach(g => {
+          const ownerId = g.owner || "team";
+          if (!personMap.has(ownerId)) personMap.set(ownerId, []);
+          personMap.get(ownerId).push(g);
+        });
+        // Order: named members first (sorted by grant count desc), then "team" (unassigned) last
+        const entries = [...personMap.entries()].sort((a, b) => {
+          if (a[0] === "team") return 1;
+          if (b[0] === "team") return -1;
+          return b[1].length - a[1].length;
+        });
+
+        return (
+          <div style={{ display: "flex", gap: 10, flex: 1, overflowX: "auto", paddingBottom: 10 }}>
+            {entries.map(([ownerId, ownerGrants]) => {
+              const m = getMember(ownerId);
+              const total = ownerGrants.reduce((s, g) => s + (g.ask || 0), 0);
+              // Color based on avatar palette
+              const avatarColors = [
+                { bg: C.redSoft, accent: C.red },
+                { bg: C.blueSoft, accent: C.blue },
+                { bg: C.amberSoft, accent: C.amber },
+                { bg: "#E6F5EE", accent: "#1A7A42" },
+                { bg: "#ECFEFF", accent: "#0891B2" },
+                { bg: C.purpleSoft, accent: C.purple },
+              ];
+              const cIdx = m.name ? m.name.charCodeAt(0) % avatarColors.length : avatarColors.length - 1;
+              const ac = avatarColors[cIdx];
+
+              return (
+                <div key={ownerId} style={{
+                  minWidth: 240, maxWidth: 300, flex: 1, display: "flex", flexDirection: "column",
+                  background: ac.bg + "30", borderRadius: 14, padding: 8,
+                  borderTop: `3px solid ${ac.accent}`,
+                }}>
+                  {/* Person header */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 8px 6px", marginBottom: 4 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <Avatar member={m} size={28} />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.dark, lineHeight: 1.2 }}>{m.name}</div>
+                        {m.role && m.role !== "none" && (
+                          <div style={{ fontSize: 10, fontWeight: 600, color: C.t4, textTransform: "uppercase", letterSpacing: 0.4, marginTop: 1 }}>
+                            {m.role === "director" ? "Director" : m.role === "hop" ? "Head of Prog" : m.role === "pm" ? "Prog Manager" : m.role}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: C.t3 }}>{ownerGrants.length}</div>
+                      <div style={{ fontSize: 9, color: C.t4, fontFamily: MONO }}>{fmtK(total)}</div>
+                    </div>
+                  </div>
+
+                  {/* Grants */}
+                  <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+                    {ownerGrants.map(g => {
+                      const d = dL(g.deadline);
+                      const stg = STAGES.find(s => s.id === g.stage);
+                      return (
+                        <div key={g.id} draggable onDragStart={() => setDragId(g.id)}
+                          onClick={() => onSelectGrant(g.id)}
+                          style={{
+                            background: C.white, borderRadius: 14, padding: "12px 14px",
+                            borderLeft: `3px solid ${stg?.c || C.t4}`,
+                            cursor: "pointer", boxShadow: C.cardShadow,
+                            transition: "box-shadow 0.15s, transform 0.15s",
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.boxShadow = C.cardShadowHover; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.boxShadow = C.cardShadow; e.currentTarget.style.transform = "none"; }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: "50%", background: stg?.c || C.t4, flexShrink: 0 }} />
+                            <span style={{ fontSize: 10, fontWeight: 600, color: stg?.c || C.t3, textTransform: "uppercase", letterSpacing: 0.3 }}>{stg?.label || g.stage}</span>
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: C.dark, marginBottom: 4, lineHeight: 1.3 }}>{g.name}</div>
+                          <div style={{ fontSize: 11, color: C.t3, marginBottom: 6 }}>{g.funder}</div>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: C.t2, fontFamily: MONO }}>{fmtK(g.ask)}</span>
+                            <DeadlineBadge d={d} deadline={g.deadline} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
     </div>
   );
 }

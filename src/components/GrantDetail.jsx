@@ -12,6 +12,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
     research: grant?.aiResearch || null,
     draft: grant?.aiDraft || null,
     followup: grant?.aiFollowup || null,
+    fitscore: grant?.aiFitscore || null,
+    winloss: grant?.aiWinloss || null,
   }));
   const [confirmDel, setConfirmDel] = useState(false);
   const [uploads, setUploads] = useState([]);
@@ -22,8 +24,16 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
       research: grant?.aiResearch || null,
       draft: grant?.aiDraft || null,
       followup: grant?.aiFollowup || null,
+      fitscore: grant?.aiFitscore || null,
+      winloss: grant?.aiWinloss || null,
     });
   }, [grant?.id]);
+
+  // Auto-log AI actions to activity feed
+  const aiLog = (action) => {
+    const prev = grant?.log || [];
+    onUpdate(grant.id, { log: [...prev, { d: td(), t: action }] });
+  };
 
   const loadUploads = useCallback(async () => {
     if (!grant?.id) return;
@@ -55,30 +65,45 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
 
   return (
     <div style={{ padding: "28px 36px", maxWidth: 920 }}>
-      {/* Back button + header */}
-      <button onClick={onBack} style={{
-        background: "none", border: "none", color: C.t3, fontSize: 13, cursor: "pointer",
-        fontFamily: FONT, marginBottom: 20, display: "flex", alignItems: "center", gap: 6,
-        transition: "color 0.15s ease",
-      }}
-        onMouseEnter={e => e.currentTarget.style.color = C.primary}
-        onMouseLeave={e => e.currentTarget.style.color = C.t3}>
-        {"\u2190"} Back to pipeline
-      </button>
+      {/* Breadcrumb trail */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 6, marginBottom: 20,
+        fontSize: 13, color: C.t4, fontWeight: 500,
+      }}>
+        <button onClick={onBack} style={{
+          background: "none", border: "none", color: C.t3, fontSize: 13, cursor: "pointer",
+          fontFamily: FONT, display: "flex", alignItems: "center", gap: 4,
+          transition: "color 0.15s ease", padding: 0,
+        }}
+          onMouseEnter={e => e.currentTarget.style.color = C.primary}
+          onMouseLeave={e => e.currentTarget.style.color = C.t3}>
+          {"\u2190"} Pipeline
+        </button>
+        <span style={{ color: C.t4 }}>/</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: stg?.c || C.t4, flexShrink: 0 }} />
+          <span style={{ color: C.t2, fontWeight: 600 }}>{stg?.label}</span>
+        </span>
+        <span style={{ color: C.t4 }}>/</span>
+        <span style={{ color: C.dark, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 400 }}>{g.name}</span>
+      </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, gap: 16 }}>
         <div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: C.dark, marginBottom: 6, letterSpacing: -0.5 }}>{g.name}</div>
-          <div style={{ fontSize: 14, color: C.t3, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {g.funder}
+          <div style={{ fontSize: 28, fontWeight: 800, color: C.dark, marginBottom: 4, letterSpacing: -0.5, lineHeight: 1.2 }}>{g.name}</div>
+          <div style={{ fontSize: 15, color: C.t2, fontWeight: 500, marginBottom: 8 }}>{g.funder}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <TypeBadge type={g.type} />
             <DeadlineBadge d={d} deadline={g.deadline} size="md" />
+            {g.rel && g.rel !== "Cold" && (
+              <span style={{ fontSize: 11, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "3px 10px", borderRadius: 20 }}>{g.rel}</span>
+            )}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {g.applyUrl && (
             <a href={g.applyUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-              <Btn v="ghost" style={{ fontSize: 12 }}>Apply Link</Btn>
+              <Btn v="ghost" style={{ fontSize: 12 }}>{"\u2197"} Apply</Btn>
             </a>
           )}
           <Btn v="danger" onClick={() => setConfirmDel(true)} style={{ fontSize: 12 }}>Delete</Btn>
@@ -246,11 +271,88 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
         const researchDone = ai.research && !isAIError(ai.research);
         const draftDone = ai.draft && !isAIError(ai.draft);
         const followupDone = ai.followup && !isAIError(ai.followup);
+        const fitDone = ai.fitscore && !isAIError(ai.fitscore);
+        const winlossDone = ai.winloss && !isAIError(ai.winloss);
         const completedCount = [researchDone, draftDone, followupDone].filter(Boolean).length;
         const isSubmittedPlus = ["submitted", "awaiting", "won", "lost", "deferred"].includes(g.stage);
+        const isClosedStage = ["won", "lost"].includes(g.stage);
+
+        // Parse fit score from AI result
+        const fitScoreNum = fitDone ? (() => {
+          const m = ai.fitscore.match(/SCORE:\s*(\d+)/);
+          return m ? parseInt(m[1]) : null;
+        })() : null;
+        const fitVerdict = fitDone ? (() => {
+          const m = ai.fitscore.match(/VERDICT:\s*(.+)/);
+          return m ? m[1].trim() : null;
+        })() : null;
 
         return (
           <div>
+            {/* Fit Score — quick assessment card */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 14, padding: "14px 20px",
+              background: fitDone
+                ? `linear-gradient(135deg, ${fitScoreNum >= 70 ? C.okSoft : fitScoreNum >= 40 ? C.amberSoft : C.redSoft} 0%, ${C.white} 100%)`
+                : C.white,
+              borderRadius: 14, boxShadow: C.cardShadow, marginBottom: 14,
+              border: fitDone ? `1.5px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}20` : `1.5px solid ${C.line}`,
+            }}>
+              {fitDone && fitScoreNum !== null ? (
+                <>
+                  <div style={{
+                    width: 48, height: 48, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: fitScoreNum >= 70 ? C.okSoft : fitScoreNum >= 40 ? C.amberSoft : C.redSoft,
+                    color: fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red,
+                    fontSize: 18, fontWeight: 800, fontFamily: MONO,
+                  }}>{fitScoreNum}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>{fitVerdict || "Fit Score"}</div>
+                    <div style={{ fontSize: 11, color: C.t3, marginTop: 2 }}>AI-assessed strategic fit with {g.funder}</div>
+                  </div>
+                  <Btn v="ghost" onClick={async () => {
+                    setBusy(p => ({ ...p, fitscore: true }));
+                    try {
+                      const r = await onRunAI("fitscore", g);
+                      setAi(p => ({ ...p, fitscore: r }));
+                      if (!isAIError(r)) { onUpdate(g.id, { aiFitscore: r }); aiLog("AI Fit Score calculated"); }
+                    } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
+                    setBusy(p => ({ ...p, fitscore: false }));
+                  }} disabled={busy.fitscore} style={{ fontSize: 11, padding: "5px 12px" }}>{busy.fitscore ? "..." : "\u21bb"}</Btn>
+                </>
+              ) : (
+                <>
+                  <div style={{
+                    width: 48, height: 48, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: C.purpleSoft, color: C.purple, fontSize: 18,
+                    animation: busy.fitscore ? "ge-pulse 1.4s ease-in-out infinite" : "none",
+                  }}>{busy.fitscore ? "\u2026" : "\u2605"}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>Fit Score</div>
+                    <div style={{ fontSize: 11, color: C.t3, marginTop: 2 }}>AI assesses how well this grant matches d-lab's profile</div>
+                  </div>
+                  <Btn v="primary" onClick={async () => {
+                    setBusy(p => ({ ...p, fitscore: true }));
+                    try {
+                      const r = await onRunAI("fitscore", g);
+                      setAi(p => ({ ...p, fitscore: r }));
+                      if (!isAIError(r)) { onUpdate(g.id, { aiFitscore: r }); aiLog("AI Fit Score calculated"); }
+                    } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
+                    setBusy(p => ({ ...p, fitscore: false }));
+                  }} disabled={busy.fitscore} style={{ fontSize: 12, padding: "7px 16px" }}>{busy.fitscore ? "Scoring..." : "Score"}</Btn>
+                </>
+              )}
+            </div>
+            {/* Fit Score detail (expandable) */}
+            {fitDone && (
+              <div style={{
+                padding: "14px 18px", background: C.warm100, borderRadius: 12,
+                borderLeft: `4px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}`,
+                fontSize: 13, lineHeight: 1.7, color: C.t1, whiteSpace: "pre-wrap",
+                marginBottom: 14, maxHeight: 200, overflow: "auto",
+              }}>{ai.fitscore}</div>
+            )}
+
             {/* Workflow progress header — primary for completed, purple for active */}
             <div style={{
               display: "flex", alignItems: "center", gap: 0, marginBottom: 22,
@@ -310,7 +412,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                   try {
                     const r = await onRunAI("research", g);
                     setAi(p => ({ ...p, research: r }));
-                    if (!isAIError(r)) onUpdate(g.id, { aiResearch: r });
+                    if (!isAIError(r)) { onUpdate(g.id, { aiResearch: r }); aiLog(`AI Funder Research completed for ${g.funder}`); }
                   } catch (e) {
                     setAi(p => ({ ...p, research: `Error: ${e.message}` }));
                   }
@@ -329,7 +431,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                 </span>
               </div>
 
-              {/* Step 2 — Draft Proposal */}
+              {/* Step 2 — Draft Proposal (with version history) */}
               <AICard
                 title="Draft Proposal"
                 desc={researchDone
@@ -344,15 +446,50 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                 onRun={async () => {
                   setBusy(p => ({ ...p, draft: true }));
                   try {
+                    // Save previous draft to version history before generating new one
+                    if (ai.draft && !isAIError(ai.draft)) {
+                      const prev = g.draftHistory || [];
+                      const ts = new Date().toISOString().slice(0, 16).replace("T", " ");
+                      onUpdate(g.id, { draftHistory: [...prev, { ts, text: ai.draft }].slice(-5) });
+                    }
                     const r = await onRunAI("draft", g, ai.research || null);
                     setAi(p => ({ ...p, draft: r }));
-                    if (!isAIError(r)) onUpdate(g.id, { aiDraft: r });
+                    if (!isAIError(r)) { onUpdate(g.id, { aiDraft: r }); aiLog(`AI Draft Proposal generated${ai.research ? " (with research)" : ""}`); }
                   } catch (e) {
                     setAi(p => ({ ...p, draft: `Error: ${e.message}` }));
                   }
                   setBusy(p => ({ ...p, draft: false }));
                 }}
               />
+              {/* Draft version history */}
+              {g.draftHistory && g.draftHistory.length > 0 && (
+                <div style={{ padding: "0 22px", marginTop: -4 }}>
+                  <details style={{ fontSize: 12, color: C.t3 }}>
+                    <summary style={{ cursor: "pointer", fontWeight: 600, padding: "6px 0", userSelect: "none" }}>
+                      {g.draftHistory.length} previous version{g.draftHistory.length > 1 ? "s" : ""}
+                    </summary>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 6 }}>
+                      {g.draftHistory.slice().reverse().map((v, i) => (
+                        <div key={i} style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "8px 12px", background: C.warm100, borderRadius: 8, border: `1px solid ${C.line}`,
+                        }}>
+                          <div>
+                            <span style={{ fontSize: 11, fontFamily: MONO, color: C.t4 }}>{v.ts}</span>
+                            <span style={{ fontSize: 11, color: C.t3, marginLeft: 8 }}>
+                              {v.text.slice(0, 80).replace(/\n/g, " ")}...
+                            </span>
+                          </div>
+                          <button onClick={() => setAi(p => ({ ...p, draft: v.text }))}
+                            style={{ fontSize: 11, color: C.purple, background: "none", border: `1px solid ${C.purple}30`, borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontFamily: FONT, fontWeight: 600, flexShrink: 0 }}>
+                            Restore
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              )}
 
               {/* Separator */}
               <div style={{ height: 1, background: C.line, margin: "6px 0" }} />
@@ -374,13 +511,41 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                   try {
                     const r = await onRunAI("followup", g);
                     setAi(p => ({ ...p, followup: r }));
-                    if (!isAIError(r)) onUpdate(g.id, { aiFollowup: r });
+                    if (!isAIError(r)) { onUpdate(g.id, { aiFollowup: r }); aiLog("AI Follow-up Email drafted"); }
                   } catch (e) {
                     setAi(p => ({ ...p, followup: `Error: ${e.message}` }));
                   }
                   setBusy(p => ({ ...p, followup: false }));
                 }}
               />
+
+              {/* Win/Loss Analysis — only for won or lost grants */}
+              {isClosedStage && (
+                <>
+                  <div style={{ height: 1, background: C.line, margin: "10px 0" }} />
+                  <AICard
+                    title={g.stage === "won" ? "Win Analysis" : "Loss Analysis"}
+                    desc={g.stage === "won"
+                      ? "Understand what worked and how to leverage this win for future applications"
+                      : "Analyse why this didn't succeed and identify lessons for next time"}
+                    step={g.stage === "won" ? "\u2713" : "!"}
+                    icon={g.stage === "won" ? "\uD83C\uDFC6" : "\uD83D\uDCA1"}
+                    busy={busy.winloss}
+                    result={ai.winloss}
+                    onRun={async () => {
+                      setBusy(p => ({ ...p, winloss: true }));
+                      try {
+                        const r = await onRunAI("winloss", g, g.stage);
+                        setAi(p => ({ ...p, winloss: r }));
+                        if (!isAIError(r)) { onUpdate(g.id, { aiWinloss: r }); aiLog(`AI ${g.stage === "won" ? "Win" : "Loss"} Analysis completed`); }
+                      } catch (e) {
+                        setAi(p => ({ ...p, winloss: `Error: ${e.message}` }));
+                      }
+                      setBusy(p => ({ ...p, winloss: false }));
+                    }}
+                  />
+                </>
+              )}
             </div>
           </div>
         );

@@ -119,15 +119,15 @@ for (const m of team) {
 // ── Pipeline Config ──
 upsertPipelineConfig(orgId, {
   stages: [
-    { id: 'scouted', label: 'Scouted', c: '#6B7080' },
-    { id: 'qualifying', label: 'Qualifying', c: '#6B47B8' },
-    { id: 'drafting', label: 'Drafting', c: '#C67B1A' },
-    { id: 'review', label: 'Review', c: '#3574D4' },
-    { id: 'submitted', label: 'Submitted', c: '#8B5CBF' },
-    { id: 'awaiting', label: 'Awaiting', c: '#0891B2' },
-    { id: 'won', label: 'Won', c: '#0D9C5C' },
-    { id: 'lost', label: 'Lost', c: '#D94848' },
-    { id: 'deferred', label: 'Deferred', c: '#9CA1AE' },
+    { id: 'scouted', label: 'Scouted', c: '#64748B', bg: '#F1F5F9' },
+    { id: 'qualifying', label: 'Qualifying', c: '#2563EB', bg: '#EFF6FF' },
+    { id: 'drafting', label: 'Drafting', c: '#EA580C', bg: '#FFF7ED' },
+    { id: 'review', label: 'Review', c: '#7C3AED', bg: '#F5F3FF' },
+    { id: 'submitted', label: 'Submitted', c: '#DB2777', bg: '#FDF2F8' },
+    { id: 'awaiting', label: 'Awaiting', c: '#0891B2', bg: '#ECFEFF' },
+    { id: 'won', label: 'Won', c: '#059669', bg: '#ECFDF5' },
+    { id: 'lost', label: 'Lost', c: '#DC2626', bg: '#FEF2F2' },
+    { id: 'deferred', label: 'Deferred', c: '#94A3B8', bg: '#F8FAFC' },
   ],
   gates: {
     'drafting->review': { need: 'hop', label: 'Head of Programmes must approve draft for review' },

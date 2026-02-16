@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { C, FONT, MONO, injectFonts } from "./theme";
 import { uid, td, dL } from "./utils";
+import { funderStrategy, isFunderReturning } from "./data/funderStrategy";
 import {
   isLoggedIn, getAuth, setAuth, login, logout, setPassword,
   getGrants, saveGrant, addGrant as apiAddGrant, removeGrant,
@@ -18,15 +19,15 @@ import Settings from "./components/Settings";
 injectFonts();
 
 const DEFAULT_STAGES = [
-  { id: "scouted", label: "Scouted", c: "#6B7280", bg: "#F3F4F6" },
-  { id: "qualifying", label: "Qualifying", c: "#1E56A0", bg: "#E8F0FD" },
-  { id: "drafting", label: "Drafting", c: "#D4A017", bg: "#FEF7E0" },
-  { id: "review", label: "Review", c: "#7C3AED", bg: "#EDE9FE" },
-  { id: "submitted", label: "Submitted", c: "#D03228", bg: "#FDE8E7" },
+  { id: "scouted", label: "Scouted", c: "#64748B", bg: "#F1F5F9" },
+  { id: "qualifying", label: "Qualifying", c: "#2563EB", bg: "#EFF6FF" },
+  { id: "drafting", label: "Drafting", c: "#EA580C", bg: "#FFF7ED" },
+  { id: "review", label: "Review", c: "#7C3AED", bg: "#F5F3FF" },
+  { id: "submitted", label: "Submitted", c: "#DB2777", bg: "#FDF2F8" },
   { id: "awaiting", label: "Awaiting", c: "#0891B2", bg: "#ECFEFF" },
-  { id: "won", label: "Won", c: "#16A34A", bg: "#DCFCE7" },
-  { id: "lost", label: "Lost", c: "#DC2626", bg: "#FEE2E2" },
-  { id: "deferred", label: "Deferred", c: "#9CA3AF", bg: "#F3F4F6" },
+  { id: "won", label: "Won", c: "#059669", bg: "#ECFDF5" },
+  { id: "lost", label: "Lost", c: "#DC2626", bg: "#FEF2F2" },
+  { id: "deferred", label: "Deferred", c: "#94A3B8", bg: "#F8FAFC" },
 ];
 
 const DEFAULT_FTYPES = ["Corporate CSI", "Government/SETA", "International", "Foundation", "Tech Company"];
@@ -275,15 +276,29 @@ export default function App() {
 - The uploaded documents and organisation profile are your ONLY source of truth — do not hallucinate additional details.`;
 
     if (type === "draft") {
+      const fs = funderStrategy(grant);
       const researchBlock = priorResearch
         ? `\n\n=== FUNDER INTELLIGENCE (from prior research) ===\n${priorResearch.slice(0, 2000)}`
         : "";
+      const relNote = fs.returning
+        ? "RETURNING FUNDER — reference the existing relationship. This is a partner renewing, not a stranger."
+        : `NEW FUNDER — relationship is "${grant.rel || "Cold"}". Make it easy to say yes to a first conversation.`;
       return await api(
-        `Grant writer for a South African NPO. Produce a COVER EMAIL then FULL PROPOSAL.
+        `Grant writer for d-lab NPC, a South African NPO. Produce a COVER EMAIL then FULL PROPOSAL.
 
 COVER EMAIL: Subject line + 5-8 sentence body. Open with who you are + what you're submitting. One proof point. Close with low-friction next step. Sign off as director.
 
-PROPOSAL: Structured, evidence-based, tailored to this funder. Use EXACT programme costs, director names, impact stats from the context. If grant notes mention a programme type, use that type's budget. If uploaded docs contain RFP guidelines, address them directly.
+PROPOSAL STRUCTURE (follow this funder-appropriate order):
+${fs.structure.map((s, i) => `${i + 1}. ${s}`).join("\n")}
+
+FUNDER ANGLE: Lead with "${fs.lead}"
+OPENING HOOK: ${fs.hook}
+USE THEIR LANGUAGE: ${fs.lang}
+${relNote}
+${fs.pt ? `PROGRAMME TYPE: ${fs.pt.label} — ${fs.pt.students} students, R${(fs.pt.cost||0).toLocaleString()}, ${fs.pt.duration}. Budget: ${fs.pt.budget}` : ""}
+${fs.mc ? `MULTI-COHORT: ${fs.mc.count} cohorts requested` : ""}
+
+Use EXACT programme costs, director names, impact stats from the context. If grant notes mention a programme type, use that type's budget. If uploaded docs contain RFP guidelines, address them directly.
 
 FORMAT: "COVER EMAIL" heading, then separator, then "PROPOSAL" heading.
 
@@ -309,18 +324,150 @@ Use uploaded documents for additional context about the organisation. Reference 
       );
     }
     if (type === "followup") {
+      const fs = funderStrategy(grant);
       return await api(
-        `You are a grants coordinator for a South African NPO. Draft a professional follow-up email for this grant application.
+        `You are a grants coordinator for d-lab NPC, a South African NPO. Draft a professional follow-up email for this grant application.
 
 The email should:
-- Be warm but professional
+- Be warm but professional — ${grant.type === "Government/SETA" ? "formal, reference compliance/accreditation" : grant.type === "Corporate CSI" ? "professional, mention B-BBEE value" : grant.type === "International" ? "polished, reference SDG outcomes" : "warm, outcomes-focused"}
+- Lead with what this funder cares about: "${fs.lead}"
 - Reference the specific grant/proposal submitted
-- Include a concrete next step or ask
+- Include one new proof point or update since submission
+- Close with a specific, low-friction next step (15-min call, site visit, "happy to answer questions")
 - Be concise (under 200 words)
 - Sign off as the organisation director
-- Reference specific details from the uploaded documents or organisation profile if relevant${factGuard}`,
+${fs.returning ? "- RETURNING FUNDER: Reference the existing relationship warmly. This is a partner." : "- NEW FUNDER: Be respectful, make it easy to say yes to a conversation."}${factGuard}`,
         `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nStage: ${grant.stage}\nAsk: R${grant.ask?.toLocaleString()}\nSubmitted: ${grant.subDate || "Not yet"}\nNotes: ${grant.notes || "None"}`,
         false, 1000
+      );
+    }
+    if (type === "fitscore") {
+      const fs = funderStrategy(grant);
+      return await api(
+        `You are a grant fit analyst for a South African NPO. Assess how well this grant opportunity matches the organisation.
+
+RESPOND IN EXACTLY THIS FORMAT:
+SCORE: [number 0-100]
+VERDICT: [one of: Strong Fit | Good Fit | Moderate Fit | Weak Fit | Poor Fit]
+
+WIN FACTORS:
+- [factor 1]
+- [factor 2]
+- [factor 3]
+
+RISK FACTORS:
+- [risk 1]
+- [risk 2]
+
+RECOMMENDATION: [1-2 sentences on whether to pursue and what to emphasise]
+
+SCORING GUIDE:
+- Funder focuses on youth/education/skills/digital = +15
+- Ask within funder's typical range = +15
+- Geographic match = +10
+- Existing relationship (Previous Funder/Warm Intro) = +20
+- AI/tech angle matches funder = +10
+- Programme type fits funder's priorities = +15
+- B-BBEE/compliance alignment = +5
+- Timing (deadline feasible) = +10
+- Deduct for: org too small, outside focus, budget mismatch, missing track record`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\nAsk: R${grant.ask?.toLocaleString()}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER)" : ""}\nFocus: ${(grant.focus || []).join(", ")}\nGeography: ${(grant.geo || []).join(", ") || "National"}\nDeadline: ${grant.deadline || "Rolling"}\nNotes: ${grant.notes || "None"}\n\nFUNDER INTEL: This funder cares about "${fs.lead}". Their language: ${fs.lang}.${fs.returning ? " d-lab is a returning grantee." : ""}`,
+        false, 800
+      );
+    }
+    if (type === "brief") {
+      const overdue = grants.filter(g => { const dd = dL(g.deadline); return dd !== null && dd < 0 && !["won","lost","deferred"].includes(g.stage); });
+      const urgent = grants.filter(g => { const dd = dL(g.deadline); return dd !== null && dd >= 0 && dd <= 14 && !["won","lost","deferred"].includes(g.stage); });
+      const drafting = grants.filter(g => g.stage === "drafting");
+      const submitted = grants.filter(g => ["submitted", "awaiting"].includes(g.stage));
+      return await api(
+        `You are d-lab's grant operations manager. Produce a daily action list — the 5-8 things that will move the pipeline forward TODAY.
+
+RULES:
+- Each item: a specific, actionable task for a specific grant
+- Order by urgency: overdue first, then deadlines within 14 days, then drafting priorities, then follow-ups
+- Be blunt: "OVERDUE" or "X days left" where relevant
+- Include the owner name where assigned
+- No preamble, no markdown headers — just the action items, one per line
+- End with a one-line pipeline health summary`,
+        `Today: ${new Date().toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+Overdue (${overdue.length}): ${overdue.map(g => `${g.name} (${Math.abs(dL(g.deadline))}d overdue, owner: ${team.find(t=>t.id===g.owner)?.name || "Unassigned"})`).join("; ") || "None"}
+Urgent <14d (${urgent.length}): ${urgent.map(g => `${g.name} (${dL(g.deadline)}d left, owner: ${team.find(t=>t.id===g.owner)?.name || "Unassigned"})`).join("; ") || "None"}
+In drafting (${drafting.length}): ${drafting.map(g => `${g.name} for ${g.funder} (R${(g.ask||0).toLocaleString()})`).join("; ") || "None"}
+Submitted/Awaiting (${submitted.length}): ${submitted.map(g => `${g.name} from ${g.funder}`).join("; ") || "None"}
+Total pipeline: ${grants.filter(g => !["won","lost","deferred"].includes(g.stage)).length} grants, R${grants.filter(g => !["won","lost","deferred"].includes(g.stage)).reduce((s,g) => s+(g.ask||0), 0).toLocaleString()}`,
+        false, 1000
+      );
+    }
+    if (type === "winloss") {
+      // priorResearch carries the outcome ("won" or "lost") and any user notes
+      const outcome = priorResearch || "unknown";
+      return await api(
+        `You are a grants strategist analysing a ${outcome === "won" ? "successful" : "unsuccessful"} grant application.
+
+Provide a brief analysis in this format:
+
+${outcome === "won" ? `WHAT WORKED:
+- [2-3 specific factors that likely contributed to the win]
+
+LEVERAGE OPPORTUNITIES:
+- [How to use this win for future applications — reference funders, renewals, case studies]
+
+NEXT STEPS:
+- [2-3 concrete actions — reporting requirements, relationship building, renewal timeline]` : `LIKELY REASONS:
+- [2-3 specific factors that may have contributed to the loss]
+
+LESSONS:
+- [What to do differently next time with similar funders]
+
+RECOVERY OPTIONS:
+- [Alternative funders to approach, or whether to reapply next cycle]`}
+
+Keep it concise and specific to this grant. No generic advice.`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\nAsk: R${grant.ask?.toLocaleString()}\nRelationship: ${grant.rel}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}\nOutcome: ${outcome}`,
+        false, 800
+      );
+    }
+    if (type === "urlextract") {
+      // priorResearch carries the URL
+      const url = priorResearch || "";
+      return await api(
+        `Extract grant/funding opportunity details from a URL. Return ONLY valid JSON — no markdown, no backticks, no explanation.
+
+SCHEMA: {"name":"[grant name]","funder":"[funding org]","type":"[Corporate CSI|Government/SETA|International|Foundation|Tech Company]","ask":[amount in ZAR integer, 0 if unknown],"deadline":"[YYYY-MM-DD or null]","focus":["tag1","tag2"],"notes":"[eligibility, requirements, key details]","applyUrl":"[direct application URL]"}
+
+RULES: "ask" = realistic midpoint if range given, convert USD at ~R18/$. "type" must be exactly one of the 5 options. "focus" = 2-5 tags from: youth-employment, digital-skills, AI/4IR, education, women, rural-dev, STEM, entrepreneurship. "applyUrl" = most direct application link found.`,
+        `Fetch and extract grant information from: ${url}`,
+        true, 800
+      );
+    }
+    if (type === "report") {
+      const act = grants.filter(g => !["won", "lost", "deferred"].includes(g.stage));
+      const won = grants.filter(g => g.stage === "won");
+      const lost = grants.filter(g => g.stage === "lost");
+      const totalAsk = act.reduce((s, g) => s + (g.ask || 0), 0);
+      const wonVal = won.reduce((s, g) => s + (g.ask || 0), 0);
+      const byStage = stages.filter(s => !["won", "lost", "deferred"].includes(s.id))
+        .map(s => `${s.label}: ${grants.filter(g => g.stage === s.id).length}`)
+        .join(", ");
+      return await api(
+        `You write quarterly impact reports for d-lab NPC's funders. Audience: existing funders and board members who want to see progress, outcomes, and pipeline health.
+
+VOICE: Confident, factual. Lead with outcomes, not activities. Show momentum.
+
+STRUCTURE:
+1. HEADLINE METRICS (4-5 key numbers — completion rate, employment, pipeline value, student count)
+2. PROGRAMME UPDATE (what's active, what's new, 2-3 highlights)
+3. FUNDING PIPELINE (won, active, key developments)
+4. LOOKING AHEAD (next quarter milestones)
+5. THANK YOU (brief, genuine)
+
+One page max. Every sentence earns its place. No hollow phrases. Use the SYSTEM framing: programme types, partner model, AI tools, diversified revenue.${factGuard}`,
+        `Organisation:\n${orgCtx}\n\nQ1 2026 quarterly report.
+Pipeline: ${act.length} active grants (R${totalAsk.toLocaleString()}), ${won.length} won (R${wonVal.toLocaleString()}), ${lost.length} lost.
+By stage: ${byStage}.
+Top grants: ${act.sort((a, b) => (b.ask || 0) - (a.ask || 0)).slice(0, 5).map(g => `${g.name} (R${(g.ask || 0).toLocaleString()}, ${g.stage})`).join("; ")}`,
+        false, 2000
       );
     }
     return "Unknown AI action";
@@ -502,6 +649,9 @@ The email should:
             stages={stages}
             orgName={org?.name}
             onSelectGrant={(id) => setSel(id)}
+            onNavigate={(v) => { setSel(null); setView(v); }}
+            onRunBrief={() => runAI("brief", { name: "Pipeline", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "" })}
+            onRunReport={() => runAI("report", { name: "Report", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "" })}
           />
         ) : view === "pipeline" ? (
           <Pipeline
@@ -512,6 +662,7 @@ The email should:
             onSelectGrant={(id) => setSel(id)}
             onUpdateGrant={updateGrant}
             onAddGrant={addGrant}
+            onRunAI={runAI}
             api={api}
           />
         ) : view === "settings" ? (
