@@ -1,10 +1,11 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
-// These packages are CJS-only, so we use require()
-const pdfParse = require('pdf-parse');
-const mammoth = require('mammoth');
-const XLSX = require('xlsx');
+// Lazy-load CJS packages to avoid crashes on Vercel (pdf-parse reads test files at import)
+let _pdfParse, _mammoth, _XLSX;
+function getPdfParse() { return _pdfParse || (_pdfParse = require('pdf-parse')); }
+function getMammoth() { return _mammoth || (_mammoth = require('mammoth')); }
+function getXLSX() { return _XLSX || (_XLSX = require('xlsx')); }
 
 /**
  * Extract text from a file buffer based on MIME type.
@@ -14,21 +15,21 @@ export async function extractText(buffer, mimeType, originalName) {
   try {
     // PDF
     if (mimeType === 'application/pdf') {
-      const data = await pdfParse(buffer);
+      const data = await getPdfParse()(buffer);
       return { text: data.text?.trim() || null, error: null };
     }
 
     // DOCX
     if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
         originalName?.match(/\.docx$/i)) {
-      const result = await mammoth.extractRawText({ buffer });
+      const result = await getMammoth().extractRawText({ buffer });
       return { text: result.value?.trim() || null, error: null };
     }
 
     // DOC (older Word format) — mammoth can sometimes handle these
     if (mimeType === 'application/msword' || originalName?.match(/\.doc$/i)) {
       try {
-        const result = await mammoth.extractRawText({ buffer });
+        const result = await getMammoth().extractRawText({ buffer });
         return { text: result.value?.trim() || null, error: null };
       } catch {
         return { text: null, error: 'Legacy .doc format — please convert to .docx' };
@@ -39,6 +40,7 @@ export async function extractText(buffer, mimeType, originalName) {
     if (mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
         mimeType === 'application/vnd.ms-excel' ||
         originalName?.match(/\.xlsx?$/i)) {
+      const XLSX = getXLSX();
       const workbook = XLSX.read(buffer, { type: 'buffer' });
       const sheets = workbook.SheetNames.map(name => {
         const sheet = workbook.Sheets[name];
