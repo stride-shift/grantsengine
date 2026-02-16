@@ -217,7 +217,7 @@ export const api = async (sys, usr, search = false, maxTok = 1500) => {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const body = {
-        model: 'claude-sonnet-4-20250514',
+        model: 'gemini-2.0-flash',
         max_tokens: maxTok,
         messages: [{ role: 'user', content: usr }],
       };
