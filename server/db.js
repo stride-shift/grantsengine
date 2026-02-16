@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import pg from 'pg';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -8,28 +7,30 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { Pool } = pg;
 
-// Parse DATABASE_URL explicitly to handle Supabase pooler usernames with dots
-function buildPoolConfig() {
-  const url = process.env.DATABASE_URL;
-  if (!url) return {};
-  const parsed = new URL(url);
-  return {
-    user: decodeURIComponent(parsed.username),
-    password: decodeURIComponent(parsed.password),
-    host: parsed.hostname,
-    port: parseInt(parsed.port) || 5432,
-    database: parsed.pathname.slice(1),
-    ssl: url.includes('supabase') ? { rejectUnauthorized: false } : false,
-  };
+// Lazy pool — created on first use so env vars are available (Vercel + local dev)
+let _pool = null;
+function pool() {
+  if (!_pool) {
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error('DATABASE_URL not set');
+    const parsed = new URL(url);
+    _pool = new Pool({
+      user: decodeURIComponent(parsed.username),
+      password: decodeURIComponent(parsed.password),
+      host: parsed.hostname,
+      port: parseInt(parsed.port) || 5432,
+      database: parsed.pathname.slice(1),
+      ssl: url.includes('supabase') ? { rejectUnauthorized: false } : false,
+    });
+  }
+  return _pool;
 }
-
-const pool = new Pool(buildPoolConfig());
 
 // ── Schema init (run once on startup) ──
 
 export const initDb = async () => {
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
-  await pool.query(schema);
+  await pool().query(schema);
 };
 
 // ── Helpers ──
@@ -39,28 +40,28 @@ const uid = () => crypto.randomBytes(8).toString('hex');
 // ── Org helpers ──
 
 export const getOrgBySlug = async (slug) => {
-  const { rows } = await pool.query('SELECT * FROM orgs WHERE slug = $1', [slug]);
+  const { rows } = await pool().query('SELECT * FROM orgs WHERE slug = $1', [slug]);
   return rows[0] || null;
 };
 
 export const getOrgById = async (id) => {
-  const { rows } = await pool.query('SELECT * FROM orgs WHERE id = $1', [id]);
+  const { rows } = await pool().query('SELECT * FROM orgs WHERE id = $1', [id]);
   return rows[0] || null;
 };
 
 export const getAllOrgs = async () => {
-  const { rows } = await pool.query('SELECT id, slug, name, website, industry, country, currency, setup_phase FROM orgs ORDER BY name');
+  const { rows } = await pool().query('SELECT id, slug, name, website, industry, country, currency, setup_phase FROM orgs ORDER BY name');
   return rows;
 };
 
 export const createOrg = async (data) => {
   const id = uid();
-  await pool.query(
+  await pool().query(
     `INSERT INTO orgs (id, slug, name, website, industry, country, currency) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
     [id, data.slug, data.name, data.website || null, data.industry || null, data.country || 'South Africa', data.currency || 'ZAR']
   );
-  await pool.query('INSERT INTO org_profiles (org_id) VALUES ($1)', [id]);
-  await pool.query('INSERT INTO org_config (org_id) VALUES ($1)', [id]);
+  await pool().query('INSERT INTO org_profiles (org_id) VALUES ($1)', [id]);
+  await pool().query('INSERT INTO org_config (org_id) VALUES ($1)', [id]);
   return id;
 };
 
@@ -77,47 +78,47 @@ export const updateOrg = async (id, data) => {
   if (!fields.length) return;
   fields.push('updated_at = NOW()');
   vals.push(id);
-  await pool.query(`UPDATE orgs SET ${fields.join(', ')} WHERE id = $${i}`, vals);
+  await pool().query(`UPDATE orgs SET ${fields.join(', ')} WHERE id = $${i}`, vals);
 };
 
 // ── Auth helpers ──
 
 export const setOrgPassword = async (orgId, hash) => {
-  await pool.query(
+  await pool().query(
     `INSERT INTO org_auth (org_id, password_hash) VALUES ($1, $2) ON CONFLICT (org_id) DO UPDATE SET password_hash = $2`,
     [orgId, hash]
   );
 };
 
 export const getOrgAuth = async (orgId) => {
-  const { rows } = await pool.query('SELECT password_hash FROM org_auth WHERE org_id = $1', [orgId]);
+  const { rows } = await pool().query('SELECT password_hash FROM org_auth WHERE org_id = $1', [orgId]);
   return rows[0] || null;
 };
 
 export const createSession = async (orgId) => {
   const token = crypto.randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-  await pool.query('INSERT INTO sessions (token, org_id, expires_at) VALUES ($1, $2, $3)', [token, orgId, expires]);
+  await pool().query('INSERT INTO sessions (token, org_id, expires_at) VALUES ($1, $2, $3)', [token, orgId, expires]);
   return { token, expires };
 };
 
 export const getSession = async (token) => {
-  const { rows } = await pool.query('SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()', [token]);
+  const { rows } = await pool().query('SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()', [token]);
   return rows[0] || null;
 };
 
 export const deleteSession = async (token) => {
-  await pool.query('DELETE FROM sessions WHERE token = $1', [token]);
+  await pool().query('DELETE FROM sessions WHERE token = $1', [token]);
 };
 
 export const cleanExpiredSessions = async () => {
-  await pool.query('DELETE FROM sessions WHERE expires_at <= NOW()');
+  await pool().query('DELETE FROM sessions WHERE expires_at <= NOW()');
 };
 
 // ── Profile helpers ──
 
 export const getOrgProfile = async (orgId) => {
-  const { rows } = await pool.query('SELECT * FROM org_profiles WHERE org_id = $1', [orgId]);
+  const { rows } = await pool().query('SELECT * FROM org_profiles WHERE org_id = $1', [orgId]);
   return rows[0] || null;
 };
 
@@ -134,13 +135,13 @@ export const updateOrgProfile = async (orgId, data) => {
   if (!fields.length) return;
   fields.push('updated_at = NOW()');
   vals.push(orgId);
-  await pool.query(`UPDATE org_profiles SET ${fields.join(', ')} WHERE org_id = $${i}`, vals);
+  await pool().query(`UPDATE org_profiles SET ${fields.join(', ')} WHERE org_id = $${i}`, vals);
 };
 
 // ── Config helpers ──
 
 export const getOrgConfig = async (orgId) => {
-  const { rows } = await pool.query('SELECT * FROM org_config WHERE org_id = $1', [orgId]);
+  const { rows } = await pool().query('SELECT * FROM org_config WHERE org_id = $1', [orgId]);
   return rows[0] || null;
 };
 
@@ -160,19 +161,19 @@ export const updateOrgConfig = async (orgId, data) => {
   if (!fields.length) return;
   fields.push('updated_at = NOW()');
   vals.push(orgId);
-  await pool.query(`UPDATE org_config SET ${fields.join(', ')} WHERE org_id = $${i}`, vals);
+  await pool().query(`UPDATE org_config SET ${fields.join(', ')} WHERE org_id = $${i}`, vals);
 };
 
 // ── Team helpers ──
 
 export const getTeamMembers = async (orgId) => {
-  const { rows } = await pool.query('SELECT * FROM team_members WHERE org_id = $1 ORDER BY name', [orgId]);
+  const { rows } = await pool().query('SELECT * FROM team_members WHERE org_id = $1 ORDER BY name', [orgId]);
   return rows;
 };
 
 export const upsertTeamMember = async (orgId, member) => {
   const id = member.id || uid();
-  await pool.query(
+  await pool().query(
     `INSERT INTO team_members (id, org_id, name, initials, role, email, phone, persona)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (id) DO UPDATE SET name=$3, initials=$4, role=$5, email=$6, phone=$7, persona=$8`,
@@ -183,13 +184,13 @@ export const upsertTeamMember = async (orgId, member) => {
 };
 
 export const deleteTeamMember = async (id, orgId) => {
-  await pool.query('DELETE FROM team_members WHERE id = $1 AND org_id = $2', [id, orgId]);
+  await pool().query('DELETE FROM team_members WHERE id = $1 AND org_id = $2', [id, orgId]);
 };
 
 // ── Grant helpers ──
 
 export const getGrants = async (orgId) => {
-  const { rows } = await pool.query('SELECT * FROM grants WHERE org_id = $1 ORDER BY created_at', [orgId]);
+  const { rows } = await pool().query('SELECT * FROM grants WHERE org_id = $1 ORDER BY created_at', [orgId]);
   return rows.map(row => ({
     id: row.id,
     name: row.name,
@@ -217,7 +218,7 @@ export const getGrants = async (orgId) => {
 
 export const upsertGrant = async (orgId, grant) => {
   const id = grant.id || uid();
-  await pool.query(
+  await pool().query(
     `INSERT INTO grants
       (id, org_id, name, funder, type, stage, ask, deadline, focus, geo, rel, pri, hrs, notes, log, on_factors, off_factors, owner, docs, fups, sub_date, apply_url, updated_at)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,NOW())
@@ -236,11 +237,11 @@ export const upsertGrant = async (orgId, grant) => {
 };
 
 export const deleteGrant = async (id, orgId) => {
-  await pool.query('DELETE FROM grants WHERE id = $1 AND org_id = $2', [id, orgId]);
+  await pool().query('DELETE FROM grants WHERE id = $1 AND org_id = $2', [id, orgId]);
 };
 
 export const replaceAllGrants = async (orgId, grants) => {
-  const client = await pool.connect();
+  const client = await pool().connect();
   try {
     await client.query('BEGIN');
     await client.query('DELETE FROM grants WHERE org_id = $1', [orgId]);
@@ -271,12 +272,12 @@ export const replaceAllGrants = async (orgId, grants) => {
 // ── Pipeline config helpers ──
 
 export const getPipelineConfig = async (orgId) => {
-  const { rows } = await pool.query('SELECT * FROM pipeline_config WHERE org_id = $1', [orgId]);
+  const { rows } = await pool().query('SELECT * FROM pipeline_config WHERE org_id = $1', [orgId]);
   return rows[0] || null;
 };
 
 export const upsertPipelineConfig = async (orgId, config) => {
-  await pool.query(
+  await pool().query(
     `INSERT INTO pipeline_config (org_id, stages, gates, funder_types, win_factors, loss_factors, doc_requirements, roles, updated_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
      ON CONFLICT (org_id) DO UPDATE SET stages=$2, gates=$3, funder_types=$4, win_factors=$5, loss_factors=$6, doc_requirements=$7, roles=$8, updated_at=NOW()`,
@@ -290,13 +291,13 @@ export const upsertPipelineConfig = async (orgId, config) => {
 // ── Approval helpers ──
 
 export const getApprovals = async (orgId) => {
-  const { rows } = await pool.query('SELECT * FROM approvals WHERE org_id = $1 ORDER BY created_at DESC', [orgId]);
+  const { rows } = await pool().query('SELECT * FROM approvals WHERE org_id = $1 ORDER BY created_at DESC', [orgId]);
   return rows.map(r => ({ ...r, reviews: JSON.parse(r.reviews || '[]') }));
 };
 
 export const createApproval = async (orgId, data) => {
   const id = uid();
-  await pool.query(
+  await pool().query(
     `INSERT INTO approvals (id, org_id, grant_id, gate, status, requested_by, reviews) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
     [id, orgId, data.grant_id, data.gate, 'pending', data.requested_by || null, '[]']
   );
@@ -312,19 +313,19 @@ export const updateApproval = async (id, orgId, data) => {
   if (!fields.length) return;
   fields.push('updated_at = NOW()');
   vals.push(id, orgId);
-  await pool.query(`UPDATE approvals SET ${fields.join(', ')} WHERE id = $${i++} AND org_id = $${i}`, vals);
+  await pool().query(`UPDATE approvals SET ${fields.join(', ')} WHERE id = $${i++} AND org_id = $${i}`, vals);
 };
 
 // ── Compliance doc helpers ──
 
 export const getComplianceDocs = async (orgId) => {
-  const { rows } = await pool.query('SELECT * FROM compliance_docs WHERE org_id = $1 ORDER BY name', [orgId]);
+  const { rows } = await pool().query('SELECT * FROM compliance_docs WHERE org_id = $1 ORDER BY name', [orgId]);
   return rows;
 };
 
 export const upsertComplianceDoc = async (orgId, doc) => {
   const id = doc.id || uid();
-  await pool.query(
+  await pool().query(
     `INSERT INTO compliance_docs (id, org_id, doc_id, name, status, expiry, uploaded_date, file_name, file_size, notes, upload_id, updated_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW())
      ON CONFLICT (id) DO UPDATE SET doc_id=$3, name=$4, status=$5, expiry=$6, uploaded_date=$7, file_name=$8, file_size=$9, notes=$10, upload_id=$11, updated_at=NOW()`,
@@ -339,7 +340,7 @@ export const upsertComplianceDoc = async (orgId, doc) => {
 
 export const logAgentRun = async (orgId, data) => {
   const id = uid();
-  await pool.query(
+  await pool().query(
     `INSERT INTO agent_runs (id, org_id, grant_id, agent_type, prompt_summary, result_summary, tokens_in, tokens_out, cost_usd, duration_ms, status)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
     [id, orgId, data.grant_id || null, data.agent_type,
@@ -352,19 +353,19 @@ export const logAgentRun = async (orgId, data) => {
 };
 
 export const getAgentRuns = async (orgId, limit = 50) => {
-  const { rows } = await pool.query('SELECT * FROM agent_runs WHERE org_id = $1 ORDER BY created_at DESC LIMIT $2', [orgId, limit]);
+  const { rows } = await pool().query('SELECT * FROM agent_runs WHERE org_id = $1 ORDER BY created_at DESC LIMIT $2', [orgId, limit]);
   return rows;
 };
 
 // ── KV helpers (org-scoped) ──
 
 export const kvGet = async (orgId, key) => {
-  const { rows } = await pool.query('SELECT value FROM kv WHERE org_id = $1 AND key = $2', [orgId, key]);
+  const { rows } = await pool().query('SELECT value FROM kv WHERE org_id = $1 AND key = $2', [orgId, key]);
   return rows[0] ? JSON.parse(rows[0].value) : null;
 };
 
 export const kvSet = async (orgId, key, value) => {
-  await pool.query(
+  await pool().query(
     `INSERT INTO kv (org_id, key, value) VALUES ($1,$2,$3) ON CONFLICT (org_id, key) DO UPDATE SET value = $3`,
     [orgId, key, JSON.stringify(value)]
   );
@@ -373,13 +374,13 @@ export const kvSet = async (orgId, key, value) => {
 // ── Funder strategy helpers ──
 
 export const getFunderStrategies = async (orgId) => {
-  const { rows } = await pool.query('SELECT * FROM funder_strategies WHERE org_id = $1 ORDER BY funder_name', [orgId]);
+  const { rows } = await pool().query('SELECT * FROM funder_strategies WHERE org_id = $1 ORDER BY funder_name', [orgId]);
   return rows;
 };
 
 export const upsertFunderStrategy = async (orgId, strat) => {
   const id = strat.id || uid();
-  await pool.query(
+  await pool().query(
     `INSERT INTO funder_strategies (id, org_id, funder_name, funder_type, lead, hook, sections, lang, budget_emphasis, updated_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
      ON CONFLICT (id) DO UPDATE SET funder_name=$3, funder_type=$4, lead=$5, hook=$6, sections=$7, lang=$8, budget_emphasis=$9, updated_at=NOW()`,
@@ -393,23 +394,23 @@ export const upsertFunderStrategy = async (orgId, strat) => {
 // ── Upload helpers ──
 
 export const getUploadsByOrg = async (orgId) => {
-  const { rows } = await pool.query('SELECT * FROM uploads WHERE org_id = $1 AND grant_id IS NULL ORDER BY created_at DESC', [orgId]);
+  const { rows } = await pool().query('SELECT * FROM uploads WHERE org_id = $1 AND grant_id IS NULL ORDER BY created_at DESC', [orgId]);
   return rows;
 };
 
 export const getUploadsByGrant = async (orgId, grantId) => {
-  const { rows } = await pool.query('SELECT * FROM uploads WHERE org_id = $1 AND grant_id = $2 ORDER BY created_at DESC', [orgId, grantId]);
+  const { rows } = await pool().query('SELECT * FROM uploads WHERE org_id = $1 AND grant_id = $2 ORDER BY created_at DESC', [orgId, grantId]);
   return rows;
 };
 
 export const getUploadById = async (id, orgId) => {
-  const { rows } = await pool.query('SELECT * FROM uploads WHERE id = $1 AND org_id = $2', [id, orgId]);
+  const { rows } = await pool().query('SELECT * FROM uploads WHERE id = $1 AND org_id = $2', [id, orgId]);
   return rows[0] || null;
 };
 
 export const createUpload = async (orgId, data) => {
   const id = data.id || uid();
-  await pool.query(
+  await pool().query(
     `INSERT INTO uploads (id, org_id, grant_id, filename, original_name, mime_type, size, extracted_text, category)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
     [id, orgId, data.grant_id || null, data.filename, data.original_name,
@@ -420,11 +421,11 @@ export const createUpload = async (orgId, data) => {
 };
 
 export const deleteUploadById = async (id, orgId) => {
-  await pool.query('DELETE FROM uploads WHERE id = $1 AND org_id = $2', [id, orgId]);
+  await pool().query('DELETE FROM uploads WHERE id = $1 AND org_id = $2', [id, orgId]);
 };
 
 export const getOrgUploadsText = async (orgId) => {
-  const { rows } = await pool.query(
+  const { rows } = await pool().query(
     `SELECT id, original_name, category, extracted_text FROM uploads
      WHERE org_id = $1 AND grant_id IS NULL AND extracted_text IS NOT NULL
      ORDER BY created_at DESC`, [orgId]);
@@ -432,7 +433,7 @@ export const getOrgUploadsText = async (orgId) => {
 };
 
 export const getGrantUploadsText = async (orgId, grantId) => {
-  const { rows } = await pool.query(
+  const { rows } = await pool().query(
     `SELECT id, original_name, category, extracted_text FROM uploads
      WHERE org_id = $1 AND grant_id = $2 AND extracted_text IS NOT NULL
      ORDER BY created_at DESC`, [orgId, grantId]);
