@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 import crypto from 'crypto';
-import { fileURLToPath } from 'url';
+import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 import {
   getUploadsByOrg, getUploadsByGrant, getUploadById,
   createUpload, deleteUploadById, getOrgUploadsText, getGrantUploadsText,
@@ -12,12 +11,17 @@ import { requireAuth } from '../middleware/auth.js';
 import { resolveOrg } from '../middleware/org.js';
 import { extractText, truncateText } from '../extractors/index.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOAD_ROOT = path.join(__dirname, '..', '..', 'data', 'uploads');
-
 const orgAuth = [resolveOrg, requireAuth];
 
-// Multer config: memory storage for extraction, then write to disk
+// Supabase Storage client
+function getStorage() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key).storage.from('uploads');
+}
+
+// Multer config: memory storage for extraction + Supabase upload
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
@@ -46,16 +50,22 @@ router.post('/org/:slug/uploads', ...orgAuth, upload.single('file'), async (req,
   try {
     if (!req.file) return res.status(400).json({ error: 'No file provided' });
 
-    const orgDir = path.join(UPLOAD_ROOT, req.orgId);
-    fs.mkdirSync(orgDir, { recursive: true });
-
     // Generate unique filename
     const ext = path.extname(req.file.originalname);
     const filename = crypto.randomBytes(16).toString('hex') + ext;
-    const filepath = path.join(orgDir, filename);
+    const storagePath = `${req.orgId}/${filename}`;
 
-    // Write file to disk
-    fs.writeFileSync(filepath, req.file.buffer);
+    // Upload to Supabase Storage
+    const storage = getStorage();
+    if (storage) {
+      const { error: uploadErr } = await storage.upload(storagePath, req.file.buffer, {
+        contentType: req.file.mimetype,
+      });
+      if (uploadErr) {
+        console.error('Supabase upload error:', uploadErr.message);
+        return res.status(500).json({ error: 'File upload failed' });
+      }
+    }
 
     // Extract text
     const { text, error } = await extractText(
@@ -63,7 +73,7 @@ router.post('/org/:slug/uploads', ...orgAuth, upload.single('file'), async (req,
     );
 
     // Save metadata to DB
-    const id = createUpload(req.orgId, {
+    const id = await createUpload(req.orgId, {
       grant_id: req.body.grant_id || null,
       filename,
       original_name: req.file.originalname,
@@ -96,38 +106,34 @@ router.post('/org/:slug/uploads/youtube', ...orgAuth, async (req, res) => {
       return res.status(400).json({ error: 'Valid YouTube URL required' });
     }
 
-    // Use Anthropic API with web_search to summarize the video
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    // Use Gemini API with Google Search grounding to summarize the video
+    const apiKey = process.env.GEMINI_API_KEY;
     let extractedText = null;
 
     if (apiKey) {
       try {
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        const response = await fetch(geminiUrl, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 2000,
-            tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-            messages: [{
+            contents: [{
               role: 'user',
-              content: `Summarize this YouTube video in detail for use as context in grant proposal writing. Extract key points, themes, data, statistics, and notable quotes. Be thorough and specific. URL: ${url}`,
+              parts: [{ text: `Summarize this YouTube video in detail for use as context in grant proposal writing. Extract key points, themes, data, statistics, and notable quotes. Be thorough and specific. URL: ${url}` }],
             }],
+            tools: [{ google_search: {} }],
+            generationConfig: { maxOutputTokens: 2000 },
           }),
         });
         const data = await response.json();
-        const texts = data.content?.filter(b => b.type === 'text').map(b => b.text).filter(Boolean);
+        const texts = data.candidates?.[0]?.content?.parts?.filter(p => p.text).map(p => p.text).filter(Boolean);
         extractedText = texts?.length ? texts.join('\n\n') : null;
       } catch (err) {
         console.error('YouTube summary extraction failed:', err.message);
       }
     }
 
-    const id = createUpload(req.orgId, {
+    const id = await createUpload(req.orgId, {
       grant_id: grant_id || null,
       filename: url,
       original_name: url,
@@ -151,19 +157,19 @@ router.post('/org/:slug/uploads/youtube', ...orgAuth, async (req, res) => {
 
 // GET /api/org/:slug/uploads/context — extracted text for AI context building
 // MUST be before /:id route so "context" isn't treated as an ID
-router.get('/org/:slug/uploads/context', ...orgAuth, (req, res) => {
+router.get('/org/:slug/uploads/context', ...orgAuth, async (req, res) => {
   const grantId = req.query.grant_id;
-  const orgUploads = getOrgUploadsText(req.orgId);
-  const grantUploads = grantId ? getGrantUploadsText(req.orgId, grantId) : [];
+  const orgUploads = await getOrgUploadsText(req.orgId);
+  const grantUploads = grantId ? await getGrantUploadsText(req.orgId, grantId) : [];
   res.json({ org_uploads: orgUploads, grant_uploads: grantUploads });
 });
 
 // GET /api/org/:slug/uploads — list uploads
-router.get('/org/:slug/uploads', ...orgAuth, (req, res) => {
+router.get('/org/:slug/uploads', ...orgAuth, async (req, res) => {
   const grantId = req.query.grant_id;
   const uploads = grantId
-    ? getUploadsByGrant(req.orgId, grantId)
-    : getUploadsByOrg(req.orgId);
+    ? await getUploadsByGrant(req.orgId, grantId)
+    : await getUploadsByOrg(req.orgId);
   // Return metadata with truncated text preview
   res.json(uploads.map(u => ({
     ...u,
@@ -173,24 +179,27 @@ router.get('/org/:slug/uploads', ...orgAuth, (req, res) => {
 });
 
 // GET /api/org/:slug/uploads/:id — single upload with full text
-router.get('/org/:slug/uploads/:id', ...orgAuth, (req, res) => {
-  const up = getUploadById(req.params.id, req.orgId);
+router.get('/org/:slug/uploads/:id', ...orgAuth, async (req, res) => {
+  const up = await getUploadById(req.params.id, req.orgId);
   if (!up) return res.status(404).json({ error: 'Upload not found' });
   res.json(up);
 });
 
 // DELETE /api/org/:slug/uploads/:id — delete upload
-router.delete('/org/:slug/uploads/:id', ...orgAuth, (req, res) => {
-  const up = getUploadById(req.params.id, req.orgId);
+router.delete('/org/:slug/uploads/:id', ...orgAuth, async (req, res) => {
+  const up = await getUploadById(req.params.id, req.orgId);
   if (!up) return res.status(404).json({ error: 'Upload not found' });
 
-  // Delete file from disk (skip for YouTube entries)
+  // Delete file from Supabase Storage (skip for YouTube entries)
   if (up.mime_type !== 'video/youtube') {
-    const filepath = path.join(UPLOAD_ROOT, req.orgId, up.filename);
-    try { fs.unlinkSync(filepath); } catch { /* file may already be gone */ }
+    const storage = getStorage();
+    if (storage) {
+      const storagePath = `${req.orgId}/${up.filename}`;
+      await storage.remove([storagePath]);
+    }
   }
 
-  deleteUploadById(req.params.id, req.orgId);
+  await deleteUploadById(req.params.id, req.orgId);
   res.json({ ok: true });
 });
 

@@ -53,11 +53,11 @@ TONE: Warm, human, compelling — not dry or bureaucratic. Lead with human story
 
 const hashPw = (pw) => crypto.createHash('sha256').update(pw).digest('hex');
 
-export function runSeed() {
-  const existing = getOrgBySlug('dlab');
+export async function runSeed() {
+  const existing = await getOrgBySlug('dlab');
   if (existing) return; // Already seeded
 
-  const orgId = createOrg({
+  const orgId = await createOrg({
     slug: 'dlab',
     name: 'd-lab NPC',
     website: 'https://www.d-lab.co.za',
@@ -66,9 +66,9 @@ export function runSeed() {
     currency: 'ZAR',
   });
 
-  setOrgPassword(orgId, hashPw('dlab2026'));
+  await setOrgPassword(orgId, hashPw('dlab2026'));
 
-  updateOrgProfile(orgId, {
+  await updateOrgProfile(orgId, {
     mission: 'd-lab NPC (The Field Lab NPC) trains unemployed South African youth in AI-native digital skills, achieving 92% completion (vs 55% sector average) and 85% employment within 3 months.',
     programmes: [
       { id: 'type1', name: 'Partner-Funded Cohort', cost: 516000, desc: '20 youth, 9 months, digital skills + AI tools, funded by partner' },
@@ -101,9 +101,9 @@ export function runSeed() {
     { id: 'ayanda', name: 'Ayanda', initials: 'AO', role: 'pm', persona: 'Hands-on with learners and delivery. Focus on practical details.' },
     { id: 'team', name: 'Unassigned', initials: '\u2014', role: 'none' },
   ];
-  for (const m of team) upsertTeamMember(orgId, m);
+  for (const m of team) await upsertTeamMember(orgId, m);
 
-  upsertPipelineConfig(orgId, {
+  await upsertPipelineConfig(orgId, {
     stages: [
       { id: 'scouted', label: 'Scouted', c: '#64748B', bg: '#F1F5F9' },
       { id: 'qualifying', label: 'Qualifying', c: '#2563EB', bg: '#EFF6FF' },
@@ -164,7 +164,7 @@ export function runSeed() {
     { id: "g23", name: "Intensives Revenue", funder: "Various STEM Centres", type: "Corporate CSI", stage: "qualifying", ask: 225000, deadline: null, focus: ["AI", "Design Thinking", "Employability"], geo: ["Gauteng", "Western Cape", "Mpumalanga"], rel: "Warm Intro", pri: 4, hrs: 2, notes: "3 x R75K Intensive short programmes.", log: [{ d: "2026-01-20", t: "Budgeted for 3 intensives in 2026" }], on: "", of: [], owner: "nolan", docs: {}, fups: [], subDate: null, applyUrl: "https://www.d-lab.co.za/intensives" },
   ];
 
-  for (const g of SEED) upsertGrant(orgId, g);
+  for (const g of SEED) await upsertGrant(orgId, g);
 
   console.log(`Seeded: ${SEED.length} grants, ${team.length} team members`);
 }
