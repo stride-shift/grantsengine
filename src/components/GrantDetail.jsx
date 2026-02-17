@@ -4,6 +4,23 @@ import { fmtK, dL, td } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, Label, Avatar, CopyBtn, AICard } from "./index";
 import UploadZone from "./UploadZone";
 import { getUploads } from "../api";
+import { detectType, PTYPES, multiCohortInfo } from "../data/funderStrategy";
+
+// Helper: format a timestamp for display
+const timeAgo = (iso) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const now = new Date();
+  const mins = Math.floor((now - d) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+};
+const fmtTs = (iso) => iso ? new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
 
 export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate, onDelete, onBack, onRunAI }) {
   const [tab, setTab] = useState("overview");
@@ -120,13 +137,48 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
       )}
 
       {/* Key fields — Ask gets hero treatment */}
+      {(() => {
+        const pt = detectType(g);
+        const mc = multiCohortInfo(g);
+        const ptNum = pt ? Object.entries(PTYPES).find(([, v]) => v === pt)?.[0] : null;
+        const isMC = mc && mc.count > 1;
+        const mcBaseType = isMC ? PTYPES[mc.typeNum || 1] : null;
+        const mcBaseCost = mcBaseType?.cost || 0;
+        const mcMinExpected = isMC ? mcBaseCost * mc.count : 0;
+        // Aligned if: single type exact match, or multi-cohort ask >= N×base (allows extras)
+        const isAligned = !isMC && pt?.cost && g.ask === pt.cost;
+        const mcAligned = isMC && g.ask >= mcMinExpected;
+        // Only show "Align" for single-type mismatches, not composites
+        const showAlign = !isMC && ptNum && !isAligned && pt?.cost;
+        return (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 24 }}>
         <div style={{
           padding: "16px 20px", background: `linear-gradient(135deg, ${C.primarySoft} 0%, ${C.white} 100%)`,
-          borderRadius: 14, boxShadow: C.cardShadow, borderLeft: `4px solid ${C.primary}`,
+          borderRadius: 14, boxShadow: C.cardShadow, border: `1.5px solid ${C.primary}25`,
         }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Ask</div>
           <div style={{ fontSize: 28, fontWeight: 800, fontFamily: MONO, color: C.primary }}>{fmtK(g.ask)}</div>
+          {ptNum && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
+              <span style={{
+                fontSize: 10, fontWeight: 700, color: C.white,
+                background: (isAligned || mcAligned) ? C.ok : C.amber,
+                padding: "1px 6px", borderRadius: 4,
+              }}>T{isMC ? (mc.typeNum || 1) : ptNum}</span>
+              <span style={{ fontSize: 10, color: C.t4, lineHeight: 1.3 }}>
+                {isMC ? `${mc.count}× cohorts` : pt.label?.split("—")[0]?.trim()}
+              </span>
+            </div>
+          )}
+          {showAlign && (
+            <button onClick={() => up("ask", pt.cost)}
+              style={{
+                marginTop: 6, fontSize: 10, fontWeight: 600, color: C.purple, background: C.purpleSoft,
+                border: "none", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontFamily: FONT,
+              }}>
+              Align to R{(pt.cost / 1000).toFixed(0)}K
+            </button>
+          )}
         </div>
         <div style={{ padding: "14px 18px", background: C.white, borderRadius: 14, boxShadow: C.cardShadow }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Stage</div>
@@ -153,6 +205,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
           </select>
         </div>
       </div>
+        );
+      })()}
 
       {/* Tabs — primary bottom border + subtle bg tint */}
       <div style={{ display: "flex", gap: 0, borderBottom: `2px solid ${C.line}`, marginBottom: 24 }}>
@@ -291,9 +345,19 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
         const runFitScore = async () => {
           setBusy(p => ({ ...p, fitscore: true }));
           try {
+            // Save previous fit score to history before generating new one
+            if (ai.fitscore && !isAIError(ai.fitscore)) {
+              const prev = g.fitscoreHistory || [];
+              const ts = g.aiFitscoreAt || new Date().toISOString();
+              onUpdate(g.id, { fitscoreHistory: [...prev, { ts, text: ai.fitscore }].slice(-5) });
+            }
             const r = await onRunAI("fitscore", g);
             setAi(p => ({ ...p, fitscore: r }));
-            if (!isAIError(r)) { onUpdate(g.id, { aiFitscore: r }); aiLog("AI Fit Score calculated"); }
+            if (!isAIError(r)) {
+              const now = new Date().toISOString();
+              onUpdate(g.id, { aiFitscore: r, aiFitscoreAt: now });
+              aiLog("AI Fit Score calculated");
+            }
           } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
           setBusy(p => ({ ...p, fitscore: false }));
         };
@@ -319,9 +383,14 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                   }}>{fitScoreNum}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>{fitVerdict || "Fit Score"}</div>
-                    <div style={{ fontSize: 11, color: C.t3, marginTop: 2 }}>AI-assessed strategic fit with {g.funder}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                      <span style={{ fontSize: 11, color: C.t3 }}>AI-assessed strategic fit with {g.funder}</span>
+                      {g.aiFitscoreAt && (
+                        <span style={{ fontSize: 10, color: C.t4, fontFamily: MONO }} title={fmtTs(g.aiFitscoreAt)}>· {timeAgo(g.aiFitscoreAt)}</span>
+                      )}
+                    </div>
                   </div>
-                  <Btn v="ghost" onClick={runFitScore} disabled={busy.fitscore} style={{ fontSize: 11, padding: "5px 12px" }}>{busy.fitscore ? "..." : "\u21bb"}</Btn>
+                  <Btn v="ghost" onClick={runFitScore} disabled={busy.fitscore} style={{ fontSize: 11, padding: "5px 12px" }}>{busy.fitscore ? "..." : "\u21bb Re-score"}</Btn>
                 </>
               ) : (
                 <>
@@ -344,10 +413,42 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
             {fitDone && (
               <div style={{
                 padding: "14px 18px", background: C.warm100, borderRadius: 12,
-                borderLeft: `4px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}`,
+                border: `1.5px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}25`,
                 fontSize: 13, lineHeight: 1.7, color: C.t1, whiteSpace: "pre-wrap",
                 marginBottom: 14, maxHeight: 200, overflow: "auto",
               }}>{ai.fitscore}</div>
+            )}
+            {/* Fit Score version history */}
+            {g.fitscoreHistory && g.fitscoreHistory.length > 0 && (
+              <div style={{ padding: "0 4px", marginBottom: 14, marginTop: -8 }}>
+                <details style={{ fontSize: 12, color: C.t3 }}>
+                  <summary style={{ cursor: "pointer", fontWeight: 600, padding: "6px 0", userSelect: "none" }}>
+                    {g.fitscoreHistory.length} previous score{g.fitscoreHistory.length > 1 ? "s" : ""}
+                  </summary>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 6 }}>
+                    {g.fitscoreHistory.slice().reverse().map((v, i) => {
+                      const prevScore = v.text.match(/SCORE:\s*(\d+)/);
+                      const prevVerdict = v.text.match(/VERDICT:\s*(.+)/);
+                      return (
+                        <div key={i} style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "8px 12px", background: C.warm100, borderRadius: 8, border: `1px solid ${C.line}`,
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            {prevScore && <span style={{ fontSize: 13, fontWeight: 700, fontFamily: MONO, color: parseInt(prevScore[1]) >= 70 ? C.ok : parseInt(prevScore[1]) >= 40 ? C.amber : C.red }}>{prevScore[1]}</span>}
+                            <span style={{ fontSize: 11, fontFamily: MONO, color: C.t4 }}>{fmtTs(v.ts)}</span>
+                            {prevVerdict && <span style={{ fontSize: 11, color: C.t3 }}>{prevVerdict[1]}</span>}
+                          </div>
+                          <button onClick={() => setAi(p => ({ ...p, fitscore: v.text }))}
+                            style={{ fontSize: 11, color: C.purple, background: "none", border: `1px solid ${C.purple}30`, borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontFamily: FONT, fontWeight: 600, flexShrink: 0 }}>
+                            Restore
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </details>
+              </div>
             )}
 
             {/* Workflow progress header — primary for completed, purple for active */}
@@ -404,12 +505,23 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                 icon={"\uD83D\uDD0D"}
                 busy={busy.research}
                 result={ai.research}
+                generatedAt={g.aiResearchAt}
                 onRun={async () => {
                   setBusy(p => ({ ...p, research: true }));
                   try {
+                    // Save previous research to history before generating new one
+                    if (ai.research && !isAIError(ai.research)) {
+                      const prev = g.researchHistory || [];
+                      const ts = g.aiResearchAt || new Date().toISOString();
+                      onUpdate(g.id, { researchHistory: [...prev, { ts, text: ai.research }].slice(-5) });
+                    }
                     const r = await onRunAI("research", g);
                     setAi(p => ({ ...p, research: r }));
-                    if (!isAIError(r)) { onUpdate(g.id, { aiResearch: r }); aiLog(`AI Funder Research completed for ${g.funder}`); }
+                    if (!isAIError(r)) {
+                      const now = new Date().toISOString();
+                      onUpdate(g.id, { aiResearch: r, aiResearchAt: now });
+                      aiLog(`AI Funder Research completed for ${g.funder}`);
+                    }
                   } catch (e) {
                     setAi(p => ({ ...p, research: `Error: ${e.message}` }));
                   }
@@ -417,47 +529,122 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                 }}
               />
 
+              {/* Research version history */}
+              {g.researchHistory && g.researchHistory.length > 0 && (
+                <div style={{ padding: "0 22px", marginTop: -4 }}>
+                  <details style={{ fontSize: 12, color: C.t3 }}>
+                    <summary style={{ cursor: "pointer", fontWeight: 600, padding: "6px 0", userSelect: "none" }}>
+                      {g.researchHistory.length} previous research{g.researchHistory.length > 1 ? " versions" : " version"}
+                    </summary>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 6 }}>
+                      {g.researchHistory.slice().reverse().map((v, i) => (
+                        <div key={i} style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          padding: "8px 12px", background: C.warm100, borderRadius: 8, border: `1px solid ${C.line}`,
+                        }}>
+                          <div>
+                            <span style={{ fontSize: 11, fontFamily: MONO, color: C.t4 }}>{fmtTs(v.ts)}</span>
+                            <span style={{ fontSize: 11, color: C.t3, marginLeft: 8 }}>
+                              {v.text.slice(0, 80).replace(/\n/g, " ")}...
+                            </span>
+                          </div>
+                          <button onClick={() => setAi(p => ({ ...p, research: v.text }))}
+                            style={{ fontSize: 11, color: C.purple, background: "none", border: `1px solid ${C.purple}30`, borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontFamily: FONT, fontWeight: 600, flexShrink: 0 }}>
+                            Restore
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              )}
+
               {/* Connector */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 22px" }}>
                 <div style={{
                   width: 20, height: 20, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
-                  background: researchDone ? C.primarySoft : C.warm200, fontSize: 10, color: researchDone ? C.primary : C.t4,
+                  background: (researchDone || fitDone) ? C.primarySoft : C.warm200, fontSize: 10, color: (researchDone || fitDone) ? C.primary : C.t4,
                 }}>{"\u2193"}</div>
-                <span style={{ fontSize: 11, color: researchDone ? C.primary : C.t4, fontWeight: 500 }}>
-                  {researchDone ? "Research feeds into proposal below" : "Research will inform the proposal if completed first"}
+                <span style={{ fontSize: 11, color: (researchDone || fitDone) ? C.primary : C.t4, fontWeight: 500 }}>
+                  {researchDone && fitDone ? "Fit score + research feed into proposal below"
+                    : researchDone ? "Research feeds into proposal below — fit score will further sharpen it"
+                    : fitDone ? "Fit score feeds into proposal below — research will add funder intelligence"
+                    : "Fit score + research will inform the proposal if completed first"}
                 </span>
               </div>
 
               {/* Step 2 — Draft Proposal (with version history) */}
               <AICard
                 title="Draft Proposal"
-                desc={researchDone
-                  ? "Generate a tailored cover email + full proposal using your funder research"
-                  : "Generate a cover email and proposal \u2014 run Research first for a more tailored result"}
+                desc={researchDone && fitDone
+                  ? "Generate a tailored proposal using your funder research + fit score analysis"
+                  : researchDone
+                  ? "Generate a tailored proposal using your funder research — run Fit Score first for even sharper alignment"
+                  : fitDone
+                  ? "Generate a proposal informed by your fit score — run Research first for deeper funder intelligence"
+                  : "Generate a cover email and proposal — run Fit Score + Research first for the best result"}
                 step="2"
                 icon={"\uD83D\uDCDD"}
                 busy={busy.draft}
                 result={ai.draft}
+                generatedAt={g.aiDraftAt}
                 docName={`${g.name}_proposal`}
-                docMeta={{ grantName: g.name, funder: g.funder, orgName: "d-lab NPC" }}
+                docMeta={{ grantName: g.name, funder: g.funder, orgName: "d-lab NPC", ask: g.ask, type: g.type }}
                 onRun={async () => {
                   setBusy(p => ({ ...p, draft: true }));
                   try {
                     // Save previous draft to version history before generating new one
                     if (ai.draft && !isAIError(ai.draft)) {
                       const prev = g.draftHistory || [];
-                      const ts = new Date().toISOString().slice(0, 16).replace("T", " ");
+                      const ts = g.aiDraftAt || new Date().toISOString();
                       onUpdate(g.id, { draftHistory: [...prev, { ts, text: ai.draft }].slice(-5) });
                     }
-                    const r = await onRunAI("draft", g, ai.research || null);
+                    const r = await onRunAI("draft", g, ai.research || null, ai.fitscore || null);
                     setAi(p => ({ ...p, draft: r }));
-                    if (!isAIError(r)) { onUpdate(g.id, { aiDraft: r }); aiLog(`AI Draft Proposal generated${ai.research ? " (with research)" : ""}`); }
+                    if (!isAIError(r)) {
+                      const now = new Date().toISOString();
+                      onUpdate(g.id, { aiDraft: r, aiDraftAt: now });
+                      const inputs = [ai.research && "research", ai.fitscore && "fit score"].filter(Boolean);
+                      aiLog(`AI Draft Proposal generated${inputs.length ? ` (with ${inputs.join(" + ")})` : ""}`);
+                    }
                   } catch (e) {
                     setAi(p => ({ ...p, draft: `Error: ${e.message}` }));
                   }
                   setBusy(p => ({ ...p, draft: false }));
                 }}
               />
+              {/* Ask alignment suggestion — after proposal is generated */}
+              {draftDone && (() => {
+                // Parse the draft for programme type mention
+                const draftText = ai.draft || "";
+                const typeMatch = draftText.match(/Type\s*(\d)/i);
+                if (!typeMatch) return null;
+                const detectedNum = parseInt(typeMatch[1]);
+                const detectedPt = PTYPES[detectedNum];
+                if (!detectedPt || !detectedPt.cost) return null;
+                if (g.ask === detectedPt.cost) return null; // already aligned
+                // Check multi-cohort
+                const mcMatch = draftText.match(/(\d+)\s*(?:×|x)\s*(?:Type\s*\d|cohort)/i);
+                const mcCount = mcMatch ? parseInt(mcMatch[1]) : 1;
+                const suggestedAsk = detectedPt.cost * mcCount;
+                if (Math.abs(g.ask - suggestedAsk) < 10000) return null; // close enough
+                return (
+                  <div style={{
+                    padding: "10px 16px", margin: "0 22px", background: C.purpleSoft, borderRadius: 10,
+                    border: `1px solid ${C.purple}20`, display: "flex", alignItems: "center", gap: 10,
+                    marginBottom: 4, marginTop: -4,
+                  }}>
+                    <span style={{ fontSize: 18 }}>{"\uD83D\uDCA1"}</span>
+                    <div style={{ flex: 1, fontSize: 12, color: C.t1, lineHeight: 1.4 }}>
+                      Proposal references <strong>Type {detectedNum}</strong>{mcCount > 1 ? ` (${mcCount}× cohorts)` : ""} at <strong style={{ fontFamily: MONO }}>R{suggestedAsk.toLocaleString()}</strong> — current ask is {fmtK(g.ask)}
+                    </div>
+                    <button onClick={() => { up("ask", suggestedAsk); aiLog(`Ask updated to R${suggestedAsk.toLocaleString()} (Type ${detectedNum}${mcCount > 1 ? ` × ${mcCount}` : ""})`); }}
+                      style={{ fontSize: 11, fontWeight: 600, color: C.white, background: C.purple, border: "none", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontFamily: FONT, flexShrink: 0 }}>
+                      Update Ask
+                    </button>
+                  </div>
+                );
+              })()}
               {/* Draft version history */}
               {g.draftHistory && g.draftHistory.length > 0 && (
                 <div style={{ padding: "0 22px", marginTop: -4 }}>
@@ -472,7 +659,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                           padding: "8px 12px", background: C.warm100, borderRadius: 8, border: `1px solid ${C.line}`,
                         }}>
                           <div>
-                            <span style={{ fontSize: 11, fontFamily: MONO, color: C.t4 }}>{v.ts}</span>
+                            <span style={{ fontSize: 11, fontFamily: MONO, color: C.t4 }}>{fmtTs(v.ts) || v.ts}</span>
                             <span style={{ fontSize: 11, color: C.t3, marginLeft: 8 }}>
                               {v.text.slice(0, 80).replace(/\n/g, " ")}...
                             </span>
@@ -501,14 +688,25 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                 icon={"\u2709"}
                 busy={busy.followup}
                 result={ai.followup}
+                generatedAt={g.aiFollowupAt}
                 docName={`${g.name}_followup`}
-                docMeta={{ grantName: `${g.name} — Follow-up`, funder: g.funder, orgName: "d-lab NPC" }}
+                docMeta={{ grantName: `${g.name} — Follow-up`, funder: g.funder, orgName: "d-lab NPC", ask: g.ask, type: g.type }}
                 onRun={async () => {
                   setBusy(p => ({ ...p, followup: true }));
                   try {
+                    // Save previous follow-up to history
+                    if (ai.followup && !isAIError(ai.followup)) {
+                      const prev = g.followupHistory || [];
+                      const ts = g.aiFollowupAt || new Date().toISOString();
+                      onUpdate(g.id, { followupHistory: [...prev, { ts, text: ai.followup }].slice(-5) });
+                    }
                     const r = await onRunAI("followup", g);
                     setAi(p => ({ ...p, followup: r }));
-                    if (!isAIError(r)) { onUpdate(g.id, { aiFollowup: r }); aiLog("AI Follow-up Email drafted"); }
+                    if (!isAIError(r)) {
+                      const now = new Date().toISOString();
+                      onUpdate(g.id, { aiFollowup: r, aiFollowupAt: now });
+                      aiLog("AI Follow-up Email drafted");
+                    }
                   } catch (e) {
                     setAi(p => ({ ...p, followup: `Error: ${e.message}` }));
                   }
@@ -529,12 +727,17 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                     icon={g.stage === "won" ? "\uD83C\uDFC6" : "\uD83D\uDCA1"}
                     busy={busy.winloss}
                     result={ai.winloss}
+                    generatedAt={g.aiWinlossAt}
                     onRun={async () => {
                       setBusy(p => ({ ...p, winloss: true }));
                       try {
                         const r = await onRunAI("winloss", g, g.stage);
                         setAi(p => ({ ...p, winloss: r }));
-                        if (!isAIError(r)) { onUpdate(g.id, { aiWinloss: r }); aiLog(`AI ${g.stage === "won" ? "Win" : "Loss"} Analysis completed`); }
+                        if (!isAIError(r)) {
+                          const now = new Date().toISOString();
+                          onUpdate(g.id, { aiWinloss: r, aiWinlossAt: now });
+                          aiLog(`AI ${g.stage === "won" ? "Win" : "Loss"} Analysis completed`);
+                        }
                       } catch (e) {
                         setAi(p => ({ ...p, winloss: `Error: ${e.message}` }));
                       }

@@ -13,7 +13,7 @@ export const isFunderReturning = name => {
   return Object.keys(FUNDER_HISTORY).some(k => n.includes(k) || k.includes(n));
 };
 
-const PTYPES = {
+export const PTYPES = {
   1: { label: "Standard Cohort — Partner-funded", students: 20, cost: 516000, perStudent: 25800, duration: "9 months", desc: "Partner provides infrastructure/stipends/laptops; d-lab provides coaching, curriculum, assessment, accreditation, LMS.", budget: "Travel R38K, Accommodation R38K, Staff S&T R16K, Shuttles R4K, Accreditation R5K, Assessment R95K, ChatGPT licenses R108K, LMS R11K, Coaches R200K", table: [["Coaches & curriculum","200,000"],["Software licenses","108,000"],["ICITP assessment","95,400"],["Travel","38,160"],["Accommodation","38,160"],["Staff S&T","15,722"],["LMS hosting","11,442"],["Accreditation","5,300"],["Airport shuttles","3,816"],["TOTAL","516,000"]] },
   2: { label: "Standard Cohort — d-lab Funded + Stipends + Laptops", students: 20, cost: 1597000, perStudent: 79860, duration: "9 months", desc: "d-lab provides everything including laptops and stipends. Full ownership model.", budget: "Base programme R516K + Laptops R318K (R15,900 × 20) + Stipends R763K (R4,240/student × 9mo)", table: [["Base programme (Type 1)","516,000"],["Laptops (R15,900 × 20)","318,000"],["Stipends (R4,240 × 20 × 9mo)","763,200"],["TOTAL","1,597,200"]] },
   3: { label: "Standard Cohort — With Stipends", students: 20, cost: 1236000, perStudent: 61800, duration: "9 months", desc: "Partner provides infrastructure + laptops; d-lab provides programme + stipends.", budget: "Programme R516K + Stipends R720K (R4,000/student × 9 months)", table: [["Base programme (Type 1)","516,000"],["Stipends (R4,000 × 20 × 9mo)","720,000"],["TOTAL","1,236,000"]] },
@@ -23,7 +23,7 @@ const PTYPES = {
   7: { label: "Sci-Bono Employability Skills", students: 90, cost: 199300, perStudent: 2547, duration: "13 weeks (15 days)", desc: "Short-format: 7 AI coaching days + Design Thinking (1-day + 5-day sprints + 2 presentation days). Includes Cyborg Habits platform.", budget: "AI coaching R84K (2 coaches × R1K/hr × 6hrs × 7d) + DT coaching R64K (1 coach × R2K/hr × 4hrs × 8d) + Cyborg Habits R51K (US$30 × 90)", table: [["AI coaching (2 coaches × 7 days)","84,000"],["DT coaching (1 coach × 8 days)","64,000"],["Cyborg Habits platform (90 × US$30)","51,300"],["TOTAL","199,300"]] },
 };
 
-const detectType = g => {
+export const detectType = g => {
   const n = (g.notes || "").toLowerCase();
   for (let i = 7; i >= 1; i--) { if (n.includes(`type ${i}`) || n.includes(`(type ${i})`)) return PTYPES[i]; }
   if (g.ask <= 250000) return PTYPES[7];
@@ -34,9 +34,9 @@ const detectType = g => {
   return PTYPES[1];
 };
 
-const multiCohortInfo = g => {
+export const multiCohortInfo = g => {
   const n = (g.notes || "").toLowerCase();
-  const m = n.match(/(\d+)\s*×?\s*type\s*(\d)/i) || n.match(/(\d+)\s*cohorts?/i);
+  const m = n.match(/(\d+)\s*[×x]?\s*type\s*(\d)/i) || n.match(/(\d+)\s*cohorts?/i);
   return m ? { count: parseInt(m[1]), typeNum: m[2] ? parseInt(m[2]) : 1 } : null;
 };
 

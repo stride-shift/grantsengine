@@ -113,8 +113,7 @@ export const CalendarStrip = ({ grants, onClickGrant, C: colors }) => {
 export const Num = ({ label, value, sub, color = C.dark, sparkData, sparkColor, accent }) => (
   <div style={{
     flex: 1, minWidth: 130, padding: "20px 22px", background: C.white, borderRadius: 16,
-    border: "none", boxShadow: C.cardShadow, transition: "box-shadow 0.2s ease, transform 0.2s ease",
-    borderLeft: `4px solid ${accent || color}`,
+    border: `1.5px solid ${(accent || color)}25`, boxShadow: C.cardShadow, transition: "box-shadow 0.2s ease, transform 0.2s ease",
   }}
     onMouseEnter={e => { e.currentTarget.style.boxShadow = C.cardShadowHover; e.currentTarget.style.transform = "translateY(-2px)"; }}
     onMouseLeave={e => { e.currentTarget.style.boxShadow = C.cardShadow; e.currentTarget.style.transform = "none"; }}
@@ -335,12 +334,26 @@ const AILoadingPanel = ({ title }) => {
   );
 };
 
-export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, step, icon, locked, lockedMsg }) => {
+export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, step, icon, locked, lockedMsg, generatedAt }) => {
   const [expanded, setExpanded] = useState(!result);
   const hasResult = !!result && !result.startsWith("Error") && !result.startsWith("Rate limit") && !result.startsWith("Connection");
   const isError = !!result && (result.startsWith("Error") || result.startsWith("Rate limit") || result.startsWith("Connection") || result.startsWith("Request failed") || result.startsWith("The AI service"));
   // Auto-expand when new result comes in
   useEffect(() => { if (result && !busy) setExpanded(true); }, [result, busy]);
+  // Format relative time
+  const timeAgo = (iso) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    const now = new Date();
+    const mins = Math.floor((now - d) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return `${days}d ago`;
+    return d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+  };
 
   return (
     <div style={{
@@ -367,8 +380,21 @@ export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, ste
         {/* Title + desc */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: locked ? C.t4 : C.dark, letterSpacing: -0.2 }}>{title}</div>
-          <div style={{ fontSize: 12, color: locked ? C.t4 : C.t3, lineHeight: 1.4, marginTop: 2 }}>
-            {locked ? lockedMsg : hasResult && !expanded ? `Generated \u2014 click to ${busy ? "" : "view or re-run"}` : desc}
+          <div style={{ fontSize: 12, color: locked ? C.t4 : C.t3, lineHeight: 1.4, marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            {locked ? lockedMsg : hasResult && !expanded
+              ? <>
+                  <span>Generated</span>
+                  {generatedAt && <span style={{ fontSize: 10, color: C.t4, fontFamily: MONO }}>{timeAgo(generatedAt)}</span>}
+                  <span style={{ color: C.t4 }}>·</span>
+                  <span>click to view or re-run</span>
+                </>
+              : hasResult
+                ? <>
+                    <span>{desc}</span>
+                    {generatedAt && <span style={{ fontSize: 10, color: C.t4, fontFamily: MONO }}>· generated {timeAgo(generatedAt)}</span>}
+                  </>
+                : desc
+            }
           </div>
         </div>
 
@@ -427,7 +453,7 @@ export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, ste
           {/* Result text */}
           <div style={{
             padding: "20px 22px", background: C.warm100, borderRadius: 12,
-            borderLeft: `4px solid ${C.primary}`,
+            border: `1.5px solid ${C.primary}20`,
             fontSize: 13.5, lineHeight: 1.85, color: C.t1, whiteSpace: "pre-wrap",
             maxHeight: 500, overflow: "auto",
           }}>{result}</div>
