@@ -116,14 +116,24 @@ export const scoutPrompt = ({ existingFunders }) => ({
 
 SEARCH for open grant opportunities, CSI funding calls, SETA discretionary windows, and international tech funder programmes in 2026.
 
-RESPOND WITH ONLY A JSON ARRAY — no markdown, no backticks, no explanation. Each object:
-{"name":"[grant name]","funder":"[organisation]","type":"[Corporate CSI|Government/SETA|International|Foundation|Tech Company]","ask":[amount in ZAR integer],"deadline":"[YYYY-MM-DD or null]","fit":"[High|Medium|Low]","reason":"[1 sentence: why it fits d-lab]","url":"[application URL]","focus":["tag1","tag2"]}
+CRITICAL — VERIFY APPLICATION ACCESS:
+For EVERY opportunity, check whether the funder accepts unsolicited proposals/applications from external organisations. Search their website for application portals, open calls, RFPs, or submission guidelines.
+- "Open" = published open call, application portal, or RFP that NPOs can apply to without prior invitation
+- "By invitation" = funder only accepts proposals from pre-selected or invited organisations
+- "Relationship first" = no formal open call, but they accept approaches/LOIs from organisations that make contact first
+- "Unknown" = could not verify — application process unclear from public sources
 
-FIT = HIGH only if 3+ of: youth employment focus, digital/AI skills, SA or Africa eligible, NPOs eligible, R200K-R5M range, accepts newer organisations.
-EXCLUDE: university-only, pure research, sectors with no skills angle.
+DO NOT include opportunities marked "By invitation" unless there is a realistic path to getting invited.
+PRIORITISE "Open" opportunities. Include "Relationship first" only if the funder has a clear contact channel.
+
+RESPOND WITH ONLY A JSON ARRAY — no markdown, no backticks, no explanation. Each object:
+{"name":"[grant name]","funder":"[organisation]","type":"[Corporate CSI|Government/SETA|International|Foundation|Tech Company]","ask":[amount in ZAR integer],"deadline":"[YYYY-MM-DD or null]","fit":"[High|Medium|Low]","reason":"[1 sentence: why it fits d-lab]","url":"[application URL or funder contact page]","focus":["tag1","tag2"],"access":"[Open|Relationship first|By invitation|Unknown]","accessNote":"[1 sentence: how to apply or how to get in the door]"}
+
+FIT = HIGH only if 3+ of: youth employment focus, digital/AI skills, SA or Africa eligible, NPOs eligible, R200K-R5M range, accepts unsolicited applications.
+EXCLUDE: university-only, pure research, sectors with no skills angle, invitation-only with no realistic path in.
 Return 8-12 real, current opportunities.`,
-  user: `Search for open grants in South Africa for youth digital skills NPOs, February 2026. Include SETA windows, corporate CSI open calls, foundation rounds, and international tech grants (Google.org, Mastercard Foundation, etc). d-lab already has applications with: ${existingFunders}. Find NEW opportunities not already in the pipeline.`,
-  maxTok: 2500,
+  user: `Search for open grants in South Africa for youth digital skills NPOs, February 2026. Include SETA windows, corporate CSI open calls, foundation rounds, and international tech grants (Google.org, Mastercard Foundation, etc). d-lab already has applications with: ${existingFunders}. Find NEW opportunities not already in the pipeline. For each one, VERIFY whether they accept unsolicited applications — check their website for open calls, portals, or application guidelines.`,
+  maxTok: 3000,
   search: true,
 });
 
