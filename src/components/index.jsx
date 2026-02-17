@@ -1,15 +1,22 @@
 import { useState, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
-import { dL, urgC, urgLabel, cp } from "../utils";
+import { dL, urgC, urgLabel, deadlineCtx, cp } from "../utils";
 
-export const DeadlineBadge = ({ d, deadline, size = "sm" }) => {
+export const DeadlineBadge = ({ d, deadline, size = "sm", stage }) => {
   if (d === null) return null;
-  const col = urgC(d);
-  const bg = d < 0 ? C.redSoft : d <= 14 ? C.amberSoft : C.warm200;
-  const pulse = d >= 0 && d <= 3;
-  const label = urgLabel(d);
+  // Use stage-aware context if stage is provided, otherwise fall back to raw urgency
+  const ctx = stage ? deadlineCtx(d, stage) : null;
+  const col = ctx ? ctx.color : urgC(d);
+  const bg = ctx ? ctx.bg : (d < 0 ? C.redSoft : d <= 14 ? C.amberSoft : C.warm200);
+  const pulse = ctx ? ctx.severity === "critical" : (d >= 0 && d <= 3);
+  const label = ctx ? ctx.label : urgLabel(d);
+  const icon = ctx ? ctx.icon : (d < 0 ? "\u26a0" : "");
   const dateStr = deadline ? new Date(deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : null;
   const isSm = size === "sm";
+  if (ctx && ctx.severity === "ok" && d < 0) {
+    // Post-submission, past deadline — don't show badge at all (it's fine)
+    return null;
+  }
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 4,
@@ -18,7 +25,7 @@ export const DeadlineBadge = ({ d, deadline, size = "sm" }) => {
       animation: pulse ? "ge-pulse 1.2s ease-in-out infinite" : "none", whiteSpace: "nowrap",
       letterSpacing: 0.1,
     }}>
-      {d < 0 && "\u26a0 "}{dateStr && !isSm && <span style={{ opacity: 0.7, marginRight: 2 }}>{dateStr} {"\u00b7"}</span>}{label}
+      {icon && <span>{icon} </span>}{dateStr && !isSm && <span style={{ opacity: 0.7, marginRight: 2 }}>{dateStr} {"\u00b7"}</span>}{label}
     </span>
   );
 };
@@ -49,18 +56,21 @@ export const Sparkline = ({ data, color = C.primary, w = 80, h = 24 }) => {
 export const CalendarStrip = ({ grants, onClickGrant, C: colors }) => {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const endDate = new Date(today); endDate.setDate(endDate.getDate() + 90);
-  const deadlines = grants.filter(g => g.deadline && !["won", "lost", "deferred"].includes(g.stage)).map(g => {
+  // Only show pre-submission grants on timeline — post-submission deadlines are irrelevant
+  const preSubmission = ["scouted", "qualifying", "drafting", "review"];
+  const deadlines = grants.filter(g => g.deadline && preSubmission.includes(g.stage)).map(g => {
     const d = new Date(g.deadline); d.setHours(0, 0, 0, 0);
     const days = Math.round((d - today) / 86400000);
-    return { ...g, date: d, days, pct: Math.max(0, Math.min(100, (days / 90) * 100)) };
-  }).filter(g => g.days >= -7 && g.days <= 90).sort((a, b) => a.days - b.days);
+    const ctx = deadlineCtx(days, g.stage);
+    return { ...g, date: d, days, pct: Math.max(0, Math.min(100, (days / 90) * 100)), ctx };
+  }).filter(g => g.days >= -14 && g.days <= 90).sort((a, b) => a.days - b.days);
   if (!deadlines.length) return null;
   const months = [];
   for (let i = 0; i <= 3; i++) { const m = new Date(today); m.setMonth(m.getMonth() + i, 1); if (m <= endDate) months.push(m); }
   return (
     <div style={{ background: colors.white, borderRadius: 16, padding: "16px 20px", marginBottom: 16, boxShadow: C.cardShadow }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: colors.t3 }}>Deadline timeline</span>
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: colors.t3 }}>Submission timeline</span>
         <span style={{ fontSize: 11, color: colors.t4 }}>Next 90 days</span>
       </div>
       <div style={{ position: "relative", height: 44, background: colors.raised, borderRadius: 10 }}>
@@ -75,21 +85,26 @@ export const CalendarStrip = ({ grants, onClickGrant, C: colors }) => {
         })}
         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${(14 / 90) * 100}%`, background: "rgba(208,50,40,0.05)", borderRadius: "10px 0 0 10px" }} />
         {deadlines.map((g, i) => {
-          const d = g.days; const overdue = d < 0; const urgent = d <= 14;
-          const color = overdue ? colors.red : urgent ? colors.amber : C.ok;
+          // Stage-aware coloring: expired scouted = grey, missed drafting = amber, upcoming = urgency colors
+          const color = g.ctx.severity === "expired" ? colors.t4 : g.ctx.severity === "missed" ? colors.amber : g.ctx.color;
+          const opacity = g.ctx.severity === "expired" ? 0.5 : 1;
           const nearby = deadlines.filter(o => Math.abs(o.days - g.days) < 3 && deadlines.indexOf(o) < i);
           const yOff = (nearby.length % 3) * 12;
-          return <div key={g.id} title={`${g.name} \u2014 ${g.funder}\n${d < 0 ? Math.abs(d) + "d overdue" : d + "d remaining"}\nR${g.ask?.toLocaleString()}`}
+          const tipLabel = g.ctx.severity === "expired" ? `Window closed ${Math.abs(g.days)}d ago`
+            : g.ctx.severity === "missed" ? `Missed by ${Math.abs(g.days)}d`
+            : g.days === 0 ? "Due today!" : `${g.days}d remaining`;
+          return <div key={g.id} title={`${g.name} — ${g.funder}\n${tipLabel}\nR${g.ask?.toLocaleString()}\nStage: ${g.stage}`}
             onClick={() => onClickGrant(g.id)}
-            style={{ position: "absolute", left: `${Math.max(0.5, Math.min(99, g.pct))}%`, top: 10 + yOff, width: 14, height: 14, borderRadius: "50%", background: color, border: `2.5px solid ${colors.white}`, cursor: "pointer", transform: "translateX(-7px)", zIndex: 3, transition: "transform 0.2s ease", boxShadow: `0 2px 6px ${color}40` }}
-            onMouseEnter={e => e.currentTarget.style.transform = "translateX(-7px) scale(1.5)"}
-            onMouseLeave={e => e.currentTarget.style.transform = "translateX(-7px) scale(1)"} />;
+            style={{ position: "absolute", left: `${Math.max(0.5, Math.min(99, g.pct))}%`, top: 10 + yOff, width: 14, height: 14, borderRadius: "50%", background: color, opacity, border: `2.5px solid ${colors.white}`, cursor: "pointer", transform: "translateX(-7px)", zIndex: 3, transition: "transform 0.2s ease, opacity 0.2s ease", boxShadow: `0 2px 6px ${color}40` }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "translateX(-7px) scale(1.5)"; e.currentTarget.style.opacity = "1"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = "translateX(-7px) scale(1)"; e.currentTarget.style.opacity = String(opacity); }} />;
         })}
       </div>
       <div style={{ display: "flex", gap: 14, marginTop: 10 }}>
-        <span style={{ fontSize: 10, color: colors.t4, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: colors.red }} /> Overdue</span>
-        <span style={{ fontSize: 10, color: colors.t4, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: colors.amber }} /> Urgent</span>
+        <span style={{ fontSize: 10, color: colors.t4, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: colors.red }} /> Urgent</span>
+        <span style={{ fontSize: 10, color: colors.t4, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: colors.amber }} /> Approaching</span>
         <span style={{ fontSize: 10, color: colors.t4, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: C.ok }} /> On track</span>
+        <span style={{ fontSize: 10, color: colors.t4, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: colors.t4, opacity: 0.5 }} /> Expired</span>
       </div>
     </div>
   );

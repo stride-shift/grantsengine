@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmt, fmtK, dL, urgC, cp } from "../utils";
+import { fmt, fmtK, dL, urgC, deadlineCtx, cp } from "../utils";
 import { Num, CalendarStrip, DeadlineBadge, TypeBadge, Avatar, Label, Btn, CopyBtn } from "./index";
 
 export default function Dashboard({ grants, team, stages, onSelectGrant, onNavigate, onRunBrief, onRunReport, orgName }) {
@@ -18,10 +18,26 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
     const wonValues = won.map(g => g.ask || 0).sort((a, b) => a - b);
     const wonCum = []; let wc = 0; for (const v of wonValues) { wc += v; wonCum.push(wc); }
 
-    // Pipeline health metrics
+    // Pipeline health metrics — stage-aware deadline intelligence
     const submitted = grants.filter(g => ["submitted", "awaiting"].includes(g.stage));
     const drafting = grants.filter(g => g.stage === "drafting");
-    const overdue = act.filter(g => { const d = dL(g.deadline); return d !== null && d < 0; });
+    // Categorise deadline issues by severity (not a blanket "overdue")
+    const preSubmission = ["scouted", "qualifying", "drafting", "review"];
+    const needsAction = []; // Genuinely need attention
+    const expired = []; // Window closed, clean up
+    act.forEach(g => {
+      const d = dL(g.deadline);
+      if (d === null) return;
+      const ctx = deadlineCtx(d, g.stage);
+      if (ctx.severity === "expired") expired.push(g);
+      else if (ctx.severity === "missed") needsAction.push(g);
+      else if (ctx.severity === "critical" && preSubmission.includes(g.stage)) needsAction.push(g);
+    });
+    // Approaching = pre-submission grants with deadline in next 14 days
+    const approaching = act.filter(g => {
+      const d = dL(g.deadline);
+      return d !== null && d > 0 && d <= 14 && preSubmission.includes(g.stage);
+    });
     // Conversion: won / (won + lost) — only meaningful if we have closed grants
     const closed = won.length + lost.length;
     const winRate = closed > 0 ? Math.round((won.length / closed) * 100) : null;
@@ -36,20 +52,37 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
       stages: (stages || []).map(s => ({ ...s, n: grants.filter(g => g.stage === s.id).length })),
       sparkPipeline: stageValues.length > 1 ? stageValues : null,
       sparkWon: wonCum.length > 1 ? wonCum : null,
-      submitted, drafting, overdue,
+      submitted, drafting, needsAction, expired, approaching,
       winRate, weightedVal, closed,
     };
   }, [grants, stages]);
 
   const notifs = useMemo(() => {
     const n = [];
+    const preSubmission = ["scouted", "qualifying", "drafting", "review"];
     grants.forEach(g => {
       if (["won", "lost", "deferred"].includes(g.stage)) return;
       const d = dL(g.deadline);
-      if (d !== null && d < 0) n.push({ id: `ov-${g.id}`, ty: "urgent", gid: g.id, tx: `${g.name} \u2014 ${Math.abs(d)} days overdue` });
-      else if (d !== null && d <= 7) n.push({ id: `ur-${g.id}`, ty: "urgent", gid: g.id, tx: `${g.name} \u2014 deadline in ${d} days` });
-      else if (d !== null && d <= 14) n.push({ id: `sn-${g.id}`, ty: "warn", gid: g.id, tx: `${g.name} \u2014 deadline in ${d} days` });
+      if (d === null) return;
+      const ctx = deadlineCtx(d, g.stage);
+      // Post-submission grants — deadline is met, no alert needed
+      if (!preSubmission.includes(g.stage)) return;
+      // Stage-aware alerts
+      if (ctx.severity === "missed") {
+        n.push({ id: `ms-${g.id}`, ty: "warn", gid: g.id, tx: `${g.name} — missed deadline by ${Math.abs(d)} days (${g.stage})` });
+      } else if (ctx.severity === "expired") {
+        n.push({ id: `ex-${g.id}`, ty: "info", gid: g.id, tx: `${g.name} — window closed ${Math.abs(d)} days ago` });
+      } else if (ctx.severity === "critical") {
+        n.push({ id: `cr-${g.id}`, ty: "urgent", gid: g.id, tx: `${g.name} — ${d === 0 ? "due today!" : `only ${d} days left`}` });
+      } else if (ctx.severity === "urgent") {
+        n.push({ id: `ur-${g.id}`, ty: "urgent", gid: g.id, tx: `${g.name} — deadline in ${d} days` });
+      } else if (ctx.severity === "soon") {
+        n.push({ id: `sn-${g.id}`, ty: "warn", gid: g.id, tx: `${g.name} — deadline in ${d} days` });
+      }
     });
+    // Sort: critical first, then urgent, then warn, then info
+    const order = { urgent: 0, warn: 1, info: 2 };
+    n.sort((a, b) => (order[a.ty] ?? 3) - (order[b.ty] ?? 3));
     return n;
   }, [grants]);
 
@@ -247,13 +280,37 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
             {pipe.winRate}% win
           </div>
         )}
-        {pipe.overdue.length > 0 && (
+        {pipe.needsAction.length > 0 && (
+          <div style={{
+            padding: "6px 14px", borderRadius: 10,
+            background: C.amberSoft, color: C.amber,
+            fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
+          }}
+            title={pipe.needsAction.map(g => `${g.name} (${g.stage})`).join(", ")}
+          >
+            {pipe.needsAction.length} missed
+          </div>
+        )}
+        {pipe.approaching.length > 0 && (
           <div style={{
             padding: "6px 14px", borderRadius: 10,
             background: C.redSoft, color: C.red,
             fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
-          }}>
-            {pipe.overdue.length} overdue
+          }}
+            title={pipe.approaching.map(g => `${g.name} — ${dL(g.deadline)}d left`).join(", ")}
+          >
+            {pipe.approaching.length} due soon
+          </div>
+        )}
+        {pipe.expired.length > 0 && (
+          <div style={{
+            padding: "6px 14px", borderRadius: 10,
+            background: C.warm200, color: C.t3,
+            fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
+          }}
+            title={pipe.expired.map(g => g.name).join(", ")}
+          >
+            {pipe.expired.length} expired
           </div>
         )}
       </div>
@@ -261,28 +318,33 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
       {/* Calendar */}
       <CalendarStrip grants={grants} onClickGrant={onSelectGrant} C={C} />
 
-      {/* Notifications — white bg with colored left border */}
+      {/* Notifications — white bg with colored left border, stage-aware */}
       {notifs.length > 0 && (
         <div style={{ marginBottom: 24 }}>
-          <Label>Alerts</Label>
+          <Label>Deadline Alerts</Label>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {notifs.slice(0, 8).map(n => (
-              <div key={n.id} onClick={() => onSelectGrant(n.gid)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
-                  background: C.white,
-                  borderRadius: 12, cursor: "pointer", fontSize: 13, color: C.t1,
-                  borderLeft: `4px solid ${n.ty === "urgent" ? C.red : C.amber}`,
-                  boxShadow: C.cardShadow,
-                  transition: "transform 0.15s ease, box-shadow 0.15s ease",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateX(4px)"; e.currentTarget.style.boxShadow = C.cardShadowHover; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = C.cardShadow; }}>
-                <span style={{ fontSize: 14 }}>{n.ty === "urgent" ? "\u26a0" : "\u23f0"}</span>
-                <span style={{ flex: 1 }}>{n.tx}</span>
-                <span style={{ fontSize: 14, color: C.t4, flexShrink: 0, transition: "color 0.15s" }}>{"\u2192"}</span>
-              </div>
-            ))}
+            {notifs.slice(0, 8).map(n => {
+              const borderColor = n.ty === "urgent" ? C.red : n.ty === "warn" ? C.amber : C.t4;
+              const icon = n.ty === "urgent" ? "\u26a0" : n.ty === "warn" ? "!" : "\u25cb";
+              return (
+                <div key={n.id} onClick={() => onSelectGrant(n.gid)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
+                    background: C.white,
+                    borderRadius: 12, cursor: "pointer", fontSize: 13, color: C.t1,
+                    borderLeft: `4px solid ${borderColor}`,
+                    boxShadow: C.cardShadow,
+                    transition: "transform 0.15s ease, box-shadow 0.15s ease",
+                    opacity: n.ty === "info" ? 0.7 : 1,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = "translateX(4px)"; e.currentTarget.style.boxShadow = C.cardShadowHover; e.currentTarget.style.opacity = "1"; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = C.cardShadow; e.currentTarget.style.opacity = n.ty === "info" ? "0.7" : "1"; }}>
+                  <span style={{ fontSize: 14 }}>{icon}</span>
+                  <span style={{ flex: 1 }}>{n.tx}</span>
+                  <span style={{ fontSize: 14, color: C.t4, flexShrink: 0, transition: "color 0.15s" }}>{"\u2192"}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -306,7 +368,7 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
         ))}
       </div>
 
-      {/* Deadlines table — navy header row */}
+      {/* Deadlines table — only pre-submission grants with actionable deadlines */}
       <Label>Upcoming Deadlines</Label>
       <div style={{ background: C.white, borderRadius: 16, overflow: "hidden", boxShadow: C.cardShadow }}>
         {/* Table header */}
@@ -318,13 +380,30 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
           <div style={{ flex: 1, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: 0.5, textTransform: "uppercase" }}>Grant</div>
           <div style={{ width: 90, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: 0.5, textTransform: "uppercase" }}>Type</div>
           <div style={{ width: 80, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: 0.5, textTransform: "uppercase", textAlign: "right" }}>Ask</div>
-          <div style={{ width: 90, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: 0.5, textTransform: "uppercase" }}>Deadline</div>
+          <div style={{ width: 100, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: 0.5, textTransform: "uppercase" }}>Status</div>
         </div>
-        {grants.filter(g => g.deadline && !["won", "lost", "deferred"].includes(g.stage))
-          .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
-          .slice(0, 10)
-          .map((g, idx) => {
-            const d = dL(g.deadline);
+        {(() => {
+          // Pre-submission grants only — post-submission grants have already met deadline
+          const preSubmission = ["scouted", "qualifying", "drafting", "review"];
+          const rows = grants
+            .filter(g => g.deadline && preSubmission.includes(g.stage))
+            .map(g => ({ ...g, _d: dL(g.deadline), _ctx: deadlineCtx(dL(g.deadline), g.stage) }))
+            // Show upcoming first, then recently missed/expired (within 30 days)
+            .filter(g => g._d > -30)
+            .sort((a, b) => {
+              // Upcoming (positive) first sorted ascending, then past (negative) sorted descending
+              if (a._d >= 0 && b._d >= 0) return a._d - b._d;
+              if (a._d >= 0) return -1;
+              if (b._d >= 0) return -1;
+              return b._d - a._d; // More recently missed first
+            })
+            .slice(0, 10);
+          if (rows.length === 0) return (
+            <div style={{ padding: "20px 18px", fontSize: 13, color: C.t3, textAlign: "center" }}>
+              No upcoming submission deadlines
+            </div>
+          );
+          return rows.map((g, idx) => {
             const m = getMember(g.owner);
             const stg = (stages || []).find(s => s.id === g.stage);
             return (
@@ -333,10 +412,11 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
                   display: "flex", alignItems: "center", gap: 12, padding: "12px 18px",
                   borderBottom: `1px solid ${C.line}`, cursor: "pointer",
                   background: idx % 2 === 1 ? C.warm100 : "transparent",
-                  transition: "background 0.15s ease, padding-left 0.15s ease",
+                  opacity: g._ctx.severity === "expired" ? 0.6 : 1,
+                  transition: "background 0.15s ease, padding-left 0.15s ease, opacity 0.15s ease",
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = C.hover; e.currentTarget.style.paddingLeft = "22px"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = idx % 2 === 1 ? C.warm100 : "transparent"; e.currentTarget.style.paddingLeft = "18px"; }}>
+                onMouseEnter={e => { e.currentTarget.style.background = C.hover; e.currentTarget.style.paddingLeft = "22px"; e.currentTarget.style.opacity = "1"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = idx % 2 === 1 ? C.warm100 : "transparent"; e.currentTarget.style.paddingLeft = "18px"; e.currentTarget.style.opacity = g._ctx.severity === "expired" ? "0.6" : "1"; }}>
                 <Avatar member={m} size={26} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -347,10 +427,11 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
                 </div>
                 <TypeBadge type={g.type} />
                 <div style={{ fontSize: 13, fontWeight: 600, color: C.t2, fontFamily: MONO, minWidth: 70, textAlign: "right" }}>{fmtK(g.ask)}</div>
-                <DeadlineBadge d={d} deadline={g.deadline} />
+                <DeadlineBadge d={g._d} deadline={g.deadline} stage={g.stage} />
               </div>
             );
-          })}
+          });
+        })()}
       </div>
     </div>
   );

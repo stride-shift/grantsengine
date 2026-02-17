@@ -520,7 +520,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                             <Avatar member={m} size={20} />
                             <span style={{ fontSize: 12, fontWeight: 600, color: C.t2, fontFamily: MONO }}>{fmtK(g.ask)}</span>
                           </div>
-                          <DeadlineBadge d={d} deadline={g.deadline} />
+                          <DeadlineBadge d={d} deadline={g.deadline} stage={g.stage} />
                         </div>
                       </div>
                     );
@@ -563,7 +563,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                 <span style={{ fontSize: 12, color: C.t3 }}>{g.funder}</span>
                 <TypeBadge type={g.type} />
                 <span style={{ fontSize: 13, fontWeight: 600, fontFamily: MONO, color: C.t1 }}>{fmtK(g.ask)}</span>
-                <DeadlineBadge d={d} deadline={g.deadline} />
+                <DeadlineBadge d={d} deadline={g.deadline} stage={g.stage} />
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: stg?.c || C.t4 }} />
                   <span style={{ fontSize: 11, fontWeight: 600, color: stg?.c || C.t3 }}>{stg?.label || g.stage}</span>
@@ -656,7 +656,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                           <div style={{ fontSize: 11, color: C.t3, marginBottom: 6 }}>{g.funder}</div>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
                             <span style={{ fontSize: 12, fontWeight: 600, color: C.t2, fontFamily: MONO }}>{fmtK(g.ask)}</span>
-                            <DeadlineBadge d={d} deadline={g.deadline} />
+                            <DeadlineBadge d={d} deadline={g.deadline} stage={g.stage} />
                           </div>
                         </div>
                       );
