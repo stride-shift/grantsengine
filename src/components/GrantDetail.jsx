@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmtK, dL, td } from "../utils";
+import { fmtK, dL, td, effectiveAsk } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, Label, Avatar, CopyBtn, AICard } from "./index";
 import UploadZone from "./UploadZone";
 import { getUploads } from "../api";
@@ -22,6 +22,27 @@ const timeAgo = (iso) => {
 };
 const fmtTs = (iso) => iso ? new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
 
+// Extract ask recommendation from draft text
+const extractAskFromDraft = (draftText) => {
+  // Priority 1: Structured ASK_RECOMMENDATION line
+  const structured = draftText.match(/ASK_RECOMMENDATION:\s*Type\s*(\d),\s*(\d+)\s*cohort\(s?\),\s*R(\d+)/i);
+  if (structured) {
+    const typeNum = parseInt(structured[1]);
+    const count = parseInt(structured[2]);
+    const amount = parseInt(structured[3]);
+    if (PTYPES[typeNum] && amount > 0) return { ask: amount, typeNum, mcCount: count };
+  }
+  // Priority 2: Scan for Type X in body
+  const typeMatch = draftText.match(/Type\s*(\d)/i);
+  if (!typeMatch) return null;
+  const detectedNum = parseInt(typeMatch[1]);
+  const detectedPt = PTYPES[detectedNum];
+  if (!detectedPt || !detectedPt.cost) return null;
+  const mcMatch = draftText.match(/(\d+)\s*(?:x|×)\s*(?:Type\s*\d|cohort)/i);
+  const mcCount = mcMatch ? parseInt(mcMatch[1]) : 1;
+  return { ask: detectedPt.cost * mcCount, typeNum: detectedNum, mcCount };
+};
+
 export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate, onDelete, onBack, onRunAI }) {
   const [tab, setTab] = useState("overview");
   const [busy, setBusy] = useState({});
@@ -33,6 +54,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
     winloss: grant?.aiWinloss || null,
   }));
   const [confirmDel, setConfirmDel] = useState(false);
+  const [editingAsk, setEditingAsk] = useState(false);
+  const [askInput, setAskInput] = useState("");
   const [uploads, setUploads] = useState([]);
 
   // Sync AI state when switching between grants
@@ -136,48 +159,83 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
         </div>
       )}
 
-      {/* Key fields — Ask gets hero treatment */}
+      {/* Key fields — Ask card reflects the intelligence journey */}
       {(() => {
-        const pt = detectType(g);
-        const mc = multiCohortInfo(g);
+        const askIsSet = g.ask > 0;
+        const hasFunderBudget = g.funderBudget && g.funderBudget > 0;
+        const isAIDerived = g.askSource === "ai-draft";
+        const isManual = g.askSource === "manual" || g.askSource === "user-override";
+        const isLegacy = g.askSource === "scout-aligned";
+        const pt = askIsSet ? detectType(g) : null;
+        const mc = askIsSet ? multiCohortInfo(g) : null;
         const ptNum = pt ? Object.entries(PTYPES).find(([, v]) => v === pt)?.[0] : null;
         const isMC = mc && mc.count > 1;
-        const mcBaseType = isMC ? PTYPES[mc.typeNum || 1] : null;
-        const mcBaseCost = mcBaseType?.cost || 0;
-        const mcMinExpected = isMC ? mcBaseCost * mc.count : 0;
-        // Aligned if: single type exact match, or multi-cohort ask >= N×base (allows extras)
-        const isAligned = !isMC && pt?.cost && g.ask === pt.cost;
-        const mcAligned = isMC && g.ask >= mcMinExpected;
-        // Only show "Align" for single-type mismatches, not composites
-        const showAlign = !isMC && ptNum && !isAligned && pt?.cost;
+        const sourceLabel = isAIDerived ? "AI-recommended" : isManual ? "Manual" : isLegacy ? "Legacy" : null;
+        const sourceColor = isAIDerived ? C.ok : isManual ? C.purple : C.t4;
         return (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 24 }}>
         <div style={{
-          padding: "16px 20px", background: `linear-gradient(135deg, ${C.primarySoft} 0%, ${C.white} 100%)`,
-          borderRadius: 14, boxShadow: C.cardShadow, border: `1.5px solid ${C.primary}25`,
+          padding: "16px 20px",
+          background: askIsSet
+            ? `linear-gradient(135deg, ${C.primarySoft} 0%, ${C.white} 100%)`
+            : `linear-gradient(135deg, ${C.warm200} 0%, ${C.white} 100%)`,
+          borderRadius: 14, boxShadow: C.cardShadow,
+          border: `1.5px solid ${askIsSet ? C.primary + "25" : C.line}`,
         }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Ask</div>
-          <div style={{ fontSize: 28, fontWeight: 800, fontFamily: MONO, color: C.primary }}>{fmtK(g.ask)}</div>
-          {ptNum && (
-            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
-              <span style={{
-                fontSize: 10, fontWeight: 700, color: C.white,
-                background: (isAligned || mcAligned) ? C.ok : C.amber,
-                padding: "1px 6px", borderRadius: 4,
-              }}>T{isMC ? (mc.typeNum || 1) : ptNum}</span>
-              <span style={{ fontSize: 10, color: C.t4, lineHeight: 1.3 }}>
-                {isMC ? `${mc.count}× cohorts` : pt.label?.split("—")[0]?.trim()}
-              </span>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+            Ask
+            {sourceLabel && <span style={{ fontSize: 9, fontWeight: 600, color: sourceColor, background: sourceColor + "15", padding: "1px 6px", borderRadius: 4, letterSpacing: 0, textTransform: "none" }}>{sourceLabel}</span>}
+          </div>
+          {editingAsk ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: C.t3 }}>R</span>
+              <input type="number" autoFocus value={askInput} onChange={e => setAskInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && askInput) {
+                    const v = parseInt(askInput);
+                    if (v > 0) { up("ask", v); up("askSource", "user-override"); setEditingAsk(false); }
+                  }
+                  if (e.key === "Escape") setEditingAsk(false);
+                }}
+                style={{ width: 120, fontSize: 18, fontWeight: 700, fontFamily: MONO, border: `1.5px solid ${C.primary}40`, borderRadius: 8, padding: "4px 8px", outline: "none", background: C.white }}
+              />
+              <Btn v="primary" style={{ fontSize: 10, padding: "4px 10px" }} onClick={() => {
+                const v = parseInt(askInput);
+                if (v > 0) { up("ask", v); up("askSource", "user-override"); setEditingAsk(false); }
+              }}>Set</Btn>
+              <button onClick={() => setEditingAsk(false)} style={{ fontSize: 11, color: C.t4, background: "none", border: "none", cursor: "pointer" }}>✕</button>
             </div>
-          )}
-          {showAlign && (
-            <button onClick={() => up("ask", pt.cost)}
-              style={{
-                marginTop: 6, fontSize: 10, fontWeight: 600, color: C.purple, background: C.purpleSoft,
-                border: "none", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontFamily: FONT,
-              }}>
-              Align to R{(pt.cost / 1000).toFixed(0)}K
-            </button>
+          ) : askIsSet ? (
+            <>
+              <div style={{ fontSize: 28, fontWeight: 800, fontFamily: MONO, color: C.primary }}>{fmtK(g.ask)}</div>
+              {ptNum && (
+                <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: C.white, background: C.ok, padding: "1px 6px", borderRadius: 4 }}>T{isMC ? (mc.typeNum || 1) : ptNum}</span>
+                  <span style={{ fontSize: 10, color: C.t4 }}>{isMC ? `${mc.count}× cohorts` : pt.label?.split("—")[0]?.trim()}</span>
+                </div>
+              )}
+              {hasFunderBudget && g.funderBudget !== g.ask && (
+                <div style={{ fontSize: 10, color: C.t4, marginTop: 4 }}>Funder budget: R{g.funderBudget.toLocaleString()}</div>
+              )}
+              <button onClick={() => { setAskInput(String(g.ask)); setEditingAsk(true); }}
+                style={{ marginTop: 6, fontSize: 10, fontWeight: 600, color: C.purple, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, padding: 0 }}>
+                Override
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 24, fontWeight: 800, fontFamily: MONO, color: C.t4 }}>TBD</div>
+              {hasFunderBudget && (
+                <div style={{ fontSize: 11, color: C.t3, marginTop: 4 }}>Funder offers ~R{g.funderBudget.toLocaleString()}</div>
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                <span style={{ fontSize: 10, color: C.purple }}>Run proposal to set →</span>
+                <button onClick={() => { setAskInput(""); setEditingAsk(true); }}
+                  style={{ fontSize: 10, fontWeight: 600, color: C.t3, background: "none", border: `1px solid ${C.line}`, borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontFamily: FONT }}>
+                  Set manually
+                </button>
+              </div>
+            </>
           )}
         </div>
         <div style={{ padding: "14px 18px", background: C.white, borderRadius: 14, boxShadow: C.cardShadow }}>
@@ -327,7 +385,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
         const followupDone = ai.followup && !isAIError(ai.followup);
         const fitDone = ai.fitscore && !isAIError(ai.fitscore);
         const winlossDone = ai.winloss && !isAIError(ai.winloss);
-        const completedCount = [researchDone, draftDone, followupDone].filter(Boolean).length;
+        const askIsSetByAI = g.askSource === "ai-draft" && g.ask > 0;
+        const completedCount = [fitDone, researchDone, draftDone, askIsSetByAI].filter(Boolean).length;
         const isSubmittedPlus = ["submitted", "awaiting", "won", "lost", "deferred"].includes(g.stage);
         const isClosedStage = ["won", "lost"].includes(g.stage);
 
@@ -457,9 +516,10 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
               padding: "14px 20px", background: C.white, borderRadius: 14, boxShadow: C.cardShadow,
             }}>
               {[
+                { label: "Fit Score", done: fitDone, active: busy.fitscore },
                 { label: "Research", done: researchDone, active: busy.research },
                 { label: "Proposal", done: draftDone, active: busy.draft },
-                { label: "Follow-up", done: followupDone, active: busy.followup },
+                { label: "Ask Set", done: askIsSetByAI, active: false },
               ].map((s, i, arr) => (
                 <div key={s.label} style={{ display: "flex", alignItems: "center", flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -490,9 +550,9 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
               <div style={{
                 marginLeft: 8, padding: "3px 10px", borderRadius: 20,
                 fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
-                background: completedCount === 3 ? C.primarySoft : C.warm200,
-                color: completedCount === 3 ? C.primary : C.t4,
-              }}>{completedCount}/3</div>
+                background: completedCount === 4 ? C.primarySoft : C.warm200,
+                color: completedCount === 4 ? C.primary : C.t4,
+              }}>{completedCount}/4</div>
             </div>
 
             {/* Cards with connector lines */}
@@ -566,10 +626,10 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                   background: (researchDone || fitDone) ? C.primarySoft : C.warm200, fontSize: 10, color: (researchDone || fitDone) ? C.primary : C.t4,
                 }}>{"\u2193"}</div>
                 <span style={{ fontSize: 11, color: (researchDone || fitDone) ? C.primary : C.t4, fontWeight: 500 }}>
-                  {researchDone && fitDone ? "Fit score + research feed into proposal below"
-                    : researchDone ? "Research feeds into proposal below — fit score will further sharpen it"
-                    : fitDone ? "Fit score feeds into proposal below — research will add funder intelligence"
-                    : "Fit score + research will inform the proposal if completed first"}
+                  {researchDone && fitDone ? "Fit score + research feed into proposal, which will set the ask"
+                    : researchDone ? "Research feeds into proposal — fit score will further sharpen it"
+                    : fitDone ? "Fit score feeds into proposal — research will add funder intelligence"
+                    : "Fit score + research will inform the proposal, which will recommend the right ask"}
                 </span>
               </div>
 
@@ -589,7 +649,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                 result={ai.draft}
                 generatedAt={g.aiDraftAt}
                 docName={`${g.name}_proposal`}
-                docMeta={{ grantName: g.name, funder: g.funder, orgName: "d-lab NPC", ask: g.ask, type: g.type }}
+                docMeta={{ grantName: g.name, funder: g.funder, orgName: "d-lab NPC", ask: effectiveAsk(g), type: g.type }}
                 onRun={async () => {
                   setBusy(p => ({ ...p, draft: true }));
                   try {
@@ -603,9 +663,16 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                     setAi(p => ({ ...p, draft: r }));
                     if (!isAIError(r)) {
                       const now = new Date().toISOString();
-                      onUpdate(g.id, { aiDraft: r, aiDraftAt: now });
+                      const extracted = extractAskFromDraft(r);
+                      const updates = { aiDraft: r, aiDraftAt: now };
+                      if (extracted) {
+                        updates.ask = extracted.ask;
+                        updates.askSource = "ai-draft";
+                        updates.aiRecommendedAsk = extracted.ask;
+                      }
+                      onUpdate(g.id, updates);
                       const inputs = [ai.research && "research", ai.fitscore && "fit score"].filter(Boolean);
-                      aiLog(`AI Draft Proposal generated${inputs.length ? ` (with ${inputs.join(" + ")})` : ""}`);
+                      aiLog(`AI Draft Proposal generated${inputs.length ? ` (with ${inputs.join(" + ")})` : ""}${extracted ? ` — ask set to R${extracted.ask.toLocaleString()} (Type ${extracted.typeNum}${extracted.mcCount > 1 ? ` × ${extracted.mcCount}` : ""})` : ""}`);
                     }
                   } catch (e) {
                     setAi(p => ({ ...p, draft: `Error: ${e.message}` }));
@@ -613,38 +680,26 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                   setBusy(p => ({ ...p, draft: false }));
                 }}
               />
-              {/* Ask alignment suggestion — after proposal is generated */}
-              {draftDone && (() => {
-                // Parse the draft for programme type mention
-                const draftText = ai.draft || "";
-                const typeMatch = draftText.match(/Type\s*(\d)/i);
-                if (!typeMatch) return null;
-                const detectedNum = parseInt(typeMatch[1]);
-                const detectedPt = PTYPES[detectedNum];
-                if (!detectedPt || !detectedPt.cost) return null;
-                if (g.ask === detectedPt.cost) return null; // already aligned
-                // Check multi-cohort
-                const mcMatch = draftText.match(/(\d+)\s*(?:×|x)\s*(?:Type\s*\d|cohort)/i);
-                const mcCount = mcMatch ? parseInt(mcMatch[1]) : 1;
-                const suggestedAsk = detectedPt.cost * mcCount;
-                if (Math.abs(g.ask - suggestedAsk) < 10000) return null; // close enough
-                return (
-                  <div style={{
-                    padding: "10px 16px", margin: "0 22px", background: C.purpleSoft, borderRadius: 10,
-                    border: `1px solid ${C.purple}20`, display: "flex", alignItems: "center", gap: 10,
-                    marginBottom: 4, marginTop: -4,
-                  }}>
-                    <span style={{ fontSize: 18 }}>{"\uD83D\uDCA1"}</span>
-                    <div style={{ flex: 1, fontSize: 12, color: C.t1, lineHeight: 1.4 }}>
-                      Proposal references <strong>Type {detectedNum}</strong>{mcCount > 1 ? ` (${mcCount}× cohorts)` : ""} at <strong style={{ fontFamily: MONO }}>R{suggestedAsk.toLocaleString()}</strong> — current ask is {fmtK(g.ask)}
-                    </div>
-                    <button onClick={() => { up("ask", suggestedAsk); aiLog(`Ask updated to R${suggestedAsk.toLocaleString()} (Type ${detectedNum}${mcCount > 1 ? ` × ${mcCount}` : ""})`); }}
-                      style={{ fontSize: 11, fontWeight: 600, color: C.white, background: C.purple, border: "none", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontFamily: FONT, flexShrink: 0 }}>
-                      Update Ask
-                    </button>
+              {/* Ask confirmation — shows after draft sets the ask */}
+              {draftDone && g.askSource === "ai-draft" && g.aiRecommendedAsk > 0 && (
+                <div style={{
+                  padding: "10px 16px", margin: "0 22px", background: C.okSoft, borderRadius: 10,
+                  border: `1px solid ${C.ok}20`, display: "flex", alignItems: "center", gap: 10,
+                  marginBottom: 4, marginTop: -4,
+                }}>
+                  <span style={{ fontSize: 16 }}>✓</span>
+                  <div style={{ flex: 1, fontSize: 12, color: C.t1, lineHeight: 1.4 }}>
+                    Ask set to <strong style={{ fontFamily: MONO }}>R{g.ask.toLocaleString()}</strong> based on the programme type recommended in the proposal.
+                    {g.funderBudget && g.funderBudget !== g.ask && (
+                      <span style={{ color: C.t3 }}> Funder budget was R{g.funderBudget.toLocaleString()}.</span>
+                    )}
                   </div>
-                );
-              })()}
+                  <button onClick={() => { setAskInput(String(g.ask)); setEditingAsk(true); }}
+                    style={{ fontSize: 11, fontWeight: 600, color: C.purple, background: C.purpleSoft, border: "none", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontFamily: FONT, flexShrink: 0 }}>
+                    Override
+                  </button>
+                </div>
+              )}
               {/* Draft version history */}
               {g.draftHistory && g.draftHistory.length > 0 && (
                 <div style={{ padding: "0 22px", marginTop: -4 }}>
@@ -690,7 +745,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                 result={ai.followup}
                 generatedAt={g.aiFollowupAt}
                 docName={`${g.name}_followup`}
-                docMeta={{ grantName: `${g.name} — Follow-up`, funder: g.funder, orgName: "d-lab NPC", ask: g.ask, type: g.type }}
+                docMeta={{ grantName: `${g.name} — Follow-up`, funder: g.funder, orgName: "d-lab NPC", ask: effectiveAsk(g), type: g.type }}
                 onRun={async () => {
                   setBusy(p => ({ ...p, followup: true }));
                   try {
