@@ -40,6 +40,10 @@ export const deadlineCtx = (daysLeft, stage) => {
   if (daysLeft <= 30) return { label: `${daysLeft}d`, color: C.amber, bg: C.amberSoft, severity: "soon", icon: "" };
   return { label: `${daysLeft}d`, color: C.ok, bg: C.warm200, severity: "ok", icon: "" };
 };
+// ── Ask helpers ──
+// effectiveAsk: returns the best available amount for display/totals (ask if set, otherwise funderBudget)
+export const effectiveAsk = (g) => g.ask || g.funderBudget || 0;
+
 export const td = () => new Date().toISOString().slice(0, 10);
 export const addD = (date, n) => { const d = new Date(date); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 export const cp = t => {

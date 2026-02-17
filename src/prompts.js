@@ -49,9 +49,13 @@ ANTI-PATTERNS — never do these:
 - Don't use hollow phrases: "we believe", "we are passionate", "making a difference"
 - Don't pad with generic development language — be specific to d-lab
 
+At the very END of your proposal, include this structured line (the system parses it to set the grant ask):
+ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer]
+
 ${CTX}`,
   user: `Proposal for ${g.name} to ${g.funder}.
-TYPE: ${g.type} | ASK: R${g.ask?.toLocaleString()} | FOCUS: ${g.focus?.join(", ") || "youth employment, digital skills"}
+TYPE: ${g.type} | ${g.ask > 0 ? `ASK: R${g.ask.toLocaleString()}` : `FUNDER BUDGET: ~R${(g.funderBudget || g.ask || 0).toLocaleString()} — recommend the best programme type and ask`}
+FOCUS: ${g.focus?.join(", ") || "youth employment, digital skills"}
 LOCATION: ${g.geo?.join(", ") || "South Africa"} (mention only if relevant)
 PROGRAMME: ${g.notes || "Standard cohort"}
 
@@ -127,7 +131,7 @@ DO NOT include opportunities marked "By invitation" unless there is a realistic 
 PRIORITISE "Open" opportunities. Include "Relationship first" only if the funder has a clear contact channel.
 
 RESPOND WITH ONLY A JSON ARRAY — no markdown, no backticks, no explanation. Each object:
-{"name":"[grant name]","funder":"[organisation]","type":"[Corporate CSI|Government/SETA|International|Foundation|Tech Company]","ask":[amount in ZAR integer],"deadline":"[YYYY-MM-DD or null]","fit":"[High|Medium|Low]","reason":"[1 sentence: why it fits d-lab]","url":"[application URL or funder contact page]","focus":["tag1","tag2"],"access":"[Open|Relationship first|By invitation|Unknown]","accessNote":"[1 sentence: how to apply or how to get in the door]"}
+{"name":"[grant name]","funder":"[organisation]","type":"[Corporate CSI|Government/SETA|International|Foundation|Tech Company]","funderBudget":[amount in ZAR integer — the funder's stated budget or typical grant size],"deadline":"[YYYY-MM-DD or null]","fit":"[High|Medium|Low]","reason":"[1 sentence: why it fits d-lab]","url":"[application URL or funder contact page]","focus":["tag1","tag2"],"access":"[Open|Relationship first|By invitation|Unknown]","accessNote":"[1 sentence: how to apply or how to get in the door]"}
 
 FIT = HIGH only if 3+ of: youth employment focus, digital/AI skills, SA or Africa eligible, NPOs eligible, R200K-R5M range, accepts unsolicited applications.
 EXCLUDE: university-only, pure research, sectors with no skills angle, invitation-only with no realistic path in.

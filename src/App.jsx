@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { C, FONT, MONO, injectFonts } from "./theme";
-import { uid, td, dL } from "./utils";
+import { uid, td, dL, effectiveAsk } from "./utils";
 import { funderStrategy, isFunderReturning } from "./data/funderStrategy";
 import {
   isLoggedIn, getAuth, setAuth, login, logout, setPassword,
@@ -70,7 +70,16 @@ export default function App() {
         getPipelineConfig(),
       ]);
       setOrg(orgData);
-      setGrants(grantsData || []);
+
+      // Migrate existing grants: backfill funderBudget/askSource for pre-redesign grants
+      const raw = grantsData || [];
+      const migrated = raw.map(g => {
+        if (g.funderBudget !== undefined) return g;
+        return { ...g, funderBudget: g.ask || null, askSource: g.ask ? "scout-aligned" : null, aiRecommendedAsk: null };
+      });
+      setGrants(migrated);
+      migrated.forEach((g, i) => { if (g !== raw[i]) dSave(g.id, g); });
+
       setProfile(profileData);
 
       // Team: ensure "Unassigned" exists
@@ -335,8 +344,14 @@ ANTI-PATTERNS — never do these:
 - Leading with geography or province-counting
 - Dry lists without narrative thread — every section should MOVE the reader toward yes
 - Padding with generic development language — be specific to d-lab
-- Invented budget figures or statistics not in the context${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}${factGuard}`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\nAsk: R${grant.ask?.toLocaleString()}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${researchBlock}${fitScoreBlock}`,
+- Invented budget figures or statistics not in the context${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}
+
+ASK RECOMMENDATION — CRITICAL:
+At the very END of your proposal (after all sections), include this structured line on its own line. The system parses it to set the grant ask:
+ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer with no commas or spaces]
+Example: ASK_RECOMMENDATION: Type 3, 1 cohort(s), R1236000
+Choose the programme type that best fits the funder's priorities and budget. Use the exact cost from the programme types list. For multi-cohort requests, multiply by the number of cohorts.${factGuard}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${researchBlock}${fitScoreBlock}`,
         false, 3000
       );
     }
@@ -352,7 +367,7 @@ Provide:
 5. Relationship strategy — how to approach (cold vs warm)
 
 Use uploaded documents for additional context about the organisation. Reference specific programme types and costs from the org profile when discussing fit.${factGuard}`,
-        `Organisation context:\n${orgCtx}\n\nFunder: ${grant.funder}\nType: ${grant.type}\nGrant: ${grant.name}\nAsk: R${grant.ask?.toLocaleString()}\nRelationship: ${grant.rel}\nFocus areas: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}`,
+        `Organisation context:\n${orgCtx}\n\nFunder: ${grant.funder}\nType: ${grant.type}\nGrant: ${grant.name}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD — will be set after proposal)`}\nRelationship: ${grant.rel}\nFocus areas: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}`,
         true, 2000
       );
     }
@@ -377,7 +392,7 @@ The email should:
 - Under 200 words. Every sentence earns its place.
 - Sign off as the organisation director
 ${fs.returning ? "- RETURNING FUNDER: This is a partner. Reference the relationship warmly — you have shared history." : "- NEW FUNDER: Be respectful and make it easy to say yes to a conversation. Lower the bar: a call, a coffee, not a commitment."}${factGuard}`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nStage: ${grant.stage}\nAsk: R${grant.ask?.toLocaleString()}\nSubmitted: ${grant.subDate || "Not yet"}\nNotes: ${grant.notes || "None"}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nStage: ${grant.stage}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()}`}\nSubmitted: ${grant.subDate || "Not yet"}\nNotes: ${grant.notes || "None"}`,
         false, 1000
       );
     }
@@ -411,7 +426,7 @@ SCORING GUIDE:
 - B-BBEE/compliance alignment = +5
 - Timing (deadline feasible) = +10
 - Deduct for: org too small, outside focus, budget mismatch, missing track record`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\nAsk: R${grant.ask?.toLocaleString()}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER)" : ""}\nFocus: ${(grant.focus || []).join(", ")}\nGeography: ${(grant.geo || []).join(", ") || "National"}\nDeadline: ${grant.deadline || "Rolling"}\nNotes: ${grant.notes || "None"}\n\nFUNDER INTEL: This funder cares about "${fs.lead}". Their language: ${fs.lang}.${fs.returning ? " d-lab is a returning grantee." : ""}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER)" : ""}\nFocus: ${(grant.focus || []).join(", ")}\nGeography: ${(grant.geo || []).join(", ") || "National"}\nDeadline: ${grant.deadline || "Rolling"}\nNotes: ${grant.notes || "None"}\n\nFUNDER INTEL: This funder cares about "${fs.lead}". Their language: ${fs.lang}.${fs.returning ? " d-lab is a returning grantee." : ""}`,
         false, 800
       );
     }
@@ -433,9 +448,9 @@ RULES:
         `Today: ${new Date().toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
 Overdue (${overdue.length}): ${overdue.map(g => `${g.name} (${Math.abs(dL(g.deadline))}d overdue, owner: ${team.find(t=>t.id===g.owner)?.name || "Unassigned"})`).join("; ") || "None"}
 Urgent <14d (${urgent.length}): ${urgent.map(g => `${g.name} (${dL(g.deadline)}d left, owner: ${team.find(t=>t.id===g.owner)?.name || "Unassigned"})`).join("; ") || "None"}
-In drafting (${drafting.length}): ${drafting.map(g => `${g.name} for ${g.funder} (R${(g.ask||0).toLocaleString()})`).join("; ") || "None"}
+In drafting (${drafting.length}): ${drafting.map(g => `${g.name} for ${g.funder} (R${effectiveAsk(g).toLocaleString()})`).join("; ") || "None"}
 Submitted/Awaiting (${submitted.length}): ${submitted.map(g => `${g.name} from ${g.funder}`).join("; ") || "None"}
-Total pipeline: ${grants.filter(g => !["won","lost","deferred"].includes(g.stage)).length} grants, R${grants.filter(g => !["won","lost","deferred"].includes(g.stage)).reduce((s,g) => s+(g.ask||0), 0).toLocaleString()}`,
+Total pipeline: ${grants.filter(g => !["won","lost","deferred"].includes(g.stage)).length} grants, R${grants.filter(g => !["won","lost","deferred"].includes(g.stage)).reduce((s,g) => s+effectiveAsk(g), 0).toLocaleString()}`,
         false, 1000
       );
     }
@@ -485,8 +500,8 @@ RULES: "ask" = realistic midpoint if range given, convert USD at ~R18/$. "type" 
       const act = grants.filter(g => !["won", "lost", "deferred"].includes(g.stage));
       const won = grants.filter(g => g.stage === "won");
       const lost = grants.filter(g => g.stage === "lost");
-      const totalAsk = act.reduce((s, g) => s + (g.ask || 0), 0);
-      const wonVal = won.reduce((s, g) => s + (g.ask || 0), 0);
+      const totalAsk = act.reduce((s, g) => s + effectiveAsk(g), 0);
+      const wonVal = won.reduce((s, g) => s + effectiveAsk(g), 0);
       const byStage = stages.filter(s => !["won", "lost", "deferred"].includes(s.id))
         .map(s => `${s.label}: ${grants.filter(g => g.stage === s.id).length}`)
         .join(", ");
@@ -506,7 +521,7 @@ One page max. Every sentence earns its place. No hollow phrases. Use the SYSTEM 
         `Organisation:\n${orgCtx}\n\nQ1 2026 quarterly report.
 Pipeline: ${act.length} active grants (R${totalAsk.toLocaleString()}), ${won.length} won (R${wonVal.toLocaleString()}), ${lost.length} lost.
 By stage: ${byStage}.
-Top grants: ${act.sort((a, b) => (b.ask || 0) - (a.ask || 0)).slice(0, 5).map(g => `${g.name} (R${(g.ask || 0).toLocaleString()}, ${g.stage})`).join("; ")}`,
+Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).map(g => `${g.name} (R${effectiveAsk(g).toLocaleString()}, ${g.stage})`).join("; ")}`,
         false, 2000
       );
     }

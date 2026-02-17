@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmt, fmtK, dL, uid, td } from "../utils";
+import { fmt, fmtK, dL, uid, td, effectiveAsk } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "./index";
 import { scoutPrompt } from "../prompts";
 import { detectType, PTYPES } from "../data/funderStrategy";
@@ -141,16 +141,16 @@ function ScoutLoader() {
 
 /* ── Scout: fallback data if API parse fails ── */
 const SCOUT_FALLBACK = [
-  { name: "NSF Digital Skills", funder: "National Skills Fund", type: "Government/SETA", ask: 2500000, deadline: null, fit: "High", reason: "Digital skills, youth employment, scalable partner model", url: "https://www.nsf.gov.za/", focus: ["Youth Employment", "Digital Skills"], access: "Open", accessNote: "NSF publishes open calls for skills development projects — apply through their online portal" },
-  { name: "W&R SETA Discretionary", funder: "Wholesale & Retail SETA", type: "Government/SETA", ask: 1500000, deadline: "2026-06-30", fit: "Medium", reason: "Digital skills for retail sector, youth employment", url: "https://www.wrseta.org.za/grant_application.aspx", focus: ["Digital Skills", "Youth Employment"], access: "Open", accessNote: "Discretionary grant window opens annually — application forms available on website" },
-  { name: "National Lotteries Commission", funder: "NLC Charities Sector", type: "Government/SETA", ask: 3000000, deadline: "2026-06-30", fit: "Medium", reason: "Community development, NPO registered, large grants", url: "https://nlcsa.org.za/how-to-apply/", focus: ["Youth Employment", "Education"], access: "Open", accessNote: "Online application portal open to registered NPOs — apply through nlcsa.org.za" },
-  { name: "Oppenheimer Memorial Trust", funder: "OMT", type: "Foundation", ask: 550000, deadline: "2026-06-30", fit: "Medium", reason: "Education, under-resourced communities, biannual window", url: "https://www.omt.org.za/how-to-apply/", focus: ["Education", "Rural Dev"], access: "Open", accessNote: "Biannual application windows — unsolicited proposals accepted through their website" },
-  { name: "FirstRand Foundation", funder: "FirstRand Foundation", type: "Foundation", ask: 2000000, deadline: null, fit: "High", reason: "Youth employment, education, innovation — rolling applications", url: "https://www.firstrandfoundation.org.za/apply", focus: ["Youth Employment", "Education"], access: "Open", accessNote: "Rolling applications accepted year-round through online portal" },
-  { name: "Microsoft Skills for Jobs", funder: "Microsoft Philanthropies", type: "Tech Company", ask: 1500000, deadline: null, fit: "High", reason: "AI skills, digital employment, FET programme synergy", url: "https://www.microsoft.com/en-za/corporate-responsibility", focus: ["AI/4IR", "Digital Skills"], access: "Relationship first", accessNote: "No public application portal — approach via Microsoft SA partnerships team or local CSI contacts" },
-  { name: "Ford Foundation Future of Work", funder: "Ford Foundation", type: "International", ask: 5400000, deadline: null, fit: "Medium", reason: "Future of work, digital economy, Global South", url: "https://www.fordfoundation.org/work/our-grants/", focus: ["Youth Employment", "AI/4IR"], access: "Relationship first", accessNote: "Submit a brief letter of inquiry — grants officer reviews before inviting full proposal" },
-  { name: "Anglo American CSI", funder: "Anglo American", type: "Corporate CSI", ask: 2000000, deadline: null, fit: "Medium", reason: "Skills development, host communities, youth employment", url: "https://www.angloamerican.com/sustainability", focus: ["Youth Employment", "Digital Skills", "Rural Dev"], access: "Relationship first", accessNote: "CSI proposals through their sustainability team — approach via Anglo American Foundation SA" },
-  { name: "Standard Bank CSI", funder: "Standard Bank", type: "Corporate CSI", ask: 1500000, deadline: null, fit: "High", reason: "Youth skills, digital economy, B-BBEE alignment", url: "https://www.standardbank.co.za/southafrica/personal/about-us/corporate-social-investment", focus: ["Youth Employment", "Digital Skills"], access: "Open", accessNote: "CSI application form available on website — accepts unsolicited proposals for education and skills" },
-  { name: "Echoing Green Fellowship", funder: "Echoing Green", type: "International", ask: 1440000, deadline: "2026-03-15", fit: "Medium", reason: "Social entrepreneur fellowship, innovative models, early-stage", url: "https://echoinggreen.org/fellowship/", focus: ["Youth Employment", "Education"], access: "Open", accessNote: "Annual fellowship application — open call with published deadline, apply online" },
+  { name: "NSF Digital Skills", funder: "National Skills Fund", type: "Government/SETA", funderBudget: 2500000, deadline: null, fit: "High", reason: "Digital skills, youth employment, scalable partner model", url: "https://www.nsf.gov.za/", focus: ["Youth Employment", "Digital Skills"], access: "Open", accessNote: "NSF publishes open calls for skills development projects — apply through their online portal" },
+  { name: "W&R SETA Discretionary", funder: "Wholesale & Retail SETA", type: "Government/SETA", funderBudget: 1500000, deadline: "2026-06-30", fit: "Medium", reason: "Digital skills for retail sector, youth employment", url: "https://www.wrseta.org.za/grant_application.aspx", focus: ["Digital Skills", "Youth Employment"], access: "Open", accessNote: "Discretionary grant window opens annually — application forms available on website" },
+  { name: "National Lotteries Commission", funder: "NLC Charities Sector", type: "Government/SETA", funderBudget: 3000000, deadline: "2026-06-30", fit: "Medium", reason: "Community development, NPO registered, large grants", url: "https://nlcsa.org.za/how-to-apply/", focus: ["Youth Employment", "Education"], access: "Open", accessNote: "Online application portal open to registered NPOs — apply through nlcsa.org.za" },
+  { name: "Oppenheimer Memorial Trust", funder: "OMT", type: "Foundation", funderBudget: 550000, deadline: "2026-06-30", fit: "Medium", reason: "Education, under-resourced communities, biannual window", url: "https://www.omt.org.za/how-to-apply/", focus: ["Education", "Rural Dev"], access: "Open", accessNote: "Biannual application windows — unsolicited proposals accepted through their website" },
+  { name: "FirstRand Foundation", funder: "FirstRand Foundation", type: "Foundation", funderBudget: 2000000, deadline: null, fit: "High", reason: "Youth employment, education, innovation — rolling applications", url: "https://www.firstrandfoundation.org.za/apply", focus: ["Youth Employment", "Education"], access: "Open", accessNote: "Rolling applications accepted year-round through online portal" },
+  { name: "Microsoft Skills for Jobs", funder: "Microsoft Philanthropies", type: "Tech Company", funderBudget: 1500000, deadline: null, fit: "High", reason: "AI skills, digital employment, FET programme synergy", url: "https://www.microsoft.com/en-za/corporate-responsibility", focus: ["AI/4IR", "Digital Skills"], access: "Relationship first", accessNote: "No public application portal — approach via Microsoft SA partnerships team or local CSI contacts" },
+  { name: "Ford Foundation Future of Work", funder: "Ford Foundation", type: "International", funderBudget: 5400000, deadline: null, fit: "Medium", reason: "Future of work, digital economy, Global South", url: "https://www.fordfoundation.org/work/our-grants/", focus: ["Youth Employment", "AI/4IR"], access: "Relationship first", accessNote: "Submit a brief letter of inquiry — grants officer reviews before inviting full proposal" },
+  { name: "Anglo American CSI", funder: "Anglo American", type: "Corporate CSI", funderBudget: 2000000, deadline: null, fit: "Medium", reason: "Skills development, host communities, youth employment", url: "https://www.angloamerican.com/sustainability", focus: ["Youth Employment", "Digital Skills", "Rural Dev"], access: "Relationship first", accessNote: "CSI proposals through their sustainability team — approach via Anglo American Foundation SA" },
+  { name: "Standard Bank CSI", funder: "Standard Bank", type: "Corporate CSI", funderBudget: 1500000, deadline: null, fit: "High", reason: "Youth skills, digital economy, B-BBEE alignment", url: "https://www.standardbank.co.za/southafrica/personal/about-us/corporate-social-investment", focus: ["Youth Employment", "Digital Skills"], access: "Open", accessNote: "CSI application form available on website — accepts unsolicited proposals for education and skills" },
+  { name: "Echoing Green Fellowship", funder: "Echoing Green", type: "International", funderBudget: 1440000, deadline: "2026-03-15", fit: "Medium", reason: "Social entrepreneur fellowship, innovative models, early-stage", url: "https://echoinggreen.org/fellowship/", focus: ["Youth Employment", "Education"], access: "Open", accessNote: "Annual fellowship application — open call with published deadline, apply online" },
 ];
 
 const parseScoutResults = (text) => {
@@ -216,9 +216,12 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
 
   const addGrant = () => {
     if (!newName) return;
+    const enteredAsk = parseInt(newAsk) || 0;
     const g = {
       id: uid(), name: newName, funder: newFunder, type: newType,
-      stage: "scouted", ask: parseInt(newAsk) || 0, deadline: null,
+      stage: "scouted", ask: enteredAsk, funderBudget: enteredAsk || null,
+      askSource: enteredAsk ? "manual" : null, aiRecommendedAsk: null,
+      deadline: null,
       focus: [], geo: [], rel: "Cold", pri: 3, hrs: 0, notes: "",
       log: [{ d: td(), t: "Grant created" }], on: "", of: [],
       owner: "team", docs: {}, fups: [], subDate: null, applyUrl: "",
@@ -255,18 +258,17 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
   const addScoutToPipeline = (s) => {
     const typeMap = { corporate: "Corporate CSI", csi: "Corporate CSI", government: "Government/SETA", seta: "Government/SETA", international: "International", foundation: "Foundation", tech: "Tech Company" };
     const gType = typeMap[Object.keys(typeMap).find(k => (s.type || "").toLowerCase().includes(k))] || "Foundation";
-    const rawAsk = Number(s.ask) || 0;
+    const funderBudget = Number(s.funderBudget || s.ask) || 0;
     const accessLine = s.access ? `\nAccess: ${s.access}${s.accessNote ? " — " + s.accessNote : ""}` : "";
     const notes = `${s.reason || ""}${s.url ? "\nApply: " + s.url : ""}${accessLine}`;
-    // Auto-align ask to nearest d-lab programme type budget
-    const pt = detectType({ ask: rawAsk, notes });
-    const alignedAsk = pt?.cost || rawAsk;
+    // Store funder's raw budget — ask will be set after proposal generation
     const newG = {
       id: uid(), name: s.name || "New Grant", funder: s.funder || "Unknown", type: gType,
-      stage: "scouted", ask: alignedAsk, deadline: s.deadline || null,
+      stage: "scouted", ask: 0, funderBudget, askSource: null, aiRecommendedAsk: null,
+      deadline: s.deadline || null,
       focus: s.focus || ["Youth Employment", "Digital Skills"], geo: [], rel: "Cold", pri: 3, hrs: 0,
       notes,
-      log: [{ d: td(), t: `Scouted by AI · ${pt?.label || "programme TBD"} · R${(alignedAsk || 0).toLocaleString()}${s.access ? ` · ${s.access}` : ""}` }],
+      log: [{ d: td(), t: `Scouted by AI · funder budget R${funderBudget.toLocaleString()}${s.access ? ` · ${s.access}` : ""} · ask TBD` }],
       on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null, applyUrl: s.url || "",
     };
     onAddGrant(newG);
@@ -340,13 +342,15 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                   try {
                     const r = await onRunAI("urlextract", { name: "", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "Cold", notes: "", deadline: null, stage: "scouted" }, urlInput.trim());
                     const parsed = JSON.parse(r);
+                    const fBudget = parsed.ask || 0;
                     const g = {
                       id: uid(), name: parsed.name || "Untitled Grant", funder: parsed.funder || "",
                       type: parsed.type || "Foundation", stage: "scouted",
-                      ask: parsed.ask || 0, deadline: parsed.deadline || null,
+                      ask: 0, funderBudget: fBudget, askSource: null, aiRecommendedAsk: null,
+                      deadline: parsed.deadline || null,
                       focus: parsed.focus || [], geo: [], rel: "Cold", pri: 3, hrs: 0,
                       notes: parsed.notes || "", applyUrl: parsed.applyUrl || urlInput.trim(),
-                      log: [{ d: td(), t: `Created from URL: ${urlInput.trim().slice(0, 60)}` }],
+                      log: [{ d: td(), t: `Created from URL · funder budget R${fBudget.toLocaleString()} · ask TBD` }],
                       on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null,
                     };
                     onAddGrant(g);
@@ -473,7 +477,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                         {s.added && <span style={{ fontSize: 10, fontWeight: 600, color: C.ok }}>{"✓"}</span>}
                       </div>
                       <div style={{ fontSize: 12, color: C.t3 }}>
-                        {s.funder}{s.ask ? ` · R${Number(s.ask).toLocaleString()}` : ""}{s.deadline ? ` · ${new Date(s.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
+                        {s.funder}{(s.funderBudget || s.ask) ? ` · ~R${Number(s.funderBudget || s.ask).toLocaleString()}` : ""}{s.deadline ? ` · ${new Date(s.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
                       </div>
                       <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.4, marginTop: 3 }}>{s.reason}</div>
                       {s.accessNote && (
@@ -509,7 +513,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
         <div style={{ display: "flex", gap: 10, flex: 1, overflowX: "auto", paddingBottom: 10 }}>
           {activeStages.map(stage => {
             const stageGrants = sorted.filter(g => g.stage === stage.id);
-            const stageTotal = stageGrants.reduce((s, g) => s + (g.ask || 0), 0);
+            const stageTotal = stageGrants.reduce((s, g) => s + effectiveAsk(g), 0);
             return (
               <div key={stage.id}
                 onDragOver={e => e.preventDefault()}
@@ -548,7 +552,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <Avatar member={m} size={20} />
-                            <span style={{ fontSize: 12, fontWeight: 600, color: C.t2, fontFamily: MONO }}>{fmtK(g.ask)}</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: g.ask > 0 ? C.t2 : C.t4, fontFamily: MONO }}>{g.ask > 0 ? fmtK(g.ask) : g.funderBudget ? `~${fmtK(g.funderBudget)}` : "TBD"}</span>
                           </div>
                           <DeadlineBadge d={d} deadline={g.deadline} stage={g.stage} />
                         </div>
@@ -592,7 +596,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                 </div>
                 <span style={{ fontSize: 12, color: C.t3 }}>{g.funder}</span>
                 <TypeBadge type={g.type} />
-                <span style={{ fontSize: 13, fontWeight: 600, fontFamily: MONO, color: C.t1 }}>{fmtK(g.ask)}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, fontFamily: MONO, color: g.ask > 0 ? C.t1 : C.t4 }}>{g.ask > 0 ? fmtK(g.ask) : g.funderBudget ? `~${fmtK(g.funderBudget)}` : "TBD"}</span>
                 <DeadlineBadge d={d} deadline={g.deadline} stage={g.stage} />
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: stg?.c || C.t4 }} />
@@ -624,7 +628,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
           <div style={{ display: "flex", gap: 10, flex: 1, overflowX: "auto", paddingBottom: 10 }}>
             {entries.map(([ownerId, ownerGrants]) => {
               const m = getMember(ownerId);
-              const total = ownerGrants.reduce((s, g) => s + (g.ask || 0), 0);
+              const total = ownerGrants.reduce((s, g) => s + effectiveAsk(g), 0);
               // Color based on avatar palette
               const avatarColors = [
                 { bg: C.redSoft, accent: C.red },
@@ -685,7 +689,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                           <div style={{ fontSize: 13, fontWeight: 600, color: C.dark, marginBottom: 4, lineHeight: 1.3 }}>{g.name}</div>
                           <div style={{ fontSize: 11, color: C.t3, marginBottom: 6 }}>{g.funder}</div>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: C.t2, fontFamily: MONO }}>{fmtK(g.ask)}</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: g.ask > 0 ? C.t2 : C.t4, fontFamily: MONO }}>{g.ask > 0 ? fmtK(g.ask) : g.funderBudget ? `~${fmtK(g.funderBudget)}` : "TBD"}</span>
                             <DeadlineBadge d={d} deadline={g.deadline} stage={g.stage} />
                           </div>
                         </div>

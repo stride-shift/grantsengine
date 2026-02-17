@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmt, fmtK, dL, urgC, deadlineCtx, cp } from "../utils";
+import { fmt, fmtK, dL, urgC, deadlineCtx, cp, effectiveAsk } from "../utils";
 import { Num, CalendarStrip, DeadlineBadge, TypeBadge, Avatar, Label, Btn, CopyBtn } from "./index";
 
 export default function Dashboard({ grants, team, stages, onSelectGrant, onNavigate, onRunBrief, onRunReport, orgName }) {
@@ -16,7 +16,7 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
     const won = grants.filter(g => g.stage === "won");
     const lost = grants.filter(g => g.stage === "lost");
     const stageValues = (stages || []).filter(s => !["won", "lost", "deferred"].includes(s.id))
-      .map(s => grants.filter(g => g.stage === s.id).reduce((sum, g) => sum + (g.ask || 0), 0));
+      .map(s => grants.filter(g => g.stage === s.id).reduce((sum, g) => sum + effectiveAsk(g), 0));
     const wonValues = won.map(g => g.ask || 0).sort((a, b) => a - b);
     const wonCum = []; let wc = 0; for (const v of wonValues) { wc += v; wonCum.push(wc); }
 
@@ -45,12 +45,12 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
     const winRate = closed > 0 ? Math.round((won.length / closed) * 100) : null;
     // Weighted pipeline: submitted at 60%, drafting at 30%, qualifying at 15%, scouted at 5%
     const weights = { submitted: 0.6, awaiting: 0.6, review: 0.5, drafting: 0.3, qualifying: 0.15, scouted: 0.05 };
-    const weightedVal = act.reduce((s, g) => s + (g.ask || 0) * (weights[g.stage] || 0.1), 0);
+    const weightedVal = act.reduce((s, g) => s + effectiveAsk(g) * (weights[g.stage] || 0.1), 0);
 
     return {
       act, won, lost,
-      ask: act.reduce((s, g) => s + (g.ask || 0), 0),
-      wonV: won.reduce((s, g) => s + (g.ask || 0), 0),
+      ask: act.reduce((s, g) => s + effectiveAsk(g), 0),
+      wonV: won.reduce((s, g) => s + effectiveAsk(g), 0),
       stages: (stages || []).map(s => ({ ...s, n: grants.filter(g => g.stage === s.id).length })),
       sparkPipeline: stageValues.length > 1 ? stageValues : null,
       sparkWon: wonCum.length > 1 ? wonCum : null,
@@ -211,7 +211,10 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
         >
           <div style={{ fontSize: 12, fontWeight: 700, color: C.t3, marginBottom: 12, letterSpacing: 1.2, textTransform: "uppercase" }}>Active Pipeline</div>
           <div style={{ fontSize: 40, fontWeight: 800, color: C.primary, letterSpacing: -2, fontFamily: MONO, lineHeight: 1 }}>{fmt(pipe.ask)}</div>
-          <div style={{ fontSize: 12, color: C.t3, marginTop: 10, fontWeight: 500 }}>{pipe.act.length} grants in progress</div>
+          <div style={{ fontSize: 12, color: C.t3, marginTop: 10, fontWeight: 500 }}>
+            {pipe.act.length} grants in progress
+            {(() => { const tbd = pipe.act.filter(g => !g.ask || g.ask === 0).length; return tbd > 0 ? <span style={{ color: C.t4, marginLeft: 4 }}>· {tbd} TBD</span> : null; })()}
+          </div>
         </div>
         {/* Weighted pipeline — probability-adjusted */}
         <Num
@@ -446,7 +449,7 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
                       <div style={{ fontSize: 11, color: C.t3 }}>{g.funder}</div>
                     </div>
                     <TypeBadge type={g.type} />
-                    <div style={{ fontSize: 13, fontWeight: 600, color: C.t2, fontFamily: MONO, minWidth: 70, textAlign: "right" }}>{fmtK(g.ask)}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: g.ask > 0 ? C.t2 : C.t4, fontFamily: MONO, minWidth: 70, textAlign: "right" }}>{g.ask > 0 ? fmtK(g.ask) : g.funderBudget ? `~${fmtK(g.funderBudget)}` : "TBD"}</div>
                     <DeadlineBadge d={g._d} deadline={g.deadline} stage={g.stage} />
                   </div>
                 );
