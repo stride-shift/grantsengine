@@ -94,7 +94,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
           <div style={{ fontSize: 15, color: C.t2, fontWeight: 500, marginBottom: 8 }}>{g.funder}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <TypeBadge type={g.type} />
-            <DeadlineBadge d={d} deadline={g.deadline} size="md" />
+            <DeadlineBadge d={d} deadline={g.deadline} size="md" stage={g.stage} />
             {g.rel && g.rel !== "Cold" && (
               <span style={{ fontSize: 11, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "3px 10px", borderRadius: 20 }}>{g.rel}</span>
             )}
