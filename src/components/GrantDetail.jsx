@@ -286,6 +286,17 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
           const m = ai.fitscore.match(/VERDICT:\s*(.+)/);
           return m ? m[1].trim() : null;
         })() : null;
+        const fitError = ai.fitscore && isAIError(ai.fitscore) ? ai.fitscore : null;
+
+        const runFitScore = async () => {
+          setBusy(p => ({ ...p, fitscore: true }));
+          try {
+            const r = await onRunAI("fitscore", g);
+            setAi(p => ({ ...p, fitscore: r }));
+            if (!isAIError(r)) { onUpdate(g.id, { aiFitscore: r }); aiLog("AI Fit Score calculated"); }
+          } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
+          setBusy(p => ({ ...p, fitscore: false }));
+        };
 
         return (
           <div>
@@ -294,9 +305,9 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
               display: "flex", alignItems: "center", gap: 14, padding: "14px 20px",
               background: fitDone
                 ? `linear-gradient(135deg, ${fitScoreNum >= 70 ? C.okSoft : fitScoreNum >= 40 ? C.amberSoft : C.redSoft} 0%, ${C.white} 100%)`
-                : C.white,
+                : fitError ? C.redSoft + "40" : C.white,
               borderRadius: 14, boxShadow: C.cardShadow, marginBottom: 14,
-              border: fitDone ? `1.5px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}20` : `1.5px solid ${C.line}`,
+              border: fitDone ? `1.5px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}20` : fitError ? `1.5px solid ${C.red}20` : `1.5px solid ${C.line}`,
             }}>
               {fitDone && fitScoreNum !== null ? (
                 <>
@@ -310,36 +321,22 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>{fitVerdict || "Fit Score"}</div>
                     <div style={{ fontSize: 11, color: C.t3, marginTop: 2 }}>AI-assessed strategic fit with {g.funder}</div>
                   </div>
-                  <Btn v="ghost" onClick={async () => {
-                    setBusy(p => ({ ...p, fitscore: true }));
-                    try {
-                      const r = await onRunAI("fitscore", g);
-                      setAi(p => ({ ...p, fitscore: r }));
-                      if (!isAIError(r)) { onUpdate(g.id, { aiFitscore: r }); aiLog("AI Fit Score calculated"); }
-                    } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
-                    setBusy(p => ({ ...p, fitscore: false }));
-                  }} disabled={busy.fitscore} style={{ fontSize: 11, padding: "5px 12px" }}>{busy.fitscore ? "..." : "\u21bb"}</Btn>
+                  <Btn v="ghost" onClick={runFitScore} disabled={busy.fitscore} style={{ fontSize: 11, padding: "5px 12px" }}>{busy.fitscore ? "..." : "\u21bb"}</Btn>
                 </>
               ) : (
                 <>
                   <div style={{
                     width: 48, height: 48, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
-                    background: C.purpleSoft, color: C.purple, fontSize: 18,
+                    background: fitError ? C.redSoft : C.purpleSoft, color: fitError ? C.red : C.purple, fontSize: 18,
                     animation: busy.fitscore ? "ge-pulse 1.4s ease-in-out infinite" : "none",
-                  }}>{busy.fitscore ? "\u2026" : "\u2605"}</div>
+                  }}>{busy.fitscore ? "\u2026" : fitError ? "!" : "\u2605"}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>Fit Score</div>
-                    <div style={{ fontSize: 11, color: C.t3, marginTop: 2 }}>AI assesses how well this grant matches d-lab's profile</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: fitError ? C.red : C.dark }}>{fitError ? "Fit Score Failed" : "Fit Score"}</div>
+                    <div style={{ fontSize: 11, color: fitError ? C.red : C.t3, marginTop: 2 }}>
+                      {fitError || "AI assesses how well this grant matches d-lab's profile"}
+                    </div>
                   </div>
-                  <Btn v="primary" onClick={async () => {
-                    setBusy(p => ({ ...p, fitscore: true }));
-                    try {
-                      const r = await onRunAI("fitscore", g);
-                      setAi(p => ({ ...p, fitscore: r }));
-                      if (!isAIError(r)) { onUpdate(g.id, { aiFitscore: r }); aiLog("AI Fit Score calculated"); }
-                    } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
-                    setBusy(p => ({ ...p, fitscore: false }));
-                  }} disabled={busy.fitscore} style={{ fontSize: 12, padding: "7px 16px" }}>{busy.fitscore ? "Scoring..." : "Score"}</Btn>
+                  <Btn v="primary" onClick={runFitScore} disabled={busy.fitscore} style={{ fontSize: 12, padding: "7px 16px" }}>{busy.fitscore ? "Scoring..." : fitError ? "Retry" : "Score"}</Btn>
                 </>
               )}
             </div>
