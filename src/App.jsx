@@ -284,9 +284,19 @@ export default function App() {
         ? "RETURNING FUNDER — reference the existing relationship. This is a partner renewing, not a stranger."
         : `NEW FUNDER — relationship is "${grant.rel || "Cold"}". Make it easy to say yes to a first conversation.`;
       return await api(
-        `Grant writer for d-lab NPC, a South African NPO. Produce a COVER EMAIL then FULL PROPOSAL.
+        `You write funding proposals for d-lab NPC — a South African NPO that trains unemployed youth in AI-native digital skills, with a 92% completion rate and 85% employment within 3 months.
 
-COVER EMAIL: Subject line + 5-8 sentence body. Open with who you are + what you're submitting. One proof point. Close with low-friction next step. Sign off as director.
+VOICE — this is critical:
+- Warm, human, confident. You're a founder who KNOWS this works, offering a funder the chance to back something real.
+- Write like a person, not a grant machine. Let the reader feel the energy of what d-lab does.
+- Use vivid, specific details: a student's first day with ChatGPT, a graduate landing their first tech role, a coach watching the lightbulb moment. These aren't made up — they're the reality of d-lab's programme.
+- Be concrete and grounded: real numbers, real names, real programme details. Emotion comes from specificity, not adjectives.
+- Vary sentence length. Short punchy sentences land harder after longer ones.
+- The tone is: "We built something that works. Here's the proof. Here's what your investment makes possible."
+
+FRAMING: d-lab's story is the SYSTEM — 7 programme types, partner delivery model, in-house AI tools (LMS, Language Leveller, Assessornator, Cyborg Habits), corporate clients, diversified revenue. This isn't a charity asking for help. It's an engine asking for fuel.
+
+COVER EMAIL: Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." Open with the human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as director.
 
 PROPOSAL STRUCTURE (follow this funder-appropriate order):
 ${fs.structure.map((s, i) => `${i + 1}. ${s}`).join("\n")}
@@ -302,7 +312,14 @@ Use EXACT programme costs, director names, impact stats from the context. If gra
 
 FORMAT: "COVER EMAIL" heading, then separator, then "PROPOSAL" heading.
 
-NEVER: "I hope this finds you well", "SA has X% unemployment", "we believe/are passionate", invented budget figures.${priorResearch ? " Use the funder intelligence below to tailor tone and emphasis." : ""}${factGuard}`,
+ANTI-PATTERNS — never do these:
+- "I hope this finds you well" or any generic opener
+- "South Africa has X% youth unemployment" — every NPO says this, it's wallpaper
+- "We believe", "we are passionate", "making a difference" — hollow phrases
+- Leading with geography or province-counting
+- Dry lists without narrative thread — every section should MOVE the reader toward yes
+- Padding with generic development language — be specific to d-lab
+- Invented budget figures or statistics not in the context${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${factGuard}`,
         `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\nAsk: R${grant.ask?.toLocaleString()}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${researchBlock}`,
         false, 3000
       );
@@ -326,17 +343,24 @@ Use uploaded documents for additional context about the organisation. Reference 
     if (type === "followup") {
       const fs = funderStrategy(grant);
       return await api(
-        `You are a grants coordinator for d-lab NPC, a South African NPO. Draft a professional follow-up email for this grant application.
+        `You write follow-up emails for d-lab NPC, a South African NPO training youth in AI-native digital skills.
+
+VOICE: Professional but human. A confident founder checking in — not a desperate fundraiser chasing. Write like you would to a colleague you respect. No grovelling. No "just following up." This person's inbox is full — give them a reason to keep reading.
+
+REGISTER: ${grant.type === "Government/SETA" ? "Formal, reference compliance, accreditation, and regulatory alignment" : grant.type === "Corporate CSI" ? "Professional and sharp, mention B-BBEE value and brand alignment" : grant.type === "International" ? "Polished and global, reference SDG outcomes and evidence" : "Warm and direct, lead with outcomes and human impact"}
+
+FORMAT:
+Subject: [specific, compelling — NOT "Following up on our application"]
+[Body — 4-8 sentences max]
 
 The email should:
-- Be warm but professional — ${grant.type === "Government/SETA" ? "formal, reference compliance/accreditation" : grant.type === "Corporate CSI" ? "professional, mention B-BBEE value" : grant.type === "International" ? "polished, reference SDG outcomes" : "warm, outcomes-focused"}
+- Open with context (what was submitted, when) — but make it interesting, not administrative
 - Lead with what this funder cares about: "${fs.lead}"
-- Reference the specific grant/proposal submitted
-- Include one new proof point or update since submission
-- Close with a specific, low-friction next step (15-min call, site visit, "happy to answer questions")
-- Be concise (under 200 words)
+- Include one NEW proof point or update since submission — something that shows momentum
+- Close with a specific, low-friction next step (15-min call, site visit, "happy to send our latest impact data")
+- Under 200 words. Every sentence earns its place.
 - Sign off as the organisation director
-${fs.returning ? "- RETURNING FUNDER: Reference the existing relationship warmly. This is a partner." : "- NEW FUNDER: Be respectful, make it easy to say yes to a conversation."}${factGuard}`,
+${fs.returning ? "- RETURNING FUNDER: This is a partner. Reference the relationship warmly — you have shared history." : "- NEW FUNDER: Be respectful and make it easy to say yes to a conversation. Lower the bar: a call, a coffee, not a commitment."}${factGuard}`,
         `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nStage: ${grant.stage}\nAsk: R${grant.ask?.toLocaleString()}\nSubmitted: ${grant.subDate || "Not yet"}\nNotes: ${grant.notes || "None"}`,
         false, 1000
       );
