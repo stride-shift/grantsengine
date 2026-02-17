@@ -141,16 +141,16 @@ function ScoutLoader() {
 
 /* ── Scout: fallback data if API parse fails ── */
 const SCOUT_FALLBACK = [
-  { name: "NSF Digital Skills", funder: "National Skills Fund", type: "Government/SETA", ask: 2500000, deadline: null, fit: "High", reason: "Digital skills, youth employment, scalable partner model", url: "https://www.nsf.gov.za/", focus: ["Youth Employment", "Digital Skills"] },
-  { name: "W&R SETA Discretionary", funder: "Wholesale & Retail SETA", type: "Government/SETA", ask: 1500000, deadline: "2026-06-30", fit: "Medium", reason: "Digital skills for retail sector, youth employment", url: "https://www.wrseta.org.za/grant_application.aspx", focus: ["Digital Skills", "Youth Employment"] },
-  { name: "National Lotteries Commission", funder: "NLC Charities Sector", type: "Government/SETA", ask: 3000000, deadline: "2026-06-30", fit: "Medium", reason: "Community development, NPO registered, large grants", url: "https://nlcsa.org.za/how-to-apply/", focus: ["Youth Employment", "Education"] },
-  { name: "Oppenheimer Memorial Trust", funder: "OMT", type: "Foundation", ask: 550000, deadline: "2026-06-30", fit: "Medium", reason: "Education, under-resourced communities, biannual window", url: "https://www.omt.org.za/how-to-apply/", focus: ["Education", "Rural Dev"] },
-  { name: "FirstRand Foundation", funder: "FirstRand Foundation", type: "Foundation", ask: 2000000, deadline: null, fit: "High", reason: "Youth employment, education, innovation — rolling applications", url: "https://www.firstrandfoundation.org.za/apply", focus: ["Youth Employment", "Education"] },
-  { name: "Microsoft Skills for Jobs", funder: "Microsoft Philanthropies", type: "Tech Company", ask: 1500000, deadline: null, fit: "High", reason: "AI skills, digital employment, FET programme synergy", url: "https://www.microsoft.com/en-za/corporate-responsibility", focus: ["AI/4IR", "Digital Skills"] },
-  { name: "Ford Foundation Future of Work", funder: "Ford Foundation", type: "International", ask: 5400000, deadline: null, fit: "Medium", reason: "Future of work, digital economy, Global South", url: "https://www.fordfoundation.org/work/our-grants/", focus: ["Youth Employment", "AI/4IR"] },
-  { name: "Anglo American CSI", funder: "Anglo American", type: "Corporate CSI", ask: 2000000, deadline: null, fit: "Medium", reason: "Skills development, host communities, youth employment", url: "https://www.angloamerican.com/sustainability", focus: ["Youth Employment", "Digital Skills", "Rural Dev"] },
-  { name: "Standard Bank CSI", funder: "Standard Bank", type: "Corporate CSI", ask: 1500000, deadline: null, fit: "High", reason: "Youth skills, digital economy, B-BBEE alignment", url: "https://www.standardbank.co.za/southafrica/personal/about-us/corporate-social-investment", focus: ["Youth Employment", "Digital Skills"] },
-  { name: "Echoing Green Fellowship", funder: "Echoing Green", type: "International", ask: 1440000, deadline: "2026-03-15", fit: "Medium", reason: "Social entrepreneur fellowship, innovative models, early-stage", url: "https://echoinggreen.org/fellowship/", focus: ["Youth Employment", "Education"] },
+  { name: "NSF Digital Skills", funder: "National Skills Fund", type: "Government/SETA", ask: 2500000, deadline: null, fit: "High", reason: "Digital skills, youth employment, scalable partner model", url: "https://www.nsf.gov.za/", focus: ["Youth Employment", "Digital Skills"], access: "Open", accessNote: "NSF publishes open calls for skills development projects — apply through their online portal" },
+  { name: "W&R SETA Discretionary", funder: "Wholesale & Retail SETA", type: "Government/SETA", ask: 1500000, deadline: "2026-06-30", fit: "Medium", reason: "Digital skills for retail sector, youth employment", url: "https://www.wrseta.org.za/grant_application.aspx", focus: ["Digital Skills", "Youth Employment"], access: "Open", accessNote: "Discretionary grant window opens annually — application forms available on website" },
+  { name: "National Lotteries Commission", funder: "NLC Charities Sector", type: "Government/SETA", ask: 3000000, deadline: "2026-06-30", fit: "Medium", reason: "Community development, NPO registered, large grants", url: "https://nlcsa.org.za/how-to-apply/", focus: ["Youth Employment", "Education"], access: "Open", accessNote: "Online application portal open to registered NPOs — apply through nlcsa.org.za" },
+  { name: "Oppenheimer Memorial Trust", funder: "OMT", type: "Foundation", ask: 550000, deadline: "2026-06-30", fit: "Medium", reason: "Education, under-resourced communities, biannual window", url: "https://www.omt.org.za/how-to-apply/", focus: ["Education", "Rural Dev"], access: "Open", accessNote: "Biannual application windows — unsolicited proposals accepted through their website" },
+  { name: "FirstRand Foundation", funder: "FirstRand Foundation", type: "Foundation", ask: 2000000, deadline: null, fit: "High", reason: "Youth employment, education, innovation — rolling applications", url: "https://www.firstrandfoundation.org.za/apply", focus: ["Youth Employment", "Education"], access: "Open", accessNote: "Rolling applications accepted year-round through online portal" },
+  { name: "Microsoft Skills for Jobs", funder: "Microsoft Philanthropies", type: "Tech Company", ask: 1500000, deadline: null, fit: "High", reason: "AI skills, digital employment, FET programme synergy", url: "https://www.microsoft.com/en-za/corporate-responsibility", focus: ["AI/4IR", "Digital Skills"], access: "Relationship first", accessNote: "No public application portal — approach via Microsoft SA partnerships team or local CSI contacts" },
+  { name: "Ford Foundation Future of Work", funder: "Ford Foundation", type: "International", ask: 5400000, deadline: null, fit: "Medium", reason: "Future of work, digital economy, Global South", url: "https://www.fordfoundation.org/work/our-grants/", focus: ["Youth Employment", "AI/4IR"], access: "Relationship first", accessNote: "Submit a brief letter of inquiry — grants officer reviews before inviting full proposal" },
+  { name: "Anglo American CSI", funder: "Anglo American", type: "Corporate CSI", ask: 2000000, deadline: null, fit: "Medium", reason: "Skills development, host communities, youth employment", url: "https://www.angloamerican.com/sustainability", focus: ["Youth Employment", "Digital Skills", "Rural Dev"], access: "Relationship first", accessNote: "CSI proposals through their sustainability team — approach via Anglo American Foundation SA" },
+  { name: "Standard Bank CSI", funder: "Standard Bank", type: "Corporate CSI", ask: 1500000, deadline: null, fit: "High", reason: "Youth skills, digital economy, B-BBEE alignment", url: "https://www.standardbank.co.za/southafrica/personal/about-us/corporate-social-investment", focus: ["Youth Employment", "Digital Skills"], access: "Open", accessNote: "CSI application form available on website — accepts unsolicited proposals for education and skills" },
+  { name: "Echoing Green Fellowship", funder: "Echoing Green", type: "International", ask: 1440000, deadline: "2026-03-15", fit: "Medium", reason: "Social entrepreneur fellowship, innovative models, early-stage", url: "https://echoinggreen.org/fellowship/", focus: ["Youth Employment", "Education"], access: "Open", accessNote: "Annual fellowship application — open call with published deadline, apply online" },
 ];
 
 const parseScoutResults = (text) => {
@@ -256,7 +256,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
     const typeMap = { corporate: "Corporate CSI", csi: "Corporate CSI", government: "Government/SETA", seta: "Government/SETA", international: "International", foundation: "Foundation", tech: "Tech Company" };
     const gType = typeMap[Object.keys(typeMap).find(k => (s.type || "").toLowerCase().includes(k))] || "Foundation";
     const rawAsk = Number(s.ask) || 0;
-    const notes = `${s.reason || ""}${s.url ? "\nApply: " + s.url : ""}`;
+    const accessLine = s.access ? `\nAccess: ${s.access}${s.accessNote ? " — " + s.accessNote : ""}` : "";
+    const notes = `${s.reason || ""}${s.url ? "\nApply: " + s.url : ""}${accessLine}`;
     // Auto-align ask to nearest d-lab programme type budget
     const pt = detectType({ ask: rawAsk, notes });
     const alignedAsk = pt?.cost || rawAsk;
@@ -265,7 +266,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
       stage: "scouted", ask: alignedAsk, deadline: s.deadline || null,
       focus: s.focus || ["Youth Employment", "Digital Skills"], geo: [], rel: "Cold", pri: 3, hrs: 0,
       notes,
-      log: [{ d: td(), t: `Scouted by AI · ${pt?.label || "programme TBD"} · R${(alignedAsk || 0).toLocaleString()}` }],
+      log: [{ d: td(), t: `Scouted by AI · ${pt?.label || "programme TBD"} · R${(alignedAsk || 0).toLocaleString()}${s.access ? ` · ${s.access}` : ""}` }],
       on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null, applyUrl: s.url || "",
     };
     onAddGrant(newG);
@@ -428,6 +429,17 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                   {scoutResults.filter(s => s.deadline && new Date(s.deadline) < new Date()).length} expired
                 </span>
               )}
+              {(() => {
+                const open = scoutResults.filter(s => (s.access || "").toLowerCase() === "open").length;
+                const rel = scoutResults.filter(s => (s.access || "").toLowerCase().includes("relationship")).length;
+                const inv = scoutResults.filter(s => (s.access || "").toLowerCase().includes("invitation")).length;
+                if (!open && !rel && !inv) return null;
+                return <>
+                  {open > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "2px 8px", borderRadius: 100 }}>✓ {open} open</span>}
+                  {rel > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.amber, background: C.amberSoft, padding: "2px 8px", borderRadius: 100 }}>→ {rel} relationship</span>}
+                  {inv > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.red, background: C.redSoft, padding: "2px 8px", borderRadius: 100 }}>✕ {inv} invite-only</span>}
+                </>;
+              })()}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <Btn v="ghost" style={{ fontSize: 12, padding: "5px 12px" }} onClick={aiScout} disabled={scouting}>{scouting ? "Searching..." : "Search again"}</Btn>
@@ -439,33 +451,45 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
               const fitC = s.fit === "High" ? C.ok : s.fit === "Medium" ? C.amber : C.t4;
               const expired = s.deadline && new Date(s.deadline) < new Date();
               const alreadyIn = s.inPipeline || s.added;
+              const acc = (s.access || "").toLowerCase();
+              const accessC = acc === "open" ? C.ok : acc.includes("relationship") ? C.amber : acc.includes("invitation") ? C.red : C.t4;
+              const accessIcon = acc === "open" ? "✓" : acc.includes("relationship") ? "→" : acc.includes("invitation") ? "✕" : "?";
+              const isByInvite = acc.includes("invitation");
               return (
                 <div key={i} style={{
-                  padding: "12px 14px", background: s.added ? `${C.ok}08` : expired ? `${C.red}05` : C.bg, borderRadius: 10,
-                  border: `1px solid ${s.added ? C.ok + "30" : expired ? C.red + "25" : C.line}`,
-                  opacity: (s.inPipeline && !s.added) || expired ? 0.5 : 1,
+                  padding: "12px 14px", background: s.added ? `${C.ok}08` : expired ? `${C.red}05` : isByInvite ? `${C.red}04` : C.bg, borderRadius: 10,
+                  border: `1px solid ${s.added ? C.ok + "30" : expired ? C.red + "25" : isByInvite ? C.red + "15" : C.line}`,
+                  opacity: (s.inPipeline && !s.added) || expired ? 0.5 : isByInvite ? 0.6 : 1,
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 600, fontSize: 13, color: expired ? C.t4 : C.dark, textDecoration: expired ? "line-through" : "none" }}>{s.name}</span>
                         <span style={{ fontSize: 10, fontWeight: 600, color: fitC, background: fitC + "15", padding: "1px 7px", borderRadius: 100 }}>{s.fit}</span>
+                        {s.access && (
+                          <span style={{ fontSize: 10, fontWeight: 600, color: accessC, background: accessC + "15", padding: "1px 7px", borderRadius: 100 }} title={s.accessNote || ""}>{accessIcon} {s.access}</span>
+                        )}
                         {expired && <span style={{ fontSize: 10, fontWeight: 600, color: C.red, background: C.redSoft, padding: "1px 7px", borderRadius: 100 }}>Expired</span>}
-                        {s.added && <span style={{ fontSize: 10, fontWeight: 600, color: C.ok }}>{"\u2713"}</span>}
+                        {s.added && <span style={{ fontSize: 10, fontWeight: 600, color: C.ok }}>{"✓"}</span>}
                       </div>
                       <div style={{ fontSize: 12, color: C.t3 }}>
-                        {s.funder}{s.ask ? ` \u00b7 R${Number(s.ask).toLocaleString()}` : ""}{s.deadline ? ` \u00b7 ${new Date(s.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
+                        {s.funder}{s.ask ? ` · R${Number(s.ask).toLocaleString()}` : ""}{s.deadline ? ` · ${new Date(s.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
                       </div>
                       <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.4, marginTop: 3 }}>{s.reason}</div>
+                      {s.accessNote && (
+                        <div style={{ fontSize: 11, color: accessC, lineHeight: 1.4, marginTop: 3, fontStyle: "italic" }}>
+                          {acc === "open" ? "📋" : acc.includes("relationship") ? "🤝" : acc.includes("invitation") ? "🚫" : "❓"} {s.accessNote}
+                        </div>
+                      )}
                     </div>
                     <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                       {s.url && (
                         <a href={s.url} target="_blank" rel="noopener noreferrer"
                           style={{ fontSize: 11, color: C.purple, textDecoration: "none", padding: "4px 8px", border: `1px solid ${C.purple}25`, borderRadius: 5, fontFamily: FONT, fontWeight: 500 }}>
-                          {"\u2197"}
+                          {"↗"}
                         </a>
                       )}
-                      {!alreadyIn && !expired && (
+                      {!alreadyIn && !expired && !isByInvite && (
                         <button onClick={() => addScoutToPipeline(s)}
                           style={{ fontSize: 11, color: C.primary, padding: "4px 8px", border: `1px solid ${C.primary}30`, borderRadius: 5, background: "none", cursor: "pointer", fontFamily: FONT, fontWeight: 600 }}>
                           + Add
