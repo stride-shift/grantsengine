@@ -169,15 +169,28 @@ export default function App() {
     });
   };
 
-  const addGrant = (grant) => {
+  const addGrant = async (grant) => {
     const g = { ...grant, id: grant.id || uid() };
     setGrants(prev => [...prev, g]);
-    apiAddGrant(g);
+    try {
+      await apiAddGrant(g);
+    } catch (err) {
+      console.error("Failed to save grant:", g.name, err);
+      // Rollback optimistic update on failure
+      setGrants(prev => prev.filter(x => x.id !== g.id));
+    }
   };
 
-  const deleteGrant = (id) => {
+  const deleteGrant = async (id) => {
+    const backup = grants.find(g => g.id === id);
     setGrants(prev => prev.filter(g => g.id !== id));
-    removeGrant(id);
+    try {
+      await removeGrant(id);
+    } catch (err) {
+      console.error("Failed to delete grant:", id, err);
+      // Rollback — restore the grant
+      if (backup) setGrants(prev => [...prev, backup]);
+    }
   };
 
   // ── AI handler (enriched with uploads context + optional prior research) ──
