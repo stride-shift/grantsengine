@@ -194,7 +194,7 @@ export default function App() {
   };
 
   // ── AI handler (enriched with uploads context + optional prior research) ──
-  const runAI = async (type, grant, priorResearch) => {
+  const runAI = async (type, grant, priorResearch, priorFitScore) => {
     // Build org context — use context_slim to stay within API token limits
     const baseCtx = profile?.context_slim || profile?.mission || org?.name || "";
 
@@ -293,6 +293,9 @@ export default function App() {
       const researchBlock = priorResearch
         ? `\n\n=== FUNDER INTELLIGENCE (from prior research) ===\n${priorResearch.slice(0, 2000)}`
         : "";
+      const fitScoreBlock = (priorFitScore || grant.aiFitscore)
+        ? `\n\n=== FIT SCORE ANALYSIS ===\n${(priorFitScore || grant.aiFitscore).slice(0, 1500)}`
+        : "";
       const relNote = fs.returning
         ? "RETURNING FUNDER — reference the existing relationship. This is a partner renewing, not a stranger."
         : `NEW FUNDER — relationship is "${grant.rel || "Cold"}". Make it easy to say yes to a first conversation.`;
@@ -332,8 +335,8 @@ ANTI-PATTERNS — never do these:
 - Leading with geography or province-counting
 - Dry lists without narrative thread — every section should MOVE the reader toward yes
 - Padding with generic development language — be specific to d-lab
-- Invented budget figures or statistics not in the context${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${factGuard}`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\nAsk: R${grant.ask?.toLocaleString()}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${researchBlock}`,
+- Invented budget figures or statistics not in the context${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}${factGuard}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\nAsk: R${grant.ask?.toLocaleString()}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${researchBlock}${fitScoreBlock}`,
         false, 3000
       );
     }

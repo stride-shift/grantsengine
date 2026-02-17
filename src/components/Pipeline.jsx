@@ -3,6 +3,7 @@ import { C, FONT, MONO } from "../theme";
 import { fmt, fmtK, dL, uid, td } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "./index";
 import { scoutPrompt } from "../prompts";
+import { detectType, PTYPES } from "../data/funderStrategy";
 
 /* ── Scout: loading insights ── */
 const SCOUT_INSIGHTS = [
@@ -254,12 +255,17 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
   const addScoutToPipeline = (s) => {
     const typeMap = { corporate: "Corporate CSI", csi: "Corporate CSI", government: "Government/SETA", seta: "Government/SETA", international: "International", foundation: "Foundation", tech: "Tech Company" };
     const gType = typeMap[Object.keys(typeMap).find(k => (s.type || "").toLowerCase().includes(k))] || "Foundation";
+    const rawAsk = Number(s.ask) || 0;
+    const notes = `${s.reason || ""}${s.url ? "\nApply: " + s.url : ""}`;
+    // Auto-align ask to nearest d-lab programme type budget
+    const pt = detectType({ ask: rawAsk, notes });
+    const alignedAsk = pt?.cost || rawAsk;
     const newG = {
       id: uid(), name: s.name || "New Grant", funder: s.funder || "Unknown", type: gType,
-      stage: "scouted", ask: Number(s.ask) || 0, deadline: s.deadline || null,
+      stage: "scouted", ask: alignedAsk, deadline: s.deadline || null,
       focus: s.focus || ["Youth Employment", "Digital Skills"], geo: [], rel: "Cold", pri: 3, hrs: 0,
-      notes: `${s.reason || ""}${s.url ? "\nApply: " + s.url : ""}`,
-      log: [{ d: td(), t: "Scouted by AI" }],
+      notes,
+      log: [{ d: td(), t: `Scouted by AI · ${pt?.label || "programme TBD"} · R${(alignedAsk || 0).toLocaleString()}` }],
       on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null, applyUrl: s.url || "",
     };
     onAddGrant(newG);
@@ -487,7 +493,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                 style={{
                   minWidth: 220, maxWidth: 280, flex: 1, display: "flex", flexDirection: "column",
                   background: (stage.bg || C.bg) + "40", borderRadius: 14, padding: 8,
-                  borderTop: `3px solid ${stage.c}`,
+                  border: `1.5px solid ${stage.c}30`,
                 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px", marginBottom: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -506,7 +512,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                         onClick={() => onSelectGrant(g.id)}
                         style={{
                           background: C.white, borderRadius: 14, padding: "12px 14px",
-                          borderLeft: `3px solid ${stage.c}`,
+                          border: `1.5px solid ${stage.c}30`,
                           cursor: "pointer",
                           boxShadow: C.cardShadow,
                           transition: "box-shadow 0.15s, transform 0.15s",
@@ -611,7 +617,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                 <div key={ownerId} style={{
                   minWidth: 240, maxWidth: 300, flex: 1, display: "flex", flexDirection: "column",
                   background: ac.bg + "30", borderRadius: 14, padding: 8,
-                  borderTop: `3px solid ${ac.accent}`,
+                  border: `1.5px solid ${ac.accent}30`,
                 }}>
                   {/* Person header */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 8px 6px", marginBottom: 4 }}>
@@ -642,7 +648,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                           onClick={() => onSelectGrant(g.id)}
                           style={{
                             background: C.white, borderRadius: 14, padding: "12px 14px",
-                            borderLeft: `3px solid ${stg?.c || C.t4}`,
+                            border: `1.5px solid ${(stg?.c || C.t4)}30`,
                             cursor: "pointer", boxShadow: C.cardShadow,
                             transition: "box-shadow 0.15s, transform 0.15s",
                           }}

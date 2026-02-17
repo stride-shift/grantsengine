@@ -8,6 +8,8 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
   const [briefResult, setBriefResult] = useState(null);
   const [reportBusy, setReportBusy] = useState(false);
   const [reportResult, setReportResult] = useState(null);
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
+  const [showAllDeadlines, setShowAllDeadlines] = useState(false);
 
   const pipe = useMemo(() => {
     const act = grants.filter(g => !["won", "lost", "deferred"].includes(g.stage));
@@ -201,7 +203,7 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
         <div style={{
           flex: 1, minWidth: 200, padding: "22px 26px",
           background: `linear-gradient(135deg, ${C.primarySoft} 0%, ${C.white} 100%)`,
-          borderRadius: 16, borderLeft: `4px solid ${C.primary}`,
+          borderRadius: 16, border: `1.5px solid ${C.primary}25`,
           boxShadow: C.cardShadow, transition: "box-shadow 0.2s ease, transform 0.2s ease",
         }}
           onMouseEnter={e => { e.currentTarget.style.boxShadow = C.cardShadowHover; e.currentTarget.style.transform = "translateY(-2px)"; }}
@@ -318,12 +320,12 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
       {/* Calendar */}
       <CalendarStrip grants={grants} onClickGrant={onSelectGrant} C={C} />
 
-      {/* Notifications — white bg with colored left border, stage-aware */}
+      {/* Notifications — stage-aware deadline alerts */}
       {notifs.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <Label>Deadline Alerts</Label>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {notifs.slice(0, 8).map(n => {
+            {(showAllAlerts ? notifs : notifs.slice(0, 4)).map(n => {
               const borderColor = n.ty === "urgent" ? C.red : n.ty === "warn" ? C.amber : C.t4;
               const icon = n.ty === "urgent" ? "\u26a0" : n.ty === "warn" ? "!" : "\u25cb";
               return (
@@ -332,7 +334,7 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
                     display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
                     background: C.white,
                     borderRadius: 12, cursor: "pointer", fontSize: 13, color: C.t1,
-                    borderLeft: `4px solid ${borderColor}`,
+                    border: `1.5px solid ${borderColor}30`,
                     boxShadow: C.cardShadow,
                     transition: "transform 0.15s ease, box-shadow 0.15s ease",
                     opacity: n.ty === "info" ? 0.7 : 1,
@@ -346,6 +348,22 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
               );
             })}
           </div>
+          {notifs.length > 4 && (
+            <button onClick={() => setShowAllAlerts(p => !p)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                width: "100%", padding: "10px 0", marginTop: 8,
+                background: "none", border: "none", cursor: "pointer",
+                fontSize: 12, fontWeight: 600, color: C.t3, fontFamily: FONT,
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = C.primary}
+              onMouseLeave={e => e.currentTarget.style.color = C.t3}
+            >
+              {showAllAlerts ? "Show less" : `View all ${notifs.length} alerts`}
+              <span style={{ fontSize: 10, transform: showAllAlerts ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>{"\u25bc"}</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -356,7 +374,7 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
           <div key={s.id} onClick={() => onNavigate?.("pipeline")} style={{
             padding: "14px 22px", background: C.white, borderRadius: 14,
             boxShadow: C.cardShadow, minWidth: 100, textAlign: "center",
-            borderTop: `3px solid ${s.c}`, cursor: "pointer",
+            border: `1.5px solid ${s.c}30`, cursor: "pointer",
             transition: "transform 0.15s ease, box-shadow 0.15s ease",
           }}
             onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = C.cardShadowHover; }}
@@ -385,7 +403,7 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
         {(() => {
           // Pre-submission grants only — post-submission grants have already met deadline
           const preSubmission = ["scouted", "qualifying", "drafting", "review"];
-          const rows = grants
+          const allRows = grants
             .filter(g => g.deadline && preSubmission.includes(g.stage))
             .map(g => ({ ...g, _d: dL(g.deadline), _ctx: deadlineCtx(dL(g.deadline), g.stage) }))
             // Show upcoming first, then recently missed/expired (within 30 days)
@@ -396,41 +414,61 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
               if (a._d >= 0) return -1;
               if (b._d >= 0) return -1;
               return b._d - a._d; // More recently missed first
-            })
-            .slice(0, 10);
-          if (rows.length === 0) return (
+            });
+          const rows = showAllDeadlines ? allRows : allRows.slice(0, 5);
+          if (allRows.length === 0) return (
             <div style={{ padding: "20px 18px", fontSize: 13, color: C.t3, textAlign: "center" }}>
               No upcoming submission deadlines
             </div>
           );
-          return rows.map((g, idx) => {
-            const m = getMember(g.owner);
-            const stg = (stages || []).find(s => s.id === g.stage);
-            return (
-              <div key={g.id} onClick={() => onSelectGrant(g.id)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 12, padding: "12px 18px",
-                  borderBottom: `1px solid ${C.line}`, cursor: "pointer",
-                  background: idx % 2 === 1 ? C.warm100 : "transparent",
-                  opacity: g._ctx.severity === "expired" ? 0.6 : 1,
-                  transition: "background 0.15s ease, padding-left 0.15s ease, opacity 0.15s ease",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = C.hover; e.currentTarget.style.paddingLeft = "22px"; e.currentTarget.style.opacity = "1"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = idx % 2 === 1 ? C.warm100 : "transparent"; e.currentTarget.style.paddingLeft = "18px"; e.currentTarget.style.opacity = g._ctx.severity === "expired" ? "0.6" : "1"; }}>
-                <Avatar member={m} size={26} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {stg && <span style={{ width: 8, height: 8, borderRadius: "50%", background: stg.c, flexShrink: 0 }} />}
-                    <span style={{ fontSize: 13, fontWeight: 600, color: C.dark, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.name}</span>
+          return (
+            <>
+              {rows.map((g, idx) => {
+                const m = getMember(g.owner);
+                const stg = (stages || []).find(s => s.id === g.stage);
+                return (
+                  <div key={g.id} onClick={() => onSelectGrant(g.id)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12, padding: "12px 18px",
+                      borderBottom: `1px solid ${C.line}`, cursor: "pointer",
+                      background: idx % 2 === 1 ? C.warm100 : "transparent",
+                      opacity: g._ctx.severity === "expired" ? 0.6 : 1,
+                      transition: "background 0.15s ease, padding-left 0.15s ease, opacity 0.15s ease",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = C.hover; e.currentTarget.style.paddingLeft = "22px"; e.currentTarget.style.opacity = "1"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = idx % 2 === 1 ? C.warm100 : "transparent"; e.currentTarget.style.paddingLeft = "18px"; e.currentTarget.style.opacity = g._ctx.severity === "expired" ? "0.6" : "1"; }}>
+                    <Avatar member={m} size={26} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {stg && <span style={{ width: 8, height: 8, borderRadius: "50%", background: stg.c, flexShrink: 0 }} />}
+                        <span style={{ fontSize: 13, fontWeight: 600, color: C.dark, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.name}</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: C.t3 }}>{g.funder}</div>
+                    </div>
+                    <TypeBadge type={g.type} />
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.t2, fontFamily: MONO, minWidth: 70, textAlign: "right" }}>{fmtK(g.ask)}</div>
+                    <DeadlineBadge d={g._d} deadline={g.deadline} stage={g.stage} />
                   </div>
-                  <div style={{ fontSize: 11, color: C.t3 }}>{g.funder}</div>
-                </div>
-                <TypeBadge type={g.type} />
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.t2, fontFamily: MONO, minWidth: 70, textAlign: "right" }}>{fmtK(g.ask)}</div>
-                <DeadlineBadge d={g._d} deadline={g.deadline} stage={g.stage} />
-              </div>
-            );
-          });
+                );
+              })}
+              {allRows.length > 5 && (
+                <button onClick={() => setShowAllDeadlines(p => !p)}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    width: "100%", padding: "12px 0",
+                    background: "none", border: "none", cursor: "pointer",
+                    fontSize: 12, fontWeight: 600, color: C.t3, fontFamily: FONT,
+                    transition: "color 0.15s",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = C.primary}
+                  onMouseLeave={e => e.currentTarget.style.color = C.t3}
+                >
+                  {showAllDeadlines ? "Show less" : `View all ${allRows.length} deadlines`}
+                  <span style={{ fontSize: 10, transform: showAllDeadlines ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>{"\u25bc"}</span>
+                </button>
+              )}
+            </>
+          );
         })()}
       </div>
     </div>

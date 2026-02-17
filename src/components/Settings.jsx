@@ -26,7 +26,7 @@ export default function Settings({ org, profile, team, onUpdateProfile, onLogout
       <div style={{ width: 32, height: 4, background: C.primary, borderRadius: 2, marginBottom: 24 }} />
 
       {/* Org info */}
-      <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, borderLeft: `4px solid ${C.primary}` }}>
+      <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, border: `1.5px solid ${C.primary}25` }}>
         <Label>Organisation</Label>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div>
@@ -58,7 +58,7 @@ export default function Settings({ org, profile, team, onUpdateProfile, onLogout
 
       {/* Profile */}
       {profile && (
-        <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, borderLeft: `4px solid ${C.primary}` }}>
+        <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, border: `1.5px solid ${C.primary}25` }}>
           <Label>Profile</Label>
           <div style={{ marginBottom: 12 }}>
             <span style={{ fontSize: 11, color: C.t4, fontWeight: 600 }}>Mission</span>
@@ -80,7 +80,7 @@ export default function Settings({ org, profile, team, onUpdateProfile, onLogout
       )}
 
       {/* Knowledge Base */}
-      <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, borderLeft: `4px solid ${C.primary}` }}>
+      <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, border: `1.5px solid ${C.primary}25` }}>
         <UploadZone
           uploads={uploads}
           grantId={null}
@@ -94,7 +94,7 @@ export default function Settings({ org, profile, team, onUpdateProfile, onLogout
       </div>
 
       {/* Team */}
-      <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, borderLeft: `4px solid ${C.primary}` }}>
+      <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, border: `1.5px solid ${C.primary}25` }}>
         <Label>Team</Label>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {team.filter(t => t.id !== "team").map(m => (
@@ -119,7 +119,7 @@ export default function Settings({ org, profile, team, onUpdateProfile, onLogout
       </div>
 
       {/* Server status */}
-      <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, borderLeft: `4px solid ${C.primary}` }}>
+      <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, border: `1.5px solid ${C.primary}25` }}>
         <Label>System</Label>
         <div style={{ display: "flex", gap: 20 }}>
           <div>
