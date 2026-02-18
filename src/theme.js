@@ -81,10 +81,35 @@ export const FONT = `'Outfit', 'DM Sans', -apple-system, BlinkMacSystemFont, san
 export const MONO = `'JetBrains Mono', 'SF Mono', 'Fira Code', monospace`;
 
 export const injectFonts = () => {
-  if (typeof document !== "undefined" && !document.querySelector(`link[href*="Outfit"]`)) {
+  if (typeof document === "undefined") return;
+  if (!document.querySelector(`link[href*="Outfit"]`)) {
     const fontLink = document.createElement("link");
     fontLink.href = "https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap";
     fontLink.rel = "stylesheet";
     document.head.appendChild(fontLink);
+  }
+  // Inject shared keyframe animations once (used across App, Pipeline, Dashboard, GrantDetail, index)
+  if (!document.getElementById("ge-global-anims")) {
+    const style = document.createElement("style");
+    style.id = "ge-global-anims";
+    style.textContent = `
+      @keyframes ge-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+      @keyframes app-load-bar { 0% { width: 5%; margin-left: 0; } 50% { width: 60%; margin-left: 20%; } 100% { width: 5%; margin-left: 95%; } }
+      @keyframes scout-progress { 0% { width: 5%; } 30% { width: 35%; } 60% { width: 65%; } 80% { width: 85%; } 95% { width: 95%; } 100% { width: 98%; } }
+      @keyframes ai-load-bar { 0% { width: 5%; margin-left: 0; } 50% { width: 60%; margin-left: 20%; } 100% { width: 5%; margin-left: 95%; } }
+      @keyframes ai-expand { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 2000px; } }
+      /* ── Shared hover utilities (replaces inline onMouseEnter/Leave) ── */
+      .ge-hover-lift { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+      .ge-hover-lift:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(26,31,54,0.10), 0 2px 8px rgba(26,31,54,0.06); }
+      .ge-hover-slide { transition: background 0.15s ease, padding-left 0.15s ease, opacity 0.15s ease; }
+      .ge-hover-slide:hover { background: #F0F1F5; padding-left: 22px; opacity: 1 !important; }
+      .ge-hover-nudge { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+      .ge-hover-nudge:hover { transform: translateX(4px); box-shadow: 0 10px 30px rgba(26,31,54,0.10), 0 2px 8px rgba(26,31,54,0.06); opacity: 1 !important; }
+      .ge-hover-bar { transition: opacity 0.2s; }
+      .ge-hover-bar:hover { opacity: 1 !important; }
+      @keyframes ge-toast-in { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+      @keyframes ge-spin { to { transform: rotate(360deg); } }
+    `;
+    document.head.appendChild(style);
   }
 };

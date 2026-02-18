@@ -5,6 +5,17 @@ import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "./index";
 import { scoutPrompt } from "../prompts";
 import { detectType, PTYPES } from "../data/funderStrategy";
 
+const VIEW_OPTIONS = [["kanban", "Board"], ["list", "List"], ["person", "Person"]];
+const CLOSED_STAGES = ["won", "lost", "deferred"];
+const AVATAR_COLORS = [
+  { bg: C.redSoft, accent: C.red },
+  { bg: C.blueSoft, accent: C.blue },
+  { bg: C.amberSoft, accent: C.amber },
+  { bg: "#E6F5EE", accent: "#1A7A42" },
+  { bg: "#ECFEFF", accent: "#0891B2" },
+  { bg: C.purpleSoft, accent: C.purple },
+];
+
 /* ── Scout: loading insights ── */
 const SCOUT_INSIGHTS = [
   { label: "AI Skills Demand", stat: "4x", note: "Growth in AI job postings across Africa since 2023, with South Africa leading the continent", source: "LinkedIn Economic Graph" },
@@ -125,16 +136,7 @@ function ScoutLoader() {
         }} />
       </div>
 
-      <style>{`
-        @keyframes scout-progress {
-          0% { width: 5%; }
-          30% { width: 35%; }
-          60% { width: 65%; }
-          80% { width: 85%; }
-          95% { width: 95%; }
-          100% { width: 98%; }
-        }
-      `}</style>
+      {/* animations injected globally via injectFonts() */}
     </div>
   );
 }
@@ -205,6 +207,21 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
     return gs;
   }, [filtered, pSort]);
 
+  // Pre-compute person groups from sorted grants (avoids rebuild on every render)
+  const personEntries = useMemo(() => {
+    const map = new Map();
+    sorted.forEach(g => {
+      const ownerId = g.owner || "team";
+      if (!map.has(ownerId)) map.set(ownerId, []);
+      map.get(ownerId).push(g);
+    });
+    return [...map.entries()].sort((a, b) => {
+      if (a[0] === "team") return 1;
+      if (b[0] === "team") return -1;
+      return b[1].length - a[1].length;
+    });
+  }, [sorted]);
+
   const handleDrop = (stageId) => {
     if (!dragId) return;
     const g = grants.find(x => x.id === dragId);
@@ -214,11 +231,17 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
     setDragId(null);
   };
 
+  const [addError, setAddError] = useState("");
+
   const addGrant = () => {
-    if (!newName) return;
-    const enteredAsk = parseInt(newAsk) || 0;
+    const trimName = (newName || "").trim();
+    const trimFunder = (newFunder || "").trim();
+    if (!trimName || trimName.length < 2) { setAddError("Grant name must be at least 2 characters"); return; }
+    if (!trimFunder) { setAddError("Funder name is required"); return; }
+    setAddError("");
+    const enteredAsk = parseInt(newAsk.replace(/[,\s]/g, "")) || 0;
     const g = {
-      id: uid(), name: newName, funder: newFunder, type: newType,
+      id: uid(), name: trimName, funder: trimFunder, type: newType,
       stage: "scouted", ask: enteredAsk, funderBudget: enteredAsk || null,
       askSource: enteredAsk ? "manual" : null, aiRecommendedAsk: null,
       deadline: null,
@@ -235,7 +258,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
     setScouting(true);
     setScoutResults([]);
     const existing = grants
-      .filter(g => !["won", "lost", "deferred"].includes(g.stage))
+      .filter(g => !CLOSED_STAGES.includes(g.stage))
       .map(g => g.funder.toLowerCase());
     const existingFunders = [...new Set(existing)].join(", ");
 
@@ -275,8 +298,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
     setScoutResults(prev => prev.map(x => x.name === s.name && x.funder === s.funder ? { ...x, added: true } : x));
   };
 
-  const activeStages = STAGES.filter(s => !["won", "lost", "deferred"].includes(s.id));
-  const closedStages = STAGES.filter(s => ["won", "lost", "deferred"].includes(s.id));
+  const activeStages = STAGES.filter(s => !CLOSED_STAGES.includes(s.id));
+  const closedStages = STAGES.filter(s => CLOSED_STAGES.includes(s.id));
 
   return (
     <div style={{ padding: "28px 32px", height: "100%", display: "flex", flexDirection: "column" }}>
@@ -305,7 +328,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
             <option value="priority">By priority</option>
           </select>
           <div style={{ display: "flex", border: `1.5px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
-            {[["kanban","Board"],["list","List"],["person","Person"]].map(([k,l]) => (
+            {VIEW_OPTIONS.map(([k,l]) => (
               <button key={k} onClick={() => setPView(k)} style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: pView === k ? C.primary : C.white, color: pView === k ? "#fff" : C.t3, border: "none", cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>{l}</button>
             ))}
           </div>
@@ -408,8 +431,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
           </select>
           <input value={newAsk} onChange={e => setNewAsk(e.target.value)} placeholder="Ask (R)" type="number"
             style={{ width: 100, padding: "6px 10px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: MONO }} />
-          <Btn onClick={addGrant} disabled={!newName} style={{ fontSize: 12, padding: "6px 14px" }}>Add</Btn>
-          <Btn onClick={() => setShowAdd(false)} v="ghost" style={{ fontSize: 12, padding: "6px 10px" }}>Cancel</Btn>
+          <Btn onClick={addGrant} disabled={!newName?.trim()} style={{ fontSize: 12, padding: "6px 14px" }}>Add</Btn>
+          <Btn onClick={() => { setShowAdd(false); setAddError(""); }} v="ghost" style={{ fontSize: 12, padding: "6px 10px" }}>Cancel</Btn>
+          {addError && <span style={{ fontSize: 11, color: C.red, fontWeight: 500 }}>{addError}</span>}
         </div>
       )}
 
@@ -508,8 +532,36 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
         </div>
       )}
 
+      {/* Empty state — no grants at all */}
+      {grants.length === 0 && (
+        <div style={{ textAlign: "center", padding: "60px 20px", color: C.t3 }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: C.dark, marginBottom: 6 }}>No grants yet</div>
+          <div style={{ fontSize: 13, color: C.t3, marginBottom: 20, maxWidth: 360, margin: "0 auto 20px" }}>
+            Start by adding a grant manually, pasting a URL, or scouting for new opportunities.
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+            <Btn onClick={() => setShowAdd(true)} v="primary" style={{ fontSize: 13 }}>+ Add Grant</Btn>
+            <Btn onClick={aiScout} disabled={scouting} v="ghost" style={{ fontSize: 13, color: C.purple, borderColor: C.purple + "40" }}>☉ Scout</Btn>
+          </div>
+        </div>
+      )}
+
+      {/* Empty state — search/filter yielded no results */}
+      {grants.length > 0 && filtered.length === 0 && (
+        <div style={{ textAlign: "center", padding: "40px 20px", color: C.t3 }}>
+          <div style={{ fontSize: 28, marginBottom: 8 }}>🔍</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: C.t2, marginBottom: 4 }}>No matching grants</div>
+          <div style={{ fontSize: 13, color: C.t4 }}>
+            {q ? `No results for "${q}"` : `No ${sf} grants found`}
+            {" · "}
+            <button onClick={() => { setQ(""); setSf("all"); }} style={{ color: C.primary, background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontFamily: FONT, fontSize: 13 }}>Clear filters</button>
+          </div>
+        </div>
+      )}
+
       {/* Kanban view — stage-colored columns and cards */}
-      {pView === "kanban" && (
+      {pView === "kanban" && filtered.length > 0 && (
         <div style={{ display: "flex", gap: 10, flex: 1, overflowX: "auto", paddingBottom: 10 }}>
           {activeStages.map(stage => {
             const stageGrants = sorted.filter(g => g.stage === stage.id);
@@ -567,10 +619,10 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
       )}
 
       {/* List view — navy header */}
-      {pView === "list" && (
+      {pView === "list" && filtered.length > 0 && (
         <div style={{ background: C.white, borderRadius: 16, border: "none", overflow: "hidden", boxShadow: C.cardShadow }}>
           <div style={{
-            display: "grid", gridTemplateColumns: "2fr 1.5fr 110px 100px 90px 70px",
+            display: "grid", gridTemplateColumns: "2fr 1.5fr 140px 100px 90px 70px",
             padding: "10px 16px", background: C.navy, borderRadius: "16px 16px 0 0",
             fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: 0.5, textTransform: "uppercase",
           }}>
@@ -583,7 +635,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
             return (
               <div key={g.id} onClick={() => onSelectGrant(g.id)}
                 style={{
-                  display: "grid", gridTemplateColumns: "2fr 1.5fr 110px 100px 90px 70px",
+                  display: "grid", gridTemplateColumns: "2fr 1.5fr 140px 100px 90px 70px",
                   padding: "10px 16px", borderBottom: `1px solid ${C.line}`,
                   cursor: "pointer", alignItems: "center", transition: "background 0.1s",
                   background: idx % 2 === 1 ? C.warm100 : "transparent",
@@ -609,37 +661,14 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
       )}
 
       {/* Person view — grouped by team member */}
-      {pView === "person" && (() => {
-        // Build person groups from sorted grants
-        const personMap = new Map();
-        sorted.forEach(g => {
-          const ownerId = g.owner || "team";
-          if (!personMap.has(ownerId)) personMap.set(ownerId, []);
-          personMap.get(ownerId).push(g);
-        });
-        // Order: named members first (sorted by grant count desc), then "team" (unassigned) last
-        const entries = [...personMap.entries()].sort((a, b) => {
-          if (a[0] === "team") return 1;
-          if (b[0] === "team") return -1;
-          return b[1].length - a[1].length;
-        });
-
+      {pView === "person" && filtered.length > 0 && (() => {
         return (
           <div style={{ display: "flex", gap: 10, flex: 1, overflowX: "auto", paddingBottom: 10 }}>
-            {entries.map(([ownerId, ownerGrants]) => {
+            {personEntries.map(([ownerId, ownerGrants]) => {
               const m = getMember(ownerId);
               const total = ownerGrants.reduce((s, g) => s + effectiveAsk(g), 0);
-              // Color based on avatar palette
-              const avatarColors = [
-                { bg: C.redSoft, accent: C.red },
-                { bg: C.blueSoft, accent: C.blue },
-                { bg: C.amberSoft, accent: C.amber },
-                { bg: "#E6F5EE", accent: "#1A7A42" },
-                { bg: "#ECFEFF", accent: "#0891B2" },
-                { bg: C.purpleSoft, accent: C.purple },
-              ];
-              const cIdx = m.name ? m.name.charCodeAt(0) % avatarColors.length : avatarColors.length - 1;
-              const ac = avatarColors[cIdx];
+              const cIdx = m.name ? m.name.charCodeAt(0) % AVATAR_COLORS.length : AVATAR_COLORS.length - 1;
+              const ac = AVATAR_COLORS[cIdx];
 
               return (
                 <div key={ownerId} style={{

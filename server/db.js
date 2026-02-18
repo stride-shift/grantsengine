@@ -50,7 +50,7 @@ export const getOrgById = async (id) => {
 };
 
 export const getAllOrgs = async () => {
-  const { rows } = await pool().query('SELECT id, slug, name, website, industry, country, currency, setup_phase FROM orgs ORDER BY name');
+  const { rows } = await pool().query('SELECT id, slug, name, website, logo_url, industry, country, currency, setup_phase FROM orgs ORDER BY name');
   return rows;
 };
 
@@ -70,7 +70,7 @@ export const updateOrg = async (id, data) => {
   const vals = [];
   let i = 1;
   for (const [k, v] of Object.entries(data)) {
-    if (['slug', 'name', 'website', 'industry', 'country', 'currency', 'setup_phase'].includes(k)) {
+    if (['slug', 'name', 'website', 'logo_url', 'industry', 'country', 'currency', 'setup_phase'].includes(k)) {
       fields.push(`${k} = $${i++}`);
       vals.push(v);
     }

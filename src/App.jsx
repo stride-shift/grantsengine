@@ -15,6 +15,7 @@ import Dashboard from "./components/Dashboard";
 import Pipeline from "./components/Pipeline";
 import GrantDetail from "./components/GrantDetail";
 import Settings from "./components/Settings";
+import { ToastProvider, useToast } from "./components/Toast";
 
 injectFonts();
 
@@ -32,7 +33,22 @@ const DEFAULT_STAGES = [
 
 const DEFAULT_FTYPES = ["Corporate CSI", "Government/SETA", "International", "Foundation", "Tech Company"];
 
+const SIDEBAR_ITEMS = [
+  { id: "dashboard", label: "Dashboard", icon: "\u25a6" },
+  { id: "pipeline", label: "Pipeline", icon: "\u25b6" },
+  { id: "settings", label: "Settings", icon: "\u2699" },
+];
+
 export default function App() {
+  return (
+    <ToastProvider>
+      <AppInner />
+    </ToastProvider>
+  );
+}
+
+function AppInner() {
+  const toast = useToast();
   // ── Auth state ──
   const [authed, setAuthed] = useState(isLoggedIn());
   const [orgSlug, setOrgSlug] = useState(getAuth().slug);
@@ -51,11 +67,25 @@ export default function App() {
   const [sel, setSel] = useState(null);
   const [loading, setLoading] = useState(false);
   const saveTimers = useRef({});
+  const uploadsCache = useRef({});
 
-  // ── Debounced save ──
+  // ── Debounced save with status indicator ──
+  const [saveState, setSaveState] = useState("idle"); // "idle" | "saving" | "saved" | "error"
+  const saveStateTimer = useRef(null);
+
   const dSave = useCallback((grantId, data) => {
     clearTimeout(saveTimers.current[grantId]);
-    saveTimers.current[grantId] = setTimeout(() => saveGrant(data), 500);
+    saveTimers.current[grantId] = setTimeout(async () => {
+      setSaveState("saving");
+      try {
+        await saveGrant(data);
+        setSaveState("saved");
+        clearTimeout(saveStateTimer.current);
+        saveStateTimer.current = setTimeout(() => setSaveState("idle"), 2000);
+      } catch {
+        setSaveState("error");
+      }
+    }, 1000);
   }, []);
 
   // ── Load data after auth ──
@@ -94,6 +124,7 @@ export default function App() {
       }
     } catch (err) {
       console.error("Failed to load data:", err);
+      toast("Failed to load workspace data. Please refresh.", { type: "error", duration: 0 });
     }
     setLoading(false);
   }, []);
@@ -183,22 +214,36 @@ export default function App() {
     setGrants(prev => [...prev, g]);
     try {
       await apiAddGrant(g);
+      toast(`${g.name} added to pipeline`, { type: "success", duration: 3000 });
     } catch (err) {
       console.error("Failed to save grant:", g.name, err);
-      // Rollback optimistic update on failure
       setGrants(prev => prev.filter(x => x.id !== g.id));
+      toast(`Failed to add ${g.name}. Please try again.`, { type: "error" });
     }
   };
 
   const deleteGrant = async (id) => {
     const backup = grants.find(g => g.id === id);
+    if (!backup) return;
     setGrants(prev => prev.filter(g => g.id !== id));
+    // Show undo toast — restore if user clicks Undo within 5s
+    const undoId = toast(`${backup.name} deleted`, {
+      type: "undo",
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          setGrants(prev => [...prev, backup]);
+          toast(`${backup.name} restored`, { type: "success", duration: 2000 });
+        },
+      },
+    });
     try {
       await removeGrant(id);
     } catch (err) {
       console.error("Failed to delete grant:", id, err);
-      // Rollback — restore the grant
       if (backup) setGrants(prev => [...prev, backup]);
+      toast(`Failed to delete — ${backup.name} restored`, { type: "error" });
     }
   };
 
@@ -245,12 +290,16 @@ export default function App() {
       orgCtx += "\n\n" + profileSections.join("\n\n");
     }
 
-    // Load uploaded document context — these are the user's own documents, give them priority
+    // Load uploaded document context — cached per grant to avoid redundant fetches
     // Budgets reduced to stay within API rate limits (30K input tokens ≈ 22K chars total)
     const grantDocBudget = type === "draft" ? 3000 : 2000;
     const orgDocBudget = type === "draft" ? 2000 : 1500;
     try {
-      const uploads = await getUploadsContext(grant?.id);
+      const grantId = grant?.id;
+      if (!uploadsCache.current[grantId]) {
+        uploadsCache.current[grantId] = await getUploadsContext(grantId);
+      }
+      const uploads = uploadsCache.current[grantId];
       const sections = [];
 
       // Grant-level documents (HIGHEST priority — user uploaded these specifically for this grant)
@@ -567,13 +616,7 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
               animation: "app-load-bar 2.5s ease-in-out infinite",
             }} />
           </div>
-          <style>{`
-            @keyframes app-load-bar {
-              0% { width: 5%; margin-left: 0; }
-              50% { width: 60%; margin-left: 20%; }
-              100% { width: 5%; margin-left: 95%; }
-            }
-          `}</style>
+          {/* animations injected globally via injectFonts() */}
         </div>
       </div>
     );
@@ -585,12 +628,6 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
     const d = dL(g.deadline);
     return d !== null && d <= 14;
   }).length;
-
-  const sidebarItems = [
-    { id: "dashboard", label: "Dashboard", icon: "\u25a6" },
-    { id: "pipeline", label: "Pipeline", icon: "\u25b6" },
-    { id: "settings", label: "Settings", icon: "\u2699" },
-  ];
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", fontFamily: FONT, background: C.bg }}>
@@ -604,23 +641,32 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
         {/* Org header */}
         <div style={{ padding: "26px 20px 22px", borderBottom: `1px solid ${C.line}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {org?.logo_url ? (
+              <img src={org.logo_url} alt="" onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
+                style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", boxShadow: `0 2px 10px ${C.primaryGlow}` }} />
+            ) : null}
             <div style={{
               width: 36, height: 36, borderRadius: 10,
               background: `linear-gradient(135deg, ${C.primary} 0%, #E04840 100%)`,
-              display: "flex", alignItems: "center", justifyContent: "center",
+              display: org?.logo_url ? "none" : "flex", alignItems: "center", justifyContent: "center",
               fontSize: 15, fontWeight: 800, color: "#fff", fontFamily: MONO,
               boxShadow: `0 2px 10px ${C.primaryGlow}`,
             }}>{(org?.name || orgSlug)?.[0]?.toUpperCase()}</div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: C.dark, letterSpacing: -0.2 }}>{org?.name || orgSlug}</div>
-              <div style={{ fontSize: 10, color: C.t4, letterSpacing: 0.5, fontWeight: 500 }}>Grant Engine</div>
+              <div style={{ fontSize: 10, color: C.t4, letterSpacing: 0.5, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
+                Grant Engine
+                {saveState === "saving" && <span style={{ fontSize: 9, color: C.amber, fontWeight: 600, animation: "ge-pulse 1.2s ease-in-out infinite" }}>Saving...</span>}
+                {saveState === "saved" && <span style={{ fontSize: 9, color: C.ok, fontWeight: 600 }}>✓ Saved</span>}
+                {saveState === "error" && <span style={{ fontSize: 9, color: C.red, fontWeight: 600 }}>Save failed</span>}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Nav items */}
         <div style={{ flex: 1, padding: "20px 12px" }}>
-          {sidebarItems.map(item => {
+          {SIDEBAR_ITEMS.map(item => {
             const active = !sel && view === item.id;
             return (
               <button key={item.id}
@@ -731,8 +777,7 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
         ) : null}
       </div>
 
-      {/* Pulse animation */}
-      <style>{`@keyframes ge-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }`}</style>
+      {/* animations injected globally via injectFonts() */}
     </div>
   );
 }

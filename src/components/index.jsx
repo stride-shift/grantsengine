@@ -320,16 +320,7 @@ const AILoadingPanel = ({ title }) => {
         <span style={{ fontSize: 12, color: C.t2, lineHeight: 1.5 }}>{tip.tip}</span>
       </div>
 
-      <style>{`
-        @keyframes ai-load-bar {
-          0% { width: 3%; }
-          20% { width: 25%; }
-          45% { width: 50%; }
-          70% { width: 75%; }
-          90% { width: 92%; }
-          100% { width: 97%; }
-        }
-      `}</style>
+      {/* animations injected globally via injectFonts() */}
     </div>
   );
 };
@@ -459,12 +450,7 @@ export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, ste
           }}>{result}</div>
         </div>
       )}
-      <style>{`
-        @keyframes ai-expand {
-          from { opacity: 0; max-height: 0; }
-          to { opacity: 1; max-height: 600px; }
-        }
-      `}</style>
+      {/* animations injected globally via injectFonts() */}
     </div>
   );
 };

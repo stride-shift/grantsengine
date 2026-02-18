@@ -3,6 +3,9 @@ import { C, FONT, MONO } from "../theme";
 import { fmt, fmtK, dL, urgC, deadlineCtx, cp, effectiveAsk } from "../utils";
 import { Num, CalendarStrip, DeadlineBadge, TypeBadge, Avatar, Label, Btn, CopyBtn } from "./index";
 
+const CLOSED_STAGES = ["won", "lost", "deferred"];
+const PRE_SUBMISSION = ["scouted", "qualifying", "drafting", "review"];
+
 export default function Dashboard({ grants, team, stages, onSelectGrant, onNavigate, onRunBrief, onRunReport, orgName }) {
   const [briefBusy, setBriefBusy] = useState(false);
   const [briefResult, setBriefResult] = useState(null);
@@ -12,63 +15,67 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
   const [showAllDeadlines, setShowAllDeadlines] = useState(false);
 
   const pipe = useMemo(() => {
-    const act = grants.filter(g => !["won", "lost", "deferred"].includes(g.stage));
-    const won = grants.filter(g => g.stage === "won");
-    const lost = grants.filter(g => g.stage === "lost");
-    const stageValues = (stages || []).filter(s => !["won", "lost", "deferred"].includes(s.id))
-      .map(s => grants.filter(g => g.stage === s.id).reduce((sum, g) => sum + effectiveAsk(g), 0));
-    const wonValues = won.map(g => g.ask || 0).sort((a, b) => a - b);
-    const wonCum = []; let wc = 0; for (const v of wonValues) { wc += v; wonCum.push(wc); }
+    // Single pass: classify grants by stage and accumulate values
+    const act = [], won = [], lost = [], submitted = [], drafting = [];
+    const needsAction = [], expired = [], approaching = [];
+    const stageCounts = new Map();
+    const stageAskTotals = new Map();
+    const weights = { submitted: 0.6, awaiting: 0.6, review: 0.5, drafting: 0.3, qualifying: 0.15, scouted: 0.05 };
+    let totalAsk = 0, wonV = 0, weightedVal = 0;
 
-    // Pipeline health metrics — stage-aware deadline intelligence
-    const submitted = grants.filter(g => ["submitted", "awaiting"].includes(g.stage));
-    const drafting = grants.filter(g => g.stage === "drafting");
-    // Categorise deadline issues by severity (not a blanket "overdue")
-    const preSubmission = ["scouted", "qualifying", "drafting", "review"];
-    const needsAction = []; // Genuinely need attention
-    const expired = []; // Window closed, clean up
-    act.forEach(g => {
+    for (const g of grants) {
+      const ask = effectiveAsk(g);
+      stageCounts.set(g.stage, (stageCounts.get(g.stage) || 0) + 1);
+
+      if (g.stage === "won") { won.push(g); wonV += ask; continue; }
+      if (g.stage === "lost") { lost.push(g); continue; }
+      if (CLOSED_STAGES.includes(g.stage)) continue;
+
+      act.push(g);
+      totalAsk += ask;
+      weightedVal += ask * (weights[g.stage] || 0.1);
+      stageAskTotals.set(g.stage, (stageAskTotals.get(g.stage) || 0) + ask);
+
+      if (g.stage === "drafting") drafting.push(g);
+      if (["submitted", "awaiting"].includes(g.stage)) submitted.push(g);
+
+      // Deadline classification
       const d = dL(g.deadline);
-      if (d === null) return;
+      if (d === null) continue;
       const ctx = deadlineCtx(d, g.stage);
       if (ctx.severity === "expired") expired.push(g);
       else if (ctx.severity === "missed") needsAction.push(g);
-      else if (ctx.severity === "critical" && preSubmission.includes(g.stage)) needsAction.push(g);
-    });
-    // Approaching = pre-submission grants with deadline in next 14 days
-    const approaching = act.filter(g => {
-      const d = dL(g.deadline);
-      return d !== null && d > 0 && d <= 14 && preSubmission.includes(g.stage);
-    });
-    // Conversion: won / (won + lost) — only meaningful if we have closed grants
+      else if (ctx.severity === "critical" && PRE_SUBMISSION.includes(g.stage)) needsAction.push(g);
+      if (d > 0 && d <= 14 && PRE_SUBMISSION.includes(g.stage)) approaching.push(g);
+    }
+
+    const stageValues = (stages || []).filter(s => !CLOSED_STAGES.includes(s.id))
+      .map(s => stageAskTotals.get(s.id) || 0);
+    const wonValues = won.map(g => g.ask || 0).sort((a, b) => a - b);
+    const wonCum = []; let wc = 0; for (const v of wonValues) { wc += v; wonCum.push(wc); }
     const closed = won.length + lost.length;
-    const winRate = closed > 0 ? Math.round((won.length / closed) * 100) : null;
-    // Weighted pipeline: submitted at 60%, drafting at 30%, qualifying at 15%, scouted at 5%
-    const weights = { submitted: 0.6, awaiting: 0.6, review: 0.5, drafting: 0.3, qualifying: 0.15, scouted: 0.05 };
-    const weightedVal = act.reduce((s, g) => s + effectiveAsk(g) * (weights[g.stage] || 0.1), 0);
 
     return {
       act, won, lost,
-      ask: act.reduce((s, g) => s + effectiveAsk(g), 0),
-      wonV: won.reduce((s, g) => s + effectiveAsk(g), 0),
-      stages: (stages || []).map(s => ({ ...s, n: grants.filter(g => g.stage === s.id).length })),
+      ask: totalAsk, wonV,
+      stages: (stages || []).map(s => ({ ...s, n: stageCounts.get(s.id) || 0 })),
       sparkPipeline: stageValues.length > 1 ? stageValues : null,
       sparkWon: wonCum.length > 1 ? wonCum : null,
       submitted, drafting, needsAction, expired, approaching,
-      winRate, weightedVal, closed,
+      winRate: closed > 0 ? Math.round((won.length / closed) * 100) : null,
+      weightedVal, closed,
     };
   }, [grants, stages]);
 
   const notifs = useMemo(() => {
     const n = [];
-    const preSubmission = ["scouted", "qualifying", "drafting", "review"];
     grants.forEach(g => {
-      if (["won", "lost", "deferred"].includes(g.stage)) return;
+      if (CLOSED_STAGES.includes(g.stage)) return;
       const d = dL(g.deadline);
       if (d === null) return;
       const ctx = deadlineCtx(d, g.stage);
       // Post-submission grants — deadline is met, no alert needed
-      if (!preSubmission.includes(g.stage)) return;
+      if (!PRE_SUBMISSION.includes(g.stage)) return;
       // Stage-aware alerts
       if (ctx.severity === "missed") {
         n.push({ id: `ms-${g.id}`, ty: "warn", gid: g.id, tx: `${g.name} — missed deadline by ${Math.abs(d)} days (${g.stage})` });
@@ -200,15 +207,12 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
 
       {/* Hero metric + pipeline health */}
       <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
-        <div style={{
+        <div className="ge-hover-lift" style={{
           flex: 1, minWidth: 200, padding: "22px 26px",
           background: `linear-gradient(135deg, ${C.primarySoft} 0%, ${C.white} 100%)`,
           borderRadius: 16, border: `1.5px solid ${C.primary}25`,
-          boxShadow: C.cardShadow, transition: "box-shadow 0.2s ease, transform 0.2s ease",
-        }}
-          onMouseEnter={e => { e.currentTarget.style.boxShadow = C.cardShadowHover; e.currentTarget.style.transform = "translateY(-2px)"; }}
-          onMouseLeave={e => { e.currentTarget.style.boxShadow = C.cardShadow; e.currentTarget.style.transform = "none"; }}
-        >
+          boxShadow: C.cardShadow,
+        }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: C.t3, marginBottom: 12, letterSpacing: 1.2, textTransform: "uppercase" }}>Active Pipeline</div>
           <div style={{ fontSize: 40, fontWeight: 800, color: C.primary, letterSpacing: -2, fontFamily: MONO, lineHeight: 1 }}>{fmt(pipe.ask)}</div>
           <div style={{ fontSize: 12, color: C.t3, marginTop: 10, fontWeight: 500 }}>
@@ -236,17 +240,14 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
       }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 0.8, textTransform: "uppercase", whiteSpace: "nowrap" }}>Health</div>
         <div style={{ flex: 1, display: "flex", gap: 4, alignItems: "center" }}>
-          {pipe.stages.filter(s => !["won", "lost", "deferred"].includes(s.id) && s.n > 0).map(s => {
+          {pipe.stages.filter(s => !CLOSED_STAGES.includes(s.id) && s.n > 0).map(s => {
             const pct = Math.max(8, Math.min(100, (s.n / Math.max(1, pipe.act.length)) * 100));
             return (
               <div key={s.id} style={{ flex: pct, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <div style={{
+                <div className="ge-hover-bar" style={{
                   width: "100%", height: 8, borderRadius: 4,
                   background: s.c, opacity: 0.8,
-                  transition: "opacity 0.2s",
                 }}
-                  onMouseEnter={e => e.currentTarget.style.opacity = "1"}
-                  onMouseLeave={e => e.currentTarget.style.opacity = "0.8"}
                 />
                 <div style={{ fontSize: 9, fontWeight: 700, color: s.c }}>{s.n}</div>
                 <div style={{ fontSize: 8, color: C.t4, fontWeight: 600 }}>{s.label}</div>
@@ -332,18 +333,15 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
               const borderColor = n.ty === "urgent" ? C.red : n.ty === "warn" ? C.amber : C.t4;
               const icon = n.ty === "urgent" ? "\u26a0" : n.ty === "warn" ? "!" : "\u25cb";
               return (
-                <div key={n.id} onClick={() => onSelectGrant(n.gid)}
+                <div key={n.id} className="ge-hover-nudge" onClick={() => onSelectGrant(n.gid)}
                   style={{
                     display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
                     background: C.white,
                     borderRadius: 12, cursor: "pointer", fontSize: 13, color: C.t1,
                     border: `1.5px solid ${borderColor}30`,
                     boxShadow: C.cardShadow,
-                    transition: "transform 0.15s ease, box-shadow 0.15s ease",
                     opacity: n.ty === "info" ? 0.7 : 1,
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = "translateX(4px)"; e.currentTarget.style.boxShadow = C.cardShadowHover; e.currentTarget.style.opacity = "1"; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = C.cardShadow; e.currentTarget.style.opacity = n.ty === "info" ? "0.7" : "1"; }}>
+                  }}>
                   <span style={{ fontSize: 14 }}>{icon}</span>
                   <span style={{ flex: 1 }}>{n.tx}</span>
                   <span style={{ fontSize: 14, color: C.t4, flexShrink: 0, transition: "color 0.15s" }}>{"\u2192"}</span>
@@ -374,15 +372,11 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
       <Label>Pipeline by Stage</Label>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24 }}>
         {pipe.stages.filter(s => s.n > 0).map(s => (
-          <div key={s.id} onClick={() => onNavigate?.("pipeline")} style={{
+          <div key={s.id} className="ge-hover-lift" onClick={() => onNavigate?.("pipeline")} style={{
             padding: "14px 22px", background: C.white, borderRadius: 14,
             boxShadow: C.cardShadow, minWidth: 100, textAlign: "center",
             border: `1.5px solid ${s.c}30`, cursor: "pointer",
-            transition: "transform 0.15s ease, box-shadow 0.15s ease",
-          }}
-            onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = C.cardShadowHover; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = C.cardShadow; }}
-          >
+          }}>
             <div style={{ fontSize: 28, fontWeight: 800, color: s.c, fontFamily: MONO }}>{s.n}</div>
             <div style={{ fontSize: 11, color: C.t3, fontWeight: 600, marginTop: 2 }}>{s.label}</div>
           </div>
@@ -405,9 +399,8 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
         </div>
         {(() => {
           // Pre-submission grants only — post-submission grants have already met deadline
-          const preSubmission = ["scouted", "qualifying", "drafting", "review"];
           const allRows = grants
-            .filter(g => g.deadline && preSubmission.includes(g.stage))
+            .filter(g => g.deadline && PRE_SUBMISSION.includes(g.stage))
             .map(g => ({ ...g, _d: dL(g.deadline), _ctx: deadlineCtx(dL(g.deadline), g.stage) }))
             // Show upcoming first, then recently missed/expired (within 30 days)
             .filter(g => g._d > -30)
@@ -436,10 +429,8 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
                       borderBottom: `1px solid ${C.line}`, cursor: "pointer",
                       background: idx % 2 === 1 ? C.warm100 : "transparent",
                       opacity: g._ctx.severity === "expired" ? 0.6 : 1,
-                      transition: "background 0.15s ease, padding-left 0.15s ease, opacity 0.15s ease",
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.background = C.hover; e.currentTarget.style.paddingLeft = "22px"; e.currentTarget.style.opacity = "1"; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = idx % 2 === 1 ? C.warm100 : "transparent"; e.currentTarget.style.paddingLeft = "18px"; e.currentTarget.style.opacity = g._ctx.severity === "expired" ? "0.6" : "1"; }}>
+                    className="ge-hover-slide">
                     <Avatar member={m} size={26} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

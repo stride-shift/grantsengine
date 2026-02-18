@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { C, FONT, MONO } from "../theme";
 import { fmtK, dL, td, effectiveAsk } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, Label, Avatar, CopyBtn, AICard } from "./index";
@@ -75,15 +75,23 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
     onUpdate(grant.id, { log: [...prev, { d: td(), t: action }] });
   };
 
+  const uploadsLoaded = useRef(false);
   const loadUploads = useCallback(async () => {
     if (!grant?.id) return;
     try {
       const data = await getUploads(grant.id);
       setUploads(data);
+      uploadsLoaded.current = true;
     } catch { /* ignore */ }
   }, [grant?.id]);
 
-  useEffect(() => { loadUploads(); }, [loadUploads]);
+  // Reset upload state when switching grants
+  useEffect(() => { uploadsLoaded.current = false; setUploads([]); }, [grant?.id]);
+
+  // Lazy-load uploads only when Attachments tab is selected
+  useEffect(() => {
+    if (tab === "attachments" && !uploadsLoaded.current) loadUploads();
+  }, [tab, loadUploads]);
 
   if (!grant) return null;
   const g = grant;
@@ -186,26 +194,32 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
             Ask
             {sourceLabel && <span style={{ fontSize: 9, fontWeight: 600, color: sourceColor, background: sourceColor + "15", padding: "1px 6px", borderRadius: 4, letterSpacing: 0, textTransform: "none" }}>{sourceLabel}</span>}
           </div>
-          {editingAsk ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 16, fontWeight: 700, color: C.t3 }}>R</span>
-              <input type="number" autoFocus value={askInput} onChange={e => setAskInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && askInput) {
-                    const v = parseInt(askInput);
-                    if (v > 0) { up("ask", v); up("askSource", "user-override"); setEditingAsk(false); }
-                  }
-                  if (e.key === "Escape") setEditingAsk(false);
-                }}
-                style={{ width: 120, fontSize: 18, fontWeight: 700, fontFamily: MONO, border: `1.5px solid ${C.primary}40`, borderRadius: 8, padding: "4px 8px", outline: "none", background: C.white }}
-              />
-              <Btn v="primary" style={{ fontSize: 10, padding: "4px 10px" }} onClick={() => {
-                const v = parseInt(askInput);
-                if (v > 0) { up("ask", v); up("askSource", "user-override"); setEditingAsk(false); }
-              }}>Set</Btn>
-              <button onClick={() => setEditingAsk(false)} style={{ fontSize: 11, color: C.t4, background: "none", border: "none", cursor: "pointer" }}>✕</button>
+          {editingAsk ? (() => {
+            const parseAsk = (raw) => parseInt(String(raw).replace(/[,\s]/g, "")) || 0;
+            const commitAsk = () => {
+              const v = parseAsk(askInput);
+              if (v >= 1000) { up("ask", v); up("askSource", "user-override"); setEditingAsk(false); }
+            };
+            const parsed = parseAsk(askInput);
+            const isValid = parsed >= 1000;
+            return (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: C.t3 }}>R</span>
+                <input type="text" autoFocus value={askInput}
+                  onChange={e => setAskInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") commitAsk(); if (e.key === "Escape") setEditingAsk(false); }}
+                  placeholder="e.g. 1,200,000"
+                  style={{ width: 140, fontSize: 18, fontWeight: 700, fontFamily: MONO, border: `1.5px solid ${isValid || !askInput ? C.primary + "40" : C.red + "60"}`, borderRadius: 8, padding: "4px 8px", outline: "none", background: C.white }}
+                />
+                <Btn v="primary" style={{ fontSize: 10, padding: "4px 10px", opacity: isValid ? 1 : 0.5 }} onClick={commitAsk} disabled={!isValid}>Set</Btn>
+                <button onClick={() => setEditingAsk(false)} style={{ fontSize: 11, color: C.t4, background: "none", border: "none", cursor: "pointer" }}>✕</button>
+              </div>
+              {askInput && !isValid && <div style={{ fontSize: 10, color: C.red, marginTop: 4 }}>Min R1,000</div>}
+              {isValid && <div style={{ fontSize: 10, color: C.ok, marginTop: 4 }}>= R{parsed.toLocaleString()}</div>}
             </div>
-          ) : askIsSet ? (
+            );
+          })() : askIsSet ? (
             <>
               <div style={{ fontSize: 28, fontWeight: 800, fontFamily: MONO, color: C.primary }}>{fmtK(g.ask)}</div>
               {ptNum && (
