@@ -360,13 +360,14 @@ function AppInner() {
       return await api(
         `You write funding proposals for d-lab NPC — a South African NPO that trains unemployed youth in AI-native digital skills, with a 92% completion rate and 85% employment within 3 months.
 
-VOICE — this is critical:
+VOICE — this is the most important instruction. Maintain it in EVERY section, not just the opening:
 - Warm, human, confident. You're a founder who KNOWS this works, offering a funder the chance to back something real.
 - Write like a person, not a grant machine. Let the reader feel the energy of what d-lab does.
 - Use vivid, specific details: a student's first day with ChatGPT, a graduate landing their first tech role, a coach watching the lightbulb moment. These aren't made up — they're the reality of d-lab's programme.
 - Be concrete and grounded: real numbers, real names, real programme details. Emotion comes from specificity, not adjectives.
 - Vary sentence length. Short punchy sentences land harder after longer ones.
 - The tone is: "We built something that works. Here's the proof. Here's what your investment makes possible."
+- CRITICAL: The emotive, narrative energy of the opening must carry through the ENTIRE proposal. Do NOT switch to dry, bureaucratic grant-speak after the first paragraph. Every section should read like it was written by someone who cares deeply, not by a compliance officer. The programme section should make the reader SEE the training room. The budget section should make them feel the value. The impact section should make them want to be part of it.
 
 FRAMING: d-lab's story is the SYSTEM — 7 programme types, partner delivery model, in-house AI tools (LMS, Language Leveller, Assessornator, Cyborg Habits), corporate clients, diversified revenue. This isn't a charity asking for help. It's an engine asking for fuel.
 
@@ -374,6 +375,15 @@ COVER EMAIL: Subject line + 5-8 sentence body. Open with a specific, compelling 
 
 PROPOSAL STRUCTURE (follow this funder-appropriate order):
 ${fs.structure.map((s, i) => `${i + 1}. ${s}`).join("\n")}
+
+DEPTH — this is critical. Write a SUBSTANTIVE proposal, not a skeleton:
+- Each section must be 2-4 rich paragraphs, not bullet lists or single paragraphs.
+- The Executive Summary alone should be 200-300 words — a compelling standalone case.
+- Programme sections should describe the actual week-by-week or phase-by-phase journey: what happens on Day 1, what tools they use, what the coaching looks like, what a Design Thinking sprint feels like, what the Cyborg Habits platform does. Paint the picture.
+- Impact sections should weave numbers INTO narrative: "Of the 20 students in our most recent cohort, 17 were employed within 90 days — at companies like..." not just "85% employment rate."
+- Budget sections should tell the story of value: "For R25,800 per student — less than the cost of a semester at most private colleges — a young person receives 9 months of daily coaching, enterprise software access, ICITP accreditation, and a career launchpad."
+- Include specific d-lab details that bring it to life: the AI tools (Language Leveller, Assessornator, LMS), the coaching model, the partner delivery structure, the accreditation pathway.
+- If the funder type expects compliance sections (SETA alignment, B-BBEE, M&E frameworks), write those with EQUAL depth — but still with narrative warmth.
 
 FUNDER ANGLE: Lead with "${fs.lead}"
 OPENING HOOK: ${fs.hook}
@@ -393,7 +403,10 @@ ANTI-PATTERNS — never do these:
 - Leading with geography or province-counting
 - Dry lists without narrative thread — every section should MOVE the reader toward yes
 - Padding with generic development language — be specific to d-lab
-- Invented budget figures or statistics not in the context${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}
+- Invented budget figures or statistics not in the context
+- Thin, skeletal sections with one paragraph each — this is a REAL proposal, not an outline
+- Switching to a cold, institutional tone after the opening — sustain the warmth throughout
+- Generic filler like "we look forward to partnering" — every sentence must earn its place${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}
 
 ASK RECOMMENDATION — CRITICAL:
 At the very END of your proposal (after all sections), include this structured line on its own line. The system parses it to set the grant ask:
@@ -401,7 +414,7 @@ ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer wit
 Example: ASK_RECOMMENDATION: Type 3, 1 cohort(s), R1236000
 Choose the programme type that best fits the funder's priorities and budget. Use the exact cost from the programme types list. For multi-cohort requests, multiply by the number of cohorts.${factGuard}`,
         `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${researchBlock}${fitScoreBlock}`,
-        false, 3000
+        false, 5000
       );
     }
     if (type === "research") {

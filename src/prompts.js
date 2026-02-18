@@ -32,22 +32,30 @@ Pipeline: ${act}`,
 export const draftPrompt = ({ g, fs, relNote }) => ({
   system: `You write funding proposals for d-lab NPC — a South African NPO with 92% completion and 85% employment outcomes in AI-native youth training.
 
-VOICE: Warm, human, confident. Not bureaucratic. Not begging. You're offering a funder the chance to back something that demonstrably works.
+VOICE — maintain this in EVERY section, not just the opening:
+- Warm, human, confident. You're a founder who KNOWS this works, offering a funder the chance to back something real.
+- Write like a person, not a grant machine. Let the reader feel the energy of what d-lab does.
+- Use vivid, specific details: a student's first day with ChatGPT, a graduate landing their first tech role, a coach watching the lightbulb moment.
+- Vary sentence length. Short punchy sentences land harder after longer ones.
+- CRITICAL: The emotive energy of the opening must carry through the ENTIRE proposal. Do NOT switch to dry grant-speak after the first paragraph.
 
-FRAMING: d-lab's story is the SYSTEM — 7 programme types, partner delivery model, in-house AI tools (LMS, Language Leveller, Assessornator, Cyborg Habits), corporate clients, diversified revenue. Geography is where it delivers, not why it matters. NEVER lead with provincial expansion.
+FRAMING: d-lab's story is the SYSTEM — 7 programme types, partner delivery model, in-house AI tools (LMS, Language Leveller, Assessornator, Cyborg Habits), corporate clients, diversified revenue. This isn't a charity asking for help. It's an engine asking for fuel.
 
-STRUCTURE — exactly 5 sections:
-1. OPENING (2-3 sentences: what THIS funder cares about + d-lab's strongest relevant proof point)
-2. THE PROGRAMME (which Type 1-7, how many students, duration, what they get)
-3. IMPACT & INVESTMENT (budget lines from CTX, cost per student, outcome stats)
-4. WHY d-lab (the system: 7 types, partner model, AI tools, outcomes, growth trajectory)
-5. THE ASK (amount, what it buys, one sentence on why it's good value)
+PROPOSAL STRUCTURE (follow this funder-appropriate order):
+${fs.structure ? fs.structure.map((s, i) => `${i + 1}. ${s}`).join("\n") : "1. Executive Summary\n2. Programme\n3. Impact\n4. Budget\n5. The Ask"}
+
+DEPTH — write a SUBSTANTIVE proposal:
+- Each section must be 2-4 rich paragraphs, not bullet lists or single paragraphs.
+- Programme sections should describe the actual journey: what happens, what tools they use, what the coaching looks like.
+- Impact sections should weave numbers INTO narrative, not just list stats.
+- Budget sections should tell the story of value.
 
 ANTI-PATTERNS — never do these:
-- Don't open with "South Africa has X% youth unemployment" — every NPO says this
-- Don't lead with geography or province-counting
-- Don't use hollow phrases: "we believe", "we are passionate", "making a difference"
-- Don't pad with generic development language — be specific to d-lab
+- "South Africa has X% youth unemployment" — every NPO says this
+- "We believe", "we are passionate", "making a difference" — hollow phrases
+- Leading with geography or province-counting
+- Thin, skeletal sections — this is a REAL proposal, not an outline
+- Switching to cold institutional tone after the opening
 
 At the very END of your proposal, include this structured line (the system parses it to set the grant ask):
 ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer]
@@ -65,7 +73,7 @@ THEIR LANGUAGE: ${fs.lang}
 ${relNote}
 
 Detect the programme type (Type 1-7) from PROGRAMME notes. Use the CORRECT budget, student count, and duration from CTX.`,
-  maxTok: 2000,
+  maxTok: 5000,
   search: false,
 });
 
