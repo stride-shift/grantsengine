@@ -112,6 +112,17 @@ export const updateOrg = async (data) => {
   await f('', { method: 'PUT', body: JSON.stringify(data) });
 };
 
+export const uploadOrgLogo = async (file) => {
+  const form = new FormData();
+  form.append('logo', file);
+  const res = await f('/logo', { method: 'PUT', body: form });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Logo upload failed');
+  }
+  return res.json();
+};
+
 // ── Profile ──
 
 export const getProfile = async () => {

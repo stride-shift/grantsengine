@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS orgs (
   slug TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   website TEXT,
+  logo_url TEXT,
   industry TEXT,
   country TEXT DEFAULT 'South Africa',
   currency TEXT DEFAULT 'ZAR',
@@ -12,6 +13,8 @@ CREATE TABLE IF NOT EXISTS orgs (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+-- Migration for existing deployments
+ALTER TABLE orgs ADD COLUMN IF NOT EXISTS logo_url TEXT;
 
 CREATE TABLE IF NOT EXISTS org_profiles (
   org_id TEXT PRIMARY KEY REFERENCES orgs(id) ON DELETE CASCADE,
