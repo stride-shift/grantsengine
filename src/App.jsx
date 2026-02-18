@@ -363,10 +363,11 @@ function AppInner() {
 
     // Anti-hallucination instruction — added to every prompt type
     const factGuard = `\n\nCRITICAL ACCURACY RULES:
-- ONLY use facts, names, figures, dates, and programme costs that appear in the organisation context or uploaded documents provided below.
-- If specific information is not provided (e.g. a director's full name, exact budget figure, or date), write [TO BE CONFIRMED] rather than inventing it.
-- Never fabricate statistics, names, amounts, or achievements not present in the provided context.
-- The uploaded documents and organisation profile are your ONLY source of truth — do not hallucinate additional details.`;
+- Use facts, names, impact stats, and achievements from the organisation context and uploaded documents. These are your primary source of truth.
+- If specific information is not provided (e.g. a director's full name, exact date), write [TO BE CONFIRMED] rather than inventing it.
+- Never fabricate statistics, names, or achievements not present in the provided context.
+- You MAY creatively design programme structures, propose new combinations of d-lab's components, and scale up delivery models — but ground everything in d-lab's real capabilities and cost structures.
+- Programme costs should be realistic and derived from the provided cost-per-student figures, scaled appropriately for the proposed scope.`;
 
     if (type === "draft") {
       const fs = funderStrategy(grant);
@@ -392,6 +393,14 @@ VOICE — this is the most important instruction. Maintain it in EVERY section, 
 - CRITICAL: The emotive, narrative energy of the opening must carry through the ENTIRE proposal. Do NOT switch to dry, bureaucratic grant-speak after the first paragraph. Every section should read like it was written by someone who cares deeply, not by a compliance officer. The programme section should make the reader SEE the training room. The budget section should make them feel the value. The impact section should make them want to be part of it.
 
 FRAMING: d-lab's story is the SYSTEM — 7 programme types, partner delivery model, in-house AI tools (LMS, Language Leveller, Assessornator, Cyborg Habits), corporate clients, diversified revenue. This isn't a charity asking for help. It's an engine asking for fuel.
+
+AMBITION — think BIG. Do NOT constrain yourself to d-lab's smallest or cheapest programme type:
+- d-lab's 7 programme types are a GUIDE, not a cage. Use them as building blocks but design the programme around what the FUNDER wants to achieve.
+- If the funder can support R5M, don't propose R199K. Go large — propose multi-cohort, extended duration, wraparound services, employer partnerships, expansion to new sites.
+- Combine programme elements creatively: a 9-month accredited pathway PLUS a Cyborg Habits digital layer, a flagship cohort PLUS a Train-the-Trainer cascade model, an AI bootcamp PLUS a workplace integration programme.
+- Think about what would make the funder PROUD to back this. What's the version of d-lab's work that matches the scale of their ambition?
+- The budget should fill the funder's capacity, not sit timidly below it. If a corporate has R2M for CSI, propose R1.8M — not R500K.
+- Be guided by d-lab's actual costs and delivery model, but don't be limited by them. d-lab can scale up, add components, deepen impact, and design bespoke programmes for the right funder.
 
 COVER EMAIL: Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." Open with the human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as director.
 
@@ -433,8 +442,8 @@ ANTI-PATTERNS — never do these:
 ASK RECOMMENDATION — CRITICAL:
 At the very END of your proposal (after all sections), include this structured line on its own line. The system parses it to set the grant ask:
 ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer with no commas or spaces]
-Example: ASK_RECOMMENDATION: Type 3, 1 cohort(s), R1236000
-Choose the programme type that best fits the funder's priorities and budget. Use the exact cost from the programme types list. For multi-cohort requests, multiply by the number of cohorts.${factGuard}`,
+Example: ASK_RECOMMENDATION: Type 3, 2 cohort(s), R2472000
+Use d-lab's programme types as a starting framework, but MATCH THE ASK TO THE FUNDER'S CAPACITY. If the funder budget is R2M, don't propose R500K — propose something that fills their capacity with genuine impact. Go multi-cohort, add components, extend duration, propose a flagship programme. The ask should be ambitious but justified — every rand should map to real delivery.${factGuard}`,
         `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${researchBlock}${fitScoreBlock}`,
         false, 5000
       );

@@ -41,6 +41,12 @@ VOICE — maintain this in EVERY section, not just the opening:
 
 FRAMING: d-lab's story is the SYSTEM — 7 programme types, partner delivery model, in-house AI tools (LMS, Language Leveller, Assessornator, Cyborg Habits), corporate clients, diversified revenue. This isn't a charity asking for help. It's an engine asking for fuel.
 
+AMBITION — think BIG:
+- d-lab's 7 programme types are a GUIDE, not a cage. Use them as building blocks but design the programme around what the FUNDER wants to achieve.
+- If the funder can support R5M, don't propose R199K. Go large — propose multi-cohort, extended duration, wraparound services, employer partnerships.
+- Combine programme elements creatively. Think about what would make the funder PROUD to back this.
+- The budget should fill the funder's capacity, not sit timidly below it.
+
 PROPOSAL STRUCTURE (follow this funder-appropriate order):
 ${fs.structure ? fs.structure.map((s, i) => `${i + 1}. ${s}`).join("\n") : "1. Executive Summary\n2. Programme\n3. Impact\n4. Budget\n5. The Ask"}
 
@@ -56,9 +62,11 @@ ANTI-PATTERNS — never do these:
 - Leading with geography or province-counting
 - Thin, skeletal sections — this is a REAL proposal, not an outline
 - Switching to cold institutional tone after the opening
+- Proposing a small ask when the funder can clearly support more — match ambition to capacity
 
 At the very END of your proposal, include this structured line (the system parses it to set the grant ask):
 ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer]
+Match the ask to the funder's capacity. Go multi-cohort, add components, propose a flagship programme.
 
 ${CTX}`,
   user: `Proposal for ${g.name} to ${g.funder}.
@@ -72,7 +80,7 @@ OPENING HOOK: ${fs.hook}
 THEIR LANGUAGE: ${fs.lang}
 ${relNote}
 
-Detect the programme type (Type 1-7) from PROGRAMME notes. Use the CORRECT budget, student count, and duration from CTX.`,
+Use d-lab's programme types as building blocks. If the funder's budget supports it, go bigger — multi-cohort, extended, or a bespoke combination. Match ambition to the funder's capacity.`,
   maxTok: 5000,
   search: false,
 });
