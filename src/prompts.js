@@ -47,6 +47,12 @@ AMBITION — think BIG:
 - Combine programme elements creatively. Think about what would make the funder PROUD to back this.
 - The budget should fill the funder's capacity, not sit timidly below it.
 
+SCALE THROUGH AI — d-lab's secret weapon:
+- d-lab's proprietary AI tools (Language Leveller, Assessornator, LMS, Cyborg Habits) radically change training economics.
+- AI handles personalised feedback and assessment at zero marginal cost, freeing coaches for mentorship.
+- d-lab can train 2-3x the students of traditional providers at comparable cost. Lean into this when proposing large programmes.
+- Propose higher student numbers than funders expect. Make AI-enabled scale a headline differentiator.
+
 PROPOSAL STRUCTURE (follow this funder-appropriate order):
 ${fs.structure ? fs.structure.map((s, i) => `${i + 1}. ${s}`).join("\n") : "1. Executive Summary\n2. Programme\n3. Impact\n4. Budget\n5. The Ask"}
 
