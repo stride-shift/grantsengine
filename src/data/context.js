@@ -36,13 +36,13 @@ Corporate-funded leadership development for graduate hires. Design Thinking spri
 Budget: Phase/DT facilitation R122K, 8 Group coaching sessions R183K, 8 Reflection sessions R46K, Enneagram profiles R271K (R4,300 × 63), Contingency R29K = R651,000.
 Cost per participant: R10,333. Delivered via The Field Institute.
 
-TYPE 6: CYBORG HABITS SHORT COURSE (US$30/learner = ~R570)
+TYPE 6: CYBORG HABITS SHORT COURSE (US$49/learner = ~R930)
 4-6 week online behaviour-change challenge. Asynchronous, AI-supported work habits platform. Revenue-generating, scales to teachers/NGOs/corporates. Can be added to any cohort or sold standalone.
 
 TYPE 7: SCI-BONO EMPLOYABILITY SKILLS (R199K for 90 learners)
 Short-format: 15 working days over 13 weeks. 7 AI days (6 hrs/day, 2 coaches) + Design Thinking (1-day sprint + 5-day sprint + 2 presentation days).
-Budget: AI coaching R84K (2 coaches × R1K/hr × 6hrs × 7 days) + DT coaching R64K (1 coach × R2K/hr × 4hrs × 8 days) + Cyborg Habits platform R51K (US$30 × 90) = R199K.
-Cost per learner: R2,547 (incl VAT). Excludes venue/AV (Sci-Bono provides).
+Budget: AI coaching R84K (2 coaches × R1K/hr × 6hrs × 7 days) + DT coaching R64K (1 coach × R2K/hr × 4hrs × 8 days) + Cyborg Habits platform R84K (US$49 × 90) = R232K.
+Cost per learner: R2,576 (incl VAT). Excludes venue/AV (Sci-Bono provides).
 
 ══ 2026 ORGANISATIONAL BUDGET (from approved budget) ══
 
@@ -105,7 +105,7 @@ PROPOSAL STRATEGY: Match the programme type to the funder. Small foundations (R2
 export const CTX_SLIM = `d-lab NPC (The Field Lab NPC) — South African NPO training unemployed youth in AI-native digital skills.
 NPO 2017/382673/08 | PBO 930077003 | Section 18A tax-exempt. Director: Alison Jacobson.
 KEY OUTCOMES: 92% completion (vs 55% sector avg), 85% employment within 3 months, 29% pre-graduation placement, 60 learners in 2025.
-7 PROGRAMME TYPES: Type 1 Partner-funded cohort R516K/20 students | Type 2 d-lab funded R1.597M/20 | Type 3 With stipends R1.236M/20 | Type 4 FET R1.079M/60 | Type 5 Corporate R651K/63 | Type 6 Cyborg Habits R570/learner | Type 7 Short-format R199K/90.
+7 PROGRAMME TYPES: Type 1 Partner-funded cohort R516K/20 students | Type 2 d-lab funded R1.597M/20 | Type 3 With stipends R1.236M/20 | Type 4 FET R1.079M/60 | Type 5 Corporate R651K/63 | Type 6 Cyborg Habits R930/learner | Type 7 Short-format R232K/90.
 DELIVERY: Partner model — d-lab provides curriculum, coaching, AI tools, assessment, accreditation; local partners provide venue + recruitment. Current: Inkcubeko (Gauteng), Penreach (Mpumalanga).
 AI TOOLS (in-house): LMS, Language Leveller, Assessornator, Cyborg Habits platform.
 FUNDERS: Telkom Foundation, Get It Done Foundation, TK Foundation, Sage Foundation, SAP, C-Track, EOH.
