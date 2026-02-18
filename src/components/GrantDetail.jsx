@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { C, FONT, MONO } from "../theme";
 import { fmtK, dL, td, effectiveAsk } from "../utils";
-import { Btn, DeadlineBadge, TypeBadge, Tag, Label, Avatar, CopyBtn, AICard } from "./index";
+import { Btn, DeadlineBadge, TypeBadge, Tag, Label, Avatar, CopyBtn, AICard, stripMd } from "./index";
 import UploadZone from "./UploadZone";
 import { getUploads } from "../api";
 import { detectType, PTYPES, multiCohortInfo } from "../data/funderStrategy";
@@ -671,7 +671,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 border: `1.5px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}25`,
                 fontSize: 13, lineHeight: 1.7, color: C.t1, whiteSpace: "pre-wrap",
                 marginBottom: 14, maxHeight: 200, overflow: "auto",
-              }}>{ai.fitscore}</div>
+              }}>{stripMd(ai.fitscore)}</div>
             )}
             {/* Fit Score version history */}
             {g.fitscoreHistory && g.fitscoreHistory.length > 0 && (

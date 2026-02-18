@@ -2,6 +2,17 @@ import { useState, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
 import { dL, urgC, urgLabel, deadlineCtx, cp } from "../utils";
 
+// Strip markdown bold/italic asterisks for inline display
+export const stripMd = (text) => {
+  if (!text || typeof text !== "string") return text;
+  return text
+    .replace(/\*\*\*(.+?)\*\*\*/g, "$1")  // ***bold italic***
+    .replace(/\*\*(.+?)\*\*/g, "$1")       // **bold**
+    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "$1")  // *italic* (not **)
+    .replace(/^#{1,6}\s+/gm, "")           // # headings
+    .replace(/^[-*]\s+/gm, "• ");          // - or * list items → bullet
+};
+
 export const DeadlineBadge = ({ d, deadline, size = "sm", stage }) => {
   if (d === null) return null;
   // Use stage-aware context if stage is provided, otherwise fall back to raw urgency
@@ -447,7 +458,7 @@ export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, ste
             border: `1.5px solid ${C.primary}20`,
             fontSize: 13.5, lineHeight: 1.85, color: C.t1, whiteSpace: "pre-wrap",
             maxHeight: 500, overflow: "auto",
-          }}>{result}</div>
+          }}>{stripMd(result)}</div>
         </div>
       )}
       {/* animations injected globally via injectFonts() */}
