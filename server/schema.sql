@@ -100,6 +100,8 @@ CREATE TABLE IF NOT EXISTS grants (
 );
 CREATE INDEX IF NOT EXISTS idx_grants_org ON grants(org_id);
 CREATE INDEX IF NOT EXISTS idx_grants_stage ON grants(org_id, stage);
+-- Migration: store AI-generated content (drafts, research, fit scores, etc.)
+ALTER TABLE grants ADD COLUMN IF NOT EXISTS ai_data TEXT DEFAULT '{}';
 
 CREATE TABLE IF NOT EXISTS funder_strategies (
   id TEXT PRIMARY KEY,
