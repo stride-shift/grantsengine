@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { C, FONT, MONO } from "../theme";
 import { fmtK, dL, td, effectiveAsk } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, Label, Avatar, CopyBtn, AICard } from "./index";
 import UploadZone from "./UploadZone";
 import { getUploads } from "../api";
 import { detectType, PTYPES, multiCohortInfo } from "../data/funderStrategy";
+import { DOCS, DOC_MAP, ORG_DOCS } from "../data/constants";
 
 // Helper: format a timestamp for display
 const timeAgo = (iso) => {
@@ -43,7 +44,7 @@ const extractAskFromDraft = (draftText) => {
   return { ask: detectedPt.cost * mcCount, typeNum: detectedNum, mcCount };
 };
 
-export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate, onDelete, onBack, onRunAI }) {
+export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], onUpdate, onDelete, onBack, onRunAI }) {
   const [tab, setTab] = useState("overview");
   const [busy, setBusy] = useState({});
   const [ai, setAi] = useState(() => ({
@@ -103,8 +104,31 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
 
   const up = (field, value) => onUpdate(g.id, { [field]: value });
 
+  // ── Doc readiness for this grant's funder type ──
+  const compMap = useMemo(() => {
+    const m = {};
+    for (const c of complianceDocs) m[c.doc_id] = c;
+    return m;
+  }, [complianceDocs]);
+
+  const docReadiness = useMemo(() => {
+    const required = DOCS[g.type];
+    if (!required) return null;
+    let ready = 0;
+    for (const docName of required) {
+      const orgDocId = DOC_MAP[docName];
+      if (orgDocId) {
+        const cd = compMap[orgDocId];
+        if (cd && (cd.status === "valid" || cd.status === "uploaded")) ready++;
+      }
+      // Grant-specific docs (no DOC_MAP entry) are not counted in readiness
+    }
+    return { ready, total: required.length };
+  }, [g.type, compMap]);
+
   const tabs = [
     { id: "overview", label: "Overview" },
+    { id: "docs", label: docReadiness ? `Docs (${docReadiness.ready}/${docReadiness.total})` : "Docs" },
     { id: "notes", label: "Notes" },
     { id: "attachments", label: `Attachments${uploads.length ? ` (${uploads.length})` : ""}` },
     { id: "activity", label: "Activity" },
@@ -342,6 +366,164 @@ export default function GrantDetail({ grant, team, stages, funderTypes, onUpdate
           </div>
         </div>
       )}
+
+      {/* Docs — Required documents checklist */}
+      {tab === "docs" && (() => {
+        const required = DOCS[g.type];
+        if (!required) {
+          return (
+            <div style={{ background: C.white, borderRadius: 16, padding: 32, boxShadow: C.cardShadow, textAlign: "center" }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: C.dark, marginBottom: 4 }}>Set a Funder Type</div>
+              <div style={{ fontSize: 13, color: C.t3, lineHeight: 1.6 }}>
+                Select a funder type on the Overview tab to see which documents are required for this application.
+              </div>
+            </div>
+          );
+        }
+
+        // Split required docs into org-level (has DOC_MAP entry) and grant-specific
+        const orgDocs = [];
+        const grantDocs = [];
+        for (const docName of required) {
+          const orgDocId = DOC_MAP[docName];
+          if (orgDocId) {
+            const cd = compMap[orgDocId];
+            const orgDocDef = ORG_DOCS.find(od => od.id === orgDocId);
+            const dl = cd?.expiry ? Math.ceil((new Date(cd.expiry) - new Date()) / 86400000) : null;
+            let status = "missing", statusLabel = "Missing", statusColor = C.red, statusBg = C.redSoft, statusIcon = "✗";
+            if (cd && (cd.status === "valid" || cd.status === "uploaded")) {
+              if (dl !== null && dl <= 0) {
+                status = "expired"; statusLabel = "Expired"; statusColor = C.red; statusBg = C.redSoft; statusIcon = "✗";
+              } else if (dl !== null && dl <= 30) {
+                status = "expiring"; statusLabel = `Expires in ${dl}d`; statusColor = C.amber; statusBg = C.amberSoft; statusIcon = "⚠";
+              } else {
+                status = "valid"; statusLabel = "Valid"; statusColor = C.ok; statusBg = C.okSoft; statusIcon = "✓";
+              }
+            } else if (cd?.status === "expired") {
+              status = "expired"; statusLabel = "Expired"; statusColor = C.red; statusBg = C.redSoft; statusIcon = "✗";
+            }
+            orgDocs.push({ docName, orgDocId, cd, orgDocDef, status, statusLabel, statusColor, statusBg, statusIcon });
+          } else {
+            grantDocs.push(docName);
+          }
+        }
+
+        return (
+          <div>
+            {/* Summary */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>
+                Required for {g.type}
+              </div>
+              {docReadiness && (
+                <span style={{
+                  fontSize: 12, fontWeight: 700,
+                  color: docReadiness.ready === docReadiness.total ? C.ok : C.t2,
+                }}>
+                  {docReadiness.ready}/{docReadiness.total} ready
+                </span>
+              )}
+            </div>
+
+            {/* Progress bar */}
+            {docReadiness && (
+              <div style={{ height: 4, background: C.line, borderRadius: 2, marginBottom: 20, overflow: "hidden" }}>
+                <div style={{
+                  height: "100%",
+                  width: `${(docReadiness.ready / docReadiness.total) * 100}%`,
+                  background: docReadiness.ready === docReadiness.total ? C.ok : C.primary,
+                  borderRadius: 2,
+                  transition: "width 0.3s ease",
+                }} />
+              </div>
+            )}
+
+            {/* Org-level documents */}
+            {orgDocs.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, paddingLeft: 4 }}>
+                  Organisation Documents
+                </div>
+                <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden" }}>
+                  {orgDocs.map((doc, i) => (
+                    <div
+                      key={doc.orgDocId}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "10px 14px",
+                        borderBottom: i < orgDocs.length - 1 ? `1px solid ${C.line}` : "none",
+                        background: "transparent",
+                      }}
+                    >
+                      <span style={{
+                        width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 11, fontWeight: 800, color: doc.statusColor, background: doc.statusBg,
+                      }}>
+                        {doc.statusIcon}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: C.dark }}>{doc.docName}</div>
+                        {doc.orgDocDef?.desc && (
+                          <div style={{ fontSize: 11, color: C.t4, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {doc.orgDocDef.desc}
+                          </div>
+                        )}
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: doc.statusColor, whiteSpace: "nowrap" }}>
+                        {doc.statusLabel}
+                      </span>
+                      {doc.cd?.file_name && (
+                        <span style={{ fontSize: 10, color: C.t4, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          📄 {doc.cd.file_name}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, color: C.t4, marginTop: 8, paddingLeft: 4 }}>
+                  Manage these documents in <span style={{ fontWeight: 600, color: C.primary, cursor: "default" }}>Settings → Compliance Documents</span>
+                </div>
+              </div>
+            )}
+
+            {/* Grant-specific documents */}
+            {grantDocs.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, paddingLeft: 4 }}>
+                  Grant-Specific Documents
+                </div>
+                <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden" }}>
+                  {grantDocs.map((docName, i) => (
+                    <div
+                      key={docName}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "10px 14px",
+                        borderBottom: i < grantDocs.length - 1 ? `1px solid ${C.line}` : "none",
+                      }}
+                    >
+                      <span style={{
+                        width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 12, color: C.t4, background: C.hover,
+                      }}>
+                        ○
+                      </span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: C.dark }}>{docName}</div>
+                      </div>
+                      <span style={{ fontSize: 11, color: C.t4 }}>Prepare for submission</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, color: C.t4, marginTop: 8, paddingLeft: 4 }}>
+                  Upload these in the <span style={{ fontWeight: 600, color: C.primary, cursor: "default" }}>Attachments</span> tab for this grant.
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Notes */}
       {tab === "notes" && (

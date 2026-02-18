@@ -7,6 +7,7 @@ import {
   getGrants, saveGrant, addGrant as apiAddGrant, removeGrant,
   getTeam, getProfile, getPipelineConfig, getOrg, checkHealth, api,
   getUploadsContext,
+  getCompliance, updateComplianceDoc, createComplianceDoc,
 } from "./api";
 
 import OrgSelector from "./components/OrgSelector";
@@ -66,6 +67,7 @@ function AppInner() {
   const [view, setView] = useState("dashboard");
   const [sel, setSel] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [complianceDocs, setComplianceDocs] = useState([]);
   const saveTimers = useRef({});
   const uploadsCache = useRef({});
 
@@ -92,14 +94,16 @@ function AppInner() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [orgData, grantsData, teamData, profileData, pipeConfig] = await Promise.all([
+      const [orgData, grantsData, teamData, profileData, pipeConfig, compData] = await Promise.all([
         getOrg(),
         getGrants(),
         getTeam(),
         getProfile(),
         getPipelineConfig(),
+        getCompliance().catch(() => []),
       ]);
       setOrg(orgData);
+      setComplianceDocs(compData || []);
 
       // Migrate existing grants: backfill funderBudget/askSource for pre-redesign grants
       const raw = grantsData || [];
@@ -244,6 +248,24 @@ function AppInner() {
       console.error("Failed to delete grant:", id, err);
       if (backup) setGrants(prev => [...prev, backup]);
       toast(`Failed to delete — ${backup.name} restored`, { type: "error" });
+    }
+  };
+
+  // ── Compliance doc mutations ──
+  const upsertCompDoc = async (doc) => {
+    try {
+      if (doc.id) {
+        await updateComplianceDoc(doc.id, doc);
+      } else {
+        const result = await createComplianceDoc(doc);
+        doc = { ...doc, id: result.id };
+      }
+      const updated = await getCompliance().catch(() => []);
+      setComplianceDocs(updated || []);
+      toast(`${doc.name} updated`, { type: "success", duration: 2000 });
+    } catch (err) {
+      console.error("Compliance doc update failed:", err);
+      toast(`Failed to update ${doc.name}`, { type: "error" });
     }
   };
 
@@ -751,6 +773,7 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
             team={team}
             stages={stages}
             funderTypes={funderTypes}
+            complianceDocs={complianceDocs}
             onUpdate={updateGrant}
             onDelete={deleteGrant}
             onBack={() => setSel(null)}
@@ -784,6 +807,8 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
             org={org}
             profile={profile}
             team={team}
+            complianceDocs={complianceDocs}
+            onUpsertCompDoc={upsertCompDoc}
             onUpdateProfile={() => {}}
             onLogout={handleLogout}
           />

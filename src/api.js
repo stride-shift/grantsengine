@@ -209,6 +209,24 @@ export const getCompliance = async () => {
   return res.json();
 };
 
+export const updateComplianceDoc = async (id, data) => {
+  const res = await f(`/compliance/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+};
+
+export const createComplianceDoc = async (data) => {
+  const res = await f('/compliance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+};
+
 // ── KV ──
 
 export const kvGet = async (key) => {
