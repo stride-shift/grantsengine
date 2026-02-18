@@ -7,6 +7,17 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { Pool } = pg;
 
+// AI fields stored in the ai_data JSON column
+const AI_KEYS = ['aiDraft','aiDraftAt','draftHistory','aiResearch','aiResearchAt','researchHistory','aiFitscore','aiFitscoreAt','fitscoreHistory','aiFollowup','aiFollowupAt','followupHistory','aiWinloss','aiWinlossAt','askSource','aiRecommendedAsk','funderBudget'];
+
+const extractAiData = (grant) => {
+  const aiData = {};
+  for (const k of AI_KEYS) {
+    if (grant[k] !== undefined && grant[k] !== null) aiData[k] = grant[k];
+  }
+  return JSON.stringify(aiData);
+};
+
 // Lazy pool — created on first use so env vars are available (Vercel + local dev)
 let _pool = null;
 function pool() {
@@ -213,17 +224,19 @@ export const getGrants = async (orgId) => {
     fups: JSON.parse(row.fups || '[]'),
     subDate: row.sub_date,
     applyUrl: row.apply_url,
+    ...JSON.parse(row.ai_data || '{}'),
   }));
 };
 
 export const upsertGrant = async (orgId, grant) => {
   const id = grant.id || uid();
+  const aiData = extractAiData(grant);
   await pool().query(
     `INSERT INTO grants
-      (id, org_id, name, funder, type, stage, ask, deadline, focus, geo, rel, pri, hrs, notes, log, on_factors, off_factors, owner, docs, fups, sub_date, apply_url, updated_at)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,NOW())
+      (id, org_id, name, funder, type, stage, ask, deadline, focus, geo, rel, pri, hrs, notes, log, on_factors, off_factors, owner, docs, fups, sub_date, apply_url, ai_data, updated_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,NOW())
      ON CONFLICT (id) DO UPDATE SET
-      org_id=$2, name=$3, funder=$4, type=$5, stage=$6, ask=$7, deadline=$8, focus=$9, geo=$10, rel=$11, pri=$12, hrs=$13, notes=$14, log=$15, on_factors=$16, off_factors=$17, owner=$18, docs=$19, fups=$20, sub_date=$21, apply_url=$22, updated_at=NOW()`,
+      org_id=$2, name=$3, funder=$4, type=$5, stage=$6, ask=$7, deadline=$8, focus=$9, geo=$10, rel=$11, pri=$12, hrs=$13, notes=$14, log=$15, on_factors=$16, off_factors=$17, owner=$18, docs=$19, fups=$20, sub_date=$21, apply_url=$22, ai_data=$23, updated_at=NOW()`,
     [id, orgId, grant.name, grant.funder || null, grant.type || null,
      grant.stage || 'scouted', grant.ask || 0, grant.deadline || null,
      JSON.stringify(grant.focus || []), JSON.stringify(grant.geo || []),
@@ -231,7 +244,8 @@ export const upsertGrant = async (orgId, grant) => {
      grant.notes || '', JSON.stringify(grant.log || []),
      grant.on || '', JSON.stringify(grant.of || []),
      grant.owner || 'team', JSON.stringify(grant.docs || {}),
-     JSON.stringify(grant.fups || []), grant.subDate || null, grant.applyUrl || null]
+     JSON.stringify(grant.fups || []), grant.subDate || null, grant.applyUrl || null,
+     aiData]
   );
   return id;
 };
@@ -247,9 +261,10 @@ export const replaceAllGrants = async (orgId, grants) => {
     await client.query('DELETE FROM grants WHERE org_id = $1', [orgId]);
     for (const g of grants) {
       const id = g.id || uid();
+      const aiData = extractAiData(g);
       await client.query(
-        `INSERT INTO grants (id, org_id, name, funder, type, stage, ask, deadline, focus, geo, rel, pri, hrs, notes, log, on_factors, off_factors, owner, docs, fups, sub_date, apply_url)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`,
+        `INSERT INTO grants (id, org_id, name, funder, type, stage, ask, deadline, focus, geo, rel, pri, hrs, notes, log, on_factors, off_factors, owner, docs, fups, sub_date, apply_url, ai_data)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
         [id, orgId, g.name, g.funder || null, g.type || null,
          g.stage || 'scouted', g.ask || 0, g.deadline || null,
          JSON.stringify(g.focus || []), JSON.stringify(g.geo || []),
@@ -257,7 +272,8 @@ export const replaceAllGrants = async (orgId, grants) => {
          g.notes || '', JSON.stringify(g.log || []),
          g.on || '', JSON.stringify(g.of || []),
          g.owner || 'team', JSON.stringify(g.docs || {}),
-         JSON.stringify(g.fups || []), g.subDate || null, g.applyUrl || null]
+         JSON.stringify(g.fups || []), g.subDate || null, g.applyUrl || null,
+         aiData]
       );
     }
     await client.query('COMMIT');
