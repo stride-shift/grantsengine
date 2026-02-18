@@ -69,6 +69,8 @@ ANTI-PATTERNS — never do these:
 - Thin, skeletal sections — this is a REAL proposal, not an outline
 - Switching to cold institutional tone after the opening
 - Proposing a small ask when the funder can clearly support more — match ambition to capacity
+- NEVER include ChatGPT licenses, OpenAI subscriptions, or third-party AI tool costs in budgets — d-lab builds and uses its own proprietary AI tools
+- NEVER mention directors by name — refer to "directors, programme management and ops team" or "the leadership team"
 
 At the very END of your proposal, include this structured line (the system parses it to set the grant ask):
 ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer]

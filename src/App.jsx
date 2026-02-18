@@ -364,7 +364,8 @@ function AppInner() {
     // Anti-hallucination instruction — added to every prompt type
     const factGuard = `\n\nCRITICAL ACCURACY RULES:
 - Use facts, names, impact stats, and achievements from the organisation context and uploaded documents. These are your primary source of truth.
-- If specific information is not provided (e.g. a director's full name, exact date), write [TO BE CONFIRMED] rather than inventing it.
+- If specific information is not provided (e.g. an exact date), write [TO BE CONFIRMED] rather than inventing it.
+- Do NOT name directors individually — refer to "the directors", "programme management and ops team", or "the leadership team".
 - Never fabricate statistics, names, or achievements not present in the provided context.
 - You MAY creatively design programme structures, propose new combinations of d-lab's components, and scale up delivery models — but ground everything in d-lab's real capabilities and cost structures.
 - Programme costs should be realistic and derived from the provided cost-per-student figures, scaled appropriately for the proposed scope.`;
@@ -411,7 +412,7 @@ SCALE THROUGH AI — this is d-lab's secret weapon and a key part of the pitch:
 - When proposing large programmes, LEAN INTO THIS: "d-lab's AI infrastructure means we can train 200 learners with the quality traditionally reserved for cohorts of 60" or "Our per-student cost drops significantly at scale because the AI tools absorb the work that would normally require additional coaches."
 - Propose higher student numbers than the funder might expect. If a traditional provider would propose 40 students, d-lab can credibly propose 100-120 at comparable cost. Make this a headline differentiator.
 
-COVER EMAIL: Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." Open with the human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as director.
+COVER EMAIL: Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." Open with the human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as the director (do NOT name them — just "Director, d-lab NPC").
 
 PROPOSAL STRUCTURE (follow this funder-appropriate order):
 ${fs.structure.map((s, i) => `${i + 1}. ${s}`).join("\n")}
@@ -432,7 +433,7 @@ ${relNote}
 ${fs.pt ? `PROGRAMME TYPE: ${fs.pt.label} — ${fs.pt.students} students, R${(fs.pt.cost||0).toLocaleString()}, ${fs.pt.duration}. Budget: ${fs.pt.budget}` : ""}
 ${fs.mc ? `MULTI-COHORT: ${fs.mc.count} cohorts requested` : ""}
 
-Use EXACT programme costs, director names, impact stats from the context. If grant notes mention a programme type, use that type's budget. If uploaded docs contain RFP guidelines, address them directly.
+Use EXACT programme costs and impact stats from the context. Do NOT mention directors by name — refer to "directors, programme management and ops team" or "the leadership team". If grant notes mention a programme type, use that type's budget. If uploaded docs contain RFP guidelines, address them directly.
 
 FORMAT: "COVER EMAIL" heading, then separator, then "PROPOSAL" heading.
 
@@ -446,7 +447,9 @@ ANTI-PATTERNS — never do these:
 - Invented budget figures or statistics not in the context
 - Thin, skeletal sections with one paragraph each — this is a REAL proposal, not an outline
 - Switching to a cold, institutional tone after the opening — sustain the warmth throughout
-- Generic filler like "we look forward to partnering" — every sentence must earn its place${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}
+- Generic filler like "we look forward to partnering" — every sentence must earn its place
+- NEVER include ChatGPT licenses, OpenAI subscriptions, or third-party AI tool costs in budgets — d-lab builds and uses its own proprietary AI tools
+- NEVER mention directors by name — refer to "directors, programme management and ops team" or "the leadership team"${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}
 
 ASK RECOMMENDATION — CRITICAL:
 At the very END of your proposal (after all sections), include this structured line on its own line. The system parses it to set the grant ask:
@@ -492,7 +495,7 @@ The email should:
 - Include one NEW proof point or update since submission — something that shows momentum
 - Close with a specific, low-friction next step (15-min call, site visit, "happy to send our latest impact data")
 - Under 200 words. Every sentence earns its place.
-- Sign off as the organisation director
+- Sign off as the director (do NOT name them — just "Director, d-lab NPC")
 ${fs.returning ? "- RETURNING FUNDER: This is a partner. Reference the relationship warmly — you have shared history." : "- NEW FUNDER: Be respectful and make it easy to say yes to a conversation. Lower the bar: a call, a coffee, not a commitment."}${factGuard}`,
         `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nStage: ${grant.stage}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()}`}\nSubmitted: ${grant.subDate || "Not yet"}\nNotes: ${grant.notes || "None"}`,
         false, 1000

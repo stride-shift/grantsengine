@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { C, FONT, MONO } from "../theme";
 import { fmt, fmtK, dL, urgC, deadlineCtx, cp, effectiveAsk } from "../utils";
-import { Num, CalendarStrip, DeadlineBadge, TypeBadge, Avatar, Label, Btn, CopyBtn } from "./index";
+import { Num, CalendarStrip, DeadlineBadge, TypeBadge, Avatar, Label, Btn, CopyBtn, stripMd } from "./index";
 
 const CLOSED_STAGES = ["won", "lost", "deferred"];
 const PRE_SUBMISSION = ["scouted", "qualifying", "drafting", "review"];
@@ -149,7 +149,7 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
                 border: `1px solid ${C.line}`, fontSize: 13, lineHeight: 1.8,
                 color: C.t1, whiteSpace: "pre-wrap", position: "relative",
               }}>
-                {briefResult}
+                {stripMd(briefResult)}
                 <CopyBtn text={briefResult} style={{ position: "absolute", top: 8, right: 8 }} />
               </div>
             )}
@@ -197,7 +197,7 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
                 color: C.t1, whiteSpace: "pre-wrap", maxHeight: 300, overflow: "auto",
                 position: "relative",
               }}>
-                {reportResult}
+                {stripMd(reportResult)}
                 <CopyBtn text={reportResult} style={{ position: "absolute", top: 8, right: 8 }} />
               </div>
             )}
