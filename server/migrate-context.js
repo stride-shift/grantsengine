@@ -15,7 +15,7 @@ const db = new Database(DB_PATH);
 const CTX_SLIM = `d-lab NPC (The Field Lab NPC) — South African NPO training unemployed youth in AI-native digital skills.
 NPO 2017/382673/08 | PBO 930077003 | Section 18A tax-exempt. Director: Alison Jacobson.
 KEY OUTCOMES: 92% completion (vs 55% sector avg), 85% employment within 3 months, 29% pre-graduation placement, 60 learners in 2025.
-7 PROGRAMME TYPES: Type 1 Partner-funded cohort R516K/20 students | Type 2 d-lab funded R1.597M/20 | Type 3 With stipends R1.236M/20 | Type 4 FET R1.079M/60 | Type 5 Corporate R651K/63 | Type 6 Cyborg Habits R570/learner | Type 7 Short-format R199K/90.
+7 PROGRAMME TYPES: Type 1 Partner-funded cohort R516K/20 students | Type 2 d-lab funded R1.597M/20 | Type 3 With stipends R1.236M/20 | Type 4 FET R1.079M/60 | Type 5 Corporate R651K/63 | Type 6 Cyborg Habits R930/learner | Type 7 Short-format R232K/90.
 DELIVERY: Partner model — d-lab provides curriculum, coaching, AI tools, assessment, accreditation; local partners provide venue + recruitment. Current: Inkcubeko (Gauteng), Penreach (Mpumalanga).
 AI TOOLS (in-house): LMS, Language Leveller, Assessornator, Cyborg Habits platform.
 FUNDERS: Telkom Foundation, Get It Done Foundation, TK Foundation, Sage Foundation, SAP, C-Track, EOH.
@@ -37,8 +37,8 @@ TYPE 2: STANDARD COHORT — d-lab FUNDED WITH STIPENDS & LAPTOPS (R1.597M per 20
 TYPE 3: STANDARD COHORT — WITH STIPENDS ONLY (R1.236M per 20-student cohort) — Partner provides infrastructure + laptops, d-lab provides programme + stipends (R720K). Cost per student: R61,800.
 TYPE 4: FET HIGH SCHOOL PROGRAMME (R1.079M for 60 students across 3 schools) — 3-year, 425-hour work-readiness journey for Grade 10-12 learners. Cost per student: R18K/year.
 TYPE 5: CORPORATE PROGRAMME — CCBA FUTURE LEADERS (R651K for 63 participants) — Corporate leadership development. Cost per participant: R10,333.
-TYPE 6: CYBORG HABITS SHORT COURSE (US$30/learner = ~R570) — 4-6 week online AI behaviour-change challenge.
-TYPE 7: SCI-BONO EMPLOYABILITY SKILLS (R199K for 90 learners) — Short-format: 15 working days over 13 weeks. Cost per learner: R2,547.
+TYPE 6: CYBORG HABITS SHORT COURSE (US$49/learner = ~R930) — 4-6 week online AI behaviour-change challenge.
+TYPE 7: SCI-BONO EMPLOYABILITY SKILLS (R232K for 90 learners) — Short-format: 15 working days over 13 weeks. Cost per learner: R2,576.
 
 2026 BUDGET: R13.431M total expenses. Income R12.873M. Personnel R7.43M, Cohorts R3.145M, FET R1.079M, CCBA R651K, Operations R1.126M.
 
