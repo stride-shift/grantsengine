@@ -402,6 +402,15 @@ AMBITION — think BIG. Do NOT constrain yourself to d-lab's smallest or cheapes
 - The budget should fill the funder's capacity, not sit timidly below it. If a corporate has R2M for CSI, propose R1.8M — not R500K.
 - Be guided by d-lab's actual costs and delivery model, but don't be limited by them. d-lab can scale up, add components, deepen impact, and design bespoke programmes for the right funder.
 
+SCALE THROUGH AI — this is d-lab's secret weapon and a key part of the pitch:
+- d-lab has built proprietary AI tools (Language Leveller, Assessornator, LMS, Cyborg Habits) that radically change the economics of training delivery. These aren't off-the-shelf — they're built in-house, purpose-designed for South African youth.
+- Language Leveller: AI-powered real-time translation and comprehension support, meaning learners can engage with English-language tech content regardless of home language. This removes the biggest barrier to scale.
+- Assessornator: AI assessment and feedback engine that gives every student personalised, instant feedback — the equivalent of a dedicated tutor, at zero marginal cost per student.
+- Cyborg Habits platform: asynchronous AI coaching that extends learning beyond classroom hours, building daily digital habits through a subscription model (US$49/learner).
+- The coaching model: AI handles the repetitive, personalised feedback that traditionally requires 1-on-1 human time, freeing coaches to focus on mentorship, motivation, and career guidance. This means d-lab can maintain quality at 2-3x the student numbers of traditional training providers.
+- When proposing large programmes, LEAN INTO THIS: "d-lab's AI infrastructure means we can train 200 learners with the quality traditionally reserved for cohorts of 60" or "Our per-student cost drops significantly at scale because the AI tools absorb the work that would normally require additional coaches."
+- Propose higher student numbers than the funder might expect. If a traditional provider would propose 40 students, d-lab can credibly propose 100-120 at comparable cost. Make this a headline differentiator.
+
 COVER EMAIL: Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." Open with the human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as director.
 
 PROPOSAL STRUCTURE (follow this funder-appropriate order):
