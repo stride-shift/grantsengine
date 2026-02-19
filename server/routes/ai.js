@@ -102,6 +102,7 @@ router.post('/org/:slug/ai/messages', resolveOrg, requireAuth, async (req, res) 
         tokens_out: anthropicResponse.usage?.output_tokens || 0,
         duration_ms: duration,
         status: 'completed',
+        member_id: req.memberId || null,
       });
     } catch { /* audit logging is best-effort */ }
 

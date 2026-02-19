@@ -5,6 +5,7 @@ import {
   getComplianceDocs, upsertComplianceDoc,
   getAgentRuns,
   kvGet, kvSet,
+  logActivity, getGrantById,
 } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { resolveOrg } from '../middleware/org.js';
@@ -33,7 +34,24 @@ router.put('/org/:slug/grants', ...orgAuth, w(async (req, res) => {
 router.put('/org/:slug/grants/:id', ...orgAuth, w(async (req, res) => {
   const grant = req.body;
   if (!grant) return res.status(400).json({ error: 'Grant data required' });
+
+  // Detect stage changes before upserting
+  const existing = await getGrantById(req.params.id, req.orgId);
   const id = await upsertGrant(req.orgId, { ...grant, id: req.params.id });
+
+  // Log activity (best-effort)
+  if (existing && existing.stage !== grant.stage && grant.stage) {
+    logActivity(req.orgId, 'stage_change', {
+      memberId: req.memberId, sessionToken: req.session?.token, grantId: id,
+      meta: { grant_name: grant.name, from_stage: existing.stage, to_stage: grant.stage },
+    }).catch(() => {});
+  } else {
+    logActivity(req.orgId, 'grant_update', {
+      memberId: req.memberId, sessionToken: req.session?.token, grantId: id,
+      meta: { grant_name: grant.name },
+    }).catch(() => {});
+  }
+
   res.json({ ok: true, id });
 }));
 
@@ -41,11 +59,24 @@ router.post('/org/:slug/grants', ...orgAuth, w(async (req, res) => {
   const grant = req.body;
   if (!grant || !grant.name) return res.status(400).json({ error: 'Grant name required' });
   const id = await upsertGrant(req.orgId, grant);
+
+  logActivity(req.orgId, 'grant_create', {
+    memberId: req.memberId, sessionToken: req.session?.token, grantId: id,
+    meta: { grant_name: grant.name },
+  }).catch(() => {});
+
   res.status(201).json({ ok: true, id });
 }));
 
 router.delete('/org/:slug/grants/:id', ...orgAuth, w(async (req, res) => {
+  const existing = await getGrantById(req.params.id, req.orgId);
   await deleteGrant(req.params.id, req.orgId);
+
+  logActivity(req.orgId, 'grant_delete', {
+    memberId: req.memberId, sessionToken: req.session?.token, grantId: req.params.id,
+    meta: { grant_name: existing?.name || '' },
+  }).catch(() => {});
+
   res.json({ ok: true });
 }));
 

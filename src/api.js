@@ -5,20 +5,26 @@
 // ── Auth state ──
 let _token = localStorage.getItem('gt_token');
 let _slug = localStorage.getItem('gt_slug');
+let _member = JSON.parse(localStorage.getItem('gt_member') || 'null');
 
-export const setAuth = (token, slug) => {
+export const setAuth = (token, slug, member = null) => {
   _token = token;
   _slug = slug;
+  _member = member;
   if (token) {
     localStorage.setItem('gt_token', token);
     localStorage.setItem('gt_slug', slug);
+    if (member) localStorage.setItem('gt_member', JSON.stringify(member));
+    else localStorage.removeItem('gt_member');
   } else {
     localStorage.removeItem('gt_token');
     localStorage.removeItem('gt_slug');
+    localStorage.removeItem('gt_member');
   }
 };
 
 export const getAuth = () => ({ token: _token, slug: _slug });
+export const getCurrentMember = () => _member;
 export const isLoggedIn = () => !!_token && !!_slug;
 
 // ── Fetch wrapper (org-scoped, auth headers, error checking) ──
@@ -54,7 +60,7 @@ const f = async (path, opts = {}) => {
   return res;
 };
 
-// ── Auth ──
+// ── Auth (legacy org-level) ──
 
 export const login = async (slug, password) => {
   const res = await fetch(`/api/org/${slug}/auth/login`, {
@@ -91,6 +97,62 @@ export const setPassword = async (slug, password) => {
   const data = await res.json();
   setAuth(data.token, slug);
   return data;
+};
+
+// ── Auth (member-level) ──
+
+export const memberLogin = async (slug, memberId, password) => {
+  const res = await fetch(`/api/org/${slug}/auth/member-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ memberId, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Login failed');
+  }
+  const data = await res.json();
+  setAuth(data.token, slug, data.member);
+  return data;
+};
+
+export const memberSetPassword = async (slug, memberId, password) => {
+  const res = await fetch(`/api/org/${slug}/auth/member-set-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ memberId, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to set password');
+  }
+  const data = await res.json();
+  setAuth(data.token, slug, data.member);
+  return data;
+};
+
+export const getTeamPublic = async (slug) => {
+  const res = await fetch(`/api/org/${slug}/team/public`);
+  if (!res.ok) return [];
+  return res.json();
+};
+
+// ── Admin ──
+
+export const getAdminSessions = async () => {
+  const res = await f('/admin/sessions/active');
+  return res.json();
+};
+
+export const getAdminSessionHistory = async (limit = 30) => {
+  const res = await f(`/admin/sessions/history?limit=${limit}`);
+  return res.json();
+};
+
+export const getAdminActivity = async (memberId = null, limit = 100) => {
+  const qs = memberId ? `?member_id=${memberId}&limit=${limit}` : `?limit=${limit}`;
+  const res = await f(`/admin/activity${qs}`);
+  return res.json();
 };
 
 // ── Orgs (some public, some auth-required) ──

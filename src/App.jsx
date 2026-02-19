@@ -3,7 +3,8 @@ import { C, FONT, MONO, injectFonts } from "./theme";
 import { uid, td, dL, effectiveAsk } from "./utils";
 import { funderStrategy, isFunderReturning } from "./data/funderStrategy";
 import {
-  isLoggedIn, getAuth, setAuth, login, logout, setPassword,
+  isLoggedIn, getAuth, setAuth, getCurrentMember, login, logout, setPassword,
+  memberLogin, memberSetPassword,
   getGrants, saveGrant, addGrant as apiAddGrant, removeGrant,
   getTeam, getProfile, getPipelineConfig, getOrg, checkHealth, api,
   getUploadsContext,
@@ -16,6 +17,7 @@ import Dashboard from "./components/Dashboard";
 import Pipeline from "./components/Pipeline";
 import GrantDetail from "./components/GrantDetail";
 import Settings from "./components/Settings";
+import Admin from "./components/Admin";
 import { ToastProvider, useToast } from "./components/Toast";
 
 injectFonts();
@@ -53,6 +55,7 @@ function AppInner() {
   // ── Auth state ──
   const [authed, setAuthed] = useState(isLoggedIn());
   const [orgSlug, setOrgSlug] = useState(getAuth().slug);
+  const [currentMember, setCurrentMember] = useState(getCurrentMember());
   const [selectingOrg, setSelectingOrg] = useState(!isLoggedIn());
   const [needsPassword, setNeedsPassword] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
@@ -199,6 +202,20 @@ function AppInner() {
     } else {
       await login(orgSlug, password);
     }
+    setCurrentMember(null); // legacy shared-password login — no member identity
+    setAuthed(true);
+    setLoggingIn(false);
+    setNeedsPassword(false);
+  };
+
+  const handleMemberLogin = async (memberId, password, isSetPassword = false) => {
+    if (isSetPassword) {
+      const data = await memberSetPassword(orgSlug, memberId, password);
+      setCurrentMember(data.member);
+    } else {
+      const data = await memberLogin(orgSlug, memberId, password);
+      setCurrentMember(data.member);
+    }
     setAuthed(true);
     setLoggingIn(false);
     setNeedsPassword(false);
@@ -207,6 +224,7 @@ function AppInner() {
   const handleLogout = async () => {
     await logout();
     setAuthed(false);
+    setCurrentMember(null);
     setOrg(null);
     setGrants([]);
     setTeam([{ id: "team", name: "Unassigned", initials: "\u2014", role: "none" }]);
@@ -660,6 +678,7 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
         slug={orgSlug}
         needsPassword={needsPassword}
         onLogin={handleLogin}
+        onMemberLogin={handleMemberLogin}
         onBack={() => { setSelectingOrg(true); setLoggingIn(false); }}
       />
     );
@@ -736,7 +755,7 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
 
         {/* Nav items */}
         <div style={{ flex: 1, padding: "20px 12px" }}>
-          {SIDEBAR_ITEMS.map(item => {
+          {[...SIDEBAR_ITEMS, ...(currentMember?.role === "director" ? [{ id: "admin", label: "Admin", icon: "\u25CA" }] : [])].map(item => {
             const active = !sel && view === item.id;
             return (
               <button key={item.id}
@@ -842,11 +861,14 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
             org={org}
             profile={profile}
             team={team}
+            currentMember={currentMember}
             complianceDocs={complianceDocs}
             onUpsertCompDoc={upsertCompDoc}
             onUpdateProfile={() => {}}
             onLogout={handleLogout}
           />
+        ) : view === "admin" && currentMember?.role === "director" ? (
+          <Admin org={org} team={team} />
         ) : null}
       </div>
 

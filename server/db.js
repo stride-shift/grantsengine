@@ -352,18 +352,115 @@ export const upsertComplianceDoc = async (orgId, doc) => {
   return id;
 };
 
+// ── Member auth helpers ──
+
+export const getMemberWithAuth = async (orgId, memberId) => {
+  const { rows } = await pool().query(
+    'SELECT * FROM team_members WHERE id = $1 AND org_id = $2',
+    [memberId, orgId]
+  );
+  return rows[0] || null;
+};
+
+export const setMemberPassword = async (memberId, hash) => {
+  await pool().query('UPDATE team_members SET password_hash = $1 WHERE id = $2', [hash, memberId]);
+};
+
+export const createMemberSession = async (orgId, memberId) => {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  await pool().query(
+    'INSERT INTO sessions (token, org_id, member_id, expires_at, last_active_at) VALUES ($1, $2, $3, $4, NOW())',
+    [token, orgId, memberId, expires]
+  );
+  return { token, expires };
+};
+
+export const touchSession = async (token) => {
+  await pool().query('UPDATE sessions SET last_active_at = NOW() WHERE token = $1', [token]);
+};
+
+export const endSession = async (token) => {
+  await pool().query('UPDATE sessions SET ended_at = NOW() WHERE token = $1', [token]);
+};
+
+export const getActiveSessions = async (orgId) => {
+  const { rows } = await pool().query(
+    `SELECT s.token, s.org_id, s.member_id, s.created_at, s.last_active_at,
+            tm.name AS member_name, tm.initials, tm.role
+     FROM sessions s
+     LEFT JOIN team_members tm ON tm.id = s.member_id
+     WHERE s.org_id = $1 AND s.expires_at > NOW() AND s.ended_at IS NULL
+     ORDER BY s.last_active_at DESC NULLS LAST`,
+    [orgId]
+  );
+  return rows;
+};
+
+export const getSessionHistory = async (orgId, limit = 30) => {
+  const { rows } = await pool().query(
+    `SELECT s.token, s.org_id, s.member_id, s.created_at, s.last_active_at, s.ended_at,
+            tm.name AS member_name, tm.initials, tm.role,
+            EXTRACT(EPOCH FROM (COALESCE(s.ended_at, s.last_active_at, s.created_at) - s.created_at)) / 60 AS duration_mins
+     FROM sessions s
+     LEFT JOIN team_members tm ON tm.id = s.member_id
+     WHERE s.org_id = $1 AND s.member_id IS NOT NULL
+     ORDER BY s.created_at DESC LIMIT $2`,
+    [orgId, limit]
+  );
+  return rows;
+};
+
+// ── Activity log helpers ──
+
+export const logActivity = async (orgId, event, opts = {}) => {
+  const id = uid();
+  try {
+    await pool().query(
+      `INSERT INTO activity_log (id, org_id, member_id, session_token, event, grant_id, meta)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [id, orgId, opts.memberId || null, opts.sessionToken || null, event,
+       opts.grantId || null, JSON.stringify(opts.meta || {})]
+    );
+  } catch { /* activity logging is best-effort */ }
+  return id;
+};
+
+export const getActivityLog = async (orgId, { limit = 100, memberId = null } = {}) => {
+  let sql = `SELECT al.*, tm.name AS member_name, tm.initials
+             FROM activity_log al
+             LEFT JOIN team_members tm ON tm.id = al.member_id
+             WHERE al.org_id = $1`;
+  const params = [orgId];
+  if (memberId) {
+    sql += ` AND al.member_id = $2`;
+    params.push(memberId);
+  }
+  sql += ` ORDER BY al.created_at DESC LIMIT $${params.length + 1}`;
+  params.push(limit);
+  const { rows } = await pool().query(sql, params);
+  return rows.map(r => ({ ...r, meta: JSON.parse(r.meta || '{}') }));
+};
+
+// ── Grant lookup (for stage change detection) ──
+
+export const getGrantById = async (id, orgId) => {
+  const { rows } = await pool().query('SELECT id, stage, name FROM grants WHERE id = $1 AND org_id = $2', [id, orgId]);
+  return rows[0] || null;
+};
+
 // ── Agent run helpers ──
 
 export const logAgentRun = async (orgId, data) => {
   const id = uid();
   await pool().query(
-    `INSERT INTO agent_runs (id, org_id, grant_id, agent_type, prompt_summary, result_summary, tokens_in, tokens_out, cost_usd, duration_ms, status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+    `INSERT INTO agent_runs (id, org_id, grant_id, agent_type, prompt_summary, result_summary, tokens_in, tokens_out, cost_usd, duration_ms, status, member_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     [id, orgId, data.grant_id || null, data.agent_type,
      data.prompt_summary || null, data.result_summary || null,
      data.tokens_in || 0, data.tokens_out || 0,
      data.cost_usd || 0, data.duration_ms || 0,
-     data.status || 'completed']
+     data.status || 'completed', data.member_id || null]
   );
   return id;
 };
