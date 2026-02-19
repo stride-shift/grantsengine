@@ -12,7 +12,7 @@ ACCREDITATION: ICITP (SAQA registered) via Portfolios of Evidence + ICDL + self-
 
 TYPE 1: STANDARD COHORT — PARTNER-FUNDED (R516K per 20-student cohort)
 9-month accredited work-readiness programme for unemployed youth 18-25. 6 months coursework + 3 months industry internship. Partner provides infrastructure, stipends, laptops. d-lab provides coaching, curriculum, assessment, accreditation, LMS.
-Budget: Travel R38K, Accommodation R38K, Staff S&T R16K, Shuttles R4K, Accreditation R5K, Assessment R95K, ChatGPT licenses R108K, LMS R11K, Coaches R200K = R516K total.
+Budget: Travel R38K, Accommodation R38K, Staff S&T R16K, Shuttles R4K, Accreditation R5K, Assessment R95K, AI platform & tools (proprietary) R108K, LMS R11K, Coaches R200K = R516K total.
 Cost per student: R25,800. Model: d-lab provides curriculum, coaching, AI tools, assessment, and accreditation; local delivery partners provide venue, stipends, and student recruitment. Current partners: Inkcubeko (Gauteng), Penreach (Mpumalanga). The model is designed for any partner in any location — geography follows demand, not the other way around.
 
 TYPE 2: STANDARD COHORT — d-lab FUNDED WITH STIPENDS & LAPTOPS (R1.597M per 20-student cohort)

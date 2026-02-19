@@ -35,7 +35,7 @@ export const draftPrompt = ({ g, fs, relNote }) => ({
 VOICE — maintain this in EVERY section, not just the opening:
 - Warm, human, confident. You're a founder who KNOWS this works, offering a funder the chance to back something real.
 - Write like a person, not a grant machine. Let the reader feel the energy of what d-lab does.
-- Use vivid, specific details: a student's first day with ChatGPT, a graduate landing their first tech role, a coach watching the lightbulb moment.
+- Use vivid, specific details: a student's first day using AI tools, a graduate landing their first tech role, a coach watching the lightbulb moment.
 - Vary sentence length. Short punchy sentences land harder after longer ones.
 - CRITICAL: The emotive energy of the opening must carry through the ENTIRE proposal. Do NOT switch to dry grant-speak after the first paragraph.
 
