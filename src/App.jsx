@@ -472,7 +472,28 @@ SCALE THROUGH AI — this is d-lab's secret weapon and a key part of the pitch:
 - When proposing large programmes, LEAN INTO THIS: "d-lab's AI infrastructure means we can train 200 learners with the quality traditionally reserved for cohorts of 60" or "Our per-student cost drops significantly at scale because the AI tools absorb the work that would normally require additional coaches."
 - Propose higher student numbers than the funder might expect. If a traditional provider would propose 40 students, d-lab can credibly propose 100-120 at comparable cost. Make this a headline differentiator.
 
+CYBORG HABITS AT SCALE — think beyond the classroom:
+- Cyborg Habits is not just a course add-on. It is a standalone, scalable digital behaviour-change platform that can reach thousands of learners asynchronously, with zero marginal instructor cost per additional user.
+- FOR SCHOOLS: Cyborg Habits can be deployed to entire school districts as a "digital readiness" layer — giving Grade 10-12 learners daily AI-guided micro-challenges that build real digital literacy BEFORE they enter the job market or tertiary education. Imagine 5,000 FET learners across 20 schools, each spending 15 minutes a day building the habits that separate digitally fluent workers from digitally illiterate ones. No new teachers required — just devices and connectivity.
+- FOR LARGE FUNDERS: The per-learner cost of Cyborg Habits (US$49) means a R5M investment could reach 1,500+ learners for a full year of daily AI coaching. That's a cost-per-outcome ratio that no traditional skills programme can match.
+- CASCADING IMPACT: Cyborg Habits learners don't just learn for themselves — they become AI ambassadors in their families and communities. A learner who builds the habit of using AI for problem-solving brings that skill home, to their parents' small business, to their church's admin, to their community WhatsApp group. One learner becomes a multiplier.
+- EMPLOYABILITY PIPELINE: For corporates, Cyborg Habits creates a pre-screened, digitally-ready talent pool. Learners who complete the programme arrive at interviews already fluent in AI-assisted work — a generation ahead of their peers. Propose this as a recruitment funnel, not just a CSI tick-box.
+- HYBRID MODELS: For big programmes, propose Cyborg Habits as the digital spine with periodic in-person bootcamps — e.g., 1,000 learners on Cyborg Habits year-round, with 100-200 selected for intensive face-to-face Type 3-5 programmes. This gives funders massive reach AND deep impact.
+- DON'T BE TIMID about proposing Cyborg Habits for audiences beyond d-lab's traditional unemployed youth — it works for school learners, NEET youth, working adults upskilling, community organisations, even teacher digital literacy programmes. Match the audience to the funder's mandate.
+
 COVER EMAIL: Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." Open with the human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as the director (do NOT name them — just "Director, d-lab NPC").
+
+VARIED OPENINGS — CRITICAL:
+- Every proposal must have a UNIQUE opening that is specifically crafted for THIS funder, THIS grant, THIS moment. Do NOT recycle the same narrative structure across grants.
+- The opening paragraph is the most important paragraph. It must earn the next paragraph. Vary your technique:
+  * Lead with a single student's story (a day in the life, a transformation moment, a before/after)
+  * Lead with a striking data point that reframes the problem ("It costs R180,000 to keep one young person unemployed for a year. For R25,800, d-lab turns them into a working professional in nine months.")
+  * Lead with the funder's own stated mission and show how d-lab is already doing what they want to fund
+  * Lead with a provocation or question ("What if the most effective way to close the digital divide isn't a laptop per child — but a habit per day?")
+  * Lead with a very specific, concrete scene (the first morning of a new cohort, the moment a student ships their first project, the WhatsApp message from a graduate's parent)
+  * Lead with the scale of what's possible ("In the time it takes to read this proposal, three more South African graduates will enter a job market that doesn't know what to do with them. d-lab exists to change that equation.")
+- The cover email opening and the proposal executive summary opening should use DIFFERENT hooks — don't repeat yourself.
+- If the grant notes mention a specific programme, theme, or context, use THAT as your opening anchor — not a generic d-lab pitch.
 
 PROPOSAL STRUCTURE (follow this funder-appropriate order):
 ${fs.structure.map((s, i) => `${i + 1}. ${s}`).join("\n")}
@@ -508,6 +529,7 @@ ANTI-PATTERNS — never do these:
 - Thin, skeletal sections with one paragraph each — this is a REAL proposal, not an outline
 - Switching to a cold, institutional tone after the opening — sustain the warmth throughout
 - Generic filler like "we look forward to partnering" — every sentence must earn its place
+- Reusing the same opening structure across different proposals — if you always start with "In a training room in...", you're being lazy. Every funder deserves a fresh angle.
 - NEVER include ChatGPT licenses, OpenAI subscriptions, or third-party AI tool costs in budgets — d-lab builds and uses its own proprietary AI tools
 - NEVER mention directors by name — refer to "directors, programme management and ops team" or "the leadership team"${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}
 
