@@ -96,6 +96,15 @@ router.put('/org/:slug/config', resolveOrg, requireAuth, w(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Public team list (for login screen — no auth required, no password_hash)
+router.get('/org/:slug/team/public', resolveOrg, w(async (req, res) => {
+  const team = await getTeamMembers(req.orgId);
+  res.json(team.filter(m => m.id !== 'team').map(m => ({
+    id: m.id, name: m.name, initials: m.initials, role: m.role,
+    hasPassword: !!m.password_hash,
+  })));
+}));
+
 router.get('/org/:slug/team', resolveOrg, requireAuth, w(async (req, res) => {
   res.json(await getTeamMembers(req.orgId));
 }));

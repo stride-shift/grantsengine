@@ -6,6 +6,7 @@ import orgRoutes from './routes/orgs.js';
 import dataRoutes from './routes/data.js';
 import aiRoutes from './routes/ai.js';
 import uploadRoutes from './routes/uploads.js';
+import adminRoutes from './routes/admin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -18,6 +19,7 @@ app.use('/api', orgRoutes);
 app.use('/api', dataRoutes);
 app.use('/api', aiRoutes);
 app.use('/api', uploadRoutes);
+app.use('/api', adminRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

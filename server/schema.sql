@@ -194,3 +194,30 @@ CREATE TABLE IF NOT EXISTS kv (
   value TEXT NOT NULL,
   PRIMARY KEY (org_id, key)
 );
+
+-- ═══ User Management Migrations ═══
+
+-- Individual user passwords (bcrypt)
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+-- Attribute sessions to individual team members
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS member_id TEXT REFERENCES team_members(id) ON DELETE SET NULL;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS ended_at TIMESTAMPTZ;
+
+-- Activity log
+CREATE TABLE IF NOT EXISTS activity_log (
+  id TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+  member_id TEXT REFERENCES team_members(id) ON DELETE SET NULL,
+  session_token TEXT,
+  event TEXT NOT NULL,
+  grant_id TEXT,
+  meta TEXT DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_alog_org ON activity_log(org_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_alog_member ON activity_log(member_id, created_at DESC);
+
+-- Attribute AI runs to individual members
+ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS member_id TEXT REFERENCES team_members(id) ON DELETE SET NULL;

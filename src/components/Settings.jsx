@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { C, FONT, MONO } from "../theme";
 import { Btn, Label, Avatar, RoleBadge } from "./index";
 import UploadZone from "./UploadZone";
-import { checkHealth, getUploads, uploadFile } from "../api";
+import { checkHealth, getUploads, uploadFile, memberSetPassword, getAuth } from "../api";
 import { ORG_DOCS } from "../data/constants";
 
 // ── Compliance doc status helpers ──
@@ -22,7 +22,66 @@ const daysUntil = (dateStr) => {
 
 const CAT_ORDER = ["Registration", "Compliance", "Financial", "Governance", "Org"];
 
-export default function Settings({ org, profile, team, complianceDocs = [], onUpsertCompDoc, onUpdateProfile, onLogout }) {
+function ChangePassword({ memberId, slug }) {
+  const [open, setOpen] = useState(false);
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{
+        background: C.warm200, border: "none", borderRadius: 8, padding: "6px 14px",
+        fontSize: 12, fontWeight: 600, color: C.t2, cursor: "pointer", fontFamily: FONT,
+        transition: "all 0.15s",
+      }}
+        onMouseEnter={e => { e.currentTarget.style.background = C.navySoft; }}
+        onMouseLeave={e => { e.currentTarget.style.background = C.warm200; }}
+      >Change Password</button>
+    );
+  }
+
+  const submit = async () => {
+    if (!pw || pw.length < 6) { setMsg("Min 6 characters"); return; }
+    if (pw !== pw2) { setMsg("Passwords don't match"); return; }
+    setBusy(true);
+    setMsg("");
+    try {
+      await memberSetPassword(slug, memberId, pw);
+      setMsg("✓ Password updated");
+      setPw(""); setPw2("");
+      setTimeout(() => { setOpen(false); setMsg(""); }, 1500);
+    } catch (ex) {
+      setMsg(ex.message);
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <input type="password" value={pw} onChange={e => setPw(e.target.value)}
+        placeholder="New password" style={{
+          width: 120, padding: "5px 10px", fontSize: 12, borderRadius: 8,
+          border: `1px solid ${C.line}`, outline: "none", fontFamily: FONT,
+        }} />
+      <input type="password" value={pw2} onChange={e => setPw2(e.target.value)}
+        placeholder="Confirm" style={{
+          width: 100, padding: "5px 10px", fontSize: 12, borderRadius: 8,
+          border: `1px solid ${C.line}`, outline: "none", fontFamily: FONT,
+        }} />
+      <Btn onClick={submit} disabled={busy} style={{ fontSize: 11, padding: "5px 12px" }}>
+        {busy ? "..." : "Save"}
+      </Btn>
+      <button onClick={() => { setOpen(false); setMsg(""); }} style={{
+        background: "none", border: "none", color: C.t4, cursor: "pointer", fontSize: 12, fontFamily: FONT,
+      }}>Cancel</button>
+      {msg && <span style={{ fontSize: 11, color: msg.startsWith("✓") ? C.ok : C.red }}>{msg}</span>}
+    </div>
+  );
+}
+
+export default function Settings({ org, profile, team, currentMember, complianceDocs = [], onUpsertCompDoc, onUpdateProfile, onLogout }) {
   const [serverStatus, setServerStatus] = useState(null);
   const [uploads, setUploads] = useState([]);
   const [expanded, setExpanded] = useState(null); // doc_id of expanded row
@@ -136,6 +195,21 @@ export default function Settings({ org, profile, team, complianceDocs = [], onUp
     <div style={{ padding: "28px 32px", maxWidth: 800 }}>
       <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.5, color: C.dark, marginBottom: 6 }}>Settings</div>
       <div style={{ width: 32, height: 4, background: C.primary, borderRadius: 2, marginBottom: 24 }} />
+
+      {/* Logged-in-as banner */}
+      {currentMember && (
+        <div style={{
+          background: C.white, borderRadius: 16, padding: "16px 20px", boxShadow: C.cardShadow, marginBottom: 20,
+          border: `1.5px solid ${C.primary}25`, display: "flex", alignItems: "center", gap: 14,
+        }}>
+          <Avatar member={currentMember} size={36} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>{currentMember.name}</div>
+            <RoleBadge role={currentMember.role} />
+          </div>
+          <ChangePassword memberId={currentMember.id} slug={org?.slug} />
+        </div>
+      )}
 
       {/* Org info */}
       <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, border: `1.5px solid ${C.primary}25` }}>

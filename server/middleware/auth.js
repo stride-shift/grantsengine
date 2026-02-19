@@ -1,4 +1,8 @@
-import { getSession } from '../db.js';
+import { getSession, touchSession } from '../db.js';
+
+// Track last-touched per token to avoid hammering DB
+const _lastTouched = new Map();
+const TOUCH_INTERVAL_MS = 60_000;
 
 export const requireAuth = async (req, res, next) => {
   const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
@@ -17,5 +21,14 @@ export const requireAuth = async (req, res, next) => {
 
   req.session = session;
   req.orgId = session.org_id;
+  req.memberId = session.member_id || null;
+
+  // Throttled session touch — update last_active_at at most once per minute
+  const now = Date.now();
+  if (!_lastTouched.has(token) || now - _lastTouched.get(token) > TOUCH_INTERVAL_MS) {
+    _lastTouched.set(token, now);
+    touchSession(token).catch(() => {}); // fire-and-forget
+  }
+
   next();
 };
