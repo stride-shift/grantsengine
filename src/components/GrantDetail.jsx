@@ -129,7 +129,6 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   const tabs = [
     { id: "overview", label: "Overview" },
     { id: "docs", label: docReadiness ? `Docs (${docReadiness.ready}/${docReadiness.total})` : "Docs" },
-    { id: "notes", label: "Notes" },
     { id: "attachments", label: `Attachments${uploads.length ? ` (${uploads.length})` : ""}` },
     { id: "activity", label: "Activity" },
     { id: "ai", label: "Write Proposal" },
@@ -364,6 +363,19 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               </div>
             </div>
           </div>
+          {/* Notes */}
+          <Label>Notes</Label>
+          <textarea value={g.notes || ""} onChange={e => up("notes", e.target.value)}
+            placeholder="Add notes about this grant..."
+            style={{
+              width: "100%", minHeight: 140, padding: 18, fontSize: 14, lineHeight: 1.7,
+              border: `1.5px solid ${C.line}`, borderRadius: 14, fontFamily: FONT,
+              resize: "vertical", outline: "none", boxSizing: "border-box",
+              background: C.white, transition: "border-color 0.15s ease",
+            }}
+            onFocus={e => e.target.style.borderColor = C.primary}
+            onBlur={e => e.target.style.borderColor = C.line}
+          />
         </div>
       )}
 
@@ -524,23 +536,6 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           </div>
         );
       })()}
-
-      {/* Notes */}
-      {tab === "notes" && (
-        <div>
-          <textarea value={g.notes || ""} onChange={e => up("notes", e.target.value)}
-            placeholder="Add notes about this grant..."
-            style={{
-              width: "100%", minHeight: 300, padding: 18, fontSize: 14, lineHeight: 1.7,
-              border: `1.5px solid ${C.line}`, borderRadius: 14, fontFamily: FONT,
-              resize: "vertical", outline: "none", boxSizing: "border-box",
-              background: C.white, transition: "border-color 0.15s ease",
-            }}
-            onFocus={e => e.target.style.borderColor = C.primary}
-            onBlur={e => e.target.style.borderColor = C.line}
-          />
-        </div>
-      )}
 
       {/* Activity */}
       {tab === "activity" && (
