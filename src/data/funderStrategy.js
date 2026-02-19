@@ -14,7 +14,7 @@ export const isFunderReturning = name => {
 };
 
 export const PTYPES = {
-  1: { label: "Standard Cohort — Partner-funded", students: 20, cost: 516000, perStudent: 25800, duration: "9 months", desc: "Partner provides infrastructure/stipends/laptops; d-lab provides coaching, curriculum, assessment, accreditation, LMS.", budget: "Travel R38K, Accommodation R38K, Staff S&T R16K, Shuttles R4K, Accreditation R5K, Assessment R95K, ChatGPT licenses R108K, LMS R11K, Coaches R200K", table: [["Coaches & curriculum","200,000"],["Software licenses","108,000"],["ICITP assessment","95,400"],["Travel","38,160"],["Accommodation","38,160"],["Staff S&T","15,722"],["LMS hosting","11,442"],["Accreditation","5,300"],["Airport shuttles","3,816"],["TOTAL","516,000"]] },
+  1: { label: "Standard Cohort — Partner-funded", students: 20, cost: 516000, perStudent: 25800, duration: "9 months", desc: "Partner provides infrastructure/stipends/laptops; d-lab provides coaching, curriculum, assessment, accreditation, LMS.", budget: "Travel R38K, Accommodation R38K, Staff S&T R16K, Shuttles R4K, Accreditation R5K, Assessment R95K, AI platform & tools (proprietary) R108K, LMS R11K, Coaches R200K", table: [["Coaches & curriculum","200,000"],["AI platform & tools (proprietary)","108,000"],["ICITP assessment","95,400"],["Travel","38,160"],["Accommodation","38,160"],["Staff S&T","15,722"],["LMS hosting","11,442"],["Accreditation","5,300"],["Airport shuttles","3,816"],["TOTAL","516,000"]] },
   2: { label: "Standard Cohort — d-lab Funded + Stipends + Laptops", students: 20, cost: 1597000, perStudent: 79860, duration: "9 months", desc: "d-lab provides everything including laptops and stipends. Full ownership model.", budget: "Base programme R516K + Laptops R318K (R15,900 × 20) + Stipends R763K (R4,240/student × 9mo)", table: [["Base programme (Type 1)","516,000"],["Laptops (R15,900 × 20)","318,000"],["Stipends (R4,240 × 20 × 9mo)","763,200"],["TOTAL","1,597,200"]] },
   3: { label: "Standard Cohort — With Stipends", students: 20, cost: 1236000, perStudent: 61800, duration: "9 months", desc: "Partner provides infrastructure + laptops; d-lab provides programme + stipends.", budget: "Programme R516K + Stipends R720K (R4,000/student × 9 months)", table: [["Base programme (Type 1)","516,000"],["Stipends (R4,000 × 20 × 9mo)","720,000"],["TOTAL","1,236,000"]] },
   4: { label: "FET High School Programme", students: 60, cost: 1079000, perStudent: 18000, duration: "3 years (425 hours)", desc: "Work-readiness journey for Grade 10–12 learners across 3 Schools of Specialisation. Weekly coaching + Saturday sessions + holiday Design Thinking sprints.", budget: "Subject specialist coaches R960K, FET Teacher Support R14K, Snacks/meals R81K, LMS R11K, Travel R8K, Accreditation R5K", table: [["Subject specialist coaches (R6K × 160 days)","960,000"],["Snacks & meals","81,000"],["FET Teacher Support","14,000"],["LMS hosting","11,442"],["Travel","8,000"],["Accreditation","5,300"],["TOTAL","1,079,742"]] },
@@ -24,14 +24,17 @@ export const PTYPES = {
 };
 
 export const detectType = g => {
+  // Priority 1: explicit "Type N" in notes
   const n = (g.notes || "").toLowerCase();
   for (let i = 7; i >= 1; i--) { if (n.includes(`type ${i}`) || n.includes(`(type ${i})`)) return PTYPES[i]; }
-  if (g.ask <= 250000) return PTYPES[7];
-  if (g.ask <= 550000) return PTYPES[1];
-  if (g.ask <= 700000) return PTYPES[5];
-  if (g.ask >= 1500000) return PTYPES[2];
-  if (g.ask >= 1000000) return PTYPES[3];
-  return PTYPES[1];
+  // Priority 2: infer from ask amount (only when ask is set)
+  if (!g.ask || g.ask <= 0) return null;
+  if (g.ask <= 250000) return PTYPES[7];   // Sci-Bono short course (R232K)
+  if (g.ask <= 550000) return PTYPES[1];   // Partner-funded (R516K)
+  if (g.ask <= 700000) return PTYPES[5];   // Corporate (R651K)
+  if (g.ask <= 1100000) return PTYPES[4];  // FET High School (R1.08M)
+  if (g.ask <= 1400000) return PTYPES[3];  // With stipends (R1.24M)
+  return PTYPES[2];                         // Full d-lab funded (R1.6M+)
 };
 
 export const multiCohortInfo = g => {

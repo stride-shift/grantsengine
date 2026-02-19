@@ -111,10 +111,19 @@ function AppInner() {
       setComplianceDocs(compData || []);
 
       // Migrate existing grants: backfill funderBudget/askSource for pre-redesign grants
+      const PRE_SUB = ["scouted", "qualifying", "drafting", "review"];
       const raw = grantsData || [];
       const migrated = raw.map(g => {
-        if (g.funderBudget !== undefined) return g;
-        return { ...g, funderBudget: g.ask || null, askSource: g.ask ? "scout-aligned" : null, aiRecommendedAsk: null };
+        // Phase 1: backfill funderBudget for grants that don't have it yet
+        if (g.funderBudget === undefined) {
+          return { ...g, funderBudget: g.ask || null, askSource: g.ask ? "scout-aligned" : null, aiRecommendedAsk: null };
+        }
+        // Phase 2: for pre-submission grants where ask was pre-set from seed data (not AI-derived
+        // or user-overridden), reset ask to 0 so the AI draft can propose an ambitious ask
+        if (g.askSource === "scout-aligned" && PRE_SUB.includes(g.stage) && !g.aiDraft) {
+          return { ...g, ask: 0, funderBudget: g.funderBudget || g.ask || null, askSource: null };
+        }
+        return g;
       });
       setGrants(migrated);
       migrated.forEach((g, i) => { if (g !== raw[i]) dSave(g.id, g); });
@@ -392,7 +401,7 @@ function AppInner() {
 VOICE — this is the most important instruction. Maintain it in EVERY section, not just the opening:
 - Warm, human, confident. You're a founder who KNOWS this works, offering a funder the chance to back something real.
 - Write like a person, not a grant machine. Let the reader feel the energy of what d-lab does.
-- Use vivid, specific details: a student's first day with ChatGPT, a graduate landing their first tech role, a coach watching the lightbulb moment. These aren't made up — they're the reality of d-lab's programme.
+- Use vivid, specific details: a student's first day using AI tools, a graduate landing their first tech role, a coach watching the lightbulb moment. These aren't made up — they're the reality of d-lab's programme.
 - Be concrete and grounded: real numbers, real names, real programme details. Emotion comes from specificity, not adjectives.
 - Vary sentence length. Short punchy sentences land harder after longer ones.
 - The tone is: "We built something that works. Here's the proof. Here's what your investment makes possible."
