@@ -408,7 +408,7 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
               // Upcoming (positive) first sorted ascending, then past (negative) sorted descending
               if (a._d >= 0 && b._d >= 0) return a._d - b._d;
               if (a._d >= 0) return -1;
-              if (b._d >= 0) return -1;
+              if (b._d >= 0) return 1;
               return b._d - a._d; // More recently missed first
             });
           const rows = showAllDeadlines ? allRows : allRows.slice(0, 5);
