@@ -132,7 +132,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
     { id: "notes", label: "Notes" },
     { id: "attachments", label: `Attachments${uploads.length ? ` (${uploads.length})` : ""}` },
     { id: "activity", label: "Activity" },
-    { id: "ai", label: "AI Tools" },
+    { id: "ai", label: "Write Proposal" },
   ];
 
   return (
