@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
-import { dL, urgC, urgLabel, deadlineCtx, cp } from "../utils";
+import { dL, fmtK, urgC, urgLabel, deadlineCtx, cp } from "../utils";
 
 // Strip markdown bold/italic asterisks for inline display
 export const stripMd = (text) => {
@@ -64,59 +64,98 @@ export const Sparkline = ({ data, color = C.primary, w = 80, h = 24 }) => {
   return (<svg width={w} height={h} style={{ display: "block" }}><polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" /><circle cx={(data.length - 1) / (data.length - 1) * w} cy={h - ((data[data.length - 1] - mn) / rng) * (h - 4) - 2} r={2.5} fill={color} /></svg>);
 };
 
-export const CalendarStrip = ({ grants, onClickGrant, C: colors }) => {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const endDate = new Date(today); endDate.setDate(endDate.getDate() + 90);
-  // Only show pre-submission grants on timeline — post-submission deadlines are irrelevant
-  const preSubmission = ["scouted", "qualifying", "drafting", "review"];
-  const deadlines = grants.filter(g => g.deadline && preSubmission.includes(g.stage)).map(g => {
-    const d = new Date(g.deadline); d.setHours(0, 0, 0, 0);
-    const days = Math.round((d - today) / 86400000);
+export const Timeline = ({ grants, stages, team, onClickGrant }) => {
+  const [showClosed, setShowClosed] = useState(false);
+  const [showAllComing, setShowAllComing] = useState(false);
+  const PRE_SUB = ["scouted", "qualifying", "drafting", "review"];
+
+  const items = grants.filter(g => g.deadline && PRE_SUB.includes(g.stage)).map(g => {
+    const days = dL(g.deadline);
     const ctx = deadlineCtx(days, g.stage);
-    return { ...g, date: d, days, pct: Math.max(0, Math.min(100, (days / 90) * 100)), ctx };
-  }).filter(g => g.days >= -14 && g.days <= 90).sort((a, b) => a.days - b.days);
-  if (!deadlines.length) return null;
-  const months = [];
-  for (let i = 0; i <= 3; i++) { const m = new Date(today); m.setMonth(m.getMonth() + i, 1); if (m <= endDate) months.push(m); }
+    return { ...g, days, ctx };
+  }).filter(g => g.days >= -30 && g.days <= 90).sort((a, b) => {
+    // Upcoming first (ascending), then past (most recent first)
+    if (a.days >= 0 && b.days >= 0) return a.days - b.days;
+    if (a.days >= 0) return -1;
+    if (b.days >= 0) return 1;
+    return b.days - a.days;
+  });
+
+  if (!items.length) return null;
+
+  // Group into urgency bands
+  const thisWeek = items.filter(g => g.days >= 0 && g.days <= 7);
+  const next2w = items.filter(g => g.days > 7 && g.days <= 14);
+  const comingUp = items.filter(g => g.days > 14);
+  const closed = items.filter(g => g.days < 0);
+
+  const stageMap = {};
+  (stages || []).forEach(s => { stageMap[s.id] = s; });
+  const getMember = (id) => (team || []).find(t => t.id === id) || (team || []).find(t => t.id === "team") || { name: "Unassigned", ini: "\u2014" };
+
+  const Row = ({ g, faded }) => {
+    const stg = stageMap[g.stage];
+    const m = getMember(g.owner);
+    const ask = g.ask || g.funderBudget || 0;
+    return (
+      <div onClick={() => onClickGrant(g.id)} className="ge-hover-slide"
+        style={{
+          display: "flex", alignItems: "center", gap: 10, padding: "9px 16px",
+          cursor: "pointer", opacity: faded ? 0.5 : 1, minHeight: 38,
+          borderBottom: `1px solid ${C.line}`,
+        }}>
+        <Avatar member={m} size={24} />
+        {stg && <span style={{ width: 8, height: 8, borderRadius: "50%", background: stg.c, flexShrink: 0 }} />}
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.dark, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{g.name}</span>
+        <TypeBadge type={g.type} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: ask > 0 ? C.t2 : C.t4, fontFamily: MONO, minWidth: 68, textAlign: "right" }}>
+          {g.ask > 0 ? fmtK(g.ask) : g.funderBudget ? `~${fmtK(g.funderBudget)}` : "TBD"}
+        </span>
+        <DeadlineBadge d={g.days} deadline={g.deadline} stage={g.stage} />
+      </div>
+    );
+  };
+
+  const Band = ({ label, count, accent, icon, rows, collapsed, onToggle, faded, truncate }) => {
+    if (!count) return null;
+    const visibleRows = truncate && !showAllComing ? rows.slice(0, 5) : rows;
+    return (
+      <div>
+        <div
+          onClick={onToggle}
+          style={{
+            display: "flex", alignItems: "center", gap: 8, padding: "10px 16px",
+            background: C.warm100, borderBottom: `1px solid ${C.line}`,
+            cursor: onToggle ? "pointer" : "default",
+            userSelect: "none",
+          }}>
+          {accent && <span style={{ width: 3, height: 16, borderRadius: 2, background: accent, flexShrink: 0 }} />}
+          {icon && <span style={{ fontSize: 12, lineHeight: 1 }}>{icon}</span>}
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase", color: C.t3 }}>{label}</span>
+          <span style={{ fontSize: 11, color: C.t4, marginLeft: "auto" }}>{count} {count === 1 ? "grant" : "grants"}</span>
+          {onToggle && <span style={{ fontSize: 10, color: C.t4, transition: "transform 0.2s", transform: collapsed ? "rotate(-90deg)" : "none" }}>{"\u25bc"}</span>}
+        </div>
+        {!collapsed && visibleRows.map(g => <Row key={g.id} g={g} faded={faded} />)}
+        {!collapsed && truncate && rows.length > 5 && (
+          <button onClick={(e) => { e.stopPropagation(); setShowAllComing(p => !p); }}
+            style={{ display: "block", width: "100%", padding: "8px 0", background: "none", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, color: C.t3, fontFamily: FONT, borderBottom: `1px solid ${C.line}` }}
+          >{showAllComing ? "Show less" : `+ ${rows.length - 5} more`}</button>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div style={{ background: colors.white, borderRadius: 16, padding: "16px 20px", marginBottom: 16, boxShadow: C.cardShadow }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: colors.t3 }}>Submission timeline</span>
-        <span style={{ fontSize: 11, color: colors.t4 }}>Next 90 days</span>
+    <div style={{ background: C.white, borderRadius: 16, overflow: "hidden", boxShadow: C.cardShadow, marginBottom: 24 }}>
+      {/* Header */}
+      <div style={{ padding: "14px 18px", background: C.navy, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "rgba(255,255,255,0.7)" }}>Submission Timeline</span>
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>next 90 days</span>
       </div>
-      <div style={{ position: "relative", height: 44, background: colors.raised, borderRadius: 10 }}>
-        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: C.primary, borderRadius: 2, zIndex: 2 }} />
-        <div style={{ position: "absolute", left: -2, top: -15, fontSize: 9, fontWeight: 700, color: C.primary, letterSpacing: 0.5 }}>Today</div>
-        {months.map(m => {
-          const d = Math.round((m - today) / 86400000); const pct = (d / 90) * 100;
-          if (pct <= 0 || pct >= 100) return null;
-          return <div key={m.toISOString()} style={{ position: "absolute", left: `${pct}%`, top: 0, bottom: 0, width: 1, background: colors.line }}>
-            <span style={{ position: "absolute", top: -15, left: -12, fontSize: 9, color: colors.t4 }}>{m.toLocaleDateString("en-ZA", { month: "short" })}</span>
-          </div>;
-        })}
-        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${(14 / 90) * 100}%`, background: "rgba(208,50,40,0.05)", borderRadius: "10px 0 0 10px" }} />
-        {deadlines.map((g, i) => {
-          // Stage-aware coloring: expired scouted = grey, missed drafting = amber, upcoming = urgency colors
-          const color = g.ctx.severity === "expired" ? colors.t4 : g.ctx.severity === "missed" ? colors.amber : g.ctx.color;
-          const opacity = g.ctx.severity === "expired" ? 0.5 : 1;
-          const nearby = deadlines.filter(o => Math.abs(o.days - g.days) < 3 && deadlines.indexOf(o) < i);
-          const yOff = (nearby.length % 3) * 12;
-          const tipLabel = g.ctx.severity === "expired" ? `Window closed ${Math.abs(g.days)}d ago`
-            : g.ctx.severity === "missed" ? `Missed by ${Math.abs(g.days)}d`
-            : g.days === 0 ? "Due today!" : `${g.days}d remaining`;
-          return <div key={g.id} title={`${g.name} — ${g.funder}\n${tipLabel}\nR${g.ask?.toLocaleString()}\nStage: ${g.stage}`}
-            onClick={() => onClickGrant(g.id)}
-            style={{ position: "absolute", left: `${Math.max(0.5, Math.min(99, g.pct))}%`, top: 10 + yOff, width: 14, height: 14, borderRadius: "50%", background: color, opacity, border: `2.5px solid ${colors.white}`, cursor: "pointer", transform: "translateX(-7px)", zIndex: 3, transition: "transform 0.2s ease, opacity 0.2s ease", boxShadow: `0 2px 6px ${color}40` }}
-            onMouseEnter={e => { e.currentTarget.style.transform = "translateX(-7px) scale(1.5)"; e.currentTarget.style.opacity = "1"; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = "translateX(-7px) scale(1)"; e.currentTarget.style.opacity = String(opacity); }} />;
-        })}
-      </div>
-      <div style={{ display: "flex", gap: 14, marginTop: 10 }}>
-        <span style={{ fontSize: 10, color: colors.t4, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: colors.red }} /> Urgent</span>
-        <span style={{ fontSize: 10, color: colors.t4, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: colors.amber }} /> Approaching</span>
-        <span style={{ fontSize: 10, color: colors.t4, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: C.ok }} /> On track</span>
-        <span style={{ fontSize: 10, color: colors.t4, display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: colors.t4, opacity: 0.5 }} /> Expired</span>
-      </div>
+      <Band label="This Week" count={thisWeek.length} accent={C.red} icon={"\u26a0"} rows={thisWeek} />
+      <Band label="Next 2 Weeks" count={next2w.length} accent={C.amber} icon={"\u25cb"} rows={next2w} />
+      <Band label="Coming Up" count={comingUp.length} accent={C.ok} rows={comingUp} truncate />
+      <Band label="Window Closed" count={closed.length} accent={C.t4} rows={closed} collapsed={!showClosed} onToggle={() => setShowClosed(p => !p)} faded />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmt, fmtK, dL, urgC, deadlineCtx, cp, effectiveAsk } from "../utils";
-import { Num, CalendarStrip, DeadlineBadge, TypeBadge, Avatar, Label, Btn, CopyBtn, stripMd } from "./index";
+import { fmt, dL, deadlineCtx, effectiveAsk } from "../utils";
+import { Num, Timeline, Label, Btn, CopyBtn, stripMd } from "./index";
 
 const CLOSED_STAGES = ["won", "lost", "deferred"];
 const PRE_SUBMISSION = ["scouted", "qualifying", "drafting", "review"];
@@ -11,8 +11,6 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
   const [briefResult, setBriefResult] = useState(null);
   const [reportBusy, setReportBusy] = useState(false);
   const [reportResult, setReportResult] = useState(null);
-  const [showAllAlerts, setShowAllAlerts] = useState(false);
-  const [showAllDeadlines, setShowAllDeadlines] = useState(false);
 
   const pipe = useMemo(() => {
     // Single pass: classify grants by stage and accumulate values
@@ -67,35 +65,6 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
     };
   }, [grants, stages]);
 
-  const notifs = useMemo(() => {
-    const n = [];
-    grants.forEach(g => {
-      if (CLOSED_STAGES.includes(g.stage)) return;
-      const d = dL(g.deadline);
-      if (d === null) return;
-      const ctx = deadlineCtx(d, g.stage);
-      // Post-submission grants — deadline is met, no alert needed
-      if (!PRE_SUBMISSION.includes(g.stage)) return;
-      // Stage-aware alerts
-      if (ctx.severity === "missed") {
-        n.push({ id: `ms-${g.id}`, ty: "warn", gid: g.id, tx: `${g.name} — missed deadline by ${Math.abs(d)} days (${g.stage})` });
-      } else if (ctx.severity === "expired") {
-        n.push({ id: `ex-${g.id}`, ty: "info", gid: g.id, tx: `${g.name} — window closed ${Math.abs(d)} days ago` });
-      } else if (ctx.severity === "critical") {
-        n.push({ id: `cr-${g.id}`, ty: "urgent", gid: g.id, tx: `${g.name} — ${d === 0 ? "due today!" : `only ${d} days left`}` });
-      } else if (ctx.severity === "urgent") {
-        n.push({ id: `ur-${g.id}`, ty: "urgent", gid: g.id, tx: `${g.name} — deadline in ${d} days` });
-      } else if (ctx.severity === "soon") {
-        n.push({ id: `sn-${g.id}`, ty: "warn", gid: g.id, tx: `${g.name} — deadline in ${d} days` });
-      }
-    });
-    // Sort: critical first, then urgent, then warn, then info
-    const order = { urgent: 0, warn: 1, info: 2 };
-    n.sort((a, b) => (order[a.ty] ?? 3) - (order[b.ty] ?? 3));
-    return n;
-  }, [grants]);
-
-  const getMember = (id) => team.find(t => t.id === id) || team.find(t => t.id === "team") || { name: "Unassigned", initials: "\u2014" };
 
   return (
     <div style={{ padding: "32px 36px", maxWidth: 1200 }}>
@@ -321,52 +290,8 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
         )}
       </div>
 
-      {/* Calendar */}
-      <CalendarStrip grants={grants} onClickGrant={onSelectGrant} C={C} />
-
-      {/* Notifications — stage-aware deadline alerts */}
-      {notifs.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <Label>Deadline Alerts</Label>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {(showAllAlerts ? notifs : notifs.slice(0, 4)).map(n => {
-              const borderColor = n.ty === "urgent" ? C.red : n.ty === "warn" ? C.amber : C.t4;
-              const icon = n.ty === "urgent" ? "\u26a0" : n.ty === "warn" ? "!" : "\u25cb";
-              return (
-                <div key={n.id} className="ge-hover-nudge" onClick={() => onSelectGrant(n.gid)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
-                    background: C.white,
-                    borderRadius: 12, cursor: "pointer", fontSize: 13, color: C.t1,
-                    border: `1.5px solid ${borderColor}30`,
-                    boxShadow: C.cardShadow,
-                    opacity: n.ty === "info" ? 0.7 : 1,
-                  }}>
-                  <span style={{ fontSize: 14 }}>{icon}</span>
-                  <span style={{ flex: 1 }}>{n.tx}</span>
-                  <span style={{ fontSize: 14, color: C.t4, flexShrink: 0, transition: "color 0.15s" }}>{"\u2192"}</span>
-                </div>
-              );
-            })}
-          </div>
-          {notifs.length > 4 && (
-            <button onClick={() => setShowAllAlerts(p => !p)}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                width: "100%", padding: "10px 0", marginTop: 8,
-                background: "none", border: "none", cursor: "pointer",
-                fontSize: 12, fontWeight: 600, color: C.t3, fontFamily: FONT,
-                transition: "color 0.15s",
-              }}
-              onMouseEnter={e => e.currentTarget.style.color = C.primary}
-              onMouseLeave={e => e.currentTarget.style.color = C.t3}
-            >
-              {showAllAlerts ? "Show less" : `View all ${notifs.length} alerts`}
-              <span style={{ fontSize: 10, transform: showAllAlerts ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>{"\u25bc"}</span>
-            </button>
-          )}
-        </div>
-      )}
+      {/* Submission Timeline — unified urgency-banded view */}
+      <Timeline grants={grants} stages={stages} team={team} onClickGrant={onSelectGrant} />
 
       {/* Stage breakdown — 3px top border in stage color */}
       <Label>Pipeline by Stage</Label>
@@ -381,89 +306,6 @@ export default function Dashboard({ grants, team, stages, onSelectGrant, onNavig
             <div style={{ fontSize: 11, color: C.t3, fontWeight: 600, marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
-      </div>
-
-      {/* Deadlines table — only pre-submission grants with actionable deadlines */}
-      <Label>Upcoming Deadlines</Label>
-      <div style={{ background: C.white, borderRadius: 16, overflow: "hidden", boxShadow: C.cardShadow }}>
-        {/* Table header */}
-        <div style={{
-          display: "flex", alignItems: "center", gap: 12, padding: "10px 18px",
-          background: C.navy, borderRadius: "16px 16px 0 0",
-        }}>
-          <div style={{ width: 26 }} />
-          <div style={{ flex: 1, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: 0.5, textTransform: "uppercase" }}>Grant</div>
-          <div style={{ width: 90, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: 0.5, textTransform: "uppercase" }}>Type</div>
-          <div style={{ width: 80, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: 0.5, textTransform: "uppercase", textAlign: "right" }}>Ask</div>
-          <div style={{ width: 100, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: 0.5, textTransform: "uppercase" }}>Status</div>
-        </div>
-        {(() => {
-          // Pre-submission grants only — post-submission grants have already met deadline
-          const allRows = grants
-            .filter(g => g.deadline && PRE_SUBMISSION.includes(g.stage))
-            .map(g => ({ ...g, _d: dL(g.deadline), _ctx: deadlineCtx(dL(g.deadline), g.stage) }))
-            // Show upcoming first, then recently missed/expired (within 30 days)
-            .filter(g => g._d > -30)
-            .sort((a, b) => {
-              // Upcoming (positive) first sorted ascending, then past (negative) sorted descending
-              if (a._d >= 0 && b._d >= 0) return a._d - b._d;
-              if (a._d >= 0) return -1;
-              if (b._d >= 0) return 1;
-              return b._d - a._d; // More recently missed first
-            });
-          const rows = showAllDeadlines ? allRows : allRows.slice(0, 5);
-          if (allRows.length === 0) return (
-            <div style={{ padding: "20px 18px", fontSize: 13, color: C.t3, textAlign: "center" }}>
-              No upcoming submission deadlines
-            </div>
-          );
-          return (
-            <>
-              {rows.map((g, idx) => {
-                const m = getMember(g.owner);
-                const stg = (stages || []).find(s => s.id === g.stage);
-                return (
-                  <div key={g.id} onClick={() => onSelectGrant(g.id)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 12, padding: "12px 18px",
-                      borderBottom: `1px solid ${C.line}`, cursor: "pointer",
-                      background: idx % 2 === 1 ? C.warm100 : "transparent",
-                      opacity: g._ctx.severity === "expired" ? 0.6 : 1,
-                    }}
-                    className="ge-hover-slide">
-                    <Avatar member={m} size={26} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {stg && <span style={{ width: 8, height: 8, borderRadius: "50%", background: stg.c, flexShrink: 0 }} />}
-                        <span style={{ fontSize: 13, fontWeight: 600, color: C.dark, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.name}</span>
-                      </div>
-                      <div style={{ fontSize: 11, color: C.t3 }}>{g.funder}</div>
-                    </div>
-                    <TypeBadge type={g.type} />
-                    <div style={{ fontSize: 13, fontWeight: 600, color: g.ask > 0 ? C.t2 : C.t4, fontFamily: MONO, minWidth: 70, textAlign: "right" }}>{g.ask > 0 ? fmtK(g.ask) : g.funderBudget ? `~${fmtK(g.funderBudget)}` : "TBD"}</div>
-                    <DeadlineBadge d={g._d} deadline={g.deadline} stage={g.stage} />
-                  </div>
-                );
-              })}
-              {allRows.length > 5 && (
-                <button onClick={() => setShowAllDeadlines(p => !p)}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    width: "100%", padding: "12px 0",
-                    background: "none", border: "none", cursor: "pointer",
-                    fontSize: 12, fontWeight: 600, color: C.t3, fontFamily: FONT,
-                    transition: "color 0.15s",
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = C.primary}
-                  onMouseLeave={e => e.currentTarget.style.color = C.t3}
-                >
-                  {showAllDeadlines ? "Show less" : `View all ${allRows.length} deadlines`}
-                  <span style={{ fontSize: 10, transform: showAllDeadlines ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>{"\u25bc"}</span>
-                </button>
-              )}
-            </>
-          );
-        })()}
       </div>
     </div>
   );
