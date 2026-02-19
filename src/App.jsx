@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { C, FONT, MONO, injectFonts } from "./theme";
 import { uid, td, dL, effectiveAsk } from "./utils";
-import { funderStrategy, isFunderReturning } from "./data/funderStrategy";
+import { funderStrategy, isFunderReturning, detectType, PTYPES } from "./data/funderStrategy";
 import {
   isLoggedIn, getAuth, setAuth, getCurrentMember, login, logout, setPassword,
   memberLogin, memberSetPassword,
@@ -712,6 +712,183 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
         false, 2000
       );
     }
+    if (type === "insights") {
+      const act = grants.filter(g => !["won", "lost", "deferred"].includes(g.stage));
+      const won = grants.filter(g => g.stage === "won");
+      const lost = grants.filter(g => g.stage === "lost");
+      const totalAsk = act.reduce((s, g) => s + effectiveAsk(g), 0);
+      const wonVal = won.reduce((s, g) => s + effectiveAsk(g), 0);
+      const closed = won.length + lost.length;
+
+      // Build data snapshot for the AI
+      const byStage = stages.filter(s => !["won", "lost", "deferred"].includes(s.id))
+        .map(s => ({ stage: s.label, count: grants.filter(g => g.stage === s.id).length }))
+        .filter(s => s.count > 0);
+
+      const funderTypeMap = {};
+      for (const g of grants) {
+        const t = g.type || "Unknown";
+        if (!funderTypeMap[t]) funderTypeMap[t] = { total: 0, won: 0, lost: 0, ask: 0 };
+        funderTypeMap[t].total++;
+        funderTypeMap[t].ask += effectiveAsk(g);
+        if (g.stage === "won") funderTypeMap[t].won++;
+        if (g.stage === "lost") funderTypeMap[t].lost++;
+      }
+
+      const relMap = {};
+      for (const g of grants) {
+        const r = g.rel || "Unknown";
+        if (!relMap[r]) relMap[r] = { total: 0, won: 0, lost: 0 };
+        relMap[r].total++;
+        if (g.stage === "won") relMap[r].won++;
+        if (g.stage === "lost") relMap[r].lost++;
+      }
+
+      const deadlinePressure = act.filter(g => { const d = dL(g.deadline); return d !== null && d >= 0 && d <= 14; }).length;
+      const overdue = act.filter(g => { const d = dL(g.deadline); return d !== null && d < 0; }).length;
+      const noDeadline = act.filter(g => !g.deadline).length;
+
+      const focusMap = {};
+      for (const g of grants) for (const tag of (g.focus || [])) focusMap[tag] = (focusMap[tag] || 0) + 1;
+
+      const ownerMap = {};
+      for (const g of act) {
+        const owner = g.owner || "team";
+        const member = team?.find(t => t.id === owner);
+        const name = member ? member.name : (owner === "team" ? "Unassigned" : owner);
+        ownerMap[name] = (ownerMap[name] || 0) + 1;
+      }
+
+      const withAI = grants.filter(g => g.aiDraft || g.aiResearch || g.aiFitscore).length;
+
+      return await api(
+        `You are a grant pipeline intelligence analyst for d-lab NPC, a South African youth skills NPO. You see patterns that busy grant managers miss.
+
+TASK: Analyse the pipeline data below and produce 5–7 NON-OBVIOUS insights — patterns, risks, and opportunities the team should act on.
+
+CATEGORIES TO CONSIDER (cover at least 4):
+- Funnel shape: Is the pipeline top-heavy, bottom-heavy, or balanced? What does the conversion path look like?
+- Funder concentration: Is the org over-reliant on one funder type? What's the risk exposure?
+- Relationship leverage: Which relationship statuses convert best? Where should relationship-building effort go?
+- Timing risk: Are there deadline clusters, gaps, or too many grants without deadlines?
+- Ask calibration: Are asks too clustered in one range? Are they realistic given funder budgets?
+- Team capacity: Is workload balanced? Is anyone overloaded or underutilised?
+- AI utilisation: What percentage of grants have AI-generated content? Where are the gaps?
+- Geographic gaps: Is there geographic concentration or untapped regions?
+
+FORMAT: Each insight must have:
+- An emoji + bold title (one line)
+- 2–3 sentences of data-backed analysis (reference actual numbers from the data)
+- One concrete action the team should take in the next 7 days
+
+Be specific. Reference actual grant names, funder names, and numbers. No generic advice.${factGuard}`,
+        `Organisation: ${org?.name || "d-lab NPC"}
+
+PIPELINE SNAPSHOT:
+- Total grants: ${grants.length} (${act.length} active, ${won.length} won, ${lost.length} lost)
+- Active pipeline value: R${totalAsk.toLocaleString()}
+- Won value: R${wonVal.toLocaleString()}
+- Win rate: ${closed > 0 ? Math.round((won.length / closed) * 100) + "%" : "No closed grants yet"}
+
+BY STAGE: ${byStage.map(s => `${s.stage}: ${s.count}`).join(", ")}
+
+FUNDER TYPES: ${Object.entries(funderTypeMap).map(([t, v]) => `${t}: ${v.total} grants (${v.won}W/${v.lost}L, R${v.ask.toLocaleString()})`).join("; ")}
+
+RELATIONSHIPS: ${Object.entries(relMap).map(([r, v]) => `${r}: ${v.total} (${v.won}W/${v.lost}L)`).join("; ")}
+
+DEADLINE PRESSURE: ${deadlinePressure} due within 14 days, ${overdue} overdue, ${noDeadline} without deadlines
+
+FOCUS AREAS: ${Object.entries(focusMap).sort(([, a], [, b]) => b - a).map(([tag, n]) => `${tag} (${n})`).join(", ")}
+
+TEAM WORKLOAD: ${Object.entries(ownerMap).map(([name, n]) => `${name}: ${n}`).join(", ")}
+
+AI COVERAGE: ${withAI}/${grants.length} grants have some AI-generated content (${Math.round((withAI / Math.max(grants.length, 1)) * 100)}%)
+
+TOP 5 BY ASK: ${[...act].sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).map(g => `${g.name} for ${g.funder} (R${effectiveAsk(g).toLocaleString()}, ${g.stage}, rel: ${g.rel})`).join("; ")}`,
+        false, 2000
+      );
+    }
+    if (type === "strategy") {
+      const act = grants.filter(g => !["won", "lost", "deferred"].includes(g.stage));
+      const won = grants.filter(g => g.stage === "won");
+      const lost = grants.filter(g => g.stage === "lost");
+      const totalAsk = act.reduce((s, g) => s + effectiveAsk(g), 0);
+      const wonVal = won.reduce((s, g) => s + effectiveAsk(g), 0);
+
+      // Programme type usage
+      const ptypeUsage = {};
+      for (const g of grants) {
+        const pt = detectType(g);
+        const label = pt ? pt.label.split(" — ")[0] : "Unclassified";
+        if (!ptypeUsage[label]) ptypeUsage[label] = { total: 0, won: 0, lost: 0, ask: 0 };
+        ptypeUsage[label].total++;
+        ptypeUsage[label].ask += effectiveAsk(g);
+        if (g.stage === "won") ptypeUsage[label].won++;
+        if (g.stage === "lost") ptypeUsage[label].lost++;
+      }
+
+      // Funder type breakdown
+      const funderTypeMap = {};
+      for (const g of grants) {
+        const t = g.type || "Unknown";
+        if (!funderTypeMap[t]) funderTypeMap[t] = { total: 0, won: 0, lost: 0, ask: 0 };
+        funderTypeMap[t].total++;
+        funderTypeMap[t].ask += effectiveAsk(g);
+        if (g.stage === "won") funderTypeMap[t].won++;
+        if (g.stage === "lost") funderTypeMap[t].lost++;
+      }
+
+      // Build programme type reference
+      const ptypeRef = Object.entries(PTYPES).map(([num, pt]) =>
+        `Type ${num}: ${pt.label} — ${pt.students ? pt.students + " students" : "Scales to any size"}, ${pt.duration}, ${pt.cost ? "R" + pt.cost.toLocaleString() : "US$49/learner"}`
+      ).join("\n");
+
+      return await api(
+        `You are a strategic advisor to d-lab NPC, a South African youth skills NPO. You help them align their programme portfolio with funding opportunities to maximise both impact and revenue.
+
+TASK: Produce 5–7 strategic recommendations for how d-lab should position its programmes to attract more and better-aligned funding.
+
+d-lab delivers 7 programme types (reference below). Each has different costs, student numbers, durations, and target markets.
+
+PROGRAMME TYPES:
+${ptypeRef}
+
+STRATEGIC AREAS TO ADDRESS (cover at least 4):
+- Programme-funder fit: Which programme types are over/under-represented in the pipeline? Is Cyborg Habits (Type 6 — scalable, low-cost, online) being underleveraged for large-scale funders?
+- Funder type ROI: Which funder types (Corporate CSI, Government/SETA, International, Foundation, Tech Company) yield the best win rates and values?
+- Ask calibration: Are programme costs matching what funders typically give? Where should d-lab adjust pricing or packaging?
+- Relationship investment: Where should d-lab invest in deepening relationships vs. prospecting new funders?
+- Geographic expansion: Are there untapped geographies or sectors?
+- Pipeline gaps: Which stages need more grants? Is the funnel balanced for sustainable revenue?
+- Capacity planning: Given the current pipeline, what delivery capacity does d-lab need to plan for?
+- Scale opportunities: Where can d-lab package programmes for larger, multi-cohort or multi-year deals?
+
+FORMAT: Each recommendation must have:
+- A number + bold title
+- 3–5 sentences of strategic reasoning (reference actual data, programme costs, funder patterns)
+- One concrete 30-day action
+
+Be specific and actionable. Reference programme types by name and number. No generic strategy advice.${factGuard}`,
+        `Organisation: ${org?.name || "d-lab NPC"}
+
+PIPELINE DATA:
+- Total: ${grants.length} grants, ${act.length} active (R${totalAsk.toLocaleString()}), ${won.length} won (R${wonVal.toLocaleString()}), ${lost.length} lost
+- Win rate: ${won.length + lost.length > 0 ? Math.round((won.length / (won.length + lost.length)) * 100) + "%" : "No closed grants"}
+
+PROGRAMME TYPE USAGE IN PIPELINE:
+${Object.entries(ptypeUsage).map(([label, v]) => `${label}: ${v.total} grants (${v.won}W/${v.lost}L, total ask R${v.ask.toLocaleString()})`).join("\n")}
+
+FUNDER TYPE BREAKDOWN:
+${Object.entries(funderTypeMap).map(([t, v]) => `${t}: ${v.total} grants (${v.won}W/${v.lost}L, R${v.ask.toLocaleString()})`).join("\n")}
+
+TOP GRANTS BY VALUE:
+${[...grants].sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 8).map(g => `${g.name} — ${g.funder} (${g.type}), R${effectiveAsk(g).toLocaleString()}, ${g.stage}, rel: ${g.rel}`).join("\n")}
+
+WON GRANTS: ${won.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiveAsk(g).toLocaleString()})`).join("; ") || "None yet"}
+LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiveAsk(g).toLocaleString()})`).join("; ") || "None yet"}`,
+        false, 2500
+      );
+    }
     return "Unknown AI action";
   };
 
@@ -894,6 +1071,8 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
             onNavigate={(v) => { setSel(null); setView(v); }}
             onRunBrief={() => runAI("brief", { name: "Pipeline", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "" })}
             onRunReport={() => runAI("report", { name: "Report", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "" })}
+            onRunInsights={() => runAI("insights", { name: "Insights", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "" })}
+            onRunStrategy={() => runAI("strategy", { name: "Strategy", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "" })}
           />
         ) : view === "pipeline" ? (
           <Pipeline
