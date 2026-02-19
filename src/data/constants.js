@@ -7,7 +7,7 @@ export const STAGES = [
   { id: "review", label: "Review", c: "#2B6CB0" },
   { id: "submitted", label: "Submitted", c: "#D03228" },
   { id: "awaiting", label: "Awaiting", c: "#1A7FAD" },
-  { id: "won", label: "Won", c: "#1E56A0" },
+  { id: "won", label: "Won", c: "#16A34A" },
   { id: "lost", label: "Lost", c: "#D03228" },
   { id: "deferred", label: "Deferred", c: "#9CA3AF" },
 ];
@@ -19,8 +19,8 @@ export const TOPICS = ["AI in Youth Development", "AI-Native Curricula", "Digita
 
 export const DOCS = {
   "Corporate CSI": ["PBO Certificate", "NPO Registration", "Tax Clearance (SARS)", "Audited Financials", "B-BBEE Certificate", "Organisation Profile", "Programme Description", "Logical Framework", "Detailed Budget", "Board Resolution"],
-  "Government/SETA": ["PBO Certificate", "NPO Registration", "Tax Clearance (SARS)", "Audited Financials (2yr)", "B-BBEE Certificate", "FICA Compliance", "Accreditation Certificates", "Skills Development Plan", "WSP/ATR", "Board Resolution", "Banking Confirmation", "Company Registration"],
-  "International": ["NPO Registration", "Audited Financials (2yr)", "Organisation Profile", "Theory of Change", "M&E Framework", "Programme Description", "Budget (USD)", "Risk Register", "Safeguarding Policy", "Anti-Fraud Policy"],
+  "Government/SETA": ["PBO Certificate", "NPO Registration", "Tax Clearance (SARS)", "Audited Financials", "Audited Financials (Prior Year)", "B-BBEE Certificate", "FICA Compliance", "Accreditation Certificates", "Skills Development Plan", "WSP/ATR", "Board Resolution", "Banking Confirmation", "Company Registration"],
+  "International": ["NPO Registration", "Audited Financials", "Audited Financials (Prior Year)", "Organisation Profile", "Theory of Change", "M&E Framework", "Programme Description", "Budget (USD)", "Risk Register", "Safeguarding Policy", "Anti-Fraud Policy"],
   "Foundation": ["PBO Certificate", "NPO Registration", "Tax Clearance (SARS)", "Audited Financials", "Organisation Profile", "Programme Description", "Detailed Budget", "Outcomes Framework", "Board Resolution"],
   "Tech Company": ["NPO Registration", "Organisation Profile", "Programme Description", "Detailed Budget", "Impact Metrics", "Tech Platform Overview", "Data Privacy Policy"],
 };
@@ -52,7 +52,7 @@ export const ORG_DOCS = [
 // Map grant-level doc names to org-level doc IDs
 export const DOC_MAP = {
   "PBO Certificate": "pbo", "NPO Registration": "npo", "Tax Clearance (SARS)": "tax",
-  "Audited Financials": "fin1", "Audited Financials (2yr)": "fin1",
+  "Audited Financials": "fin1", "Audited Financials (Prior Year)": "fin2",
   "B-BBEE Certificate": "bbbee", "FICA Compliance": "fica", "Banking Confirmation": "bank",
   "Board Resolution": "board", "Organisation Profile": "orgpro", "Company Registration": "cipc",
   "Accreditation Certificates": "accred", "Skills Development Plan": "sdp", "WSP/ATR": "wsp",

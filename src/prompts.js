@@ -43,7 +43,7 @@ FRAMING: d-lab's story is the SYSTEM — 7 programme types, partner delivery mod
 
 AMBITION — think BIG:
 - d-lab's 7 programme types are a GUIDE, not a cage. Use them as building blocks but design the programme around what the FUNDER wants to achieve.
-- If the funder can support R5M, don't propose R199K. Go large — propose multi-cohort, extended duration, wraparound services, employer partnerships.
+- If the funder can support R5M, don't propose R232K. Go large — propose multi-cohort, extended duration, wraparound services, employer partnerships.
 - Combine programme elements creatively. Think about what would make the funder PROUD to back this.
 - The budget should fill the funder's capacity, not sit timidly below it.
 
@@ -140,7 +140,7 @@ Search their website, annual report, and recent news.`,
 
 // ── SCOUT ──
 export const scoutPrompt = ({ existingFunders }) => ({
-  system: `You find grant opportunities for d-lab, a South African NPO training unemployed youth in AI-native digital skills (92% completion, 85% employment, 7 programme types from R199K to R5M).
+  system: `You find grant opportunities for d-lab, a South African NPO training unemployed youth in AI-native digital skills (92% completion, 85% employment, 7 programme types from R232K to R5M).
 
 SEARCH for open grant opportunities, CSI funding calls, SETA discretionary windows, and international tech funder programmes in 2026.
 

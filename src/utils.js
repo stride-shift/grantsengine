@@ -11,7 +11,7 @@ export const urgLabel = d => d === null ? null : d < 0 ? `${Math.abs(d)}d overdu
 // In grant funding, "deadline" = submission deadline.
 // Post-submission stages (submitted, awaiting, won) have ALREADY met the deadline — it's not overdue.
 // Pre-submission stages with past deadlines = missed the window, need attention but not panic.
-const POST_SUBMISSION = ["submitted", "awaiting", "won", "lost"];
+const POST_SUBMISSION = ["submitted", "awaiting", "won", "lost", "deferred"];
 const PRE_DRAFT = ["scouted", "qualifying"];
 
 export const deadlineCtx = (daysLeft, stage) => {

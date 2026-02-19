@@ -39,7 +39,7 @@ Cost per participant: R10,333. Delivered via The Field Institute.
 TYPE 6: CYBORG HABITS SHORT COURSE (US$49/learner = ~R930)
 4-6 week online behaviour-change challenge. Asynchronous, AI-supported work habits platform. Revenue-generating, scales to teachers/NGOs/corporates. Can be added to any cohort or sold standalone.
 
-TYPE 7: SCI-BONO EMPLOYABILITY SKILLS (R199K for 90 learners)
+TYPE 7: SCI-BONO EMPLOYABILITY SKILLS (R232K for 90 learners)
 Short-format: 15 working days over 13 weeks. 7 AI days (6 hrs/day, 2 coaches) + Design Thinking (1-day sprint + 5-day sprint + 2 presentation days).
 Budget: AI coaching R84K (2 coaches × R1K/hr × 6hrs × 7 days) + DT coaching R64K (1 coach × R2K/hr × 4hrs × 8 days) + Cyborg Habits platform R84K (US$49 × 90) = R232K.
 Cost per learner: R2,576 (incl VAT). Excludes venue/AV (Sci-Bono provides).
@@ -100,7 +100,7 @@ Telkom Foundation, Get It Done Foundation (R2.84M 2023, R4.99M 2024, R4.97M 2025
 
 TONE GUIDANCE: Write proposals that are warm, human, and compelling — not dry or bureaucratic. Lead with the human story and real impact. Show passion for the work. Use specific numbers to build credibility but weave them into narrative. When addressing a returning funder, acknowledge the existing relationship warmly and show what their previous support helped achieve. Be conversational but professional. When describing d-lab's growth and trajectory, ALWAYS emphasise the SYSTEM — 7 programme types, partner delivery model, in-house AI tools, diversified revenue, exceptional outcomes. NEVER lead with geographic expansion or province-counting. Geography is where the work happens, not why it matters. The story is: we built a system that works, and it can work anywhere.
 
-PROPOSAL STRATEGY: Match the programme type to the funder. Small foundations (R200K-R600K): offer a partner-funded cohort (R516K) or Sci-Bono-style short course (R199K). Medium foundations/CSI (R600K-R1.5M): offer a cohort with stipends (R1.236M) or FET programme (R1.079M). Large funders (R1.5M+): offer d-lab-funded cohort (R1.597M) or multi-cohort packages. SETAs: multi-cohort national programmes. Corporate: CCBA-style leadership or multi-cohort with B-BBEE value. Always include organisational cost contribution (30%) for sustainability.`;
+PROPOSAL STRATEGY: Match the programme type to the funder. Small foundations (R200K-R600K): offer a partner-funded cohort (R516K) or Sci-Bono-style short course (R232K). Medium foundations/CSI (R600K-R1.5M): offer a cohort with stipends (R1.236M) or FET programme (R1.079M). Large funders (R1.5M+): offer d-lab-funded cohort (R1.597M) or multi-cohort packages. SETAs: multi-cohort national programmes. Corporate: CCBA-style leadership or multi-cohort with B-BBEE value. Always include organisational cost contribution (30%) for sustainability.`;
 
 export const CTX_SLIM = `d-lab NPC (The Field Lab NPC) — South African NPO training unemployed youth in AI-native digital skills.
 NPO 2017/382673/08 | PBO 930077003 | Section 18A tax-exempt. Director: Alison Jacobson.

@@ -411,7 +411,7 @@ FRAMING: d-lab's story is the SYSTEM — 7 programme types, partner delivery mod
 
 AMBITION — think BIG. Do NOT constrain yourself to d-lab's smallest or cheapest programme type:
 - d-lab's 7 programme types are a GUIDE, not a cage. Use them as building blocks but design the programme around what the FUNDER wants to achieve.
-- If the funder can support R5M, don't propose R199K. Go large — propose multi-cohort, extended duration, wraparound services, employer partnerships, expansion to new sites.
+- If the funder can support R5M, don't propose R232K. Go large — propose multi-cohort, extended duration, wraparound services, employer partnerships, expansion to new sites.
 - Combine programme elements creatively: a 9-month accredited pathway PLUS a Cyborg Habits digital layer, a flagship cohort PLUS a Train-the-Trainer cascade model, an AI bootcamp PLUS a workplace integration programme.
 - Think about what would make the funder PROUD to back this. What's the version of d-lab's work that matches the scale of their ambition?
 - The budget should fill the funder's capacity, not sit timidly below it. If a corporate has R2M for CSI, propose R1.8M — not R500K.
