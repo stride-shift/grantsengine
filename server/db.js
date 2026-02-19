@@ -114,7 +114,7 @@ export const createSession = async (orgId) => {
 };
 
 export const getSession = async (token) => {
-  const { rows } = await pool().query('SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()', [token]);
+  const { rows } = await pool().query('SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW() AND ended_at IS NULL', [token]);
   return rows[0] || null;
 };
 
@@ -386,7 +386,7 @@ export const endSession = async (token) => {
 
 export const getActiveSessions = async (orgId) => {
   const { rows } = await pool().query(
-    `SELECT s.token, s.org_id, s.member_id, s.created_at, s.last_active_at,
+    `SELECT s.member_id, s.created_at, s.last_active_at,
             tm.name AS member_name, tm.initials, tm.role
      FROM sessions s
      LEFT JOIN team_members tm ON tm.id = s.member_id
@@ -399,7 +399,7 @@ export const getActiveSessions = async (orgId) => {
 
 export const getSessionHistory = async (orgId, limit = 30) => {
   const { rows } = await pool().query(
-    `SELECT s.token, s.org_id, s.member_id, s.created_at, s.last_active_at, s.ended_at,
+    `SELECT s.member_id, s.created_at, s.last_active_at, s.ended_at,
             tm.name AS member_name, tm.initials, tm.role,
             EXTRACT(EPOCH FROM (COALESCE(s.ended_at, s.last_active_at, s.created_at) - s.created_at)) / 60 AS duration_mins
      FROM sessions s

@@ -5,6 +5,67 @@ import { getTeamPublic } from "../api";
 
 const ROLE_ORDER = { director: 0, hop: 1, pm: 2, none: 9 };
 
+// ── Shared layout components (defined outside to prevent remounting) ──
+
+const Header = () => (
+  <div style={{
+    position: "fixed", top: 0, left: 0, right: 0, height: 56,
+    background: C.navy, display: "flex", alignItems: "center", padding: "0 24px", gap: 12,
+    boxShadow: "0 2px 8px rgba(26, 31, 54, 0.15)", zIndex: 10,
+  }}>
+    <div style={{
+      width: 32, height: 32, borderRadius: 8,
+      background: `linear-gradient(135deg, ${C.primary} 0%, #E04840 100%)`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: 14, fontWeight: 800, color: "#fff",
+    }}>d</div>
+    <span style={{ fontSize: 15, fontWeight: 700, color: "#fff", letterSpacing: -0.3 }}>d-lab Grant Engine</span>
+  </div>
+);
+
+const Card = ({ children, width = 420 }) => (
+  <div style={{ width, background: C.white, borderRadius: 20, padding: "36px 40px", boxShadow: C.cardShadowLg, marginTop: 40 }}>
+    {children}
+  </div>
+);
+
+const Title = ({ slug, sub }) => (
+  <div style={{ textAlign: "center", marginBottom: 28 }}>
+    <div style={{ fontSize: 12, fontWeight: 700, color: C.t4, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Grant Engine</div>
+    <div style={{ fontSize: 22, fontWeight: 700, color: C.dark }}>{slug}</div>
+    <div style={{ width: 28, height: 3, background: C.primary, borderRadius: 2, margin: "10px auto 0" }} />
+    {sub && <div style={{ fontSize: 13, color: C.t3, marginTop: 10 }}>{sub}</div>}
+  </div>
+);
+
+const BackLink = ({ onClick, label }) => (
+  <div style={{ textAlign: "center", marginTop: 18 }}>
+    <button onClick={onClick} style={{
+      background: "none", border: "none", color: C.t3, fontSize: 13, cursor: "pointer", fontFamily: FONT,
+      transition: "color 0.15s",
+    }}
+      onMouseEnter={e => e.currentTarget.style.color = C.primary}
+      onMouseLeave={e => e.currentTarget.style.color = C.t3}
+    >{label}</button>
+  </div>
+);
+
+const inputStyle = {
+  width: "100%", padding: "10px 14px", fontSize: 15, border: `1.5px solid ${C.line}`,
+  borderRadius: 12, outline: "none", fontFamily: FONT, boxSizing: "border-box",
+  transition: "border-color 0.15s",
+};
+
+const focusBorder = (e) => e.target.style.borderColor = C.primary;
+const blurBorder = (e) => e.target.style.borderColor = C.line;
+
+const Page = ({ children }) => (
+  <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.bg, fontFamily: FONT }}>
+    <Header />
+    {children}
+  </div>
+);
+
 export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassword }) {
   const [step, setStep] = useState("pick"); // pick | password | set-password
   const [members, setMembers] = useState([]);
@@ -14,6 +75,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showLegacy, setShowLegacy] = useState(false);
 
   // Load public team list
   useEffect(() => {
@@ -59,8 +121,6 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
     setBusy(false);
   };
 
-  // Legacy shared-password flow
-  const [showLegacy, setShowLegacy] = useState(false);
   const submitLegacy = async (e) => {
     e.preventDefault();
     if (!pw) return;
@@ -74,119 +134,83 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
     setBusy(false);
   };
 
-  const Header = () => (
-    <div style={{
-      position: "fixed", top: 0, left: 0, right: 0, height: 56,
-      background: C.navy, display: "flex", alignItems: "center", padding: "0 24px", gap: 12,
-      boxShadow: "0 2px 8px rgba(26, 31, 54, 0.15)", zIndex: 10,
-    }}>
-      <div style={{
-        width: 32, height: 32, borderRadius: 8,
-        background: `linear-gradient(135deg, ${C.primary} 0%, #E04840 100%)`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 14, fontWeight: 800, color: "#fff",
-      }}>d</div>
-      <span style={{ fontSize: 15, fontWeight: 700, color: "#fff", letterSpacing: -0.3 }}>d-lab Grant Engine</span>
-    </div>
-  );
+  const submitOrgPassword = async (e) => {
+    e.preventDefault();
+    if (!pw) return;
+    setBusy(true);
+    setErr("");
+    try { await onLogin(pw); } catch (ex) { setErr(ex.message); }
+    setBusy(false);
+  };
 
-  const Card = ({ children, width = 420 }) => (
-    <div style={{ width, background: C.white, borderRadius: 20, padding: "36px 40px", boxShadow: C.cardShadowLg, marginTop: 40 }}>
-      {children}
-    </div>
-  );
-
-  const Title = ({ sub }) => (
-    <div style={{ textAlign: "center", marginBottom: 28 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: C.t4, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Grant Engine</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: C.dark }}>{slug}</div>
-      <div style={{ width: 28, height: 3, background: C.primary, borderRadius: 2, margin: "10px auto 0" }} />
-      {sub && <div style={{ fontSize: 13, color: C.t3, marginTop: 10 }}>{sub}</div>}
-    </div>
-  );
-
-  const BackLink = ({ onClick, label }) => (
-    <div style={{ textAlign: "center", marginTop: 18 }}>
-      <button onClick={onClick} style={{
-        background: "none", border: "none", color: C.t3, fontSize: 13, cursor: "pointer", fontFamily: FONT,
-        transition: "color 0.15s",
-      }}
-        onMouseEnter={e => e.currentTarget.style.color = C.primary}
-        onMouseLeave={e => e.currentTarget.style.color = C.t3}
-      >{label}</button>
-    </div>
-  );
+  const goBack = (resetTo) => {
+    setPw("");
+    setPw2("");
+    setErr("");
+    if (resetTo === "pick") setStep("pick");
+    else if (resetTo === "legacy") setShowLegacy(true);
+    else if (resetTo === "team") setShowLegacy(false);
+  };
 
   // ── Handle first-time org setup (needsPassword = true, no team yet) ──
   if (needsPassword) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.bg, fontFamily: FONT }}>
-        <Header />
+      <Page>
         <Card width={380}>
-          <Title sub="Set your team password to get started" />
-          <form onSubmit={async (e) => { e.preventDefault(); if (!pw) return; setBusy(true); setErr(""); try { await onLogin(pw); } catch (ex) { setErr(ex.message); } setBusy(false); }}>
+          <Title slug={slug} sub="Set your team password to get started" />
+          <form onSubmit={submitOrgPassword}>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6, letterSpacing: 0.5 }}>
               Set a team password
             </label>
             <input
               type="password" value={pw} onChange={e => setPw(e.target.value)}
               placeholder="Choose a password" autoFocus
-              style={{
-                width: "100%", padding: "10px 14px", fontSize: 15, border: `1.5px solid ${C.line}`,
-                borderRadius: 12, outline: "none", fontFamily: FONT, marginBottom: 16, boxSizing: "border-box",
-                transition: "border-color 0.15s",
-              }}
-              onFocus={e => e.target.style.borderColor = C.primary}
-              onBlur={e => e.target.style.borderColor = C.line}
+              style={{ ...inputStyle, marginBottom: 16 }}
+              onFocus={focusBorder}
+              onBlur={blurBorder}
             />
             {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
-            <Btn onClick={() => {}} disabled={busy || !pw} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
+            <Btn onClick={submitOrgPassword} disabled={busy || !pw} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
               {busy ? "Setting up..." : "Set Password & Enter"}
             </Btn>
           </form>
           <BackLink onClick={onBack} label="Back to organisations" />
         </Card>
-      </div>
+      </Page>
     );
   }
 
   // ── Legacy shared password ──
   if (showLegacy) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.bg, fontFamily: FONT }}>
-        <Header />
+      <Page>
         <Card width={380}>
-          <Title sub="Shared team password" />
+          <Title slug={slug} sub="Shared team password" />
           <form onSubmit={submitLegacy}>
             <input
               type="password" value={pw} onChange={e => setPw(e.target.value)}
               placeholder="Enter team password" autoFocus
-              style={{
-                width: "100%", padding: "10px 14px", fontSize: 15, border: `1.5px solid ${C.line}`,
-                borderRadius: 12, outline: "none", fontFamily: FONT, marginBottom: 16, boxSizing: "border-box",
-              }}
-              onFocus={e => e.target.style.borderColor = C.primary}
-              onBlur={e => e.target.style.borderColor = C.line}
+              style={{ ...inputStyle, marginBottom: 16 }}
+              onFocus={focusBorder}
+              onBlur={blurBorder}
             />
             {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
             <Btn onClick={submitLegacy} disabled={busy || !pw} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
               {busy ? "Signing in..." : "Sign In"}
             </Btn>
           </form>
-          <BackLink onClick={() => { setShowLegacy(false); setErr(""); setPw(""); }} label="← Back to team login" />
+          <BackLink onClick={() => goBack("team")} label="← Back to team login" />
         </Card>
-      </div>
+      </Page>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.bg, fontFamily: FONT }}>
-      <Header />
-
+    <Page>
       {/* ── Step 1: Pick your name ── */}
       {step === "pick" && (
         <Card width={420}>
-          <Title sub="Who's signing in?" />
+          <Title slug={slug} sub="Who's signing in?" />
           {loading ? (
             <div style={{ textAlign: "center", padding: 20, color: C.t3, fontSize: 13 }}>Loading team...</div>
           ) : members.length === 0 ? (
@@ -194,7 +218,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
               <div style={{ color: C.t3, fontSize: 13, marginBottom: 12 }}>No team members found.</div>
               <div style={{ color: C.t4, fontSize: 12 }}>Use the shared team password to sign in and add team members in Settings.</div>
               <div style={{ marginTop: 16 }}>
-                <Btn onClick={() => { setShowLegacy(true); setPw(""); setErr(""); }} v="secondary" style={{ fontSize: 13 }}>
+                <Btn onClick={() => goBack("legacy")} v="ghost" style={{ fontSize: 13 }}>
                   Use team password
                 </Btn>
               </div>
@@ -225,11 +249,11 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
                         New
                       </span>
                     )}
-                    <span style={{ fontSize: 14, color: C.t4 }}>→</span>
+                    <span style={{ fontSize: 14, color: C.t4 }}>{"\u2192"}</span>
                   </button>
                 ))}
               </div>
-              <BackLink onClick={() => { setShowLegacy(true); setPw(""); setErr(""); }} label="Use shared team password instead" />
+              <BackLink onClick={() => goBack("legacy")} label="Use shared team password instead" />
             </>
           )}
           <BackLink onClick={onBack} label="Back to organisations" />
@@ -240,9 +264,9 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
       {step === "password" && selected && (
         <Card width={380}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-            <button onClick={() => { setStep("pick"); setErr(""); }} style={{
+            <button onClick={() => goBack("pick")} style={{
               background: "none", border: "none", cursor: "pointer", fontSize: 18, color: C.t3, padding: 0,
-            }}>←</button>
+            }}>{"\u2190"}</button>
             <Avatar member={selected} size={38} />
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: C.dark }}>{selected.name}</div>
@@ -256,13 +280,9 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
             <input
               type="password" value={pw} onChange={e => setPw(e.target.value)}
               placeholder="Enter your password" autoFocus
-              style={{
-                width: "100%", padding: "10px 14px", fontSize: 15, border: `1.5px solid ${C.line}`,
-                borderRadius: 12, outline: "none", fontFamily: FONT, marginBottom: 16, boxSizing: "border-box",
-                transition: "border-color 0.15s",
-              }}
-              onFocus={e => e.target.style.borderColor = C.primary}
-              onBlur={e => e.target.style.borderColor = C.line}
+              style={{ ...inputStyle, marginBottom: 16 }}
+              onFocus={focusBorder}
+              onBlur={blurBorder}
             />
             {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
             <Btn onClick={submitPassword} disabled={busy || !pw} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
@@ -276,9 +296,9 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
       {step === "set-password" && selected && (
         <Card width={380}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-            <button onClick={() => { setStep("pick"); setErr(""); }} style={{
+            <button onClick={() => goBack("pick")} style={{
               background: "none", border: "none", cursor: "pointer", fontSize: 18, color: C.t3, padding: 0,
-            }}>←</button>
+            }}>{"\u2190"}</button>
             <Avatar member={selected} size={38} />
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: C.dark }}>{selected.name}</div>
@@ -292,12 +312,9 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
             <input
               type="password" value={pw} onChange={e => setPw(e.target.value)}
               placeholder="At least 6 characters" autoFocus
-              style={{
-                width: "100%", padding: "10px 14px", fontSize: 15, border: `1.5px solid ${C.line}`,
-                borderRadius: 12, outline: "none", fontFamily: FONT, marginBottom: 12, boxSizing: "border-box",
-              }}
-              onFocus={e => e.target.style.borderColor = C.primary}
-              onBlur={e => e.target.style.borderColor = C.line}
+              style={{ ...inputStyle, marginBottom: 12 }}
+              onFocus={focusBorder}
+              onBlur={blurBorder}
             />
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6 }}>
               Confirm password
@@ -305,12 +322,9 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
             <input
               type="password" value={pw2} onChange={e => setPw2(e.target.value)}
               placeholder="Type it again"
-              style={{
-                width: "100%", padding: "10px 14px", fontSize: 15, border: `1.5px solid ${C.line}`,
-                borderRadius: 12, outline: "none", fontFamily: FONT, marginBottom: 16, boxSizing: "border-box",
-              }}
-              onFocus={e => e.target.style.borderColor = C.primary}
-              onBlur={e => e.target.style.borderColor = C.line}
+              style={{ ...inputStyle, marginBottom: 16 }}
+              onFocus={focusBorder}
+              onBlur={blurBorder}
             />
             {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
             <Btn onClick={submitSetPassword} disabled={busy || !pw || !pw2} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
@@ -319,6 +333,6 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
           </form>
         </Card>
       )}
-    </div>
+    </Page>
   );
 }
