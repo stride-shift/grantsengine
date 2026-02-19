@@ -396,7 +396,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
                             />
                             <Btn
                               onClick={() => fileRef.current?.click()}
-                              v="secondary"
+                              v="ghost"
                               style={{ fontSize: 12, padding: "6px 14px" }}
                               disabled={uploading}
                             >

@@ -44,7 +44,7 @@ const extractAskFromDraft = (draftText) => {
   return { ask: detectedPt.cost * mcCount, typeNum: detectedNum, mcCount };
 };
 
-export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], onUpdate, onDelete, onBack, onRunAI }) {
+export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], onUpdate, onDelete, onBack, onRunAI, onUploadsChanged }) {
   const [tab, setTab] = useState("overview");
   const [busy, setBusy] = useState({});
   const [ai, setAi] = useState(() => ({
@@ -83,8 +83,10 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       const data = await getUploads(grant.id);
       setUploads(data);
       uploadsLoaded.current = true;
+      // Invalidate AI uploads cache so next AI run picks up new docs
+      if (onUploadsChanged) onUploadsChanged(grant.id);
     } catch { /* ignore */ }
-  }, [grant?.id]);
+  }, [grant?.id, onUploadsChanged]);
 
   // Reset upload state when switching grants
   useEffect(() => { uploadsLoaded.current = false; setUploads([]); }, [grant?.id]);

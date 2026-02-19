@@ -31,6 +31,12 @@ router.post('/org/:slug/auth/login', w(async (req, res) => {
   }
 
   const session = await createSession(org.id);
+
+  await logActivity(org.id, 'login', {
+    sessionToken: session.token,
+    meta: { method: 'shared-password' },
+  });
+
   res.json({ token: session.token, expires: session.expires, org: { id: org.id, slug: org.slug, name: org.name } });
 }));
 
@@ -43,9 +49,9 @@ router.post('/org/:slug/auth/logout', w(async (req, res) => {
         memberId: session.member_id,
         sessionToken: token,
       });
-      await endSession(token);
     }
-    await deleteSession(token);
+    // Mark session as ended (preserves history for admin dashboard)
+    await endSession(token);
   }
   res.json({ ok: true });
 }));
@@ -121,6 +127,12 @@ router.post('/org/:slug/auth/member-set-password', w(async (req, res) => {
 
   const member = await getMemberWithAuth(org.id, memberId);
   if (!member) return res.status(404).json({ error: 'Team member not found' });
+
+  // Only allow setting password if member doesn't already have one
+  // (prevents unauthenticated account takeover)
+  if (member.password_hash) {
+    return res.status(403).json({ error: 'Password already set. Use login or ask a director to reset.' });
+  }
 
   const hash = await bcrypt.hash(password, 10);
   await setMemberPassword(memberId, hash);

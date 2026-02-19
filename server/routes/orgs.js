@@ -106,7 +106,9 @@ router.get('/org/:slug/team/public', resolveOrg, w(async (req, res) => {
 }));
 
 router.get('/org/:slug/team', resolveOrg, requireAuth, w(async (req, res) => {
-  res.json(await getTeamMembers(req.orgId));
+  const team = await getTeamMembers(req.orgId);
+  // Strip password_hash — never send to browser
+  res.json(team.map(({ password_hash, ...m }) => m));
 }));
 
 router.put('/org/:slug/team/:id', resolveOrg, requireAuth, w(async (req, res) => {

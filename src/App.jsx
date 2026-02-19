@@ -232,6 +232,22 @@ function AppInner() {
     setSel(null);
     setSelectingOrg(true);
     setLoggingIn(false);
+    uploadsCache.current = {};
+    window.history.pushState({}, "", "/");
+  };
+
+  const handleSwitchOrg = () => {
+    // Switch org without destroying the server session
+    setAuthed(false);
+    setCurrentMember(null);
+    setOrg(null);
+    setGrants([]);
+    setTeam([{ id: "team", name: "Unassigned", initials: "\u2014", role: "none" }]);
+    setView("dashboard");
+    setSel(null);
+    setSelectingOrg(true);
+    setLoggingIn(false);
+    uploadsCache.current = {};
     window.history.pushState({}, "", "/");
   };
 
@@ -258,29 +274,41 @@ function AppInner() {
     }
   };
 
-  const deleteGrant = async (id) => {
+  const pendingDeletes = useRef({});
+
+  const deleteGrant = (id) => {
     const backup = grants.find(g => g.id === id);
     if (!backup) return;
     setGrants(prev => prev.filter(g => g.id !== id));
-    // Show undo toast — restore if user clicks Undo within 5s
-    const undoId = toast(`${backup.name} deleted`, {
+
+    // Clear any existing timer for this grant (re-delete edge case)
+    if (pendingDeletes.current[id]) clearTimeout(pendingDeletes.current[id]);
+
+    // Delay server delete so undo actually works
+    pendingDeletes.current[id] = setTimeout(async () => {
+      delete pendingDeletes.current[id];
+      try {
+        await removeGrant(id);
+      } catch (err) {
+        console.error("Failed to delete grant:", id, err);
+        setGrants(prev => [...prev, backup]);
+        toast(`Failed to delete — ${backup.name} restored`, { type: "error" });
+      }
+    }, 6000); // 6s — slightly longer than the 5s toast
+
+    toast(`${backup.name} deleted`, {
       type: "undo",
       duration: 5000,
       action: {
         label: "Undo",
         onClick: () => {
+          clearTimeout(pendingDeletes.current[id]);
+          delete pendingDeletes.current[id];
           setGrants(prev => [...prev, backup]);
           toast(`${backup.name} restored`, { type: "success", duration: 2000 });
         },
       },
     });
-    try {
-      await removeGrant(id);
-    } catch (err) {
-      console.error("Failed to delete grant:", id, err);
-      if (backup) setGrants(prev => [...prev, backup]);
-      toast(`Failed to delete — ${backup.name} restored`, { type: "error" });
-    }
   };
 
   // ── Compliance doc mutations ──
@@ -655,7 +683,7 @@ STRUCTURE:
 5. THANK YOU (brief, genuine)
 
 One page max. Every sentence earns its place. No hollow phrases. Use the SYSTEM framing: programme types, partner model, AI tools, diversified revenue.${factGuard}`,
-        `Organisation:\n${orgCtx}\n\nQ1 2026 quarterly report.
+        `Organisation:\n${orgCtx}\n\nQ${Math.ceil((new Date().getMonth() + 1) / 3)} ${new Date().getFullYear()} quarterly report.
 Pipeline: ${act.length} active grants (R${totalAsk.toLocaleString()}), ${won.length} won (R${wonVal.toLocaleString()}), ${lost.length} lost.
 By stage: ${byStage}.
 Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).map(g => `${g.name} (R${effectiveAsk(g).toLocaleString()}, ${g.stage})`).join("; ")}`,
@@ -788,7 +816,7 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
 
         {/* Logout / Switch Org */}
         <div style={{ padding: "14px 12px", borderTop: `1px solid ${C.line}`, display: "flex", flexDirection: "column", gap: 2 }}>
-          <button onClick={handleLogout}
+          <button onClick={handleSwitchOrg}
             style={{
               display: "flex", alignItems: "center", gap: 10, width: "100%",
               padding: "9px 14px", border: "none",
@@ -832,6 +860,7 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
             onDelete={deleteGrant}
             onBack={() => setSel(null)}
             onRunAI={runAI}
+            onUploadsChanged={(grantId) => { delete uploadsCache.current[grantId]; }}
           />
         ) : view === "dashboard" ? (
           <Dashboard
