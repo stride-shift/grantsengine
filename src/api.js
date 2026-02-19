@@ -21,7 +21,7 @@ export const setAuth = (token, slug) => {
 export const getAuth = () => ({ token: _token, slug: _slug });
 export const isLoggedIn = () => !!_token && !!_slug;
 
-// ── Fetch wrapper (org-scoped, auth headers) ──
+// ── Fetch wrapper (org-scoped, auth headers, error checking) ──
 const f = async (path, opts = {}) => {
   const url = path.startsWith('/api') ? path : `/api/org/${_slug}${path}`;
   const headers = { ...opts.headers };
@@ -39,6 +39,16 @@ const f = async (path, opts = {}) => {
     setAuth(null, null);
     window.location.reload();
     throw new Error('Session expired');
+  }
+
+  // Check for server errors on non-AI calls (AI calls handle errors themselves)
+  if (!res.ok && !opts._skipOkCheck) {
+    let msg = `Request failed (${res.status})`;
+    try {
+      const errBody = await res.clone().json();
+      msg = errBody.error || errBody.message || msg;
+    } catch { /* non-JSON error body */ }
+    throw new Error(msg);
   }
 
   return res;
@@ -109,7 +119,8 @@ export const getOrg = async () => {
 };
 
 export const updateOrg = async (data) => {
-  await f('', { method: 'PUT', body: JSON.stringify(data) });
+  const res = await f('', { method: 'PUT', body: JSON.stringify(data) });
+  return res.json();
 };
 
 export const uploadOrgLogo = async (file) => {
@@ -131,7 +142,8 @@ export const getProfile = async () => {
 };
 
 export const updateProfile = async (data) => {
-  await f('/profile', { method: 'PUT', body: JSON.stringify(data) });
+  const res = await f('/profile', { method: 'PUT', body: JSON.stringify(data) });
+  return res.json();
 };
 
 // ── Config ──
@@ -142,7 +154,8 @@ export const getConfig = async () => {
 };
 
 export const updateConfig = async (data) => {
-  await f('/config', { method: 'PUT', body: JSON.stringify(data) });
+  const res = await f('/config', { method: 'PUT', body: JSON.stringify(data) });
+  return res.json();
 };
 
 // ── Team ──
@@ -160,7 +173,8 @@ export const upsertTeamMember = async (member) => {
 };
 
 export const deleteTeamMember = async (id) => {
-  await f(`/team/${id}`, { method: 'DELETE' });
+  const res = await f(`/team/${id}`, { method: 'DELETE' });
+  return res.json();
 };
 
 // ── Grants ──
@@ -181,11 +195,13 @@ export const addGrant = async (grant) => {
 };
 
 export const removeGrant = async (id) => {
-  await f(`/grants/${id}`, { method: 'DELETE' });
+  const res = await f(`/grants/${id}`, { method: 'DELETE' });
+  return res.json();
 };
 
 export const replaceGrants = async (grants) => {
-  await f('/grants', { method: 'PUT', body: JSON.stringify(grants) });
+  const res = await f('/grants', { method: 'PUT', body: JSON.stringify(grants) });
+  return res.json();
 };
 
 // ── Pipeline Config ──
@@ -235,7 +251,8 @@ export const kvGet = async (key) => {
 };
 
 export const kvSet = async (key, value) => {
-  await f(`/kv/${key}`, { method: 'PUT', body: JSON.stringify(value) });
+  const res = await f(`/kv/${key}`, { method: 'PUT', body: JSON.stringify(value) });
+  return res.json();
 };
 
 // ── AI proxy (org-scoped) ──
@@ -256,6 +273,7 @@ export const api = async (sys, usr, search = false, maxTok = 1500) => {
       const res = await f('/ai/messages', {
         method: 'POST',
         body: JSON.stringify(body),
+        _skipOkCheck: true, // AI handler manages its own error/retry logic
       });
 
       // Rate limit — retry with backoff
@@ -340,7 +358,8 @@ export const addYouTubeUrl = async (url, grantId, category) => {
 };
 
 export const deleteUpload = async (id) => {
-  await f(`/uploads/${id}`, { method: 'DELETE' });
+  const res = await f(`/uploads/${id}`, { method: 'DELETE' });
+  return res.json();
 };
 
 export const getUploadsContext = async (grantId) => {

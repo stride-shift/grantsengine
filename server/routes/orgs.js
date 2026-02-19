@@ -14,6 +14,9 @@ import { resolveOrg } from '../middleware/org.js';
 
 const router = Router();
 
+// Wrap async route handlers to catch unhandled errors
+const w = (fn) => (req, res, next) => fn(req, res, next).catch(next);
+
 // Multer for logo uploads (images only, 5MB max)
 const logoUpload = multer({
   storage: multer.memoryStorage(),
@@ -31,12 +34,12 @@ function getLogoStorage() {
   return createClient(url, key).storage.from('logos');
 }
 
-router.get('/orgs', async (req, res) => {
+router.get('/orgs', w(async (req, res) => {
   const orgs = await getAllOrgs();
   res.json(orgs);
-});
+}));
 
-router.post('/orgs', async (req, res) => {
+router.post('/orgs', w(async (req, res) => {
   const { name, slug, website, industry, country, currency, logo_url } = req.body;
   if (!name || !slug) return res.status(400).json({ error: 'Name and slug required' });
   if (!/^[a-z0-9-]+$/.test(slug)) return res.status(400).json({ error: 'Slug must be lowercase alphanumeric with hyphens' });
@@ -50,18 +53,18 @@ router.post('/orgs', async (req, res) => {
   }
 
   res.status(201).json({ id, slug, name, logo_url: logo_url || null });
-});
+}));
 
 router.get('/org/:slug', resolveOrg, requireAuth, (req, res) => {
   res.json(req.org);
 });
 
-router.put('/org/:slug', resolveOrg, requireAuth, async (req, res) => {
+router.put('/org/:slug', resolveOrg, requireAuth, w(async (req, res) => {
   await updateOrg(req.orgId, req.body);
   res.json({ ok: true });
-});
+}));
 
-router.get('/org/:slug/profile', resolveOrg, requireAuth, async (req, res) => {
+router.get('/org/:slug/profile', resolveOrg, requireAuth, w(async (req, res) => {
   const profile = await getOrgProfile(req.orgId);
   if (!profile) return res.status(404).json({ error: 'Profile not found' });
   res.json({
@@ -69,14 +72,14 @@ router.get('/org/:slug/profile', resolveOrg, requireAuth, async (req, res) => {
     programmes: JSON.parse(profile.programmes || '[]'),
     impact_stats: JSON.parse(profile.impact_stats || '{}'),
   });
-});
+}));
 
-router.put('/org/:slug/profile', resolveOrg, requireAuth, async (req, res) => {
+router.put('/org/:slug/profile', resolveOrg, requireAuth, w(async (req, res) => {
   await updateOrgProfile(req.orgId, req.body);
   res.json({ ok: true });
-});
+}));
 
-router.get('/org/:slug/config', resolveOrg, requireAuth, async (req, res) => {
+router.get('/org/:slug/config', resolveOrg, requireAuth, w(async (req, res) => {
   const config = await getOrgConfig(req.orgId);
   if (!config) return res.status(404).json({ error: 'Config not found' });
   res.json({
@@ -86,33 +89,33 @@ router.get('/org/:slug/config', resolveOrg, requireAuth, async (req, res) => {
     smtp_pass: config.smtp_pass ? '••••••' : null,
     twilio_token: config.twilio_token ? '••••••' : null,
   });
-});
+}));
 
-router.put('/org/:slug/config', resolveOrg, requireAuth, async (req, res) => {
+router.put('/org/:slug/config', resolveOrg, requireAuth, w(async (req, res) => {
   await updateOrgConfig(req.orgId, req.body);
   res.json({ ok: true });
-});
+}));
 
-router.get('/org/:slug/team', resolveOrg, requireAuth, async (req, res) => {
+router.get('/org/:slug/team', resolveOrg, requireAuth, w(async (req, res) => {
   res.json(await getTeamMembers(req.orgId));
-});
+}));
 
-router.put('/org/:slug/team/:id', resolveOrg, requireAuth, async (req, res) => {
+router.put('/org/:slug/team/:id', resolveOrg, requireAuth, w(async (req, res) => {
   const id = await upsertTeamMember(req.orgId, { ...req.body, id: req.params.id });
   res.json({ id });
-});
+}));
 
-router.post('/org/:slug/team', resolveOrg, requireAuth, async (req, res) => {
+router.post('/org/:slug/team', resolveOrg, requireAuth, w(async (req, res) => {
   const id = await upsertTeamMember(req.orgId, req.body);
   res.status(201).json({ id });
-});
+}));
 
-router.delete('/org/:slug/team/:id', resolveOrg, requireAuth, async (req, res) => {
+router.delete('/org/:slug/team/:id', resolveOrg, requireAuth, w(async (req, res) => {
   await deleteTeamMember(req.params.id, req.orgId);
   res.json({ ok: true });
-});
+}));
 
-router.get('/org/:slug/pipeline-config', resolveOrg, requireAuth, async (req, res) => {
+router.get('/org/:slug/pipeline-config', resolveOrg, requireAuth, w(async (req, res) => {
   const config = await getPipelineConfig(req.orgId);
   if (!config) return res.json(null);
   res.json({
@@ -125,12 +128,12 @@ router.get('/org/:slug/pipeline-config', resolveOrg, requireAuth, async (req, re
     doc_requirements: JSON.parse(config.doc_requirements || '{}'),
     roles: JSON.parse(config.roles || '{}'),
   });
-});
+}));
 
-router.put('/org/:slug/pipeline-config', resolveOrg, requireAuth, async (req, res) => {
+router.put('/org/:slug/pipeline-config', resolveOrg, requireAuth, w(async (req, res) => {
   await upsertPipelineConfig(req.orgId, req.body);
   res.json({ ok: true });
-});
+}));
 
 // ── Logo endpoints ──
 

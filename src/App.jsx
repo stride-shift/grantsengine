@@ -84,8 +84,13 @@ function AppInner() {
         setSaveState("saved");
         clearTimeout(saveStateTimer.current);
         saveStateTimer.current = setTimeout(() => setSaveState("idle"), 2000);
-      } catch {
+      } catch (err) {
         setSaveState("error");
+        console.error("Save failed:", err.message);
+        toast(`Save failed: ${err.message}`, { type: "error", duration: 5000 });
+        // Auto-clear error state after 5s
+        clearTimeout(saveStateTimer.current);
+        saveStateTimer.current = setTimeout(() => setSaveState("idle"), 5000);
       }
     }, 1000);
   }, []);
@@ -128,7 +133,7 @@ function AppInner() {
       }
     } catch (err) {
       console.error("Failed to load data:", err);
-      toast("Failed to load workspace data. Please refresh.", { type: "error", duration: 0 });
+      toast(`Failed to load workspace: ${err.message}`, { type: "error", duration: 0 });
     }
     setLoading(false);
   }, []);

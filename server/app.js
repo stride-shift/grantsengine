@@ -24,6 +24,16 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, apiKeyConfigured: !!process.env.GEMINI_API_KEY });
 });
 
+// ── Global error handler — catches unhandled errors from all routes ──
+app.use((err, req, res, _next) => {
+  console.error(`[API Error] ${req.method} ${req.path}:`, err.message || err);
+  if (!res.headersSent) {
+    res.status(err.status || 500).json({
+      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+    });
+  }
+});
+
 // ── Production: serve Vite build ──
 if (process.env.NODE_ENV === 'production') {
   const distPath = path.join(__dirname, '..', 'dist');
