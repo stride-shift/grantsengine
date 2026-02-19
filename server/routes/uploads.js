@@ -45,6 +45,9 @@ const upload = multer({
 
 const router = Router();
 
+// Wrap async route handlers to catch unhandled errors
+const w = (fn) => (req, res, next) => fn(req, res, next).catch(next);
+
 // POST /api/org/:slug/uploads — upload a file
 router.post('/org/:slug/uploads', ...orgAuth, upload.single('file'), async (req, res) => {
   try {
@@ -157,15 +160,15 @@ router.post('/org/:slug/uploads/youtube', ...orgAuth, async (req, res) => {
 
 // GET /api/org/:slug/uploads/context — extracted text for AI context building
 // MUST be before /:id route so "context" isn't treated as an ID
-router.get('/org/:slug/uploads/context', ...orgAuth, async (req, res) => {
+router.get('/org/:slug/uploads/context', ...orgAuth, w(async (req, res) => {
   const grantId = req.query.grant_id;
   const orgUploads = await getOrgUploadsText(req.orgId);
   const grantUploads = grantId ? await getGrantUploadsText(req.orgId, grantId) : [];
   res.json({ org_uploads: orgUploads, grant_uploads: grantUploads });
-});
+}));
 
 // GET /api/org/:slug/uploads — list uploads
-router.get('/org/:slug/uploads', ...orgAuth, async (req, res) => {
+router.get('/org/:slug/uploads', ...orgAuth, w(async (req, res) => {
   const grantId = req.query.grant_id;
   const uploads = grantId
     ? await getUploadsByGrant(req.orgId, grantId)
@@ -176,17 +179,17 @@ router.get('/org/:slug/uploads', ...orgAuth, async (req, res) => {
     extracted_text: u.extracted_text ? u.extracted_text.slice(0, 200) + '...' : null,
     has_text: !!u.extracted_text,
   })));
-});
+}));
 
 // GET /api/org/:slug/uploads/:id — single upload with full text
-router.get('/org/:slug/uploads/:id', ...orgAuth, async (req, res) => {
+router.get('/org/:slug/uploads/:id', ...orgAuth, w(async (req, res) => {
   const up = await getUploadById(req.params.id, req.orgId);
   if (!up) return res.status(404).json({ error: 'Upload not found' });
   res.json(up);
-});
+}));
 
 // DELETE /api/org/:slug/uploads/:id — delete upload
-router.delete('/org/:slug/uploads/:id', ...orgAuth, async (req, res) => {
+router.delete('/org/:slug/uploads/:id', ...orgAuth, w(async (req, res) => {
   const up = await getUploadById(req.params.id, req.orgId);
   if (!up) return res.status(404).json({ error: 'Upload not found' });
 
@@ -201,6 +204,6 @@ router.delete('/org/:slug/uploads/:id', ...orgAuth, async (req, res) => {
 
   await deleteUploadById(req.params.id, req.orgId);
   res.json({ ok: true });
-});
+}));
 
 export default router;

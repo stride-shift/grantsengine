@@ -6,7 +6,10 @@ const router = Router();
 
 const hashPw = (pw) => crypto.createHash('sha256').update(pw).digest('hex');
 
-router.post('/org/:slug/auth/login', async (req, res) => {
+// Wrap async route handlers to catch unhandled errors
+const w = (fn) => (req, res, next) => fn(req, res, next).catch(next);
+
+router.post('/org/:slug/auth/login', w(async (req, res) => {
   const { slug } = req.params;
   const { password } = req.body;
   if (!password) return res.status(400).json({ error: 'Password required' });
@@ -23,15 +26,15 @@ router.post('/org/:slug/auth/login', async (req, res) => {
 
   const session = await createSession(org.id);
   res.json({ token: session.token, expires: session.expires, org: { id: org.id, slug: org.slug, name: org.name } });
-});
+}));
 
-router.post('/org/:slug/auth/logout', async (req, res) => {
+router.post('/org/:slug/auth/logout', w(async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (token) await deleteSession(token);
   res.json({ ok: true });
-});
+}));
 
-router.get('/auth/verify', async (req, res) => {
+router.get('/auth/verify', w(async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) return res.status(401).json({ error: 'No token' });
 
@@ -39,9 +42,9 @@ router.get('/auth/verify', async (req, res) => {
   if (!session) return res.status(401).json({ error: 'Invalid or expired session' });
 
   res.json({ ok: true, orgId: session.org_id });
-});
+}));
 
-router.post('/org/:slug/auth/set-password', async (req, res) => {
+router.post('/org/:slug/auth/set-password', w(async (req, res) => {
   const { slug } = req.params;
   const { password } = req.body;
   if (!password || password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters' });
@@ -55,7 +58,7 @@ router.post('/org/:slug/auth/set-password', async (req, res) => {
   await setOrgPassword(org.id, hashPw(password));
   const session = await createSession(org.id);
   res.json({ token: session.token, expires: session.expires, org: { id: org.id, slug: org.slug, name: org.name } });
-});
+}));
 
 export { hashPw };
 export default router;
