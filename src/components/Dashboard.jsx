@@ -412,7 +412,7 @@ export default function Dashboard({
               <Stat label="Win Rate" value={ana.wr !== null ? `${ana.wr}%` : "\u2014"} sub={ana.wr !== null ? `${pipe.won.length}W / ${pipe.lost.length}L` : "No outcomes yet"} color={ana.wr !== null && ana.wr >= 50 ? C.ok : C.amber} small />
             </Card>
             <Card style={{ flex: 1, minWidth: 140 }}>
-              <Stat label="AI Coverage" value={`${ana.aiPct}%`} sub={`${ana.aiD}D / ${ana.aiR}R / ${ana.aiF}F`} color={C.purple} small />
+              <Stat label="AI Coverage" value={`${ana.aiPct}%`} sub={`${ana.aiD} drafted / ${ana.aiR} researched / ${ana.aiF} scored`} color={C.purple} small />
             </Card>
             <Card style={{ flex: 1, minWidth: 140 }}>
               <Stat label="No Deadline" value={ana.noDL} sub={ana.noDL > 0 ? "Need dates" : "All set"} color={ana.noDL > 0 ? C.amber : C.ok} small />
