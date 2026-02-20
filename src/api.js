@@ -155,6 +155,13 @@ export const getAdminActivity = async (memberId = null, limit = 100) => {
   return res.json();
 };
 
+export const adminResetPassword = async (memberId, password) => {
+  const res = await f('/auth/admin-reset-password', {
+    method: 'POST', body: JSON.stringify({ memberId, password }),
+  });
+  return res.json();
+};
+
 // ── Orgs (some public, some auth-required) ──
 
 export const getOrgs = async () => {

@@ -4,7 +4,10 @@ import bcrypt from 'bcrypt';
 import {
   getOrgBySlug, getOrgAuth, setOrgPassword, createSession, deleteSession, getSession,
   getMemberWithAuth, setMemberPassword, createMemberSession, endSession, logActivity,
+  getTeamMembers,
 } from '../db.js';
+import { requireAuth } from '../middleware/auth.js';
+import { resolveOrg } from '../middleware/org.js';
 
 const router = Router();
 
@@ -152,6 +155,35 @@ router.post('/org/:slug/auth/member-set-password', w(async (req, res) => {
     org: { id: org.id, slug: org.slug, name: org.name },
     member: { id: member.id, name: member.name, role: member.role, initials: member.initials },
   });
+}));
+
+// Director-only: reset a member's password
+router.post('/org/:slug/auth/admin-reset-password', resolveOrg, requireAuth, w(async (req, res) => {
+  // Check caller is director
+  const team = await getTeamMembers(req.orgId);
+  const me = team.find(m => m.id === req.memberId);
+  if (!me || me.role !== 'director') return res.status(403).json({ error: 'Admin access required' });
+
+  const { memberId, password } = req.body;
+  if (!memberId || !password || password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+  // Can't reset own password through this endpoint
+  if (memberId === req.memberId) return res.status(400).json({ error: 'Use the normal password change to update your own password' });
+
+  const member = await getMemberWithAuth(req.orgId, memberId);
+  if (!member) return res.status(404).json({ error: 'Team member not found' });
+
+  const hash = await bcrypt.hash(password, 10);
+  await setMemberPassword(memberId, hash);
+
+  await logActivity(req.orgId, 'admin_action', {
+    memberId: req.memberId,
+    sessionToken: req.session?.token,
+    meta: { action: 'password_reset', target_member: member.name, target_id: memberId },
+  });
+
+  res.json({ ok: true });
 }));
 
 export { hashPw };

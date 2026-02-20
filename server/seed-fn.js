@@ -95,8 +95,8 @@ export async function runSeed() {
 
   const team = [
     { id: 'alison', name: 'Alison', initials: 'AJ', role: 'director', persona: 'Strategic thinker focused on programme impact, sustainability, and mission alignment.' },
-    { id: 'david', name: 'David', initials: 'DM', role: 'director', persona: 'Focus on governance, financial prudence, risk, and compliance.' },
-    { id: 'barbara', name: 'Barbara', initials: 'BK', role: 'director', persona: 'Expertise in partnerships, stakeholder engagement, and programme design.' },
+    { id: 'david', name: 'David', initials: 'DM', role: 'board', persona: 'Focus on governance, financial prudence, risk, and compliance.' },
+    { id: 'barbara', name: 'Barbara', initials: 'BK', role: 'board', persona: 'Expertise in partnerships, stakeholder engagement, and programme design.' },
     { id: 'nolan', name: 'Nolan', initials: 'NP', role: 'hop', persona: 'Oversee programme delivery. Focus on operational feasibility.' },
     { id: 'ayanda', name: 'Ayanda', initials: 'AO', role: 'pm', persona: 'Hands-on with learners and delivery. Focus on practical details.' },
     { id: 'team', name: 'Unassigned', initials: '\u2014', role: 'none' },
@@ -132,7 +132,8 @@ export async function runSeed() {
       'Tech Company': ['NPO Registration', 'Organisation Profile', 'Programme Description', 'Detailed Budget', 'Impact Metrics', 'Tech Platform Overview', 'Data Privacy Policy'],
     },
     roles: {
-      director: { label: 'Director', level: 3, can: ['scouted', 'qualifying', 'drafting', 'review', 'submitted', 'awaiting', 'won', 'lost', 'deferred'] },
+      director: { label: 'Director (Admin)', level: 3, can: ['scouted', 'qualifying', 'drafting', 'review', 'submitted', 'awaiting', 'won', 'lost', 'deferred'] },
+      board: { label: 'Board Member', level: 2, can: ['scouted', 'qualifying', 'drafting', 'review', 'submitted', 'awaiting', 'won', 'lost', 'deferred'] },
       hop: { label: 'Head of Programmes', level: 2, can: ['scouted', 'qualifying', 'drafting', 'review'] },
       pm: { label: 'Programme Manager', level: 1, can: ['scouted', 'qualifying', 'drafting'] },
     },
