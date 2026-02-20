@@ -863,9 +863,14 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                         updates.askSource = "ai-draft";
                         updates.aiRecommendedAsk = extracted.ask;
                       }
+                      // Auto-advance to drafting if still in an earlier stage
+                      if (["scouted", "qualifying"].includes(g.stage)) {
+                        updates.stage = "drafting";
+                      }
                       onUpdate(g.id, updates);
                       const inputs = [ai.research && "research", ai.fitscore && "fit score"].filter(Boolean);
-                      aiLog(`AI Draft Proposal generated${inputs.length ? ` (with ${inputs.join(" + ")})` : ""}${extracted ? ` — ask set to R${extracted.ask.toLocaleString()} (Type ${extracted.typeNum}${extracted.mcCount > 1 ? ` × ${extracted.mcCount}` : ""})` : ""}`);
+                      const stageNote = updates.stage === "drafting" && g.stage !== "drafting" ? ` — stage moved to Drafting` : "";
+                      aiLog(`AI Draft Proposal generated${inputs.length ? ` (with ${inputs.join(" + ")})` : ""}${extracted ? ` — ask set to R${extracted.ask.toLocaleString()} (Type ${extracted.typeNum}${extracted.mcCount > 1 ? ` × ${extracted.mcCount}` : ""})` : ""}${stageNote}`);
                     }
                   } catch (e) {
                     setAi(p => ({ ...p, draft: `Error: ${e.message}` }));
