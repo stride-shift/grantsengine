@@ -1094,7 +1094,9 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
             onLogout={handleLogout}
           />
         ) : view === "admin" && currentMember?.role === "director" ? (
-          <Admin org={org} team={team} />
+          <Admin org={org} team={team} currentMember={currentMember} onTeamChanged={async () => {
+            try { const t = await getTeam(); setTeam(t); } catch (e) { console.error("Team refresh failed:", e); }
+          }} />
         ) : null}
       </div>
 

@@ -234,7 +234,7 @@ export const Avatar = ({ member, size = 26 }) => {
 };
 
 export const RoleBadge = ({ role }) => {
-  const rc = { director: { bg: C.primarySoft, fg: C.primary, l: "Director" }, hop: { bg: C.purpleSoft, fg: C.purple, l: "Head of Prog" }, pm: { bg: C.blueSoft, fg: C.blue, l: "Prog Manager" } };
+  const rc = { director: { bg: C.primarySoft, fg: C.primary, l: "Admin" }, board: { bg: C.navySoft, fg: C.navy, l: "Board" }, hop: { bg: C.purpleSoft, fg: C.purple, l: "Head of Prog" }, pm: { bg: C.blueSoft, fg: C.blue, l: "Prog Manager" } };
   const r = rc[role]; if (!r) return null;
   return <span style={{ padding: "3px 10px", fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: r.fg, background: r.bg, borderRadius: 20, textTransform: "uppercase" }}>{r.l}</span>;
 };

@@ -42,6 +42,9 @@ function pool() {
 export const initDb = async () => {
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await pool().query(schema);
+
+  // Data migration: only Alison should be director (admin). David and Barbara are board members.
+  await pool().query(`UPDATE team_members SET role = 'board' WHERE id IN ('david', 'barbara') AND role = 'director'`);
 };
 
 // ── Helpers ──

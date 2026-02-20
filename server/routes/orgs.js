@@ -14,6 +14,15 @@ import { resolveOrg } from '../middleware/org.js';
 
 const router = Router();
 
+// Director-only check for team management
+const requireDirector = async (req, res, next) => {
+  if (!req.memberId) return res.status(403).json({ error: 'Individual login required' });
+  const team = await getTeamMembers(req.orgId);
+  const me = team.find(m => m.id === req.memberId);
+  if (!me || me.role !== 'director') return res.status(403).json({ error: 'Admin access required' });
+  next();
+};
+
 // Wrap async route handlers to catch unhandled errors
 const w = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
@@ -111,17 +120,19 @@ router.get('/org/:slug/team', resolveOrg, requireAuth, w(async (req, res) => {
   res.json(team.map(({ password_hash, ...m }) => m));
 }));
 
-router.put('/org/:slug/team/:id', resolveOrg, requireAuth, w(async (req, res) => {
+router.put('/org/:slug/team/:id', resolveOrg, requireAuth, requireDirector, w(async (req, res) => {
   const id = await upsertTeamMember(req.orgId, { ...req.body, id: req.params.id });
   res.json({ id });
 }));
 
-router.post('/org/:slug/team', resolveOrg, requireAuth, w(async (req, res) => {
+router.post('/org/:slug/team', resolveOrg, requireAuth, requireDirector, w(async (req, res) => {
   const id = await upsertTeamMember(req.orgId, req.body);
   res.status(201).json({ id });
 }));
 
-router.delete('/org/:slug/team/:id', resolveOrg, requireAuth, w(async (req, res) => {
+router.delete('/org/:slug/team/:id', resolveOrg, requireAuth, requireDirector, w(async (req, res) => {
+  // Prevent deleting yourself
+  if (req.params.id === req.memberId) return res.status(400).json({ error: 'Cannot delete your own account' });
   await deleteTeamMember(req.params.id, req.orgId);
   res.json({ ok: true });
 }));
