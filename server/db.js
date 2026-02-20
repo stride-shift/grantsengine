@@ -45,6 +45,9 @@ export const initDb = async () => {
 
   // Data migration: only Alison should be director (admin). David and Barbara are board members.
   await pool().query(`UPDATE team_members SET role = 'board' WHERE id IN ('david', 'barbara') AND role = 'director'`);
+
+  // Data migration: move grants with AI drafts from scouted/qualifying to drafting
+  await pool().query(`UPDATE grants SET stage = 'drafting' WHERE stage IN ('scouted', 'qualifying') AND ai_data::text LIKE '%"aiDraft"%' AND ai_data::text NOT LIKE '%"aiDraft":""%' AND ai_data::text NOT LIKE '%"aiDraft":null%'`);
 };
 
 // ── Helpers ──
