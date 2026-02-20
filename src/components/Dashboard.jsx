@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmt, dL, deadlineCtx, effectiveAsk } from "../utils";
-import { Num, Timeline, Label, Btn, CopyBtn, stripMd } from "./index";
+import { fmt, fmtK, dL, deadlineCtx, effectiveAsk } from "../utils";
+import { Num, Timeline, Label, Btn, CopyBtn, stripMd, TypeBadge } from "./index";
+import { isFunderReturning } from "../data/funderStrategy";
 
 const CLOSED = ["won", "lost", "deferred"];
 const PRE_SUB = ["scouted", "qualifying", "drafting", "review"];
@@ -110,6 +111,7 @@ export default function Dashboard({
   const [insightsResult, setInsightsResult] = useState(null);
   const [strategyBusy, setStrategyBusy] = useState(false);
   const [strategyResult, setStrategyResult] = useState(null);
+  const [expandedFunder, setExpandedFunder] = useState(null);
 
   /* ── Core pipeline numbers ── */
   const pipe = useMemo(() => {
@@ -256,6 +258,73 @@ export default function Dashboard({
       wr: closed > 0 ? Math.round((won.length / closed) * 100) : null,
     };
   }, [grants, team]);
+
+  /* ── Funder Intelligence aggregation ── */
+  const funders = useMemo(() => {
+    if (grants.length < 2) return [];
+    const fm = new Map();
+    for (const g of grants) {
+      const name = g.funder || "Unknown";
+      if (!fm.has(name)) fm.set(name, {
+        name, type: g.type, grants: [], active: 0, won: 0, lost: 0,
+        totalAsk: 0, wonVal: 0, activeAsk: 0,
+        stages: new Map(), rels: new Set(), focus: new Set(),
+        hasResearch: false, hasDraft: false, hasFitscore: false,
+        latestResearchSnippet: null, latestResearchAt: null,
+        returning: isFunderReturning(name),
+        latestActivity: null, nextDeadline: null,
+      });
+      const f = fm.get(name);
+      // Update type if better match (non-null)
+      if (g.type && !f.type) f.type = g.type;
+      f.grants.push(g);
+      const ask = effectiveAsk(g);
+      f.totalAsk += ask;
+      if (g.stage === "won") { f.won++; f.wonVal += ask; }
+      else if (g.stage === "lost") { f.lost++; }
+      else if (!CLOSED.includes(g.stage)) { f.active++; f.activeAsk += ask; }
+      f.stages.set(g.stage, (f.stages.get(g.stage) || 0) + 1);
+      if (g.rel) f.rels.add(g.rel);
+      for (const tag of (g.focus || [])) f.focus.add(tag);
+
+      // AI coverage
+      const ai = tryParse(g.ai_data);
+      if (g.aiResearch || ai?.aiResearch) {
+        f.hasResearch = true;
+        const res = g.aiResearch || ai?.aiResearch;
+        const resAt = g.aiResearchAt || ai?.aiResearchAt;
+        if (res && (!f.latestResearchAt || (resAt && resAt > f.latestResearchAt))) {
+          f.latestResearchAt = resAt;
+          f.latestResearchSnippet = typeof res === "string" ? res.slice(0, 300) : null;
+        }
+      }
+      if (g.aiDraft || ai?.aiDraft) f.hasDraft = true;
+      if (g.aiFitscore || ai?.aiFitscore) f.hasFitscore = true;
+
+      // Latest activity from log
+      const log = Array.isArray(g.log) ? g.log : [];
+      for (const entry of log) {
+        if (entry.d && (!f.latestActivity || entry.d > f.latestActivity)) f.latestActivity = entry.d;
+      }
+
+      // Next deadline (earliest future deadline)
+      if (g.deadline && !CLOSED.includes(g.stage)) {
+        const days = dL(g.deadline);
+        if (days !== null && days >= 0) {
+          if (!f.nextDeadline || g.deadline < f.nextDeadline) f.nextDeadline = g.deadline;
+        }
+      }
+    }
+
+    return [...fm.values()]
+      .filter(f => f.name !== "Unknown")
+      .sort((a, b) => {
+        // Sort: active grants first (by active ask), then by total value
+        if (a.active > 0 && b.active === 0) return -1;
+        if (b.active > 0 && a.active === 0) return 1;
+        return b.totalAsk - a.totalAsk;
+      });
+  }, [grants]);
 
   const canInsights = grants.length >= 5 && new Set(grants.map(g => g.stage)).size >= 2;
   const canStrategy = grants.length >= 5 && (pipe.won.length > 0 || pipe.lost.length > 0);
@@ -419,15 +488,13 @@ export default function Dashboard({
             </Card>
           </div>
 
-          {/* Row B: Funder types + Top funders by value */}
+          {/* Row B: Funder types */}
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
-            <Card style={{ flex: 1.2, minWidth: 300 }}>
+            <Card style={{ flex: 1, minWidth: 300 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Funder Types</div>
               <div style={{ fontSize: 10, color: C.t4, marginBottom: 14 }}>{ana.fTypes.length} types across {grants.length} grants</div>
               <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                {/* Donut */}
                 <MiniDonut items={ana.fTypes.map((f, i) => ({ label: f.label.replace("Corporate ", "").replace("Government/", "Gov/"), value: f.n, color: FTYPE_COLORS[i % 5] }))} />
-                {/* Win rate table */}
                 <div style={{ flex: 1, minWidth: 140 }}>
                   {ana.fTypes.map((f, i) => (
                     <div key={f.label} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < ana.fTypes.length - 1 ? `1px solid ${C.raised}` : "none" }}>
@@ -440,14 +507,234 @@ export default function Dashboard({
                 </div>
               </div>
             </Card>
-            <Card style={{ flex: 1, minWidth: 260 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Top Funders by Value</div>
-              <div style={{ fontSize: 10, color: C.t4, marginBottom: 14 }}>Pipeline exposure</div>
-              {ana.topFunders.map((f, i) => (
-                <HRow key={i} label={f.label} value={fmt(f.value)} max={ana.topFunders[0]?.value} color={FTYPE_COLORS[i % 5]} w={100} />
-              ))}
-            </Card>
           </div>
+
+          {/* ═══════════ FUNDER INTELLIGENCE CARDS ═══════════ */}
+          {funders.length > 0 && (
+            <>
+              <Hd right={<span style={{ fontSize: 10, color: C.t4, fontWeight: 500 }}>{funders.length} funders tracked</span>}>
+                Funder Intelligence
+              </Hd>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 12, marginBottom: 20 }}>
+                {funders.map(f => {
+                  const isExpanded = expandedFunder === f.name;
+                  const closed = f.won + f.lost;
+                  const wr = closed > 0 ? Math.round((f.won / closed) * 100) : null;
+                  const relArr = [...f.rels];
+                  const bestRel = relArr.includes("Previous Funder") ? "Previous Funder" : relArr.includes("Warm Intro") ? "Warm Intro" : relArr[0] || "Unknown";
+                  const aiCount = [f.hasResearch, f.hasDraft, f.hasFitscore].filter(Boolean).length;
+                  const dlDays = f.nextDeadline ? dL(f.nextDeadline) : null;
+                  // Momentum: days since last activity
+                  const daysSinceActivity = f.latestActivity
+                    ? Math.floor((Date.now() - new Date(f.latestActivity).getTime()) / 864e5)
+                    : null;
+                  const momentum = daysSinceActivity === null ? "new"
+                    : daysSinceActivity <= 7 ? "hot"
+                    : daysSinceActivity <= 21 ? "warm"
+                    : "cold";
+                  const momentumColor = { hot: C.ok, warm: C.amber, cold: C.t4, new: C.purple }[momentum];
+                  const maxAsk = funders[0]?.totalAsk || 1;
+
+                  return (
+                    <div key={f.name} onClick={() => setExpandedFunder(isExpanded ? null : f.name)}
+                      className="ge-hover-lift"
+                      style={{
+                        background: C.white, borderRadius: 14,
+                        boxShadow: isExpanded ? C.cardShadowHover : C.cardShadow,
+                        border: isExpanded ? `1.5px solid ${C.primary}30` : `1px solid ${C.line}`,
+                        cursor: "pointer", transition: "all 0.2s ease",
+                        overflow: "hidden",
+                      }}>
+                      {/* ── Card Header ── */}
+                      <div style={{ padding: "16px 20px 12px" }}>
+                        {/* Row 1: Name + badges */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          {/* Momentum dot */}
+                          <div style={{
+                            width: 8, height: 8, borderRadius: 4, background: momentumColor, flexShrink: 0,
+                            boxShadow: momentum === "hot" ? `0 0 6px ${C.ok}60` : "none",
+                          }} />
+                          <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.dark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {f.name}
+                          </div>
+                          {f.returning && (
+                            <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 6, background: C.okSoft, color: C.ok, letterSpacing: 0.3 }}>
+                              RETURNING
+                            </span>
+                          )}
+                          {f.type && <TypeBadge type={f.type} />}
+                        </div>
+
+                        {/* Row 2: Value bar + numbers */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                          <div style={{ flex: 1 }}>
+                            <Bar pct={(f.totalAsk / maxAsk) * 100} color={f.won > 0 ? C.ok : C.primary} h={5} />
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 800, fontFamily: MONO, color: C.dark, letterSpacing: -0.5, whiteSpace: "nowrap" }}>
+                            {fmtK(f.totalAsk)}
+                          </div>
+                        </div>
+
+                        {/* Row 3: Stats row */}
+                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                          <span style={{ fontSize: 10, color: C.t3, fontWeight: 600 }}>
+                            {f.grants.length} grant{f.grants.length !== 1 ? "s" : ""}
+                          </span>
+                          {f.active > 0 && (
+                            <span style={{ fontSize: 10, color: C.primary, fontWeight: 700, fontFamily: MONO }}>
+                              {f.active} active
+                            </span>
+                          )}
+                          {wr !== null && (
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, fontFamily: MONO,
+                              padding: "1px 5px", borderRadius: 4,
+                              background: wr >= 50 ? C.okSoft : C.raised,
+                              color: wr >= 50 ? C.ok : C.t3,
+                            }}>{wr}% win</span>
+                          )}
+                          {f.won > 0 && (
+                            <span style={{ fontSize: 10, color: C.ok, fontWeight: 600 }}>
+                              {f.won}W{f.wonVal > 0 ? ` (${fmtK(f.wonVal)})` : ""}
+                            </span>
+                          )}
+                          {f.lost > 0 && (
+                            <span style={{ fontSize: 10, color: C.red, fontWeight: 600 }}>{f.lost}L</span>
+                          )}
+                          {/* AI coverage dots */}
+                          <span style={{ display: "flex", gap: 3, alignItems: "center" }}>
+                            {[
+                              { has: f.hasResearch, label: "R", color: C.blue },
+                              { has: f.hasDraft, label: "D", color: C.purple },
+                              { has: f.hasFitscore, label: "F", color: C.amber },
+                            ].map((dot, i) => (
+                              <span key={i} title={`${["Research", "Draft", "Fit Score"][i]}: ${dot.has ? "Done" : "Pending"}`}
+                                style={{
+                                  width: 14, height: 14, borderRadius: 3, fontSize: 8, fontWeight: 700,
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  background: dot.has ? dot.color + "18" : C.raised,
+                                  color: dot.has ? dot.color : C.t4,
+                                  border: `1px solid ${dot.has ? dot.color + "30" : "transparent"}`,
+                                }}>{dot.label}</span>
+                            ))}
+                          </span>
+                          {dlDays !== null && (
+                            <span style={{
+                              fontSize: 10, fontWeight: 600, fontFamily: MONO,
+                              color: dlDays <= 14 ? C.red : dlDays <= 30 ? C.amber : C.t3,
+                            }}>
+                              {dlDays}d to deadline
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Row 4: Stage pipeline mini-viz */}
+                        <div style={{ display: "flex", gap: 2, marginTop: 10 }}>
+                          {(stages || []).filter(s => f.stages.has(s.id)).map(s => {
+                            const n = f.stages.get(s.id) || 0;
+                            return (
+                              <div key={s.id} title={`${s.label}: ${n}`}
+                                style={{
+                                  flex: n, height: 4, borderRadius: 2,
+                                  background: s.c, opacity: 0.7,
+                                  minWidth: 6,
+                                }} />
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* ── Expanded Detail Panel ── */}
+                      {isExpanded && (
+                        <div style={{
+                          borderTop: `1px solid ${C.line}`, padding: "14px 20px 18px",
+                          background: C.warm100,
+                          animation: "ai-expand 0.25s ease-out",
+                        }}>
+                          {/* Relationship + Focus */}
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                            <span style={{
+                              fontSize: 10, fontWeight: 600, padding: "3px 8px", borderRadius: 6,
+                              background: REL_COLORS[bestRel] ? REL_COLORS[bestRel] + "18" : C.raised,
+                              color: REL_COLORS[bestRel] || C.t3,
+                              border: `1px solid ${(REL_COLORS[bestRel] || C.t4) + "25"}`,
+                            }}>{bestRel}</span>
+                            {[...f.focus].slice(0, 4).map(tag => (
+                              <span key={tag} style={{ fontSize: 10, fontWeight: 500, padding: "3px 8px", borderRadius: 6, background: C.raised, color: C.t2 }}>
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+
+                          {/* Research snippet */}
+                          {f.latestResearchSnippet && (
+                            <div style={{
+                              fontSize: 11, lineHeight: 1.7, color: C.t2, marginBottom: 12,
+                              padding: "10px 12px", background: C.white, borderRadius: 8,
+                              border: `1px solid ${C.line}`,
+                              maxHeight: 100, overflow: "auto",
+                            }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, color: C.blue, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>Latest Research</div>
+                              {stripMd(f.latestResearchSnippet)}...
+                            </div>
+                          )}
+
+                          {/* Grant list */}
+                          <div style={{ fontSize: 9, fontWeight: 700, color: C.t4, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>
+                            Grants ({f.grants.length})
+                          </div>
+                          {f.grants.map(g => {
+                            const s = (stages || []).find(st => st.id === g.stage);
+                            return (
+                              <div key={g.id}
+                                onClick={e => { e.stopPropagation(); onSelectGrant?.(g.id); }}
+                                className="ge-hover-slide"
+                                style={{
+                                  display: "flex", alignItems: "center", gap: 8,
+                                  padding: "7px 10px", marginBottom: 2, borderRadius: 6,
+                                  cursor: "pointer", transition: "all 0.15s ease",
+                                }}>
+                                <div style={{ width: 6, height: 6, borderRadius: 3, background: s?.c || C.t4, flexShrink: 0 }} />
+                                <div style={{ flex: 1, fontSize: 11, fontWeight: 600, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {g.name}
+                                </div>
+                                <span style={{ fontSize: 10, color: s?.c || C.t3, fontWeight: 600, flexShrink: 0 }}>
+                                  {s?.label || g.stage}
+                                </span>
+                                <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, color: C.t2, flexShrink: 0 }}>
+                                  {fmtK(effectiveAsk(g))}
+                                </span>
+                              </div>
+                            );
+                          })}
+
+                          {/* Action hint */}
+                          {!f.hasResearch && f.active > 0 && (
+                            <div style={{
+                              marginTop: 8, padding: "8px 10px", borderRadius: 6,
+                              background: C.blueSoft, border: `1px solid ${C.blue}20`,
+                              fontSize: 11, color: C.blue, fontWeight: 500,
+                            }}>
+                              No funder research yet — run Research on any grant to build this profile
+                            </div>
+                          )}
+                          {f.returning && f.active === 0 && (
+                            <div style={{
+                              marginTop: 8, padding: "8px 10px", borderRadius: 6,
+                              background: C.amberSoft, border: `1px solid ${C.amber}20`,
+                              fontSize: 11, color: C.amber, fontWeight: 500,
+                            }}>
+                              Returning funder with no active grants — consider a renewal proposal
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
           {/* Row C: Relationships + Ask distribution */}
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
