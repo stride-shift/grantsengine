@@ -762,26 +762,25 @@ Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).
       const withAI = grants.filter(g => g.aiDraft || g.aiResearch || g.aiFitscore).length;
 
       return await api(
-        `You are a grant pipeline intelligence analyst for d-lab NPC, a South African youth skills NPO. You see patterns that busy grant managers miss.
+        `You are a sharp-eyed pipeline analyst for d-lab NPC, a South African youth skills NPO. You find the things that busy grant managers miss — the hidden risks, the unexploited patterns, the signals in the noise.
 
-TASK: Analyse the pipeline data below and produce 5–7 NON-OBVIOUS insights — patterns, risks, and opportunities the team should act on.
+TASK: Produce 5–7 insights from this pipeline data. Each one should make the reader think "I hadn't noticed that."
 
-CATEGORIES TO CONSIDER (cover at least 4):
-- Funnel shape: Is the pipeline top-heavy, bottom-heavy, or balanced? What does the conversion path look like?
-- Funder concentration: Is the org over-reliant on one funder type? What's the risk exposure?
-- Relationship leverage: Which relationship statuses convert best? Where should relationship-building effort go?
-- Timing risk: Are there deadline clusters, gaps, or too many grants without deadlines?
-- Ask calibration: Are asks too clustered in one range? Are they realistic given funder budgets?
-- Team capacity: Is workload balanced? Is anyone overloaded or underutilised?
-- AI utilisation: What percentage of grants have AI-generated content? Where are the gaps?
-- Geographic gaps: Is there geographic concentration or untapped regions?
+WHAT TO LOOK FOR:
+- Funnel shape: top-heavy with scouted grants that never move? Or bottom-heavy with too few new leads? Where does conversion break down?
+- Concentration risk: if one funder type or one large grant accounts for >40% of the pipeline, that's fragile. Name the risk.
+- Relationship patterns: which relationship statuses (Hot/Warm/Cold/New) actually convert? Where is effort wasted?
+- Timing clusters: are deadlines bunched in one month creating a capacity crunch? How many grants have no deadline at all?
+- Ask calibration: is the average ask realistic for the funder types being targeted? Are there outliers?
+- Team balance: is one person carrying too much? Is anyone underutilised?
+- Revenue gap: what's the gap between pipeline value and realistic revenue (weighted by stage probability)?
 
-FORMAT: Each insight must have:
-- An emoji + bold title (one line)
-- 2–3 sentences of data-backed analysis (reference actual numbers from the data)
-- One concrete action the team should take in the next 7 days
+FORMAT — for each insight:
+- Bold title (no emoji, no numbering)
+- 2–3 sentences backed by actual numbers from the data. Name specific grants and funders.
+- "This week:" followed by one concrete action.
 
-Be specific. Reference actual grant names, funder names, and numbers. No generic advice.${factGuard}`,
+Be blunt. If something is going well, say so briefly and move on. Spend more words on problems and opportunities.${factGuard}`,
         `Organisation: ${org?.name || "d-lab NPC"}
 
 PIPELINE SNAPSHOT:
@@ -844,31 +843,28 @@ TOP 5 BY ASK: ${[...act].sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice
       ).join("\n");
 
       return await api(
-        `You are a strategic advisor to d-lab NPC, a South African youth skills NPO. You help them align their programme portfolio with funding opportunities to maximise both impact and revenue.
+        `You are a funding strategist for d-lab NPC, a South African youth skills NPO with 7 programme types ranging from R232K short courses to R1.6M full-cohort programmes with laptops and stipends.
 
-TASK: Produce 5–7 strategic recommendations for how d-lab should position its programmes to attract more and better-aligned funding.
+TASK: Produce 5–7 strategic recommendations. Each should be a specific, defensible play that d-lab can execute — not general advice.
 
-d-lab delivers 7 programme types (reference below). Each has different costs, student numbers, durations, and target markets.
-
-PROGRAMME TYPES:
+d-lab's programme portfolio:
 ${ptypeRef}
 
-STRATEGIC AREAS TO ADDRESS (cover at least 4):
-- Programme-funder fit: Which programme types are over/under-represented in the pipeline? Is Cyborg Habits (Type 6 — scalable, low-cost, online) being underleveraged for large-scale funders?
-- Funder type ROI: Which funder types (Corporate CSI, Government/SETA, International, Foundation, Tech Company) yield the best win rates and values?
-- Ask calibration: Are programme costs matching what funders typically give? Where should d-lab adjust pricing or packaging?
-- Relationship investment: Where should d-lab invest in deepening relationships vs. prospecting new funders?
-- Geographic expansion: Are there untapped geographies or sectors?
-- Pipeline gaps: Which stages need more grants? Is the funnel balanced for sustainable revenue?
-- Capacity planning: Given the current pipeline, what delivery capacity does d-lab need to plan for?
-- Scale opportunities: Where can d-lab package programmes for larger, multi-cohort or multi-year deals?
+THINK ABOUT:
+- Which programme types are being pitched to the wrong funders? A R1.6M Type 2 programme pitched to a R500K corporate CSI budget is a mismatch. Name the mismatches.
+- Cyborg Habits (Type 6, US$49/learner, fully online) can scale to thousands — is the pipeline leveraging this for international funders, education departments, or large corporates who want reach?
+- Which funder types actually convert? If Foundations win at 60% but Government/SETA wins at 10%, the team should rebalance prospecting time.
+- Multi-cohort and multi-year packaging: a R516K Type 1 programme becomes a R2.5M proposal when packaged as 5 cohorts across 2 years. Is anyone packaging like this?
+- Returning funders (Telkom, Sage, SAP, Get It Done) are the easiest revenue. Are renewals being actively managed or left to chance?
+- Geographic plays: are there provinces, metros, or rural areas where d-lab has no presence but funders are active?
+- Revenue concentration: if one grant represents >25% of the pipeline, that's a strategic risk.
 
-FORMAT: Each recommendation must have:
-- A number + bold title
-- 3–5 sentences of strategic reasoning (reference actual data, programme costs, funder patterns)
-- One concrete 30-day action
+FORMAT — for each recommendation:
+- Bold title (no numbering, no emoji)
+- 3–5 sentences of reasoning with specific numbers, programme costs, and funder names from the data
+- "Next 30 days:" followed by one concrete action
 
-Be specific and actionable. Reference programme types by name and number. No generic strategy advice.${factGuard}`,
+Think like a board advisor, not a consultant. Be direct about what's working, what's not, and where the biggest leverage is.${factGuard}`,
         `Organisation: ${org?.name || "d-lab NPC"}
 
 PIPELINE DATA:
