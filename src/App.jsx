@@ -396,14 +396,14 @@ function AppInner() {
     }
 
     // Add structured programme costs (always useful for proposals)
-    if (profile?.programmes?.length && type === "draft") {
+    if (profile?.programmes?.length && (type === "draft" || type === "sectionDraft")) {
       const progBlock = "=== EXACT PROGRAMME COSTS (use these figures) ===\n" +
         profile.programmes.map(p => `${p.name}: R${(p.cost || 0).toLocaleString()} — ${p.desc}`).join("\n");
       profileSections.push(progBlock);
     }
 
     // Add impact stats
-    if (profile?.impact_stats && type === "draft") {
+    if (profile?.impact_stats && (type === "draft" || type === "sectionDraft")) {
       const s = profile.impact_stats;
       profileSections.push(`=== VERIFIED IMPACT STATS (use these exact numbers) ===\nCompletion rate: ${Math.round((s.completion_rate || 0) * 100)}% (sector avg: ${Math.round((s.sector_average_completion || 0) * 100)}%)\nEmployment rate: ${Math.round((s.employment_rate || 0) * 100)}% within ${s.employment_window_months || 3} months\nLearners trained: ${s.learners_trained || "500+"}`);
     }
@@ -420,8 +420,9 @@ function AppInner() {
 
     // Load uploaded document context — cached per grant to avoid redundant fetches
     // Budgets reduced to stay within API rate limits (30K input tokens ≈ 22K chars total)
-    const grantDocBudget = type === "draft" ? 3000 : 2000;
-    const orgDocBudget = type === "draft" ? 2000 : 1500;
+    const isDraftType = type === "draft" || type === "sectionDraft";
+    const grantDocBudget = isDraftType ? 3000 : 2000;
+    const orgDocBudget = isDraftType ? 2000 : 1500;
     try {
       const grantId = grant?.id;
       if (!uploadsCache.current[grantId]) {
@@ -464,7 +465,7 @@ function AppInner() {
     }
 
     // Cap total context — tuned to stay within 30K input token API limit
-    const maxCtx = type === "draft" ? 10000 : 8000;
+    const maxCtx = isDraftType ? 10000 : 8000;
     if (orgCtx.length > maxCtx) orgCtx = orgCtx.slice(0, maxCtx) + "\n[...context trimmed for length]";
 
     // Anti-hallucination instruction — added to every prompt type
@@ -589,7 +590,7 @@ Use d-lab's programme types as a starting framework, but MATCH THE ASK TO THE FU
       );
     }
     if (type === "sectionDraft") {
-      // Section-by-section proposal generation
+      // Section-by-section proposal generation — full strategic depth per section
       const { sectionName, sectionIndex, totalSections, completedSections, customInstructions } = priorResearch || {};
       const fs = funderStrategy(grant);
       const researchBlock = (priorFitScore?.research || grant.aiResearch)
@@ -598,9 +599,12 @@ Use d-lab's programme types as a starting framework, but MATCH THE ASK TO THE FU
       const fitBlock = (priorFitScore?.fitscore || grant.aiFitscore)
         ? `\n\n=== FIT SCORE ===\n${(priorFitScore?.fitscore || grant.aiFitscore).slice(0, 1000)}`
         : "";
+      const fitScoreNote = (priorFitScore?.fitscore || grant.aiFitscore)
+        ? "\nIMPORTANT: A fit score analysis is included. Lean into the STRENGTHS it identifies, directly address GAPS or RISKS (turn weaknesses into narrative strengths), match emphasis to the highest-scored alignment areas."
+        : "";
       const relNote = fs.returning
-        ? "RETURNING FUNDER — reference the existing relationship warmly."
-        : `NEW FUNDER — relationship is "${grant.rel || "Cold"}". Make it easy to say yes.`;
+        ? "RETURNING FUNDER — reference the existing relationship. This is a partner renewing, not a stranger."
+        : `NEW FUNDER — relationship is "${grant.rel || "Cold"}". Make it easy to say yes to a first conversation.`;
 
       // Build prior-sections summary for consistency
       const priorSummary = completedSections && Object.keys(completedSections).length > 0
@@ -609,34 +613,145 @@ Use d-lab's programme types as a starting framework, but MATCH THE ASK TO THE FU
           ).join("\n")
         : "";
 
-      // Section-specific depth guidance
-      const sectionGuide = sectionName === "Cover Letter"
-        ? "Write a cover email: Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT 'I am writing to submit...' Open with human impact or opportunity. One proof point. Close with a low-friction next step. Sign off as 'Director, d-lab NPC' (no name)."
-        : sectionName === "Executive Summary"
-        ? "Write 200-300 words. A compelling standalone case for funding. Use a DIFFERENT hook from the cover letter. This should make someone want to fund d-lab even if they read nothing else."
-        : sectionName.toLowerCase().includes("budget")
-        ? "Tell the story of VALUE, not just line items. Show cost-per-student, cost-effectiveness vs traditional providers. Use d-lab's actual budget lines from the programme type. Make every rand feel justified. Include the ASK_RECOMMENDATION line at the very end:\nASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer with no commas or spaces]"
-        : sectionName.toLowerCase().includes("impact") || sectionName.toLowerCase().includes("outcome")
-        ? "Weave numbers INTO narrative: 'Of the 20 students in our most recent cohort, 17 were employed within 90 days' not just '85% employment rate.' Be vivid and specific."
-        : "Write 2-4 rich paragraphs. Do not produce bullet-only content. Weave data into narrative. Be vivid and specific — paint the picture of what d-lab does.";
+      // Classify section for targeted strategic blocks
+      const sn = sectionName.toLowerCase();
+      const isCover = sn.includes("cover");
+      const isExecSummary = sn.includes("summary") || sn.includes("executive");
+      const isBudget = sn.includes("budget");
+      const isImpact = sn.includes("impact") || sn.includes("outcome") || sn.includes("evidence");
+      const isProgramme = sn.includes("programme") || sn.includes("program") || sn.includes("approach") || sn.includes("design") || sn.includes("overview") || sn.includes("innovation") || sn.includes("technology") || sn.includes("ai integration");
+      const isScale = sn.includes("scale") || sn.includes("sustainability") || sn.includes("exit");
+      const isChallenge = sn.includes("challenge") || sn.includes("problem") || sn.includes("theory of change");
 
-      // Token budget per section type
-      const tokenBudget = sectionName === "Cover Letter" ? 600
-        : sectionName === "Executive Summary" ? 800
-        : sectionName.toLowerCase().includes("budget") ? 1000
-        : 800;
+      // Section-specific depth guidance — rich, strategic blocks per section type
+      let sectionGuide = "";
+
+      if (isCover) {
+        sectionGuide = `COVER EMAIL INSTRUCTIONS:
+Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." Open with human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as "Director, d-lab NPC" (do NOT name them).
+
+OPENING HOOK: ${fs.hook}
+
+VARIED OPENINGS — the opening must be UNIQUE and crafted for THIS funder:
+- Lead with a single student's transformation story (a day in the life, a before/after)
+- Lead with a striking data point that reframes the problem ("It costs R180,000 to keep one young person unemployed for a year. For R25,800, d-lab turns them into a working professional in nine months.")
+- Lead with the funder's own stated mission and show how d-lab is already doing what they want to fund
+- Lead with a provocation ("What if the most effective way to close the digital divide isn't a laptop per child — but a habit per day?")
+- Lead with a very specific scene (the first morning of a new cohort, the WhatsApp message from a graduate's parent)
+Choose ONE technique — whichever fits this funder best. If grant notes mention a specific theme, use THAT as your anchor.`;
+
+      } else if (isExecSummary) {
+        sectionGuide = `EXECUTIVE SUMMARY INSTRUCTIONS:
+200-300 words. A compelling standalone case — someone should want to fund d-lab after reading ONLY this section.
+Use a DIFFERENT hook from the cover letter — do not repeat yourself.
+
+FRAMING: d-lab's story is the SYSTEM — 7 programme types, partner delivery model, in-house AI tools (LMS, Language Leveller, Assessornator, Cyborg Habits), corporate clients, diversified revenue. This isn't a charity asking for help. It's an engine asking for fuel.
+
+AMBITION — think BIG:
+- If the funder can support R5M, don't propose R232K. Propose multi-cohort, extended duration, wraparound services.
+- Combine elements: a 9-month accredited pathway PLUS Cyborg Habits digital layer, a flagship cohort PLUS Train-the-Trainer cascade.
+- What would make this funder PROUD to back this?
+
+VARIED OPENINGS — use a different technique from the cover letter:
+- Striking data point, student story, funder's own mission, provocative question, concrete scene, or scale vision.`;
+
+      } else if (isBudget) {
+        sectionGuide = `BUDGET INSTRUCTIONS:
+Tell the story of VALUE, not just line items. Show cost-per-student, cost-effectiveness vs traditional providers. Make every rand feel justified.
+
+AMBITION: The budget should fill the funder's capacity, not sit timidly below it. If a corporate has R2M for CSI, propose R1.8M — not R500K. Match the ask to the funder's ambition.
+- Use d-lab's programme types as building blocks but design for what the FUNDER wants to achieve.
+- Go multi-cohort, add components, extend duration where the budget allows.
+
+SCALE THROUGH AI — the economics argument:
+- d-lab's AI tools (Language Leveller, Assessornator, LMS, Cyborg Habits) change the economics of delivery. Per-student cost drops at scale because AI absorbs work that would normally require additional coaches.
+- "d-lab can train 200 learners with the quality traditionally reserved for cohorts of 60."
+- Cyborg Habits at US$49/learner means a R5M investment could reach 1,500+ learners for a year. No traditional programme matches that cost-per-outcome.
+- Propose higher student numbers than expected. If a traditional provider proposes 40, d-lab can credibly propose 100-120.
+
+Use d-lab's EXACT programme cost lines. Weave the numbers into narrative: "For R25,800 per student — less than a semester at most private colleges — a young person receives 9 months of daily coaching, enterprise software access, ICITP accreditation, and a career launchpad."
+
+ASK RECOMMENDATION — include at the VERY END on its own line:
+ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer with no commas or spaces]
+Example: ASK_RECOMMENDATION: Type 3, 2 cohort(s), R2472000`;
+
+      } else if (isProgramme) {
+        sectionGuide = `PROGRAMME SECTION INSTRUCTIONS:
+Describe the actual learner journey: what happens on Day 1, what tools they use, what coaching looks like, what a Design Thinking sprint feels like. Paint the picture so vividly the reader SEES the training room.
+
+SCALE THROUGH AI — d-lab's secret weapon:
+- d-lab has built proprietary AI tools that radically change training economics. NOT off-the-shelf — built in-house for SA youth.
+- Language Leveller: AI real-time translation/comprehension so learners engage with English tech content regardless of home language. Removes the biggest barrier to scale.
+- Assessornator: AI assessment giving every student personalised instant feedback — a dedicated tutor at zero marginal cost per student.
+- Cyborg Habits: asynchronous AI coaching extending learning beyond classroom hours, building daily digital habits (US$49/learner).
+- The coaching model: AI handles repetitive personalised feedback, freeing coaches for mentorship and motivation. d-lab maintains quality at 2-3x student numbers of traditional providers.
+
+CYBORG HABITS AT SCALE — think beyond the classroom:
+- For schools: deploy to entire districts as a "digital readiness" layer. 5,000 FET learners across 20 schools, 15 min/day, no new teachers needed.
+- Hybrid models: Cyborg Habits as digital spine + periodic in-person bootcamps (1,000 on platform year-round, 100-200 for intensive face-to-face).
+- Cascading impact: learners become AI ambassadors in families/communities. One learner = a multiplier.
+
+AMBITION: Design the programme around what the FUNDER wants to achieve:
+- Combine elements creatively: accredited pathway + Cyborg Habits layer, flagship cohort + Train-the-Trainer cascade, AI bootcamp + workplace integration.
+- Think about what makes the funder PROUD. Match the scale of their ambition.`;
+
+      } else if (isImpact) {
+        sectionGuide = `IMPACT SECTION INSTRUCTIONS:
+Weave numbers INTO narrative: "Of the 20 students in our most recent cohort, 17 were employed within 90 days — at companies like..." not just "85% employment rate."
+
+Include specific, vivid outcomes:
+- 92% completion (vs 55% sector average) — nearly DOUBLE
+- 85% employment within 3 months
+- The AI tools mean quality at scale: traditional providers cap at 20-40 students, d-lab serves 60+ per cohort with equal or better outcomes
+
+SCALE THROUGH AI — the impact multiplier:
+- d-lab's AI infrastructure means per-student cost drops at scale while quality holds. This is the key to going from dozens to hundreds to thousands.
+- Cyborg Habits reaches learners asynchronously with zero marginal instructor cost — the economics of digital impact at scale.
+- Cascading impact: learners become AI ambassadors in families/communities. The WhatsApp group, the parent's small business, the church admin — one learner's habits ripple outward.`;
+
+      } else if (isScale || isChallenge) {
+        sectionGuide = `${isChallenge ? "CHALLENGE/PROBLEM" : "SUSTAINABILITY/SCALE"} SECTION INSTRUCTIONS:
+Write 2-4 rich paragraphs. Be specific to d-lab's model, not generic development language.
+
+${isChallenge ? "Frame the challenge through d-lab's lens — not generic youth unemployment stats. What specific gap does d-lab fill that nobody else does? The answer: AI-native training that works at scale because the tools are built in-house." : ""}
+
+SUSTAINABILITY MODEL — d-lab's diversified engine:
+- 7 programme types from R199K to R5M create multiple revenue streams
+- Partner delivery model: partners provide infrastructure, d-lab provides the system. This means d-lab can expand to new sites without proportional cost increase.
+- Cyborg Habits is a subscription product (US$49/learner) that scales independently of classroom delivery
+- Corporate programmes (CCBA-style) generate revenue that cross-subsidises community programmes
+- In-house AI tools have zero licensing cost — they're proprietary, reducing per-student delivery cost as the organisation grows
+
+DON'T BE TIMID about Cyborg Habits for audiences beyond traditional unemployed youth — school learners, NEET youth, working adults upskilling, community organisations, teacher digital literacy. Match to the funder's mandate.`;
+
+      } else {
+        // Default for compliance, regulatory, organisational, appendices, etc.
+        sectionGuide = `Write 2-4 rich paragraphs. Do NOT produce bullet-only content — weave data into narrative.
+Be vivid and specific — paint the picture of what d-lab does. Even compliance sections should read with narrative warmth.
+Include specific d-lab details: the AI tools (Language Leveller, Assessornator, LMS, Cyborg Habits), the coaching model, partner delivery structure, accreditation pathway (ICITP, ICDL).
+If this is a regulatory/compliance section (SETA, B-BBEE, M&E, NQF), write with EQUAL depth but still with the human voice.`;
+      }
+
+      // Token budget per section type — raised for richer output
+      const tokenBudget = isCover ? 800
+        : isExecSummary ? 1000
+        : isBudget ? 1200
+        : isProgramme ? 1000
+        : isImpact ? 1000
+        : 900;
 
       return await api(
         `You write ONE section of a funding proposal for d-lab NPC — a South African NPO training unemployed youth in AI-native digital skills (92% completion, 85% employment within 3 months).
 
 SECTION: "${sectionName}" (Section ${sectionIndex + 1} of ${totalSections})
 
-VOICE — maintain throughout:
+VOICE — this is the most important instruction:
 - Warm, human, confident. A founder who KNOWS this works, offering a funder the chance to back something real.
-- Write like a person, not a grant machine. Vivid, specific details.
+- Write like a person, not a grant machine. Let the reader feel the energy of what d-lab does.
+- Use vivid, specific details: a student's first day using AI tools, a graduate landing their first tech role, a coach watching the lightbulb moment.
+- Be concrete and grounded: real numbers, real programme details. Emotion comes from specificity, not adjectives.
 - Vary sentence length. Short punchy sentences land harder after longer ones.
-- Be concrete: real numbers, real programme details, real AI tools.
-- The emotive, narrative energy must carry through — do NOT switch to dry grant-speak.
+- CRITICAL: The emotive, narrative energy must carry through. Do NOT switch to dry, bureaucratic grant-speak. This section should read like it was written by someone who cares deeply.
 
 ${sectionGuide}
 
@@ -645,18 +760,24 @@ USE THEIR LANGUAGE: ${fs.lang}
 ${relNote}
 ${fs.pt ? `PROGRAMME TYPE: ${fs.pt.label} — ${fs.pt.students} students, R${(fs.pt.cost||0).toLocaleString()}, ${fs.pt.duration}. Budget: ${fs.pt.budget}` : ""}
 ${fs.mc ? `MULTI-COHORT: ${fs.mc.count} cohorts requested` : ""}
-
-${customInstructions ? `USER INSTRUCTIONS FOR THIS SECTION: ${customInstructions}` : ""}
+${customInstructions ? `\nUSER INSTRUCTIONS FOR THIS SECTION: ${customInstructions}` : ""}${fitScoreNote}
 
 ANTI-PATTERNS — never do these:
-- "South Africa has X% youth unemployment" opener
+- "I hope this finds you well" or any generic opener
+- "South Africa has X% youth unemployment" — every NPO says this, it's wallpaper
 - "We believe", "we are passionate", "making a difference" — hollow phrases
-- Thin skeletal paragraphs — write with substance
-- ChatGPT or OpenAI in budget items — d-lab builds its own AI tools
-- Naming directors individually
+- Leading with geography or province-counting
+- Dry lists without narrative thread — every sentence should MOVE the reader toward yes
+- Padding with generic development language — be specific to d-lab
+- Invented budget figures or statistics not in the context
+- Thin, skeletal sections with one paragraph each — write with substance
+- Switching to cold, institutional tone — sustain the warmth throughout
+- Generic filler like "we look forward to partnering" — every sentence must earn its place
+- NEVER include ChatGPT/OpenAI/third-party AI costs in budgets — d-lab builds its own AI tools
+- NEVER mention directors by name — refer to "directors, programme management and ops team"${priorFitScore?.research || grant.aiResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}
 
 Write ONLY the "${sectionName}" section content. No section header — just the content.${factGuard}`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${researchBlock}${fitBlock}${priorSummary ? `\n\nALREADY-WRITTEN SECTIONS (maintain consistency):\n${priorSummary}` : ""}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${researchBlock}${fitBlock}${priorSummary ? `\n\nALREADY-WRITTEN SECTIONS (maintain consistency):\n${priorSummary}` : ""}`,
         false, tokenBudget
       );
     }
