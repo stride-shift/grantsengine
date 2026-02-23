@@ -1,9 +1,55 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmt, fmtK, dL, uid, td, effectiveAsk } from "../utils";
+import { fmt, fmtK, dL, uid, td, effectiveAsk, grantReadiness } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "./index";
 import { scoutPrompt } from "../prompts";
 import { detectType, PTYPES } from "../data/funderStrategy";
+import { GATES, ROLES } from "../data/constants";
+
+/* ── Readiness Chips — show missing items on kanban cards ── */
+const ReadinessChips = ({ missing }) => {
+  if (!missing || missing.length === 0) return null;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+      {missing.slice(0, 3).map((m, i) => (
+        <span key={i} style={{
+          fontSize: 9, fontWeight: 600, padding: "2px 6px", borderRadius: 6,
+          background: m.includes("docs") ? "#FEF3C7" : m.includes("deadline") ? "#FEE2E2" : "#F1F5F9",
+          color: m.includes("docs") ? "#92400E" : m.includes("deadline") ? "#991B1B" : "#475569",
+          letterSpacing: 0.2,
+        }}>{m}</span>
+      ))}
+      {missing.length > 3 && (
+        <span style={{ fontSize: 9, color: "#94A3B8", fontWeight: 500 }}>+{missing.length - 3}</span>
+      )}
+    </div>
+  );
+};
+
+/* ── Gate Indicator — shows approval requirement for next stage ── */
+const STAGE_ORDER = ["scouted", "qualifying", "drafting", "review", "submitted", "awaiting"];
+const GateIndicator = ({ stage, ownerRole }) => {
+  const idx = STAGE_ORDER.indexOf(stage);
+  if (idx < 0 || idx >= STAGE_ORDER.length - 1) return null;
+  const nextStage = STAGE_ORDER[idx + 1];
+  const gateKey = `${stage}->${nextStage}`;
+  const gate = GATES[gateKey];
+  if (!gate) return null;
+  const roleLevel = ROLES[ownerRole]?.level || 0;
+  const needLevel = ROLES[gate.need]?.level || 99;
+  const canSelf = roleLevel >= needLevel;
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 4, marginTop: 6,
+      padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 600,
+      background: canSelf ? "#ECFDF5" : "#FEF3C7",
+      color: canSelf ? "#059669" : "#92400E",
+    }}>
+      <span style={{ fontSize: 10 }}>{canSelf ? "\u2713" : "\u25CB"}</span>
+      <span>{canSelf ? "Can advance" : `${ROLES[gate.need]?.label || "Approval"} needed`}</span>
+    </div>
+  );
+};
 
 const VIEW_OPTIONS = [["kanban", "Board"], ["list", "List"], ["person", "Person"]];
 const CLOSED_STAGES = ["won", "lost", "deferred"];
@@ -169,13 +215,16 @@ const parseScoutResults = (text) => {
   return null;
 };
 
-export default function Pipeline({ grants, team, stages, funderTypes, onSelectGrant, onUpdateGrant, onAddGrant, onRunAI, api }) {
+export default function Pipeline({ grants, team, stages, funderTypes, complianceDocs = [], onSelectGrant, onUpdateGrant, onAddGrant, onRunAI, api }) {
   const [pView, setPView] = useState("kanban");
   const [q, setQ] = useState("");
   const [sf, setSf] = useState("all");
   const [pSort, setPSort] = useState("default");
   const [dragId, setDragId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [wizStep, setWizStep] = useState(1); // 1 = funder, 2 = programme type
+  const [selectedPType, setSelectedPType] = useState(null);
+  const [cohortMultiplier, setCohortMultiplier] = useState(1);
   const [newName, setNewName] = useState("");
   const [newFunder, setNewFunder] = useState("");
   const [newType, setNewType] = useState(funderTypes?.[0] || "Foundation");
@@ -185,6 +234,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
   const [urlInput, setUrlInput] = useState("");
   const [urlBusy, setUrlBusy] = useState(false);
   const [showUrlTool, setShowUrlTool] = useState(false);
+  const [activeFilters, setActiveFilters] = useState(new Set()); // "due-week", "due-month", "no-deadline", "no-draft", "unassigned", owner ids
+  const [selectedIds, setSelectedIds] = useState(new Set()); // batch operations
+  const [batchAction, setBatchAction] = useState(null); // "stage" | "owner" | "priority"
 
   const STAGES = stages || [];
 
@@ -204,8 +256,22 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
       gs = gs.filter(g => g.name?.toLowerCase().includes(lq) || g.funder?.toLowerCase().includes(lq) || g.notes?.toLowerCase().includes(lq));
     }
     if (sf !== "all") gs = gs.filter(g => g.type === sf);
+    // Apply smart filters
+    if (activeFilters.size > 0) {
+      gs = gs.filter(g => {
+        for (const f of activeFilters) {
+          if (f === "due-week") { const d = dL(g.deadline); if (d === null || d > 7 || d < 0) return false; }
+          else if (f === "due-month") { const d = dL(g.deadline); if (d === null || d > 30 || d < 0) return false; }
+          else if (f === "no-deadline") { if (g.deadline) return false; }
+          else if (f === "no-draft") { if (g.aiDraft) return false; }
+          else if (f === "unassigned") { if (g.owner && g.owner !== "team") return false; }
+          else if (f.startsWith("owner:")) { if (g.owner !== f.slice(6)) return false; }
+        }
+        return true;
+      });
+    }
     return gs;
-  }, [grants, q, sf]);
+  }, [grants, q, sf, activeFilters]);
 
   const sorted = useMemo(() => {
     let gs = [...filtered];
@@ -247,14 +313,15 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
     if (!trimName || trimName.length < 2) { setAddError("Grant name must be at least 2 characters"); return; }
     if (!trimFunder) { setAddError("Funder name is required"); return; }
     setAddError("");
-    const enteredAsk = parseInt(newAsk.replace(/[,\s]/g, "")) || 0;
+    const enteredAsk = parseInt(String(newAsk).replace(/[,\s]/g, "")) || 0;
+    const ptypeNote = selectedPType ? `Type ${selectedPType}${cohortMultiplier > 1 ? ` (${cohortMultiplier} cohorts)` : ""}` : "";
     const g = {
       id: uid(), name: trimName, funder: trimFunder, type: newType,
       stage: "scouted", ask: enteredAsk, funderBudget: enteredAsk || null,
       askSource: enteredAsk ? "manual" : null, aiRecommendedAsk: null,
       deadline: null,
-      focus: [], geo: [], rel: "Cold", pri: 3, hrs: 0, notes: "",
-      log: [{ d: td(), t: "Grant created" }], on: "", of: [],
+      focus: [], geo: [], rel: "Cold", pri: 3, hrs: 0, notes: ptypeNote,
+      log: [{ d: td(), t: `Grant created${ptypeNote ? ` (${ptypeNote}, R${enteredAsk.toLocaleString()})` : ""}` }], on: "", of: [],
       owner: "team", docs: {}, fups: [], subDate: null, applyUrl: "",
     };
     onAddGrant(g);
@@ -341,9 +408,85 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
           </div>
           <Btn onClick={aiScout} disabled={scouting} v="ghost" style={{ fontSize: 12, padding: "6px 14px", color: C.purple, borderColor: C.purple + "40" }}>{scouting ? "Scouting..." : "\u2609 Scout"}</Btn>
           {onRunAI && <Btn onClick={() => setShowUrlTool(!showUrlTool)} v="ghost" style={{ fontSize: 12, padding: "6px 14px", color: C.blue, borderColor: C.blue + "40" }}>{"\uD83D\uDD17"} URL</Btn>}
+          <Btn onClick={() => { if (batchAction) { setBatchAction(null); setSelectedIds(new Set()); } else { setBatchAction("select"); } }}
+            v="ghost" style={{ fontSize: 12, padding: "6px 14px", color: batchAction ? C.primary : C.t3, borderColor: batchAction ? C.primary + "40" : undefined }}>
+            {batchAction ? "Done" : "Select"}
+          </Btn>
           <Btn onClick={() => setShowAdd(!showAdd)} v="primary" style={{ fontSize: 12, padding: "6px 14px" }}>+ Add</Btn>
         </div>
       </div>
+
+      {/* Filter chips */}
+      {(() => {
+        const toggleFilter = (f) => setActiveFilters(prev => {
+          const next = new Set(prev);
+          next.has(f) ? next.delete(f) : next.add(f);
+          return next;
+        });
+        const chipStyle = (f) => ({
+          padding: "4px 10px", borderRadius: 100, fontSize: 10, fontWeight: 600,
+          cursor: "pointer", border: `1.5px solid ${activeFilters.has(f) ? C.primary : C.line}`,
+          background: activeFilters.has(f) ? C.primarySoft : C.white,
+          color: activeFilters.has(f) ? C.primary : C.t3,
+          fontFamily: FONT, transition: "all 0.15s ease",
+        });
+        const ownerNames = [...new Set(grants.map(g => g.owner).filter(o => o && o !== "team"))];
+        return (
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
+            <button onClick={() => toggleFilter("due-week")} style={chipStyle("due-week")}>Due this week</button>
+            <button onClick={() => toggleFilter("due-month")} style={chipStyle("due-month")}>Due this month</button>
+            <button onClick={() => toggleFilter("no-deadline")} style={chipStyle("no-deadline")}>No deadline</button>
+            <button onClick={() => toggleFilter("no-draft")} style={chipStyle("no-draft")}>No draft</button>
+            <button onClick={() => toggleFilter("unassigned")} style={chipStyle("unassigned")}>Unassigned</button>
+            {ownerNames.map(oid => {
+              const m = getMember(oid);
+              return <button key={oid} onClick={() => toggleFilter(`owner:${oid}`)} style={chipStyle(`owner:${oid}`)}>{m?.name || oid}</button>;
+            })}
+            {activeFilters.size > 0 && (
+              <button onClick={() => setActiveFilters(new Set())} style={{ ...chipStyle("clear"), color: C.red, borderColor: C.red + "40" }}>Clear all</button>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Batch action bar */}
+      {selectedIds.size > 0 && (
+        <div style={{
+          display: "flex", gap: 8, alignItems: "center", marginBottom: 10,
+          padding: "10px 16px", background: `linear-gradient(135deg, ${C.primarySoft} 0%, ${C.white} 100%)`,
+          borderRadius: 12, border: `1.5px solid ${C.primary}20`,
+          boxShadow: C.cardShadow,
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: C.primary }}>{selectedIds.size} selected</span>
+          <div style={{ width: 1, height: 20, background: C.line }} />
+          <span style={{ fontSize: 11, color: C.t3, fontWeight: 600 }}>Move to:</span>
+          {STAGES.filter(s => !CLOSED_STAGES.includes(s.id)).map(s => (
+            <button key={s.id} onClick={() => {
+              for (const id of selectedIds) onUpdateGrant(id, { stage: s.id });
+              setSelectedIds(new Set());
+            }}
+              style={{
+                padding: "3px 10px", borderRadius: 6, fontSize: 10, fontWeight: 600,
+                background: s.bg || C.bg, color: s.c, border: `1px solid ${s.c}30`,
+                cursor: "pointer", fontFamily: FONT,
+              }}>{s.label}</button>
+          ))}
+          <div style={{ width: 1, height: 20, background: C.line }} />
+          <span style={{ fontSize: 11, color: C.t3, fontWeight: 600 }}>Assign:</span>
+          <select onChange={e => {
+            if (!e.target.value) return;
+            for (const id of selectedIds) onUpdateGrant(id, { owner: e.target.value });
+            setSelectedIds(new Set());
+            e.target.value = "";
+          }} style={{ padding: "3px 8px", fontSize: 11, border: `1px solid ${C.line}`, borderRadius: 6, fontFamily: FONT }}>
+            <option value="">Pick...</option>
+            {(team || []).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          <div style={{ marginLeft: "auto" }} />
+          <button onClick={() => setSelectedIds(new Set())}
+            style={{ fontSize: 11, color: C.t4, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, fontWeight: 600 }}>Cancel</button>
+        </div>
+      )}
 
       {/* URL Extract tool — paste a grant URL to auto-create */}
       {showUrlTool && onRunAI && (
@@ -427,20 +570,126 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
 
       {/* Add grant inline */}
       {showAdd && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "center", padding: "10px 14px", background: C.white, borderRadius: 14, border: "none", boxShadow: C.cardShadow }}>
-          <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Grant name" autoFocus
-            style={{ flex: 2, padding: "6px 10px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT }} />
-          <input value={newFunder} onChange={e => setNewFunder(e.target.value)} placeholder="Funder"
-            style={{ flex: 1.5, padding: "6px 10px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT }} />
-          <select value={newType} onChange={e => setNewType(e.target.value)}
-            style={{ padding: "6px 8px", fontSize: 12, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT }}>
-            {(funderTypes || []).map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <input value={newAsk} onChange={e => setNewAsk(e.target.value)} placeholder="Ask (R)" type="number"
-            style={{ width: 100, padding: "6px 10px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: MONO }} />
-          <Btn onClick={addGrant} disabled={!newName?.trim()} style={{ fontSize: 12, padding: "6px 14px" }}>Add</Btn>
-          <Btn onClick={() => { setShowAdd(false); setAddError(""); }} v="ghost" style={{ fontSize: 12, padding: "6px 10px" }}>Cancel</Btn>
-          {addError && <span style={{ fontSize: 11, color: C.red, fontWeight: 500 }}>{addError}</span>}
+        <div style={{ marginBottom: 14, background: C.white, borderRadius: 14, boxShadow: C.cardShadow, overflow: "hidden" }}>
+          {/* Step indicator */}
+          <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${C.line}` }}>
+            {[{ n: 1, l: "Grant & Funder" }, { n: 2, l: "Programme Type" }].map(s => (
+              <div key={s.n} style={{
+                flex: 1, padding: "10px 16px", fontSize: 11, fontWeight: 700,
+                color: wizStep === s.n ? C.primary : wizStep > s.n ? C.ok : C.t4,
+                borderBottom: wizStep === s.n ? `2px solid ${C.primary}` : "2px solid transparent",
+                textAlign: "center", letterSpacing: 0.5,
+              }}>{s.n}. {s.l}</div>
+            ))}
+          </div>
+
+          <div style={{ padding: "14px 18px" }}>
+            {/* Step 1: Name, Funder, Type */}
+            {wizStep === 1 && (
+              <div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                  <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Grant name" autoFocus
+                    style={{ flex: 2, padding: "8px 12px", fontSize: 13, border: `1.5px solid ${C.line}`, borderRadius: 10, fontFamily: FONT }} />
+                  <input value={newFunder} onChange={e => setNewFunder(e.target.value)} placeholder="Funder name"
+                    list="funder-suggestions"
+                    style={{ flex: 1.5, padding: "8px 12px", fontSize: 13, border: `1.5px solid ${C.line}`, borderRadius: 10, fontFamily: FONT }} />
+                  <datalist id="funder-suggestions">
+                    {[...new Set(grants.map(g => g.funder).filter(Boolean))].map(f => <option key={f} value={f} />)}
+                  </datalist>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <select value={newType} onChange={e => setNewType(e.target.value)}
+                    style={{ padding: "8px 12px", fontSize: 12, border: `1.5px solid ${C.line}`, borderRadius: 10, fontFamily: FONT, flex: 1 }}>
+                    {(funderTypes || []).map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <Btn onClick={() => { if (newName?.trim() && newFunder?.trim()) setWizStep(2); else setAddError("Name and funder required"); }}
+                    disabled={!newName?.trim() || !newFunder?.trim()}
+                    style={{ fontSize: 12, padding: "8px 18px" }}>Next</Btn>
+                  <Btn onClick={() => { setShowAdd(false); setAddError(""); setWizStep(1); setSelectedPType(null); setCohortMultiplier(1); }}
+                    v="ghost" style={{ fontSize: 12, padding: "8px 12px" }}>Cancel</Btn>
+                </div>
+                {addError && <div style={{ fontSize: 11, color: C.red, marginTop: 6 }}>{addError}</div>}
+              </div>
+            )}
+
+            {/* Step 2: Programme Type selection */}
+            {wizStep === 2 && (
+              <div>
+                <div style={{ fontSize: 12, color: C.t3, marginBottom: 10 }}>
+                  Select a programme type for <strong style={{ color: C.dark }}>{newName}</strong> ({newFunder})
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                  {Object.entries(PTYPES).map(([num, pt]) => {
+                    const selected = selectedPType === num;
+                    const totalCost = pt.cost ? pt.cost * cohortMultiplier : null;
+                    return (
+                      <div key={num} onClick={() => { setSelectedPType(num); if (pt.cost) setNewAsk(String(pt.cost * cohortMultiplier)); }}
+                        style={{
+                          padding: "10px 14px", borderRadius: 10, cursor: "pointer",
+                          border: selected ? `2px solid ${C.primary}` : `1.5px solid ${C.line}`,
+                          background: selected ? C.primarySoft : C.white,
+                          transition: "all 0.15s ease",
+                        }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                          <span style={{
+                            width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 10, fontWeight: 800, fontFamily: MONO,
+                            background: selected ? C.primary : C.raised, color: selected ? C.white : C.t3,
+                          }}>T{num}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: C.dark, flex: 1 }}>{pt.label.split(" — ")[0]}</span>
+                        </div>
+                        <div style={{ fontSize: 10, color: C.t3, marginBottom: 4 }}>{pt.label.split(" — ")[1] || ""}</div>
+                        <div style={{ display: "flex", gap: 8, fontSize: 10, color: C.t2 }}>
+                          {pt.cost && <span style={{ fontWeight: 700, fontFamily: MONO, color: selected ? C.primary : C.t1 }}>R{(totalCost || pt.cost).toLocaleString()}</span>}
+                          {pt.students && <span>{pt.students} students</span>}
+                          <span>{pt.duration}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Multi-cohort multiplier */}
+                {selectedPType && PTYPES[selectedPType]?.cost && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "8px 12px", background: C.warm100, borderRadius: 10 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: C.t2 }}>Cohorts:</span>
+                    {[1, 2, 3, 5].map(n => (
+                      <button key={n} onClick={() => { setCohortMultiplier(n); setNewAsk(String(PTYPES[selectedPType].cost * n)); }}
+                        style={{
+                          padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, fontFamily: MONO,
+                          background: cohortMultiplier === n ? C.primary : C.white,
+                          color: cohortMultiplier === n ? C.white : C.t2,
+                          border: `1px solid ${cohortMultiplier === n ? C.primary : C.line}`,
+                          cursor: "pointer",
+                        }}>{n}x</button>
+                    ))}
+                    <span style={{ fontSize: 12, fontWeight: 800, fontFamily: MONO, color: C.primary, marginLeft: "auto" }}>
+                      R{(PTYPES[selectedPType].cost * cohortMultiplier).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                {/* Custom ask override */}
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+                  <span style={{ fontSize: 11, color: C.t3, fontWeight: 600 }}>Or custom ask:</span>
+                  <input value={newAsk} onChange={e => { setNewAsk(e.target.value); setSelectedPType(null); }}
+                    placeholder="R amount" type="number"
+                    style={{ width: 120, padding: "6px 10px", fontSize: 13, border: `1.5px solid ${C.line}`, borderRadius: 8, fontFamily: MONO }} />
+                </div>
+
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <Btn v="ghost" onClick={() => setWizStep(1)} style={{ fontSize: 12 }}>Back</Btn>
+                  <Btn onClick={() => {
+                    addGrant();
+                    setWizStep(1); setSelectedPType(null); setCohortMultiplier(1);
+                  }} disabled={!newName?.trim()} style={{ fontSize: 12, padding: "8px 18px" }}>Add to Pipeline</Btn>
+                  <Btn onClick={() => { setShowAdd(false); setAddError(""); setWizStep(1); setSelectedPType(null); setCohortMultiplier(1); }}
+                    v="ghost" style={{ fontSize: 12 }}>Cancel</Btn>
+                </div>
+                {addError && <div style={{ fontSize: 11, color: C.red, marginTop: 6 }}>{addError}</div>}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -594,20 +843,42 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                   {stageGrants.map(g => {
                     const d = dL(g.deadline);
                     const m = getMember(g.owner);
+                    const isSelected = selectedIds.has(g.id);
                     return (
                       <div key={g.id} draggable onDragStart={() => setDragId(g.id)}
-                        onClick={() => onSelectGrant(g.id)}
+                        onClick={(e) => {
+                          if (batchAction) {
+                            e.stopPropagation();
+                            setSelectedIds(prev => { const n = new Set(prev); n.has(g.id) ? n.delete(g.id) : n.add(g.id); return n; });
+                          } else {
+                            onSelectGrant(g.id);
+                          }
+                        }}
                         style={{
-                          background: C.white, borderRadius: 14, padding: "12px 14px",
-                          border: `1.5px solid ${stage.c}30`,
+                          background: isSelected ? `${C.primary}08` : C.white, borderRadius: 14, padding: "12px 14px",
+                          border: `1.5px solid ${isSelected ? C.primary : stage.c}30`,
                           cursor: "pointer",
                           boxShadow: C.cardShadow,
                           transition: "box-shadow 0.15s, transform 0.15s",
                         }}
                         onMouseEnter={e => { e.currentTarget.style.boxShadow = C.cardShadowHover; e.currentTarget.style.transform = "translateY(-2px)"; }}
                         onMouseLeave={e => { e.currentTarget.style.boxShadow = C.cardShadow; e.currentTarget.style.transform = "none"; }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: C.dark, marginBottom: 4, lineHeight: 1.3 }}>{g.name}</div>
-                        <div style={{ fontSize: 11, color: C.t3, marginBottom: 6 }}>{g.funder}</div>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                          {batchAction && (
+                            <div style={{
+                              width: 16, height: 16, borderRadius: 4, flexShrink: 0, marginTop: 1,
+                              border: `1.5px solid ${isSelected ? C.primary : C.line}`,
+                              background: isSelected ? C.primary : "transparent",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                            }}>
+                              {isSelected && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>{"\u2713"}</span>}
+                            </div>
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: C.dark, marginBottom: 4, lineHeight: 1.3 }}>{g.name}</div>
+                            <div style={{ fontSize: 11, color: C.t3, marginBottom: 6 }}>{g.funder}</div>
+                          </div>
+                        </div>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <Avatar member={m} size={20} />
@@ -615,6 +886,11 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
                           </div>
                           <DeadlineBadge d={d} deadline={g.deadline} stage={g.stage} />
                         </div>
+                        {!["won", "lost", "deferred"].includes(g.stage) && (() => {
+                          const r = grantReadiness(g, complianceDocs);
+                          return r.missing.length > 0 ? <ReadinessChips missing={r.missing} /> : null;
+                        })()}
+                        {!CLOSED_STAGES.includes(g.stage) && <GateIndicator stage={g.stage} ownerRole={m.role} />}
                       </div>
                     );
                   })}

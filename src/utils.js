@@ -1,4 +1,5 @@
 import { C } from "./theme";
+import { DOCS, DOC_MAP, GATES } from "./data/constants";
 
 export const fmt = n => n ? `R${(n / 1e6).toFixed(1)}M` : "—";
 export const fmtK = n => n ? (n >= 1e6 ? `R${(n / 1e6).toFixed(1)}M` : `R${(n / 1e3).toFixed(0)}K`) : "—";
@@ -49,5 +50,83 @@ export const addD = (date, n) => { const d = new Date(date); d.setDate(d.getDate
 export const cp = t => {
   try { navigator.clipboard.writeText(t); }
   catch { const a = document.createElement("textarea"); a.value = t; document.body.appendChild(a); a.select(); document.execCommand("copy"); document.body.removeChild(a); }
+};
+
+// ── Grant Readiness Score ──
+// Returns { score: 0-100, missing: string[], nextAction: string }
+// Weighted: docs 40%, AI coverage 30%, metadata 30%
+export const grantReadiness = (g, complianceDocs = []) => {
+  const missing = [];
+
+  // 1. Doc readiness (40%)
+  let docScore = 1; // default full if no doc requirements for this type
+  const required = DOCS[g.type];
+  if (required && required.length > 0) {
+    const compMap = {};
+    for (const c of complianceDocs) compMap[c.doc_id] = c;
+    let ready = 0;
+    for (const docName of required) {
+      const orgDocId = DOC_MAP[docName];
+      if (orgDocId) {
+        const cd = compMap[orgDocId];
+        if (cd && (cd.status === "valid" || cd.status === "uploaded")) ready++;
+      }
+    }
+    docScore = ready / required.length;
+    const gap = required.length - ready;
+    if (gap > 0) missing.push(`${gap} docs missing`);
+  }
+
+  // 2. AI coverage (30%) — fit score, research, draft
+  let aiScore = 0;
+  const aiChecks = [
+    { key: "aiFitscore", label: "No fit score" },
+    { key: "aiResearch", label: "No research" },
+    { key: "aiDraft", label: "No draft" },
+  ];
+  let aiDone = 0;
+  for (const ck of aiChecks) {
+    if (g[ck.key]) aiDone++;
+    else missing.push(ck.label);
+  }
+  aiScore = aiDone / aiChecks.length;
+
+  // 3. Metadata completeness (30%) — deadline, owner, ask
+  let metaScore = 0;
+  const metaChecks = [
+    { test: g.deadline, label: "No deadline" },
+    { test: g.owner && g.owner !== "team", label: "Unassigned" },
+    { test: g.ask > 0 || g.funderBudget > 0, label: "No ask amount" },
+  ];
+  let metaDone = 0;
+  for (const ck of metaChecks) {
+    if (ck.test) metaDone++;
+    else missing.push(ck.label);
+  }
+  metaScore = metaDone / metaChecks.length;
+
+  const score = Math.round(docScore * 40 + aiScore * 30 + metaScore * 30);
+
+  // Next action suggestion based on stage + missing items
+  let nextAction = "";
+  const stage = g.stage || "scouted";
+  if (stage === "scouted") {
+    nextAction = !g.owner || g.owner === "team" ? "Assign an owner to start qualifying" : "Run Fit Score to evaluate this opportunity";
+  } else if (stage === "qualifying") {
+    nextAction = !g.aiFitscore ? "Run Fit Score to evaluate fit" : !g.aiResearch ? "Run Funder Research before drafting" : "Ready to move to Drafting";
+  } else if (stage === "drafting") {
+    nextAction = !g.aiDraft ? "Generate a draft proposal" : missing.includes(`${required?.length || 0} docs missing`) ? "Upload missing compliance documents" : "Submit draft for review";
+  } else if (stage === "review") {
+    const gate = GATES["review->submitted"];
+    nextAction = gate ? `${gate.label}` : "Awaiting review approval";
+  } else if (stage === "submitted" || stage === "awaiting") {
+    nextAction = "Track follow-ups with the funder";
+  } else if (stage === "won") {
+    nextAction = "Grant secured";
+  } else if (stage === "lost") {
+    nextAction = "Review loss analysis for learnings";
+  }
+
+  return { score, missing, nextAction };
 };
 
