@@ -588,6 +588,78 @@ Use d-lab's programme types as a starting framework, but MATCH THE ASK TO THE FU
         false, 5000
       );
     }
+    if (type === "sectionDraft") {
+      // Section-by-section proposal generation
+      const { sectionName, sectionIndex, totalSections, completedSections, customInstructions } = priorResearch || {};
+      const fs = funderStrategy(grant);
+      const researchBlock = (priorFitScore?.research || grant.aiResearch)
+        ? `\n\n=== FUNDER INTELLIGENCE ===\n${(priorFitScore?.research || grant.aiResearch).slice(0, 1500)}`
+        : "";
+      const fitBlock = (priorFitScore?.fitscore || grant.aiFitscore)
+        ? `\n\n=== FIT SCORE ===\n${(priorFitScore?.fitscore || grant.aiFitscore).slice(0, 1000)}`
+        : "";
+      const relNote = fs.returning
+        ? "RETURNING FUNDER — reference the existing relationship warmly."
+        : `NEW FUNDER — relationship is "${grant.rel || "Cold"}". Make it easy to say yes.`;
+
+      // Build prior-sections summary for consistency
+      const priorSummary = completedSections && Object.keys(completedSections).length > 0
+        ? Object.entries(completedSections).map(([name, sec]) =>
+            `[${name}]: ${(sec.text || "").slice(0, 150).replace(/\n/g, " ")}...`
+          ).join("\n")
+        : "";
+
+      // Section-specific depth guidance
+      const sectionGuide = sectionName === "Cover Letter"
+        ? "Write a cover email: Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT 'I am writing to submit...' Open with human impact or opportunity. One proof point. Close with a low-friction next step. Sign off as 'Director, d-lab NPC' (no name)."
+        : sectionName === "Executive Summary"
+        ? "Write 200-300 words. A compelling standalone case for funding. Use a DIFFERENT hook from the cover letter. This should make someone want to fund d-lab even if they read nothing else."
+        : sectionName.toLowerCase().includes("budget")
+        ? "Tell the story of VALUE, not just line items. Show cost-per-student, cost-effectiveness vs traditional providers. Use d-lab's actual budget lines from the programme type. Make every rand feel justified. Include the ASK_RECOMMENDATION line at the very end:\nASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer with no commas or spaces]"
+        : sectionName.toLowerCase().includes("impact") || sectionName.toLowerCase().includes("outcome")
+        ? "Weave numbers INTO narrative: 'Of the 20 students in our most recent cohort, 17 were employed within 90 days' not just '85% employment rate.' Be vivid and specific."
+        : "Write 2-4 rich paragraphs. Do not produce bullet-only content. Weave data into narrative. Be vivid and specific — paint the picture of what d-lab does.";
+
+      // Token budget per section type
+      const tokenBudget = sectionName === "Cover Letter" ? 600
+        : sectionName === "Executive Summary" ? 800
+        : sectionName.toLowerCase().includes("budget") ? 1000
+        : 800;
+
+      return await api(
+        `You write ONE section of a funding proposal for d-lab NPC — a South African NPO training unemployed youth in AI-native digital skills (92% completion, 85% employment within 3 months).
+
+SECTION: "${sectionName}" (Section ${sectionIndex + 1} of ${totalSections})
+
+VOICE — maintain throughout:
+- Warm, human, confident. A founder who KNOWS this works, offering a funder the chance to back something real.
+- Write like a person, not a grant machine. Vivid, specific details.
+- Vary sentence length. Short punchy sentences land harder after longer ones.
+- Be concrete: real numbers, real programme details, real AI tools.
+- The emotive, narrative energy must carry through — do NOT switch to dry grant-speak.
+
+${sectionGuide}
+
+FUNDER ANGLE: Lead with "${fs.lead}"
+USE THEIR LANGUAGE: ${fs.lang}
+${relNote}
+${fs.pt ? `PROGRAMME TYPE: ${fs.pt.label} — ${fs.pt.students} students, R${(fs.pt.cost||0).toLocaleString()}, ${fs.pt.duration}. Budget: ${fs.pt.budget}` : ""}
+${fs.mc ? `MULTI-COHORT: ${fs.mc.count} cohorts requested` : ""}
+
+${customInstructions ? `USER INSTRUCTIONS FOR THIS SECTION: ${customInstructions}` : ""}
+
+ANTI-PATTERNS — never do these:
+- "South Africa has X% youth unemployment" opener
+- "We believe", "we are passionate", "making a difference" — hollow phrases
+- Thin skeletal paragraphs — write with substance
+- ChatGPT or OpenAI in budget items — d-lab builds its own AI tools
+- Naming directors individually
+
+Write ONLY the "${sectionName}" section content. No section header — just the content.${factGuard}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${researchBlock}${fitBlock}${priorSummary ? `\n\nALREADY-WRITTEN SECTIONS (maintain consistency):\n${priorSummary}` : ""}`,
+        false, tokenBudget
+      );
+    }
     if (type === "research") {
       return await api(
         `You are a funder intelligence analyst for a South African NPO. Research this funder and provide actionable insights for a grant applicant.

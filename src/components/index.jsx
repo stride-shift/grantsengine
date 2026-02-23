@@ -279,7 +279,7 @@ export const DownloadBtn = ({ text, filename, label, onDocx }) => (
 );
 
 /* ── AI loading steps per action type ── */
-const AI_LOAD_STEPS = {
+export const AI_LOAD_STEPS = {
   "Draft Proposal": [
     "Analysing grant requirements...",
     "Matching programme type to funder priorities...",
@@ -291,6 +291,12 @@ const AI_LOAD_STEPS = {
     "Drafting the full proposal...",
     "Polishing language and tone...",
   ],
+  // Section-specific loading steps
+  "Cover Letter": ["Crafting the opening hook...", "Writing the ask...", "Setting the right tone..."],
+  "Executive Summary": ["Distilling the core case...", "Building the standalone pitch...", "Weaving in proof points..."],
+  "Budget": ["Calculating programme costs...", "Building the value narrative...", "Structuring line items..."],
+  "Impact": ["Pulling outcome data...", "Weaving numbers into narrative...", "Building the impact case..."],
+  "Programme": ["Describing the learner journey...", "Detailing the delivery model...", "Connecting to funder priorities..."],
   "Funder Research": [
     "Searching funder website and reports...",
     "Analysing recent grant recipients...",
@@ -324,7 +330,7 @@ const AI_LOAD_TIPS = [
   { tip: "A 15-minute call converts better than a 10-page follow-up. Ask for the meeting.", tag: "Follow-up" },
 ];
 
-const AILoadingPanel = ({ title }) => {
+export const AILoadingPanel = ({ title }) => {
   const [stepIdx, setStepIdx] = useState(0);
   const [tipIdx] = useState(() => Math.floor(Math.random() * AI_LOAD_TIPS.length));
   const [elapsed, setElapsed] = useState(0);

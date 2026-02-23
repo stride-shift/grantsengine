@@ -77,16 +77,17 @@ export const grantReadiness = (g, complianceDocs = []) => {
     if (gap > 0) missing.push(`${gap} docs missing`);
   }
 
-  // 2. AI coverage (30%) — fit score, research, draft
+  // 2. AI coverage (30%) — fit score, research, draft/sections
   let aiScore = 0;
+  const hasSections = g.aiSections && Object.values(g.aiSections).some(s => s?.text);
   const aiChecks = [
     { key: "aiFitscore", label: "No fit score" },
     { key: "aiResearch", label: "No research" },
-    { key: "aiDraft", label: "No draft" },
+    { key: "aiDraft", label: "No draft", altCheck: hasSections },
   ];
   let aiDone = 0;
   for (const ck of aiChecks) {
-    if (g[ck.key]) aiDone++;
+    if (g[ck.key] || ck.altCheck) aiDone++;
     else missing.push(ck.label);
   }
   aiScore = aiDone / aiChecks.length;
@@ -130,3 +131,8 @@ export const grantReadiness = (g, complianceDocs = []) => {
   return { score, missing, nextAction };
 };
 
+// ── Assemble sections into a single text (for backward compat + export) ──
+export const assembleText = (sections, order) =>
+  order.filter(n => sections[n]?.text)
+    .map(n => `${n.toUpperCase()}\n\n${sections[n].text}`)
+    .join("\n\n" + "=".repeat(60) + "\n\n");

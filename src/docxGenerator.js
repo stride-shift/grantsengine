@@ -499,3 +499,301 @@ export async function generateDocx(text, filename, meta = {}) {
   const safeName = (filename || "proposal").replace(/[^a-zA-Z0-9_-]/g, "_");
   saveAs(blob, `${safeName}.docx`);
 }
+
+/**
+ * Generate a .docx from structured section data (no text-parsing needed).
+ * @param {object} sections - { "Cover Letter": { text: "..." }, ... }
+ * @param {string[]} order - Section names in display order
+ * @param {string} filename - Base filename
+ * @param {object} meta - { grantName, funder, orgName, ask, type }
+ */
+export async function generateDocxFromSections(sections, order, filename, meta = {}) {
+  const [docxModule, fileSaverModule] = await Promise.all([
+    import("docx"),
+    import("file-saver"),
+  ]);
+
+  const {
+    Document, Packer, Paragraph, TextRun,
+    AlignmentType, BorderStyle, Footer, Header,
+    Table, TableRow, TableCell, WidthType, ShadingType,
+    PageNumber, SectionType, convertInchesToTwip,
+  } = docxModule;
+  const { saveAs } = fileSaverModule;
+
+  const grantName = meta.grantName || filename || "Proposal";
+  const funder = meta.funder || "";
+  const orgName = meta.orgName || "d-lab NPC";
+  const date = meta.date || new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
+  const ask = meta.ask || null;
+  const grantType = meta.type || null;
+
+  const noBorders = {
+    top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE },
+    left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
+  };
+
+  // ── COVER PAGE (same as generateDocx) ──
+  const coverChildren = [];
+  coverChildren.push(new Paragraph({ spacing: { before: 1200 } }));
+  coverChildren.push(new Paragraph({
+    children: [new TextRun({ text: " ", size: 2 })],
+    border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: RED } },
+    spacing: { after: 600 },
+  }));
+  coverChildren.push(new Paragraph({
+    children: [new TextRun({ text: orgName.toUpperCase(), bold: true, size: 24, color: RED, font: "Calibri", characterSpacing: 200 })],
+    spacing: { after: 80 },
+  }));
+  coverChildren.push(new Paragraph({
+    children: [new TextRun({ text: grantName, bold: true, size: 52, color: NAVY, font: "Calibri" })],
+    spacing: { after: 200 },
+  }));
+  coverChildren.push(new Paragraph({
+    children: [new TextRun({ text: " ", size: 2 })],
+    border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: GREY_200 } },
+    spacing: { after: 400 },
+  }));
+
+  const metaRows = [];
+  if (funder) metaRows.push({ label: "Prepared for", value: funder });
+  metaRows.push({ label: "Date", value: date });
+  if (ask) metaRows.push({ label: "Funding request", value: typeof ask === "number" ? `R${ask.toLocaleString()}` : String(ask) });
+  if (grantType) metaRows.push({ label: "Funder type", value: grantType });
+  metaRows.push({ label: "Submitted by", value: orgName });
+
+  coverChildren.push(new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+      top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE },
+      left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
+      insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE },
+    },
+    rows: metaRows.map(r => new TableRow({
+      children: [
+        new TableCell({
+          width: { size: 30, type: WidthType.PERCENTAGE },
+          children: [new Paragraph({
+            children: [new TextRun({ text: r.label, size: 20, color: GREY_400, font: "Calibri" })],
+            spacing: { before: 60, after: 60 },
+          })],
+          borders: noBorders,
+        }),
+        new TableCell({
+          width: { size: 70, type: WidthType.PERCENTAGE },
+          children: [new Paragraph({
+            children: [new TextRun({
+              text: r.value, size: 22, color: NAVY,
+              font: r.label === "Funding request" ? "Consolas" : "Calibri",
+              bold: r.label === "Funding request" || r.label === "Prepared for",
+            })],
+            spacing: { before: 60, after: 60 },
+          })],
+          borders: noBorders,
+        }),
+      ],
+    })),
+  }));
+
+  coverChildren.push(
+    new Paragraph({ spacing: { before: 1400 } }),
+    new Paragraph({
+      children: [new TextRun({ text: " ", size: 2 })],
+      border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: GREY_200 } },
+      spacing: { after: 200 },
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: "CONFIDENTIAL", bold: true, size: 16, color: GREY_400, font: "Calibri", characterSpacing: 150 }),
+        new TextRun({ text: "  |  This document is confidential and intended solely for the named recipient.", size: 16, color: GREY_400, font: "Calibri" }),
+      ],
+      alignment: AlignmentType.CENTER,
+    }),
+  );
+
+  // ── CONTENT PAGES — iterate structured sections ──
+  const contentChildren = [];
+  let sIdx = 0;
+
+  for (const sectionName of order) {
+    const sec = sections[sectionName];
+    if (!sec?.text) continue;
+    sIdx++;
+
+    // Section header with red accent bar
+    if (sIdx > 1) {
+      contentChildren.push(new Paragraph({ spacing: { before: 200 } }));
+    }
+    contentChildren.push(new Paragraph({
+      children: [new TextRun({ text: " ", size: 2 })],
+      border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: RED } },
+      spacing: { after: 120 },
+    }));
+    contentChildren.push(new Paragraph({
+      children: [new TextRun({ text: sectionName, bold: true, size: 28, color: NAVY, font: "Calibri" })],
+      spacing: { before: 80, after: 240 },
+    }));
+
+    // Parse section text into paragraphs using simple line-by-line analysis
+    const lines = sec.text.split("\n");
+    let kvBuffer = [];
+
+    const flushKV = () => {
+      if (kvBuffer.length === 0) return;
+      contentChildren.push(new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: {
+          top: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 },
+          bottom: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 },
+          left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
+          insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 },
+          insideVertical: { style: BorderStyle.NONE },
+        },
+        rows: kvBuffer.map(kv => new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 35, type: WidthType.PERCENTAGE },
+              shading: { type: ShadingType.SOLID, color: GREY_50, fill: GREY_50 },
+              children: [new Paragraph({
+                children: [new TextRun({ text: kv.key, bold: true, size: 20, color: GREY_600, font: "Calibri" })],
+                spacing: { before: 80, after: 80 },
+              })],
+              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED }, right: { style: BorderStyle.NONE } },
+            }),
+            new TableCell({
+              width: { size: 65, type: WidthType.PERCENTAGE },
+              children: [new Paragraph({
+                children: buildRuns(docxModule, kv.value, 22, GREY_800),
+                spacing: { before: 80, after: 80 },
+              })],
+              borders: { left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
+            }),
+          ],
+        })),
+      }));
+      contentChildren.push(new Paragraph({ spacing: { before: 120 } }));
+      kvBuffer = [];
+    };
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        flushKV();
+        contentChildren.push(new Paragraph({ spacing: { before: 80 } }));
+        continue;
+      }
+
+      // Key-value pairs (Label:  Value with 2+ spaces after colon)
+      const kvMatch = trimmed.match(/^([A-Za-z][A-Za-z\s&/()]+):\s{2,}(.+)/);
+      if (kvMatch) {
+        kvBuffer.push({ key: kvMatch[1].trim(), value: kvMatch[2].trim() });
+        continue;
+      }
+      flushKV();
+
+      // Bullet points
+      if (/^[\u2022\u2023\u2043\u25E6\u25AA\u25AB\u2219\u2013•·\-\*]\s/.test(trimmed)) {
+        const bulletText = trimmed.replace(/^[\u2022\u2023\u2043\u25E6\u25AA\u25AB\u2219\u2013•·\-\*]\s*/, "");
+        contentChildren.push(new Paragraph({
+          children: buildRuns(docxModule, bulletText, 22, GREY_800),
+          bullet: { level: 0 },
+          spacing: { before: 40, after: 40, line: 340 },
+        }));
+        continue;
+      }
+
+      // Numbered sub-headings (e.g., "1. Something" under 120 chars)
+      if (/^\d+[\.\)]\s/.test(trimmed) && trimmed.length < 120) {
+        contentChildren.push(new Paragraph({
+          children: [new TextRun({ text: trimmed, bold: true, size: 24, color: NAVY, font: "Calibri" })],
+          spacing: { before: 320, after: 120 },
+          border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 } },
+        }));
+        continue;
+      }
+
+      // Colon sub-headings (e.g., "Key Deliverables:")
+      if (/^[A-Z][A-Za-z\s&/()]+:$/.test(trimmed) && trimmed.length < 80) {
+        contentChildren.push(new Paragraph({
+          children: [new TextRun({ text: trimmed.toUpperCase(), bold: true, size: 18, color: RED, font: "Calibri", characterSpacing: 80 })],
+          spacing: { before: 240, after: 80 },
+        }));
+        continue;
+      }
+
+      // Regular text
+      const runs = buildRuns(docxModule, trimmed, 22, GREY_800);
+      if (runs.length > 0) {
+        contentChildren.push(new Paragraph({
+          children: runs,
+          spacing: { before: 60, after: 60, line: 360 },
+        }));
+      }
+    }
+
+    flushKV();
+  }
+
+  // ── BUILD DOCUMENT ──
+  const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: "Calibri", size: 22, color: GREY_800 },
+          paragraph: { spacing: { line: 360 } },
+        },
+      },
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: { top: convertInchesToTwip(1), right: convertInchesToTwip(1.2), bottom: convertInchesToTwip(0.8), left: convertInchesToTwip(1.2) },
+          },
+        },
+        children: coverChildren,
+      },
+      {
+        properties: {
+          type: SectionType.NEXT_PAGE,
+          page: {
+            margin: { top: convertInchesToTwip(1), right: convertInchesToTwip(1.2), bottom: convertInchesToTwip(0.8), left: convertInchesToTwip(1.2) },
+            pageNumbers: { start: 1 },
+          },
+        },
+        headers: {
+          default: new Header({
+            children: [new Paragraph({
+              children: [
+                new TextRun({ text: orgName, size: 16, color: RED, font: "Calibri", bold: true }),
+                new TextRun({ text: `  \u00b7  ${grantName}`, size: 16, color: GREY_400, font: "Calibri" }),
+              ],
+              alignment: AlignmentType.LEFT,
+              border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 } },
+              spacing: { after: 200 },
+            })],
+          }),
+        },
+        footers: {
+          default: new Footer({
+            children: [new Paragraph({
+              children: [
+                new TextRun({ text: "Confidential", size: 16, color: GREY_400, font: "Calibri", italics: true }),
+                new TextRun({ text: `  \u00b7  ${orgName}  \u00b7  Page `, size: 16, color: GREY_400, font: "Calibri" }),
+                new TextRun({ children: [PageNumber.CURRENT], size: 16, color: GREY_400, font: "Calibri" }),
+              ],
+              alignment: AlignmentType.CENTER,
+              border: { top: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 } },
+              spacing: { before: 200 },
+            })],
+          }),
+        },
+        children: contentChildren,
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const safeName = (filename || "proposal").replace(/[^a-zA-Z0-9_-]/g, "_");
+  saveAs(blob, `${safeName}.docx`);
+}
