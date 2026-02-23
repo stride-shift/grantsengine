@@ -4,8 +4,9 @@ import { fmtK, dL, td, effectiveAsk, grantReadiness } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, AICard, stripMd, timeAgo } from "./index";
 import UploadZone from "./UploadZone";
 import { getUploads } from "../api";
-import { detectType, PTYPES, multiCohortInfo } from "../data/funderStrategy";
+import { detectType, PTYPES, multiCohortInfo, funderStrategy } from "../data/funderStrategy";
 import { DOCS, DOC_MAP, ORG_DOCS } from "../data/constants";
+import ProposalWorkspace from "./ProposalWorkspace";
 
 const fmtTs = (iso) => iso ? new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
 
@@ -374,13 +375,17 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       {(() => {
         const fitDone = ai.fitscore && !isAIError(ai.fitscore);
         const resDone = ai.research && !isAIError(ai.research);
-        const draftDone = ai.draft && !isAIError(ai.draft);
+        // Section-aware draft detection
+        const hasSections = g.aiSections && Object.values(g.aiSections).some(s => s?.text && !isAIError(s.text));
+        const draftDone = hasSections || (ai.draft && !isAIError(ai.draft));
+        const sectionCount = hasSections ? Object.values(g.aiSections).filter(s => s?.text && !isAIError(s.text)).length : 0;
+        const sectionTotal = hasSections ? (g.aiSectionsOrder || funderStrategy(g).structure).length : 0;
         const fitNum = fitDone ? (() => { const m = ai.fitscore.match(/SCORE:\s*(\d+)/); return m ? parseInt(m[1]) : null; })() : null;
         const isSubmittedPlus = ["submitted", "awaiting", "won", "lost", "deferred"].includes(g.stage);
-        const anyBusy = busy.fitscore || busy.research || busy.draft;
+        const anyBusy = busy.fitscore || busy.research || busy.draft || busy.generateAll || Object.values(busy.sections || {}).some(Boolean);
 
         const runAllChain = async () => {
-          // Chain: Fit Score -> Research -> Draft
+          // Chain: Fit Score -> Research -> (then switch to AI tab for section generation)
           if (!fitDone && !busy.fitscore) {
             setBusy(p => ({ ...p, fitscore: true }));
             try {
@@ -405,24 +410,20 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
             setBusy(p => ({ ...p, research: false }));
           }
-          if (!draftDone && !busy.draft) {
-            setBusy(p => ({ ...p, draft: true }));
-            try {
-              const r = await onRunAI("draft", g);
-              setAi(p => ({ ...p, draft: r }));
-              if (!isAIError(r)) {
-                onUpdate(g.id, { aiDraft: r, aiDraftAt: new Date().toISOString() });
-                aiLog("AI Draft Proposal generated");
-              }
-            } catch (e) { setAi(p => ({ ...p, draft: `Error: ${e.message}` })); }
-            setBusy(p => ({ ...p, draft: false }));
+          // Switch to AI tab — ProposalWorkspace handles section generation
+          if (!draftDone) {
+            setTab("ai");
           }
         };
+
+        const draftValue = hasSections && sectionTotal > 0
+          ? `${sectionCount}/${sectionTotal}`
+          : draftDone ? "Ready" : null;
 
         const steps = [
           { key: "fitscore", label: "Fit Score", done: fitDone, busy: busy.fitscore, value: fitNum ? `${fitNum}` : null, color: fitDone ? (fitNum >= 70 ? C.ok : fitNum >= 40 ? C.amber : C.red) : C.t4 },
           { key: "research", label: "Research", done: resDone, busy: busy.research, value: resDone ? "Done" : null, color: resDone ? C.blue : C.t4 },
-          { key: "draft", label: "Draft", done: draftDone, busy: busy.draft, value: draftDone ? "Ready" : null, color: draftDone ? C.purple : C.t4 },
+          { key: "draft", label: "Draft", done: draftDone, busy: busy.draft || busy.generateAll || Object.values(busy.sections || {}).some(Boolean), value: draftValue, color: draftDone ? (hasSections && sectionCount === sectionTotal ? C.purple : C.amber) : C.t4 },
         ];
         const allDone = fitDone && resDone && draftDone;
         const donePct = [fitDone, resDone, draftDone].filter(Boolean).length;
@@ -782,7 +783,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       {/* AI Tools */}
       {tab === "ai" && (() => {
         const researchDone = ai.research && !isAIError(ai.research);
-        const draftDone = ai.draft && !isAIError(ai.draft);
+        const hasSections = g.aiSections && Object.values(g.aiSections).some(s => s?.text && !isAIError(s.text));
+        const draftDone = hasSections || (ai.draft && !isAIError(ai.draft));
         const followupDone = ai.followup && !isAIError(ai.followup);
         const fitDone = ai.fitscore && !isAIError(ai.fitscore);
         const winlossDone = ai.winloss && !isAIError(ai.winloss);
@@ -1033,56 +1035,14 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 </span>
               </div>
 
-              {/* Step 2 — Draft Proposal (with version history) */}
-              <AICard
-                title="Draft Proposal"
-                desc={researchDone && fitDone
-                  ? "Generate a tailored proposal using your funder research + fit score analysis"
-                  : researchDone
-                  ? "Generate a tailored proposal using your funder research — run Fit Score first for even sharper alignment"
-                  : fitDone
-                  ? "Generate a proposal informed by your fit score — run Research first for deeper funder intelligence"
-                  : "Generate a cover email and proposal — run Fit Score + Research first for the best result"}
-                step="2"
-                busy={busy.draft}
-                result={ai.draft}
-                generatedAt={g.aiDraftAt}
-                docName={`${g.name}_proposal`}
-                docMeta={{ grantName: g.name, funder: g.funder, orgName: "d-lab NPC", ask: effectiveAsk(g), type: g.type }}
-                onRun={async () => {
-                  setBusy(p => ({ ...p, draft: true }));
-                  try {
-                    // Save previous draft to version history before generating new one
-                    if (ai.draft && !isAIError(ai.draft)) {
-                      const prev = g.draftHistory || [];
-                      const ts = g.aiDraftAt || new Date().toISOString();
-                      onUpdate(g.id, { draftHistory: [...prev, { ts, text: ai.draft }].slice(-5) });
-                    }
-                    const r = await onRunAI("draft", g, ai.research || null, ai.fitscore || null);
-                    setAi(p => ({ ...p, draft: r }));
-                    if (!isAIError(r)) {
-                      const now = new Date().toISOString();
-                      const extracted = extractAskFromDraft(r);
-                      const updates = { aiDraft: r, aiDraftAt: now };
-                      if (extracted) {
-                        updates.ask = extracted.ask;
-                        updates.askSource = "ai-draft";
-                        updates.aiRecommendedAsk = extracted.ask;
-                      }
-                      // Auto-advance to drafting if still in an earlier stage
-                      if (["scouted", "qualifying"].includes(g.stage)) {
-                        updates.stage = "drafting";
-                      }
-                      onUpdate(g.id, updates);
-                      const inputs = [ai.research && "research", ai.fitscore && "fit score"].filter(Boolean);
-                      const stageNote = updates.stage === "drafting" && g.stage !== "drafting" ? ` — stage moved to Drafting` : "";
-                      aiLog(`AI Draft Proposal generated${inputs.length ? ` (with ${inputs.join(" + ")})` : ""}${extracted ? ` — ask set to R${extracted.ask.toLocaleString()} (Type ${extracted.typeNum}${extracted.mcCount > 1 ? ` × ${extracted.mcCount}` : ""})` : ""}${stageNote}`);
-                    }
-                  } catch (e) {
-                    setAi(p => ({ ...p, draft: `Error: ${e.message}` }));
-                  }
-                  setBusy(p => ({ ...p, draft: false }));
-                }}
+              {/* Step 2 — Section-by-Section Proposal Workspace */}
+              <ProposalWorkspace
+                grant={g}
+                ai={ai}
+                onRunAI={onRunAI}
+                onUpdate={onUpdate}
+                busy={busy}
+                setBusy={setBusy}
               />
               {/* Ask confirmation — shows after draft sets the ask */}
               {draftDone && g.askSource === "ai-draft" && g.aiRecommendedAsk > 0 && (
@@ -1091,7 +1051,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                   border: `1px solid ${C.ok}20`, display: "flex", alignItems: "center", gap: 10,
                   marginBottom: 4, marginTop: -4,
                 }}>
-                  <span style={{ fontSize: 16 }}>✓</span>
+                  <span style={{ fontSize: 16 }}>{"\u2713"}</span>
                   <div style={{ flex: 1, fontSize: 12, color: C.t1, lineHeight: 1.4 }}>
                     Ask set to <strong style={{ fontFamily: MONO }}>R{g.ask.toLocaleString()}</strong> based on the programme type recommended in the proposal.
                     {g.funderBudget && g.funderBudget !== g.ask && (
@@ -1102,35 +1062,6 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                     style={{ fontSize: 11, fontWeight: 600, color: C.purple, background: C.purpleSoft, border: "none", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontFamily: FONT, flexShrink: 0 }}>
                     Override
                   </button>
-                </div>
-              )}
-              {/* Draft version history */}
-              {g.draftHistory && g.draftHistory.length > 0 && (
-                <div style={{ padding: "0 22px", marginTop: -4 }}>
-                  <details style={{ fontSize: 12, color: C.t3 }}>
-                    <summary style={{ cursor: "pointer", fontWeight: 600, padding: "6px 0", userSelect: "none" }}>
-                      {g.draftHistory.length} previous version{g.draftHistory.length > 1 ? "s" : ""}
-                    </summary>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 6 }}>
-                      {g.draftHistory.slice().reverse().map((v, i) => (
-                        <div key={i} style={{
-                          display: "flex", alignItems: "center", justifyContent: "space-between",
-                          padding: "8px 12px", background: C.warm100, borderRadius: 8, border: `1px solid ${C.line}`,
-                        }}>
-                          <div>
-                            <span style={{ fontSize: 11, fontFamily: MONO, color: C.t4 }}>{fmtTs(v.ts) || v.ts}</span>
-                            <span style={{ fontSize: 11, color: C.t3, marginLeft: 8 }}>
-                              {v.text.slice(0, 80).replace(/\n/g, " ")}...
-                            </span>
-                          </div>
-                          <button onClick={() => setAi(p => ({ ...p, draft: v.text }))}
-                            style={{ fontSize: 11, color: C.purple, background: "none", border: `1px solid ${C.purple}30`, borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontFamily: FONT, fontWeight: 600, flexShrink: 0 }}>
-                            Restore
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
                 </div>
               )}
 
