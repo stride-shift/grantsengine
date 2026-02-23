@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmt, fmtK, dL, deadlineCtx, effectiveAsk } from "../utils";
-import { Num, Timeline, Label, Btn, CopyBtn, stripMd, TypeBadge } from "./index";
+import { fmt, fmtK, dL, deadlineCtx, effectiveAsk, grantReadiness } from "../utils";
+import { Num, Timeline, Label, Btn, CopyBtn, stripMd, TypeBadge, DeadlineBadge, Avatar } from "./index";
 import { isFunderReturning } from "../data/funderStrategy";
 
 const CLOSED = ["won", "lost", "deferred"];
@@ -100,7 +100,7 @@ const AIBlock = ({ label, sub, busy, result, onRun, btnLabel, busyLabel, accentC
 );
 
 export default function Dashboard({
-  grants, team, stages, onSelectGrant, onNavigate,
+  grants, team, stages, complianceDocs = [], onSelectGrant, onNavigate,
   onRunBrief, onRunReport, onRunInsights, onRunStrategy, orgName,
 }) {
   const [briefBusy, setBriefBusy] = useState(false);
@@ -112,6 +112,18 @@ export default function Dashboard({
   const [strategyBusy, setStrategyBusy] = useState(false);
   const [strategyResult, setStrategyResult] = useState(null);
   const [expandedFunder, setExpandedFunder] = useState(null);
+  const [showFullIntel, setShowFullIntel] = useState(false);
+
+  // Auto-run daily brief on mount (only once, only if grants exist)
+  const briefRanRef = useState(false);
+  useEffect(() => {
+    if (grants.length > 2 && onRunBrief && !briefResult && !briefBusy && !briefRanRef[0]) {
+      briefRanRef[0] = true;
+      setBriefBusy(true);
+      onRunBrief().then(r => { setBriefResult(r); setBriefBusy(false); })
+        .catch(e => { setBriefResult(`Error: ${e.message}`); setBriefBusy(false); });
+    }
+  }, [grants.length]);
 
   /* ── Core pipeline numbers ── */
   const pipe = useMemo(() => {
@@ -354,39 +366,156 @@ export default function Dashboard({
     busySetter(false);
   };
 
+  /* ── Build urgent/action items for Today view ── */
+  const teamById = useMemo(() => {
+    const m = new Map();
+    if (team) for (const t of team) m.set(t.id, t);
+    return m;
+  }, [team]);
+
+  const urgentGrants = useMemo(() => {
+    const items = [];
+    // 1. Overdue / needs action
+    for (const g of pipe.needsAction) {
+      const d = dL(g.deadline);
+      items.push({ g, reason: d < 0 ? `${Math.abs(d)}d overdue` : `${d}d left`, severity: d < 0 ? 0 : 1, color: C.red });
+    }
+    // 2. Approaching deadlines (within 14 days)
+    for (const g of pipe.approaching) {
+      if (!items.find(i => i.g.id === g.id)) {
+        const d = dL(g.deadline);
+        items.push({ g, reason: `${d}d to deadline`, severity: 2, color: C.amber });
+      }
+    }
+    // 3. Active grants with no deadline set (top 5)
+    const noDL = pipe.act.filter(g => !g.deadline && !items.find(i => i.g.id === g.id)).slice(0, 3);
+    for (const g of noDL) {
+      items.push({ g, reason: "No deadline set", severity: 3, color: C.t4 });
+    }
+    // 4. Unassigned active grants (top 3)
+    const unassigned = pipe.act.filter(g => (!g.owner || g.owner === "team") && !items.find(i => i.g.id === g.id)).slice(0, 3);
+    for (const g of unassigned) {
+      items.push({ g, reason: "Unassigned", severity: 4, color: C.purple });
+    }
+    return items.sort((a, b) => a.severity - b.severity).slice(0, 8);
+  }, [pipe]);
+
   return (
     <div style={{ padding: "32px 36px", maxWidth: 1200 }}>
 
       {/* ── Header ── */}
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>{orgName || "Dashboard"}</div>
+        <div style={{ fontSize: 28, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Today</div>
         <div style={{ width: 36, height: 3, background: C.primary, borderRadius: 2, marginTop: 6, marginBottom: 6 }} />
         <div style={{ fontSize: 13, color: C.t4, fontWeight: 400 }}>
           {new Date().toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+          {orgName && <span style={{ marginLeft: 8, color: C.t3, fontWeight: 500 }}>{orgName}</span>}
         </div>
       </div>
 
-      {/* ═══════════ 1. HEADLINE NUMBERS ═══════════ */}
-      <Hd>Pipeline</Hd>
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 24 }}>
-        {/* Big hero — active pipeline */}
-        <Card accent={C.primary} className="ge-hover-lift" style={{ flex: "1.4 1 220px", display: "flex", alignItems: "center", gap: 20 }}>
+      {/* ═══════════ 1. URGENT ACTION CARDS ═══════════ */}
+      {urgentGrants.length > 0 && (
+        <>
+          <Hd>Needs Attention</Hd>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10, marginBottom: 8 }}>
+            {urgentGrants.map(({ g, reason, color }) => {
+              const stg = (stages || []).find(s => s.id === g.stage);
+              const m = teamById.get(g.owner);
+              const r = grantReadiness(g, complianceDocs);
+              return (
+                <div key={g.id} onClick={() => onSelectGrant?.(g.id)}
+                  className="ge-hover-lift"
+                  style={{
+                    padding: "14px 18px", background: C.white, borderRadius: 14,
+                    border: `1.5px solid ${color}25`, boxShadow: C.cardShadow,
+                    cursor: "pointer", borderLeft: `4px solid ${color}`,
+                  }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.dark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{g.name}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: color + "15", color, flexShrink: 0, marginLeft: 8 }}>{reason}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, color: C.t3 }}>{g.funder}</span>
+                    <span style={{ width: 4, height: 4, borderRadius: 2, background: C.t4 }} />
+                    <span style={{ fontSize: 11, color: stg?.c || C.t4, fontWeight: 600 }}>{stg?.label}</span>
+                    <span style={{ width: 4, height: 4, borderRadius: 2, background: C.t4 }} />
+                    <span style={{ fontSize: 11, fontWeight: 600, fontFamily: MONO, color: C.t2 }}>{g.ask > 0 ? fmtK(g.ask) : "TBD"}</span>
+                  </div>
+                  {/* Readiness + quick actions */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {m && <Avatar member={m} size={18} />}
+                    <div style={{ flex: 1, height: 4, borderRadius: 2, background: C.line, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${r.score}%`, background: r.score >= 80 ? C.ok : r.score >= 50 ? C.amber : C.red, borderRadius: 2 }} />
+                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, color: r.score >= 80 ? C.ok : r.score >= 50 ? C.amber : C.red }}>{r.score}%</span>
+                  </div>
+                  {r.nextAction && (
+                    <div style={{ fontSize: 10, color: C.t3, marginTop: 6, fontWeight: 500 }}>Next: {r.nextAction}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* ═══════════ 2. DAILY BRIEF (auto-generated) ═══════════ */}
+      <Hd right={
+        briefResult && <Btn v="ghost" style={{ fontSize: 11 }} onClick={runAI(setBriefResult, setBriefBusy, onRunBrief)} disabled={briefBusy}>Refresh</Btn>
+      }>Daily Brief</Hd>
+      <Card accent={C.purple} style={{ marginBottom: 8 }}>
+        {briefBusy && (
           <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>Active Pipeline</div>
-            <div style={{ fontSize: 36, fontWeight: 800, color: C.primary, fontFamily: MONO, letterSpacing: -2, lineHeight: 1 }}>{fmt(pipe.ask)}</div>
-            <div style={{ fontSize: 11, color: C.t3, marginTop: 8, fontWeight: 500 }}>
-              {pipe.act.length} grants in progress
-              {(() => { const tbd = pipe.act.filter(g => !g.ask || g.ask === 0).length; return tbd > 0 ? ` / ${tbd} TBD` : ""; })()}
+            <div style={{ fontSize: 13, color: C.t3, marginBottom: 8 }}>Analysing your pipeline...</div>
+            <div style={{ height: 3, borderRadius: 2, overflow: "hidden" }}>
+              <div style={{ height: "100%", background: C.purple, animation: "ai-load-bar 2s ease-in-out infinite", borderRadius: 2 }} />
             </div>
           </div>
-          {pipe.sparkPipeline && <Spark data={pipe.sparkPipeline} color={C.primary} w={70} h={32} />}
+        )}
+        {briefResult && (
+          <div style={{ position: "relative" }}>
+            <div style={{
+              fontSize: 13, lineHeight: 2, color: C.t1,
+              whiteSpace: "pre-wrap",
+            }}>
+              {stripMd(briefResult)}
+            </div>
+            <CopyBtn text={briefResult} style={{ position: "absolute", top: 0, right: 0 }} />
+          </div>
+        )}
+        {!briefBusy && !briefResult && (
+          <div style={{ textAlign: "center", padding: "12px 0" }}>
+            <Btn v="primary" onClick={runAI(setBriefResult, setBriefBusy, onRunBrief)} style={{ fontSize: 12 }}>
+              Generate Daily Brief
+            </Btn>
+          </div>
+        )}
+      </Card>
+
+      {/* ═══════════ 3. COMPACT PIPELINE SUMMARY ═══════════ */}
+      <Hd right={
+        <button onClick={() => onNavigate?.("pipeline")} style={{
+          background: "none", border: "none", fontSize: 11, color: C.primary, fontWeight: 600,
+          cursor: "pointer", fontFamily: FONT,
+        }}>View Pipeline {"\u2192"}</button>
+      }>Pipeline</Hd>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+        <Card accent={C.primary} className="ge-hover-lift" style={{ flex: "1.4 1 200px", display: "flex", alignItems: "center", gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Active Pipeline</div>
+            <div style={{ fontSize: 30, fontWeight: 800, color: C.primary, fontFamily: MONO, letterSpacing: -2, lineHeight: 1 }}>{fmt(pipe.ask)}</div>
+            <div style={{ fontSize: 11, color: C.t3, marginTop: 6, fontWeight: 500 }}>{pipe.act.length} grants</div>
+          </div>
+          {pipe.sparkPipeline && <Spark data={pipe.sparkPipeline} color={C.primary} w={60} h={28} />}
         </Card>
         <Num label="Weighted" value={fmt(pipe.weightedVal)} sub="Probability-adjusted" accent={C.navy} color={C.navy} />
         <Num label="Won" value={pipe.won.length > 0 ? fmt(pipe.wonV) : "\u2014"} sub={pipe.won.length > 0 ? `${pipe.won.length} grant${pipe.won.length !== 1 ? "s" : ""}` : "No wins yet"} color={C.ok} accent={C.ok} sparkData={pipe.sparkWon} sparkColor={C.ok} />
-        <Num label="Grants" value={grants.length} sub={`${pipe.act.length} active`} accent={C.blue} />
+        {pipe.winRate !== null && (
+          <Num label="Win Rate" value={`${pipe.winRate}%`} sub={`${pipe.won.length}W / ${pipe.lost.length}L`} accent={pipe.winRate >= 50 ? C.ok : C.amber} color={pipe.winRate >= 50 ? C.ok : C.amber} />
+        )}
       </div>
 
-      {/* ── Pipeline health bar ── */}
+      {/* Funnel bar */}
       <Card style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.8, textTransform: "uppercase", whiteSpace: "nowrap" }}>Funnel</div>
         <div style={{ flex: 1, display: "flex", gap: 3, alignItems: "center" }}>
@@ -420,59 +549,81 @@ export default function Dashboard({
             </>
           )}
         </div>
-        {/* Status badges */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {pipe.winRate !== null && (
-            <div style={{
-              padding: "4px 10px", borderRadius: 8,
-              background: pipe.winRate >= 50 ? C.okSoft : pipe.winRate >= 25 ? C.amberSoft : C.redSoft,
-              color: pipe.winRate >= 50 ? C.ok : pipe.winRate >= 25 ? C.amber : C.red,
-              fontSize: 11, fontWeight: 700, fontFamily: MONO,
-            }}>{pipe.winRate}% win</div>
-          )}
-          {pipe.approaching.length > 0 && (
-            <div style={{ padding: "4px 10px", borderRadius: 8, background: C.redSoft, color: C.red, fontSize: 11, fontWeight: 700 }}
-              title={pipe.approaching.map(g => `${g.name} \u2014 ${dL(g.deadline)}d`).join(", ")}
-            >{pipe.approaching.length} due soon</div>
-          )}
-          {pipe.needsAction.length > 0 && (
-            <div style={{ padding: "4px 10px", borderRadius: 8, background: C.amberSoft, color: C.amber, fontSize: 11, fontWeight: 700 }}
-              title={pipe.needsAction.map(g => `${g.name} (${g.stage})`).join(", ")}
-            >{pipe.needsAction.length} overdue</div>
-          )}
-        </div>
       </Card>
 
       {/* ── Submission Timeline ── */}
       <Timeline grants={grants} stages={stages} team={team} onClickGrant={onSelectGrant} />
 
-      {/* ── Stage breakdown — compact row ── */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4, marginBottom: 8 }}>
-        {pipe.stages.filter(s => s.n > 0).map(s => (
-          <div key={s.id} className="ge-hover-lift" onClick={() => onNavigate?.("pipeline")} style={{
-            padding: "10px 18px", background: C.white, borderRadius: 12,
-            boxShadow: C.cardShadow, minWidth: 80, textAlign: "center",
-            borderTop: `3px solid ${s.c}`, cursor: "pointer",
-          }}>
-            <div style={{ fontSize: 24, fontWeight: 800, color: s.c, fontFamily: MONO }}>{s.n}</div>
-            <div style={{ fontSize: 10, color: C.t3, fontWeight: 600, marginTop: 2 }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
+      {/* ═══════════ 3b. UPCOMING FOLLOW-UPS ═══════════ */}
+      {(() => {
+        const now = new Date().toISOString().slice(0, 10);
+        const upcoming = [];
+        for (const g of grants) {
+          if (!g.fups || !Array.isArray(g.fups)) continue;
+          for (const fup of g.fups) {
+            if (fup.done) continue;
+            const daysUntil = Math.ceil((new Date(fup.date) - new Date()) / 864e5);
+            if (daysUntil >= -7 && daysUntil <= 30) {
+              upcoming.push({ grant: g, fup, daysUntil });
+            }
+          }
+        }
+        upcoming.sort((a, b) => a.daysUntil - b.daysUntil);
+        if (upcoming.length === 0) return null;
+        return (
+          <>
+            <Hd>Upcoming Follow-ups</Hd>
+            <Card style={{ marginBottom: 8, padding: "14px 18px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {upcoming.slice(0, 6).map((item, i) => {
+                  const isOverdue = item.daysUntil < 0;
+                  const isToday = item.daysUntil === 0;
+                  const isSoon = item.daysUntil > 0 && item.daysUntil <= 7;
+                  const c = isOverdue ? C.red : isToday ? C.amber : isSoon ? C.amber : C.t3;
+                  const stg = (stages || []).find(s => s.id === item.grant.stage);
+                  return (
+                    <div key={`${item.grant.id}-${i}`}
+                      onClick={() => onSelectGrant?.(item.grant.id)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+                        borderRadius: 8, cursor: "pointer", transition: "background 0.1s",
+                        borderLeft: `3px solid ${c}`,
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = C.hover}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <div style={{
+                        fontSize: 10, fontWeight: 700, fontFamily: MONO, minWidth: 50,
+                        color: c,
+                      }}>
+                        {isOverdue ? `${Math.abs(item.daysUntil)}d ago` : isToday ? "Today" : `${item.daysUntil}d`}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.dark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {item.fup.label}
+                        </div>
+                        <div style={{ fontSize: 10, color: C.t3, marginTop: 1 }}>
+                          {item.grant.name} — {item.grant.funder}
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: 9, fontWeight: 600, padding: "2px 6px", borderRadius: 4,
+                        background: (stg?.c || C.t4) + "15", color: stg?.c || C.t4,
+                      }}>{stg?.label || item.grant.stage}</span>
+                    </div>
+                  );
+                })}
+                {upcoming.length > 6 && (
+                  <div style={{ fontSize: 11, color: C.t4, textAlign: "center", paddingTop: 4 }}>+{upcoming.length - 6} more follow-ups</div>
+                )}
+              </div>
+            </Card>
+          </>
+        );
+      })()}
 
-      {/* ═══════════ 2. AI COMMAND CENTRE ═══════════ */}
-      <Hd>AI Command Centre</Hd>
+      {/* ═══════════ 4. AI TOOLS (Report, Insights, Strategy) ═══════════ */}
+      <Hd>AI Tools</Hd>
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 8 }}>
-        {onRunBrief && (
-          <AIBlock
-            label="Daily Brief"
-            sub="Priority actions for today"
-            accentColor={C.purple}
-            busy={briefBusy} result={briefResult}
-            btnLabel="Generate" busyLabel="Thinking..."
-            onRun={runAI(setBriefResult, setBriefBusy, onRunBrief)}
-          />
-        )}
         {onRunReport && (
           <AIBlock
             label="Quarterly Report"
@@ -527,14 +678,19 @@ export default function Dashboard({
             </Card>
           </div>
 
-          {/* ═══════════ FUNDER INTELLIGENCE CARDS ═══════════ */}
+          {/* ═══════════ FUNDER INTELLIGENCE CARDS (collapsed by default) ═══════════ */}
           {funders.length > 0 && (
             <>
-              <Hd right={<span style={{ fontSize: 10, color: C.t4, fontWeight: 500 }}>{funders.length} funders tracked</span>}>
+              <Hd right={
+                <button onClick={() => setShowFullIntel(!showFullIntel)} style={{
+                  background: "none", border: "none", fontSize: 11, color: C.primary, fontWeight: 600,
+                  cursor: "pointer", fontFamily: FONT,
+                }}>{showFullIntel ? "Collapse" : `Show all ${funders.length} funders`}</button>
+              }>
                 Funder Intelligence
               </Hd>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 12, marginBottom: 20 }}>
-                {funders.map(f => {
+                {(showFullIntel ? funders : funders.slice(0, 4)).map(f => {
                   const isExpanded = expandedFunder === f.name;
                   const closed = f.won + f.lost;
                   const wr = closed > 0 ? Math.round((f.won / closed) * 100) : null;

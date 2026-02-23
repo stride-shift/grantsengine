@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmtK, dL, td, effectiveAsk } from "../utils";
+import { fmtK, dL, td, effectiveAsk, grantReadiness } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, AICard, stripMd, timeAgo } from "./index";
 import UploadZone from "./UploadZone";
 import { getUploads } from "../api";
@@ -335,6 +335,146 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         );
       })()}
 
+      {/* Readiness Bar */}
+      {!["won", "lost", "deferred"].includes(g.stage) && (() => {
+        const r = grantReadiness(g, complianceDocs);
+        const barColor = r.score >= 80 ? C.ok : r.score >= 50 ? C.amber : C.red;
+        return (
+          <div style={{ marginBottom: 20, padding: "14px 18px", borderRadius: 14, background: C.warm100, border: `1px solid ${C.line}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.t2 }}>Readiness</span>
+                <span style={{ fontSize: 18, fontWeight: 800, fontFamily: MONO, color: barColor }}>{r.score}%</span>
+              </div>
+              {r.missing.length > 0 && (
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                  {r.missing.map((m, i) => (
+                    <span key={i} style={{
+                      fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 6,
+                      background: m.includes("docs") ? "#FEF3C7" : m.includes("deadline") ? "#FEE2E2" : "#F1F5F9",
+                      color: m.includes("docs") ? "#92400E" : m.includes("deadline") ? "#991B1B" : "#475569",
+                    }}>{m}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ height: 5, borderRadius: 3, background: C.line, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${r.score}%`, background: barColor, borderRadius: 3, transition: "width 0.4s ease" }} />
+            </div>
+            {r.nextAction && (
+              <div style={{ fontSize: 11, color: C.t3, fontWeight: 500, marginTop: 8 }}>
+                Next: {r.nextAction}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* AI Workflow Strip — persistent status indicators */}
+      {(() => {
+        const fitDone = ai.fitscore && !isAIError(ai.fitscore);
+        const resDone = ai.research && !isAIError(ai.research);
+        const draftDone = ai.draft && !isAIError(ai.draft);
+        const fitNum = fitDone ? (() => { const m = ai.fitscore.match(/SCORE:\s*(\d+)/); return m ? parseInt(m[1]) : null; })() : null;
+        const isSubmittedPlus = ["submitted", "awaiting", "won", "lost", "deferred"].includes(g.stage);
+        const anyBusy = busy.fitscore || busy.research || busy.draft;
+
+        const runAllChain = async () => {
+          // Chain: Fit Score -> Research -> Draft
+          if (!fitDone && !busy.fitscore) {
+            setBusy(p => ({ ...p, fitscore: true }));
+            try {
+              const r = await onRunAI("fitscore", g);
+              setAi(p => ({ ...p, fitscore: r }));
+              if (!isAIError(r)) {
+                onUpdate(g.id, { aiFitscore: r, aiFitscoreAt: new Date().toISOString() });
+                aiLog("AI Fit Score calculated");
+              }
+            } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
+            setBusy(p => ({ ...p, fitscore: false }));
+          }
+          if (!resDone && !busy.research) {
+            setBusy(p => ({ ...p, research: true }));
+            try {
+              const r = await onRunAI("research", g);
+              setAi(p => ({ ...p, research: r }));
+              if (!isAIError(r)) {
+                onUpdate(g.id, { aiResearch: r, aiResearchAt: new Date().toISOString() });
+                aiLog(`AI Funder Research completed for ${g.funder}`);
+              }
+            } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
+            setBusy(p => ({ ...p, research: false }));
+          }
+          if (!draftDone && !busy.draft) {
+            setBusy(p => ({ ...p, draft: true }));
+            try {
+              const r = await onRunAI("draft", g);
+              setAi(p => ({ ...p, draft: r }));
+              if (!isAIError(r)) {
+                onUpdate(g.id, { aiDraft: r, aiDraftAt: new Date().toISOString() });
+                aiLog("AI Draft Proposal generated");
+              }
+            } catch (e) { setAi(p => ({ ...p, draft: `Error: ${e.message}` })); }
+            setBusy(p => ({ ...p, draft: false }));
+          }
+        };
+
+        const steps = [
+          { key: "fitscore", label: "Fit Score", done: fitDone, busy: busy.fitscore, value: fitNum ? `${fitNum}` : null, color: fitDone ? (fitNum >= 70 ? C.ok : fitNum >= 40 ? C.amber : C.red) : C.t4 },
+          { key: "research", label: "Research", done: resDone, busy: busy.research, value: resDone ? "Done" : null, color: resDone ? C.blue : C.t4 },
+          { key: "draft", label: "Draft", done: draftDone, busy: busy.draft, value: draftDone ? "Ready" : null, color: draftDone ? C.purple : C.t4 },
+        ];
+        const allDone = fitDone && resDone && draftDone;
+        const donePct = [fitDone, resDone, draftDone].filter(Boolean).length;
+
+        return (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8, marginBottom: 16,
+            padding: "10px 16px", borderRadius: 12, background: C.white,
+            border: `1px solid ${C.line}`, boxShadow: C.cardShadow,
+          }}>
+            {steps.map((s, i) => (
+              <button key={s.key} onClick={() => { if (!s.done && !s.busy) setTab("ai"); }}
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", gap: 6, padding: "6px 10px",
+                  borderRadius: 8, border: `1.5px solid ${s.done ? s.color + "30" : C.line}`,
+                  background: s.done ? s.color + "08" : s.busy ? C.purpleSoft : "transparent",
+                  cursor: s.done ? "default" : "pointer", fontFamily: FONT,
+                  transition: "all 0.15s ease",
+                  animation: s.busy ? "ge-pulse 1.4s ease-in-out infinite" : "none",
+                }}>
+                <span style={{
+                  width: 24, height: 24, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 11, fontWeight: 800, fontFamily: MONO,
+                  background: s.done ? s.color + "18" : C.raised,
+                  color: s.done ? s.color : C.t4,
+                }}>{s.busy ? "\u2026" : s.done ? (s.value || "\u2713") : (i + 1)}</span>
+                <div style={{ flex: 1, textAlign: "left" }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: s.done ? s.color : C.t3 }}>{s.label}</div>
+                </div>
+              </button>
+            ))}
+            {!allDone && !isSubmittedPlus && (
+              <button onClick={runAllChain} disabled={anyBusy}
+                style={{
+                  padding: "8px 14px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  background: anyBusy ? C.raised : C.primary, color: anyBusy ? C.t3 : C.white,
+                  border: "none", cursor: anyBusy ? "default" : "pointer", fontFamily: FONT,
+                  whiteSpace: "nowrap", flexShrink: 0,
+                  opacity: anyBusy ? 0.6 : 1,
+                }}>
+                {anyBusy ? "Running..." : `Run All (${3 - donePct})`}
+              </button>
+            )}
+            {allDone && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: C.ok, padding: "4px 10px", borderRadius: 6, background: C.okSoft, whiteSpace: "nowrap" }}>
+                Workflow complete
+              </span>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Tabs */}
       <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${C.line}`, marginBottom: 24 }}>
         {tabs.map(t => (
@@ -560,6 +700,59 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       {/* Activity */}
       {tab === "activity" && (
         <div>
+          {/* Scheduled Follow-ups */}
+          {g.fups && g.fups.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>Scheduled Follow-ups</div>
+              <Card pad="0" style={{ overflow: "hidden" }}>
+                {g.fups.map((fup, i) => {
+                  const daysUntil = fup.date ? Math.ceil((new Date(fup.date) - new Date()) / 864e5) : null;
+                  const isOverdue = daysUntil !== null && daysUntil < 0;
+                  const isToday = daysUntil === 0;
+                  const isSoon = daysUntil > 0 && daysUntil <= 7;
+                  const c = fup.done ? C.ok : isOverdue ? C.red : isToday ? C.amber : isSoon ? C.amber : C.t3;
+                  return (
+                    <div key={i} style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "10px 18px",
+                      borderBottom: i < g.fups.length - 1 ? `1px solid ${C.line}` : "none",
+                      opacity: fup.done ? 0.5 : 1,
+                    }}>
+                      <button onClick={(e) => {
+                        e.stopPropagation();
+                        const updated = [...g.fups];
+                        updated[i] = { ...updated[i], done: !updated[i].done };
+                        onUpdate(g.id, { fups: updated });
+                      }} style={{
+                        width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                        border: `1.5px solid ${fup.done ? C.ok : C.line}`,
+                        background: fup.done ? C.ok : "transparent",
+                        cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        {fup.done && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>{"\u2713"}</span>}
+                      </button>
+                      <span style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, color: c, minWidth: 65 }}>
+                        {fup.date ? new Date(fup.date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : "--"}
+                      </span>
+                      <span style={{ fontSize: 12, color: fup.done ? C.t4 : C.t1, textDecoration: fup.done ? "line-through" : "none", flex: 1 }}>{fup.label}</span>
+                      <span style={{
+                        fontSize: 9, fontWeight: 600, padding: "2px 6px", borderRadius: 4,
+                        background: fup.type === "status" ? C.blueSoft : fup.type === "update" ? "#ECFDF5" : C.amberSoft,
+                        color: fup.type === "status" ? C.blue : fup.type === "update" ? "#059669" : C.amber,
+                      }}>{fup.type || "follow-up"}</span>
+                      {!fup.done && daysUntil !== null && (
+                        <span style={{ fontSize: 10, fontWeight: 600, color: c }}>
+                          {isOverdue ? `${Math.abs(daysUntil)}d ago` : isToday ? "Today" : `${daysUntil}d`}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </Card>
+            </div>
+          )}
+
+          {/* Activity Log */}
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: 8 }}>Activity Log</div>
           <Card pad="0" style={{ overflow: "hidden" }}>
             {(g.log || []).slice().reverse().map((entry, i, arr) => (
               <ActivityRow key={i} date={entry.d} text={entry.t} isLast={i === arr.length - 1} />

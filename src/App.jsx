@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { C, FONT, MONO, injectFonts } from "./theme";
-import { uid, td, dL, effectiveAsk } from "./utils";
+import { uid, td, dL, addD, effectiveAsk } from "./utils";
+import { CAD } from "./data/constants";
 import { funderStrategy, isFunderReturning, detectType, PTYPES } from "./data/funderStrategy";
 import {
   isLoggedIn, getAuth, setAuth, getCurrentMember, login, logout, setPassword,
@@ -17,6 +18,7 @@ import Dashboard from "./components/Dashboard";
 import Pipeline from "./components/Pipeline";
 import GrantDetail from "./components/GrantDetail";
 import Settings from "./components/Settings";
+import Funders from "./components/Funders";
 import Admin from "./components/Admin";
 import { ToastProvider, useToast } from "./components/Toast";
 
@@ -40,6 +42,7 @@ const EMPTY_GRANT = Object.freeze({ name: "", funder: "", type: "", ask: 0, focu
 const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "\u25a6" },
   { id: "pipeline", label: "Pipeline", icon: "\u25b6" },
+  { id: "funders", label: "Funders", icon: "\u25c7" },
   { id: "settings", label: "Settings", icon: "\u2699" },
 ];
 
@@ -248,9 +251,58 @@ function AppInner() {
   // ── Grant mutations ──
   const updateGrant = (id, updates) => {
     setGrants(prev => {
-      const next = prev.map(g => g.id === id ? { ...g, ...updates } : g);
-      const updated = next.find(g => g.id === id);
-      if (updated) dSave(id, updated);
+      const old = prev.find(g => g.id === id);
+      if (!old) return prev;
+
+      // Auto-log meaningful changes (skip if caller is already setting log directly)
+      const autoEntries = [];
+      if (!updates.log) {
+        if (updates.stage && updates.stage !== old.stage) {
+          const fromLabel = stages.find(s => s.id === old.stage)?.label || old.stage;
+          const toLabel = stages.find(s => s.id === updates.stage)?.label || updates.stage;
+          autoEntries.push(`Stage moved: ${fromLabel} → ${toLabel}`);
+        }
+        if (updates.owner && updates.owner !== old.owner) {
+          const member = team.find(t => t.id === updates.owner);
+          autoEntries.push(`Assigned to ${member?.name || updates.owner}`);
+        }
+        if (updates.ask !== undefined && updates.ask !== old.ask && updates.ask > 0) {
+          autoEntries.push(`Ask updated to R${Number(updates.ask).toLocaleString()}`);
+        }
+        if (updates.deadline && updates.deadline !== old.deadline) {
+          autoEntries.push(`Deadline set to ${updates.deadline}`);
+        }
+        if (updates.priority !== undefined && updates.priority !== old.priority) {
+          autoEntries.push(`Priority changed to ${updates.priority}`);
+        }
+      }
+
+      // Auto-schedule follow-ups when moving to submitted/awaiting
+      let autoFups = undefined;
+      if (updates.stage && ["submitted", "awaiting"].includes(updates.stage) && !["submitted", "awaiting"].includes(old.stage)) {
+        const cadence = CAD[old.type] || CAD["Foundation"];
+        if (cadence && cadence.length > 0) {
+          const baseDate = td();
+          autoFups = cadence.map(step => ({
+            date: addD(baseDate, step.d),
+            label: step.l,
+            type: step.t,
+            done: false,
+          }));
+          autoEntries.push(`Follow-ups scheduled: ${cadence.length} touchpoints over ${cadence[cadence.length - 1].d} days`);
+        }
+      }
+
+      const logAdditions = autoEntries.length
+        ? autoEntries.map(t => ({ d: td(), t }))
+        : [];
+      const mergedLog = logAdditions.length
+        ? [...(old.log || []), ...logAdditions]
+        : undefined;
+
+      const merged = { ...old, ...updates, ...(mergedLog ? { log: mergedLog } : {}), ...(autoFups ? { fups: autoFups } : {}) };
+      const next = prev.map(g => g.id === id ? merged : g);
+      dSave(id, merged);
       return next;
     });
   };
@@ -1063,6 +1115,7 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
             grants={grants}
             team={team}
             stages={stages}
+            complianceDocs={complianceDocs}
             orgName={org?.name}
             onSelectGrant={(id) => setSel(id)}
             onNavigate={(v) => { setSel(null); setView(v); }}
@@ -1077,11 +1130,20 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
             team={team}
             stages={stages}
             funderTypes={funderTypes}
+            complianceDocs={complianceDocs}
             onSelectGrant={(id) => setSel(id)}
             onUpdateGrant={updateGrant}
             onAddGrant={addGrant}
             onRunAI={runAI}
             api={api}
+          />
+        ) : view === "funders" ? (
+          <Funders
+            grants={grants}
+            team={team}
+            stages={stages}
+            onSelectGrant={(id) => setSel(id)}
+            onNavigate={(v) => { setSel(null); setView(v); }}
           />
         ) : view === "settings" ? (
           <Settings
