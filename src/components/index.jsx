@@ -41,11 +41,13 @@ export const DeadlineBadge = ({ d, deadline, size = "sm", stage }) => {
   );
 };
 
+// Hoisted to module level to avoid re-creation on every render
+const TYPE_COLORS = { "Foundation": C.blue, "Corporate CSI": C.red, "Government/SETA": C.amber, "International": "#1A7A42", "Tech Company": "#0891B2" };
+const TYPE_BGS = { "Foundation": C.blueSoft, "Corporate CSI": C.redSoft, "Government/SETA": C.amberSoft, "International": "#E6F5EE", "Tech Company": "#ECFEFF" };
+
 export const TypeBadge = ({ type }) => {
-  const tc = { "Foundation": C.blue, "Corporate CSI": C.red, "Government/SETA": C.amber, "International": "#1A7A42", "Tech Company": "#0891B2" };
-  const bgs = { "Foundation": C.blueSoft, "Corporate CSI": C.redSoft, "Government/SETA": C.amberSoft, "International": "#E6F5EE", "Tech Company": "#ECFEFF" };
-  const col = tc[type] || C.t3;
-  const bg = bgs[type] || C.raised;
+  const col = TYPE_COLORS[type] || C.t3;
+  const bg = TYPE_BGS[type] || C.raised;
   return <span style={{ padding: "3px 10px", fontSize: 11, fontWeight: 700, color: col, background: bg, borderRadius: 20, whiteSpace: "nowrap", letterSpacing: 0.4 }}>{type}</span>;
 };
 
@@ -212,18 +214,21 @@ export const Label = ({ children, style: sx }) => (
   <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: C.t3, marginBottom: 14, ...sx }}>{children}</div>
 );
 
+// Hoisted to module level
+const AVATAR_COLORS = [
+  { bg: C.redSoft, fg: C.red },
+  { bg: C.blueSoft, fg: C.blue },
+  { bg: C.amberSoft, fg: C.amber },
+  { bg: "#E6F5EE", fg: "#1A7A42" },
+  { bg: "#ECFEFF", fg: "#0891B2" },
+  { bg: C.purpleSoft, fg: C.purple },
+];
+const DEFAULT_MEMBER = { name: "Unassigned", initials: "\u2014", role: "none" };
+
 export const Avatar = ({ member, size = 26 }) => {
-  const m = member || { name: "Unassigned", initials: "\u2014", role: "none" };
-  const colors = [
-    { bg: C.redSoft, fg: C.red },
-    { bg: C.blueSoft, fg: C.blue },
-    { bg: C.amberSoft, fg: C.amber },
-    { bg: "#E6F5EE", fg: "#1A7A42" },
-    { bg: "#ECFEFF", fg: "#0891B2" },
-    { bg: C.purpleSoft, fg: C.purple },
-  ];
-  const idx = m.name ? m.name.charCodeAt(0) % colors.length : colors.length - 1;
-  const ac = colors[idx];
+  const m = member || DEFAULT_MEMBER;
+  const idx = m.name ? m.name.charCodeAt(0) % AVATAR_COLORS.length : AVATAR_COLORS.length - 1;
+  const ac = AVATAR_COLORS[idx];
   return (
     <span title={m.name} style={{
       display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -375,26 +380,27 @@ const AILoadingPanel = ({ title }) => {
   );
 };
 
+// Shared relative time formatter
+export const timeAgo = (iso) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const now = new Date();
+  const mins = Math.floor((now - d) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+};
+
 export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, step, icon, locked, lockedMsg, generatedAt }) => {
   const [expanded, setExpanded] = useState(!result);
   const hasResult = !!result && !result.startsWith("Error") && !result.startsWith("Rate limit") && !result.startsWith("Connection");
   const isError = !!result && (result.startsWith("Error") || result.startsWith("Rate limit") || result.startsWith("Connection") || result.startsWith("Request failed") || result.startsWith("The AI service"));
   // Auto-expand when new result comes in
   useEffect(() => { if (result && !busy) setExpanded(true); }, [result, busy]);
-  // Format relative time
-  const timeAgo = (iso) => {
-    if (!iso) return null;
-    const d = new Date(iso);
-    const now = new Date();
-    const mins = Math.floor((now - d) / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    if (days < 7) return `${days}d ago`;
-    return d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
-  };
 
   return (
     <div style={{
