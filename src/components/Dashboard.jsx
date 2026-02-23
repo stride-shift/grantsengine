@@ -155,106 +155,124 @@ export default function Dashboard({
     };
   }, [grants, stages]);
 
-  /* ── Analytics computations ── */
+  /* ── Analytics computations (single-pass where possible) ── */
   const ana = useMemo(() => {
     if (grants.length < 3) return null;
-    const act = grants.filter(g => !CLOSED.includes(g.stage));
-    const won = grants.filter(g => g.stage === "won");
-    const lost = grants.filter(g => g.stage === "lost");
+
+    // Single pass: categorise grants and collect all aggregates at once
+    const act = [], won = [], lost = [];
+    const asks = [];
+    const tm = new Map();   // funder types
+    const rm = new Map();   // relationships
+    const om = new Map();   // owner workload
+    const fm = new Map();   // focus tags
+    const dm = new Map();   // deadline months
+    const wf = new Map(), lf = new Map(); // win/loss factors
+    let aiD = 0, aiR = 0, aiF = 0, noDL = 0;
+    // Ask histogram bins — single-pass bucketing
+    const histCounts = [0, 0, 0, 0, 0];
+    const histThresholds = [250000, 500000, 1000000, 2000000];
+    const histLabels = ["<250K", "250-500K", "500K-1M", "1-2M", "2M+"];
+
+    // Build team lookup once
+    const teamById = new Map();
+    if (team) for (const t of team) teamById.set(t.id, t);
+
+    for (const g of grants) {
+      const ask = effectiveAsk(g);
+      const isWon = g.stage === "won";
+      const isLost = g.stage === "lost";
+      const isActive = !CLOSED.includes(g.stage);
+
+      // Categorise
+      if (isWon) won.push(g);
+      else if (isLost) lost.push(g);
+      else if (isActive) act.push(g);
+
+      // Ask stats
+      if (ask > 0) {
+        asks.push(ask);
+        // Histogram bucketing
+        let bucket = 4; // "2M+" default
+        for (let i = 0; i < histThresholds.length; i++) {
+          if (ask < histThresholds[i]) { bucket = i; break; }
+        }
+        histCounts[bucket]++;
+      }
+
+      // Funder types
+      const ft = g.type || "Unknown";
+      if (!tm.has(ft)) tm.set(ft, { n: 0, won: 0, lost: 0, ask: 0 });
+      const te = tm.get(ft); te.n++; te.ask += ask;
+      if (isWon) te.won++; if (isLost) te.lost++;
+
+      // Relationships
+      const rel = g.rel || "Unknown";
+      if (!rm.has(rel)) rm.set(rel, { n: 0, won: 0, lost: 0 });
+      const re = rm.get(rel); re.n++;
+      if (isWon) re.won++; if (isLost) re.lost++;
+
+      // Team workload (active only)
+      if (isActive) {
+        const oid = g.owner || "team";
+        const m = teamById.get(oid);
+        const name = m ? m.name : oid === "team" ? "Unassigned" : oid;
+        om.set(name, (om.get(name) || 0) + 1);
+        if (!g.deadline) noDL++;
+      }
+
+      // Focus tags
+      if (g.focus) for (const tag of g.focus) fm.set(tag, (fm.get(tag) || 0) + 1);
+
+      // Deadline months
+      if (g.deadline) {
+        const d = new Date(g.deadline);
+        if (!isNaN(d.getTime())) {
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+          if (!dm.has(k)) dm.set(k, { label: d.toLocaleDateString("en-ZA", { month: "short" }), value: 0 });
+          dm.get(k).value++;
+        }
+      }
+
+      // AI coverage
+      const ai = tryParse(g.ai_data);
+      if (g.aiDraft || ai?.aiDraft) aiD++;
+      if (g.aiResearch || ai?.aiResearch) aiR++;
+      if (g.aiFitscore || ai?.aiFitscore) aiF++;
+
+      // Win/loss factors
+      if (isWon) for (const fac of (g.on || "").split(",").map(s => s.trim()).filter(Boolean)) wf.set(fac, (wf.get(fac) || 0) + 1);
+      if (isLost) for (const fac of (g.of || []).flat().filter(s => typeof s === "string" && s)) lf.set(fac, (lf.get(fac) || 0) + 1);
+    }
+
     const closed = won.length + lost.length;
 
     // Ask stats
-    const asks = grants.map(g => effectiveAsk(g)).filter(a => a > 0);
     const avgAsk = asks.length ? asks.reduce((s, v) => s + v, 0) / asks.length : 0;
     const sorted = [...asks].sort((a, b) => a - b);
     const medianAsk = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+    const askHist = histLabels.map((label, i) => ({ label, value: histCounts[i] }));
 
-    // Ask histogram
-    const bins = [
-      { label: "<250K", min: 0, max: 250000 },
-      { label: "250-500K", min: 250000, max: 500000 },
-      { label: "500K-1M", min: 500000, max: 1000000 },
-      { label: "1-2M", min: 1000000, max: 2000000 },
-      { label: "2M+", min: 2000000, max: Infinity },
-    ];
-    const askHist = bins.map(b => ({ label: b.label, value: asks.filter(a => a >= b.min && a < b.max).length }));
-
-    // Funder types
-    const tm = new Map();
-    for (const g of grants) {
-      const t = g.type || "Unknown";
-      if (!tm.has(t)) tm.set(t, { n: 0, won: 0, lost: 0, ask: 0 });
-      const e = tm.get(t); e.n++; e.ask += effectiveAsk(g);
-      if (g.stage === "won") e.won++; if (g.stage === "lost") e.lost++;
-    }
     const fTypes = [...tm.entries()].map(([label, v]) => ({
       label, n: v.n, won: v.won, lost: v.lost, ask: v.ask,
       wr: v.won + v.lost > 0 ? Math.round((v.won / (v.won + v.lost)) * 100) : null,
     })).sort((a, b) => b.n - a.n);
 
-    // Relationships
-    const rm = new Map();
-    for (const g of grants) {
-      const r = g.rel || "Unknown";
-      if (!rm.has(r)) rm.set(r, { n: 0, won: 0, lost: 0 });
-      const e = rm.get(r); e.n++;
-      if (g.stage === "won") e.won++; if (g.stage === "lost") e.lost++;
-    }
     const rels = [...rm.entries()].map(([label, v]) => ({
       label, n: v.n,
       wr: v.won + v.lost > 0 ? Math.round((v.won / (v.won + v.lost)) * 100) : null,
     })).sort((a, b) => b.n - a.n);
 
-    // Team workload
-    const om = new Map();
-    for (const g of act) {
-      const o = g.owner || "team";
-      const m = team?.find(t => t.id === o);
-      const name = m ? m.name : o === "team" ? "Unassigned" : o;
-      om.set(name, (om.get(name) || 0) + 1);
-    }
     const workload = [...om.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
-
-    // Focus tags
-    const fm = new Map();
-    for (const g of grants) for (const tag of (g.focus || [])) fm.set(tag, (fm.get(tag) || 0) + 1);
     const tags = [...fm.entries()].map(([tag, n]) => ({ tag, n })).sort((a, b) => b.n - a.n);
-
-    // Deadlines by month
-    const dm = new Map();
-    for (const g of grants) {
-      if (!g.deadline) continue;
-      const d = new Date(g.deadline); if (isNaN(d.getTime())) continue;
-      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      const l = d.toLocaleDateString("en-ZA", { month: "short" });
-      if (!dm.has(k)) dm.set(k, { label: l, value: 0 }); dm.get(k).value++;
-    }
     const months = [...dm.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([, v]) => v).slice(-8);
-
-    // AI coverage
-    const aiD = grants.filter(g => g.aiDraft || (tryParse(g.ai_data)?.draft)).length;
-    const aiR = grants.filter(g => g.aiResearch || (tryParse(g.ai_data)?.research)).length;
-    const aiF = grants.filter(g => g.aiFitscore || (tryParse(g.ai_data)?.fitscore)).length;
     const aiPct = grants.length > 0 ? Math.round(((aiD + aiR + aiF) / (grants.length * 3)) * 100) : 0;
-
-    const noDL = act.filter(g => !g.deadline).length;
-
-    // Win/loss factors
-    const wf = new Map(), lf = new Map();
-    for (const g of won) for (const f of (g.on || "").split(",").map(s => s.trim()).filter(Boolean)) wf.set(f, (wf.get(f) || 0) + 1);
-    for (const g of lost) for (const f of (g.of || []).flat().map(s => typeof s === "string" ? s : "").filter(Boolean)) lf.set(f, (lf.get(f) || 0) + 1);
     const winF = [...wf.entries()].map(([l, v]) => ({ label: l, value: v })).sort((a, b) => b.value - a.value).slice(0, 6);
     const lossF = [...lf.entries()].map(([l, v]) => ({ label: l, value: v })).sort((a, b) => b.value - a.value).slice(0, 6);
 
-    // Stage velocity — avg days in each stage (approximation from log)
-    // Top funders by value
-    const funderVal = new Map();
-    for (const g of grants) { const f = g.funder || "Unknown"; funderVal.set(f, (funderVal.get(f) || 0) + effectiveAsk(g)); }
-    const topFunders = [...funderVal.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 6);
-
     return {
       avgAsk, medianAsk, aiPct, noDL, askHist, fTypes, rels, workload, tags, months,
-      aiD, aiR, aiF, winF, lossF, topFunders,
+      aiD, aiR, aiF, winF, lossF,
       wr: closed > 0 ? Math.round((won.length / closed) * 100) : null,
     };
   }, [grants, team]);
@@ -522,7 +540,6 @@ export default function Dashboard({
                   const wr = closed > 0 ? Math.round((f.won / closed) * 100) : null;
                   const relArr = [...f.rels];
                   const bestRel = relArr.includes("Previous Funder") ? "Previous Funder" : relArr.includes("Warm Intro") ? "Warm Intro" : relArr[0] || "Unknown";
-                  const aiCount = [f.hasResearch, f.hasDraft, f.hasFitscore].filter(Boolean).length;
                   const dlDays = f.nextDeadline ? dL(f.nextDeadline) : null;
                   // Momentum: days since last activity
                   const daysSinceActivity = f.latestActivity
@@ -754,9 +771,9 @@ export default function Dashboard({
               <div style={{ fontSize: 12, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Ask Distribution</div>
               <div style={{ fontSize: 10, color: C.t4, marginBottom: 14 }}>Grants by ask range</div>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 100 }}>
-                {ana.askHist.map((b, i) => {
+                {(() => {
                   const mx = Math.max(...ana.askHist.map(x => x.value), 1);
-                  return (
+                  return ana.askHist.map((b, i) => (
                     <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                       {b.value > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: C.t1, fontFamily: MONO }}>{b.value}</div>}
                       <div style={{
@@ -766,8 +783,8 @@ export default function Dashboard({
                       }} />
                       <div style={{ fontSize: 9, fontWeight: 600, color: C.t4, textAlign: "center" }}>{b.label}</div>
                     </div>
-                  );
-                })}
+                  ));
+                })()}
               </div>
             </Card>
           </div>
@@ -788,9 +805,9 @@ export default function Dashboard({
                 <div style={{ fontSize: 12, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Deadline Pressure</div>
                 <div style={{ fontSize: 10, color: C.t4, marginBottom: 14 }}>Submissions by month</div>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 80 }}>
-                  {ana.months.map((m, i) => {
+                  {(() => {
                     const mx = Math.max(...ana.months.map(x => x.value), 1);
-                    return (
+                    return ana.months.map((m, i) => (
                       <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                         {m.value > 0 && <div style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, color: C.t1 }}>{m.value}</div>}
                         <div style={{
@@ -800,8 +817,8 @@ export default function Dashboard({
                         }} />
                         <div style={{ fontSize: 9, fontWeight: 600, color: C.t4 }}>{m.label}</div>
                       </div>
-                    );
-                  })}
+                    ));
+                  })()}
                 </div>
               </Card>
             )}

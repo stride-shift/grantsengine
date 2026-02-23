@@ -1,26 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { C, FONT, MONO } from "../theme";
 import { fmtK, dL, td, effectiveAsk } from "../utils";
-import { Btn, DeadlineBadge, TypeBadge, Tag, Label, Avatar, CopyBtn, AICard, stripMd } from "./index";
+import { Btn, DeadlineBadge, TypeBadge, Tag, AICard, stripMd, timeAgo } from "./index";
 import UploadZone from "./UploadZone";
 import { getUploads } from "../api";
 import { detectType, PTYPES, multiCohortInfo } from "../data/funderStrategy";
 import { DOCS, DOC_MAP, ORG_DOCS } from "../data/constants";
 
-// Helper: format a timestamp for display
-const timeAgo = (iso) => {
-  if (!iso) return null;
-  const d = new Date(iso);
-  const now = new Date();
-  const mins = Math.floor((now - d) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
-  return d.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
-};
 const fmtTs = (iso) => iso ? new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
 
 // Extract ask recommendation from draft text
@@ -43,6 +29,45 @@ const extractAskFromDraft = (draftText) => {
   const mcCount = mcMatch ? parseInt(mcMatch[1]) : 1;
   return { ask: detectedPt.cost * mcCount, typeNum: detectedNum, mcCount };
 };
+
+/* ── Local presentational components (mirrors Dashboard patterns) ── */
+const Card = ({ children, accent, pad = "20px 24px", style: sx, className }) => (
+  <div className={className} style={{
+    padding: pad, background: C.white, borderRadius: 14,
+    boxShadow: C.cardShadow,
+    borderTop: accent ? `3px solid ${accent}` : undefined,
+    border: accent ? undefined : `1px solid ${C.line}`,
+    ...sx,
+  }}>{children}</div>
+);
+
+const Hd = ({ children, right, mb = 16 }) => (
+  <div style={{
+    display: "flex", alignItems: "baseline", justifyContent: "space-between",
+    marginBottom: mb, marginTop: 28,
+  }}>
+    <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.4, textTransform: "uppercase" }}>{children}</div>
+    {right}
+  </div>
+);
+
+const Field = ({ label, children }) => (
+  <div>
+    <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
+    {children}
+  </div>
+);
+
+const ActivityRow = ({ date, text, isLast }) => (
+  <div className="ge-hover-slide" style={{
+    display: "flex", gap: 10, padding: "11px 18px",
+    borderBottom: isLast ? "none" : `1px solid ${C.line}`,
+    alignItems: "center", background: "transparent",
+  }}>
+    <span style={{ fontSize: 11, color: C.t4, fontFamily: MONO, minWidth: 80 }}>{date}</span>
+    <span style={{ fontSize: 13, color: C.t1 }}>{text}</span>
+  </div>
+);
 
 export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], onUpdate, onDelete, onBack, onRunAI, onUploadsChanged }) {
   const [tab, setTab] = useState("overview");
@@ -137,7 +162,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   ];
 
   return (
-    <div style={{ padding: "28px 36px", maxWidth: 920 }}>
+    <div style={{ padding: "32px 36px", maxWidth: 920 }}>
       {/* Breadcrumb trail */}
       <div style={{
         display: "flex", alignItems: "center", gap: 6, marginBottom: 20,
@@ -161,38 +186,40 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         <span style={{ color: C.dark, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 400 }}>{g.name}</span>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, gap: 16 }}>
-        <div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: C.dark, marginBottom: 4, letterSpacing: -0.5, lineHeight: 1.2 }}>{g.name}</div>
-          <div style={{ fontSize: 15, color: C.t2, fontWeight: 500, marginBottom: 8 }}>{g.funder}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <TypeBadge type={g.type} />
-            <DeadlineBadge d={d} deadline={g.deadline} size="md" stage={g.stage} />
-            {g.rel && g.rel !== "Cold" && (
-              <span style={{ fontSize: 11, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "3px 10px", borderRadius: 20 }}>{g.rel}</span>
+      <Card accent={stg?.c || C.t4} style={{ marginBottom: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: C.dark, marginBottom: 4, letterSpacing: -0.5, lineHeight: 1.2 }}>{g.name}</div>
+            <div style={{ fontSize: 14, color: C.t2, fontWeight: 500, marginBottom: 8 }}>{g.funder}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <TypeBadge type={g.type} />
+              <DeadlineBadge d={d} deadline={g.deadline} size="md" stage={g.stage} />
+              {g.rel && g.rel !== "Cold" && (
+                <span style={{ fontSize: 11, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "3px 10px", borderRadius: 20 }}>{g.rel}</span>
+              )}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            {g.applyUrl && (
+              <a href={g.applyUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                <Btn v="ghost" style={{ fontSize: 12 }}>{"\u2197"} Apply</Btn>
+              </a>
             )}
+            <Btn v="danger" onClick={() => setConfirmDel(true)} style={{ fontSize: 12 }}>Delete</Btn>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {g.applyUrl && (
-            <a href={g.applyUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-              <Btn v="ghost" style={{ fontSize: 12 }}>{"\u2197"} Apply</Btn>
-            </a>
-          )}
-          <Btn v="danger" onClick={() => setConfirmDel(true)} style={{ fontSize: 12 }}>Delete</Btn>
-        </div>
-      </div>
+      </Card>
 
       {/* Confirm delete */}
       {confirmDel && (
-        <div style={{ padding: 16, background: C.redSoft, borderRadius: 14, border: `1px solid ${C.red}20`, marginBottom: 20, display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 13, color: C.red, fontWeight: 500 }}>Delete this grant permanently?</span>
+        <Card accent={C.red} style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 13, color: C.red, fontWeight: 500, flex: 1 }}>Delete this grant permanently?</span>
           <Btn v="danger" onClick={() => { onDelete(g.id); onBack(); }} style={{ fontSize: 12 }}>Yes, Delete</Btn>
           <Btn v="ghost" onClick={() => setConfirmDel(false)} style={{ fontSize: 12 }}>Cancel</Btn>
-        </div>
+        </Card>
       )}
 
-      {/* Key fields — Ask card reflects the intelligence journey */}
+      {/* Key fields — Ask prominent, controls grouped */}
       {(() => {
         const askIsSet = g.ask > 0;
         const hasFunderBudget = g.funderBudget && g.funderBudget > 0;
@@ -206,116 +233,119 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         const sourceLabel = isAIDerived ? "AI-recommended" : isManual ? "Manual" : isLegacy ? "Legacy" : null;
         const sourceColor = isAIDerived ? C.ok : isManual ? C.purple : C.t4;
         return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 24 }}>
-        <div style={{
-          padding: "16px 20px",
-          background: askIsSet
-            ? `linear-gradient(135deg, ${C.primarySoft} 0%, ${C.white} 100%)`
-            : `linear-gradient(135deg, ${C.warm200} 0%, ${C.white} 100%)`,
-          borderRadius: 14, boxShadow: C.cardShadow,
-          border: `1.5px solid ${askIsSet ? C.primary + "25" : C.line}`,
-        }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-            Ask
-            {sourceLabel && <span style={{ fontSize: 9, fontWeight: 600, color: sourceColor, background: sourceColor + "15", padding: "1px 6px", borderRadius: 4, letterSpacing: 0, textTransform: "none" }}>{sourceLabel}</span>}
-          </div>
-          {editingAsk ? (() => {
-            const parseAsk = (raw) => parseInt(String(raw).replace(/[,\s]/g, "")) || 0;
-            const commitAsk = () => {
-              const v = parseAsk(askInput);
-              if (v >= 1000) { up("ask", v); up("askSource", "user-override"); setEditingAsk(false); }
-            };
-            const parsed = parseAsk(askInput);
-            const isValid = parsed >= 1000;
-            return (
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: C.t3 }}>R</span>
-                <input type="text" autoFocus value={askInput}
-                  onChange={e => setAskInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") commitAsk(); if (e.key === "Escape") setEditingAsk(false); }}
-                  placeholder="e.g. 1,200,000"
-                  style={{ width: 140, fontSize: 18, fontWeight: 700, fontFamily: MONO, border: `1.5px solid ${isValid || !askInput ? C.primary + "40" : C.red + "60"}`, borderRadius: 8, padding: "4px 8px", outline: "none", background: C.white }}
-                />
-                <Btn v="primary" style={{ fontSize: 10, padding: "4px 10px", opacity: isValid ? 1 : 0.5 }} onClick={commitAsk} disabled={!isValid}>Set</Btn>
-                <button onClick={() => setEditingAsk(false)} style={{ fontSize: 11, color: C.t4, background: "none", border: "none", cursor: "pointer" }}>✕</button>
-              </div>
-              {askInput && !isValid && <div style={{ fontSize: 10, color: C.red, marginTop: 4 }}>Min R1,000</div>}
-              {isValid && <div style={{ fontSize: 10, color: C.ok, marginTop: 4 }}>= R{parsed.toLocaleString()}</div>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
+        {/* Row 1: ASK as standalone card */}
+        <div style={{ display: "flex", gap: 14, alignItems: "stretch" }}>
+          <Card accent={C.primary} style={{ flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+              <Field label="Ask">
+                <span />
+              </Field>
+              {sourceLabel && <span style={{ fontSize: 9, fontWeight: 600, color: sourceColor, background: sourceColor + "15", padding: "1px 6px", borderRadius: 4 }}>{sourceLabel}</span>}
             </div>
-            );
-          })() : askIsSet ? (
-            <>
-              <div style={{ fontSize: 28, fontWeight: 800, fontFamily: MONO, color: C.primary }}>{fmtK(g.ask)}</div>
-              {ptNum && (
-                <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: C.white, background: C.ok, padding: "1px 6px", borderRadius: 4 }}>T{isMC ? (mc.typeNum || 1) : ptNum}</span>
-                  <span style={{ fontSize: 10, color: C.t4 }}>{isMC ? `${mc.count}× cohorts` : pt.label?.split("—")[0]?.trim()}</span>
+            {editingAsk ? (() => {
+              const parseAsk = (raw) => parseInt(String(raw).replace(/[,\s]/g, "")) || 0;
+              const commitAsk = () => {
+                const v = parseAsk(askInput);
+                if (v >= 1000) { up("ask", v); up("askSource", "user-override"); setEditingAsk(false); }
+              };
+              const parsed = parseAsk(askInput);
+              const isValid = parsed >= 1000;
+              return (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: C.t3 }}>R</span>
+                  <input type="text" autoFocus value={askInput}
+                    onChange={e => setAskInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") commitAsk(); if (e.key === "Escape") setEditingAsk(false); }}
+                    placeholder="e.g. 1,200,000"
+                    style={{ width: 140, fontSize: 18, fontWeight: 700, fontFamily: MONO, border: `1.5px solid ${isValid || !askInput ? C.primary + "40" : C.red + "60"}`, borderRadius: 8, padding: "4px 8px", outline: "none", background: C.white }}
+                  />
+                  <Btn v="primary" style={{ fontSize: 10, padding: "4px 10px", opacity: isValid ? 1 : 0.5 }} onClick={commitAsk} disabled={!isValid}>Set</Btn>
+                  <button onClick={() => setEditingAsk(false)} style={{ fontSize: 11, color: C.t4, background: "none", border: "none", cursor: "pointer" }}>✕</button>
                 </div>
-              )}
-              {hasFunderBudget && g.funderBudget !== g.ask && (
-                <div style={{ fontSize: 10, color: C.t4, marginTop: 4 }}>Funder budget: R{g.funderBudget.toLocaleString()}</div>
-              )}
-              <button onClick={() => { setAskInput(String(g.ask)); setEditingAsk(true); }}
-                style={{ marginTop: 6, fontSize: 10, fontWeight: 600, color: C.purple, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, padding: 0 }}>
-                Override
-              </button>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: 24, fontWeight: 800, fontFamily: MONO, color: C.t4 }}>TBD</div>
-              {hasFunderBudget && (
-                <div style={{ fontSize: 11, color: C.t3, marginTop: 4 }}>Funder offers ~R{g.funderBudget.toLocaleString()}</div>
-              )}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-                <span style={{ fontSize: 10, color: C.purple }}>Run proposal to set →</span>
-                <button onClick={() => { setAskInput(""); setEditingAsk(true); }}
-                  style={{ fontSize: 10, fontWeight: 600, color: C.t3, background: "none", border: `1px solid ${C.line}`, borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontFamily: FONT }}>
-                  Set manually
-                </button>
+                {askInput && !isValid && <div style={{ fontSize: 10, color: C.red, marginTop: 4 }}>Min R1,000</div>}
+                {isValid && <div style={{ fontSize: 10, color: C.ok, marginTop: 4 }}>= R{parsed.toLocaleString()}</div>}
               </div>
-            </>
-          )}
+              );
+            })() : askIsSet ? (
+              <>
+                <div style={{ fontSize: 28, fontWeight: 800, fontFamily: MONO, color: C.primary }}>{fmtK(g.ask)}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                  {ptNum && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: C.white, background: C.ok, padding: "1px 6px", borderRadius: 4 }}>T{isMC ? (mc.typeNum || 1) : ptNum}</span>
+                      <span style={{ fontSize: 10, color: C.t4 }}>{isMC ? `${mc.count}× cohorts` : pt.label?.split("—")[0]?.trim()}</span>
+                    </div>
+                  )}
+                  {hasFunderBudget && g.funderBudget !== g.ask && (
+                    <span style={{ fontSize: 10, color: C.t4 }}>Funder budget: R{g.funderBudget.toLocaleString()}</span>
+                  )}
+                  <button onClick={() => { setAskInput(String(g.ask)); setEditingAsk(true); }}
+                    style={{ fontSize: 10, fontWeight: 600, color: C.purple, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, padding: 0 }}>
+                    Override
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 24, fontWeight: 800, fontFamily: MONO, color: C.t4 }}>TBD</div>
+                {hasFunderBudget && (
+                  <div style={{ fontSize: 11, color: C.t3, marginTop: 4 }}>Funder offers ~R{g.funderBudget.toLocaleString()}</div>
+                )}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                  <span style={{ fontSize: 10, color: C.purple }}>Run proposal to set</span>
+                  <button onClick={() => { setAskInput(""); setEditingAsk(true); }}
+                    style={{ fontSize: 10, fontWeight: 600, color: C.t3, background: "none", border: `1px solid ${C.line}`, borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontFamily: FONT }}>
+                    Set manually
+                  </button>
+                </div>
+              </>
+            )}
+          </Card>
         </div>
-        <div style={{ padding: "14px 18px", background: C.white, borderRadius: 14, boxShadow: C.cardShadow }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Stage</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: stg?.c || C.t4 }} />
-            <select value={g.stage} onChange={e => up("stage", e.target.value)}
-              style={{ fontSize: 14, fontWeight: 600, color: stg?.c || C.dark, border: "none", background: "transparent", fontFamily: FONT, cursor: "pointer", flex: 1 }}>
-              {(stages || []).map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
+
+        {/* Row 2: Stage / Owner / Priority grouped */}
+        <Card pad="16px 20px">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
+            <Field label="Stage">
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: stg?.c || C.t4, flexShrink: 0 }} />
+                <select value={g.stage} onChange={e => up("stage", e.target.value)}
+                  style={{ fontSize: 14, fontWeight: 600, color: stg?.c || C.dark, border: "none", background: "transparent", fontFamily: FONT, cursor: "pointer", flex: 1 }}>
+                  {(stages || []).map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                </select>
+              </div>
+            </Field>
+            <Field label="Owner">
+              <select value={g.owner} onChange={e => up("owner", e.target.value)}
+                style={{ fontSize: 14, fontWeight: 600, color: C.dark, border: "none", background: "transparent", fontFamily: FONT, cursor: "pointer", width: "100%" }}>
+                {team.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Priority">
+              <select value={g.pri} onChange={e => up("pri", parseInt(e.target.value))}
+                style={{ fontSize: 14, fontWeight: 600, color: C.dark, border: "none", background: "transparent", fontFamily: FONT, cursor: "pointer", width: "100%" }}>
+                {[5, 4, 3, 2, 1].map(p => <option key={p} value={p}>{p} {p === 5 ? "(Highest)" : p === 1 ? "(Lowest)" : ""}</option>)}
+              </select>
+            </Field>
           </div>
-        </div>
-        <div style={{ padding: "14px 18px", background: C.white, borderRadius: 14, boxShadow: C.cardShadow }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Owner</div>
-          <select value={g.owner} onChange={e => up("owner", e.target.value)}
-            style={{ fontSize: 14, fontWeight: 600, color: C.dark, border: "none", background: "transparent", fontFamily: FONT, cursor: "pointer", width: "100%" }}>
-            {team.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        </div>
-        <div style={{ padding: "14px 18px", background: C.white, borderRadius: 14, boxShadow: C.cardShadow }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Priority</div>
-          <select value={g.pri} onChange={e => up("pri", parseInt(e.target.value))}
-            style={{ fontSize: 14, fontWeight: 600, color: C.dark, border: "none", background: "transparent", fontFamily: FONT, cursor: "pointer", width: "100%" }}>
-            {[5, 4, 3, 2, 1].map(p => <option key={p} value={p}>{p} {p === 5 ? "(Highest)" : p === 1 ? "(Lowest)" : ""}</option>)}
-          </select>
-        </div>
+        </Card>
       </div>
         );
       })()}
 
-      {/* Tabs — primary bottom border + subtle bg tint */}
-      <div style={{ display: "flex", gap: 0, borderBottom: `2px solid ${C.line}`, marginBottom: 24 }}>
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${C.line}`, marginBottom: 24 }}>
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             style={{
-              padding: "12px 22px", fontSize: 14, fontWeight: 600, cursor: "pointer",
-              background: tab === t.id ? C.primarySoft + "60" : "none", border: "none", fontFamily: FONT,
+              padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+              background: "none", border: "none", fontFamily: FONT,
               color: tab === t.id ? C.primary : C.t3,
-              borderBottom: tab === t.id ? `4px solid ${C.primary}` : "4px solid transparent",
-              marginBottom: -2, borderRadius: "8px 8px 0 0",
-              transition: "color 0.15s ease, background 0.15s ease",
+              borderBottom: tab === t.id ? `2px solid ${C.primary}` : "2px solid transparent",
+              marginBottom: -1,
+              transition: "color 0.15s ease",
             }}>{t.label}</button>
         ))}
       </div>
@@ -323,61 +353,57 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       {/* Overview */}
       {tab === "overview" && (
         <div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 24 }}>
-            <div>
-              <Label>Details</Label>
-              <div style={{ background: C.white, borderRadius: 16, padding: 20, boxShadow: C.cardShadow }}>
-                <div style={{ marginBottom: 12 }}>
-                  <span style={{ fontSize: 11, color: C.t4, fontWeight: 600 }}>Funder Type</span>
-                  <div style={{ marginTop: 4 }}><TypeBadge type={g.type} /></div>
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <span style={{ fontSize: 11, color: C.t4, fontWeight: 600 }}>Relationship</span>
-                  <div style={{ fontSize: 13, color: C.dark, marginTop: 2, fontWeight: 500 }}>{g.rel}</div>
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <span style={{ fontSize: 11, color: C.t4, fontWeight: 600 }}>Hours Invested</span>
-                  <div style={{ fontSize: 13, color: C.dark, marginTop: 2, fontWeight: 500 }}>{g.hrs || 0}h</div>
-                </div>
-                <div>
-                  <span style={{ fontSize: 11, color: C.t4, fontWeight: 600 }}>Deadline</span>
-                  <div style={{ marginTop: 4 }}>
-                    <input type="date" value={g.deadline || ""} onChange={e => up("deadline", e.target.value || null)}
-                      style={{ fontSize: 13, border: `1.5px solid ${C.line}`, borderRadius: 8, padding: "6px 10px", fontFamily: FONT }} />
-                  </div>
-                </div>
-              </div>
+          <Hd mb={12}>Grant Profile</Hd>
+          <Card>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 20 }}>
+              <Field label="Funder Type">
+                <div style={{ marginTop: 4 }}><TypeBadge type={g.type} /></div>
+              </Field>
+              <Field label="Relationship">
+                <div style={{ fontSize: 13, color: C.dark, fontWeight: 500 }}>{g.rel || "—"}</div>
+              </Field>
+              <Field label="Hours Invested">
+                <div style={{ fontSize: 13, color: C.dark, fontWeight: 500 }}>{g.hrs || 0}h</div>
+              </Field>
+              <Field label="Deadline">
+                <input type="date" value={g.deadline || ""} onChange={e => up("deadline", e.target.value || null)}
+                  style={{ fontSize: 13, border: `1.5px solid ${C.line}`, borderRadius: 8, padding: "5px 10px", fontFamily: FONT, marginTop: 2 }} />
+              </Field>
             </div>
-            <div>
-              <Label>Focus Areas</Label>
-              <div style={{ background: C.white, borderRadius: 16, padding: 20, boxShadow: C.cardShadow }}>
+          </Card>
+
+          <Hd mb={12}>Focus & Geography</Hd>
+          <Card>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: C.t4, marginBottom: 8 }}>Focus Areas</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                   {(g.focus || []).map(f => <Tag key={f} text={f} />)}
                   {(!g.focus || !g.focus.length) && <span style={{ fontSize: 12, color: C.t4 }}>No focus areas set</span>}
                 </div>
-                <div style={{ marginTop: 14 }}>
-                  <span style={{ fontSize: 11, color: C.t4, fontWeight: 600 }}>Geography</span>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
-                    {(g.geo || []).map(p => <Tag key={p} text={p} color={C.blue} />)}
-                    {(!g.geo || !g.geo.length) && <span style={{ fontSize: 12, color: C.t4 }}>No geography set</span>}
-                  </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: C.t4, marginBottom: 8 }}>Geography</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {(g.geo || []).map(p => <Tag key={p} text={p} color={C.blue} />)}
+                  {(!g.geo || !g.geo.length) && <span style={{ fontSize: 12, color: C.t4 }}>No geography set</span>}
                 </div>
               </div>
             </div>
-          </div>
-          {/* Notes */}
-          <Label>Notes</Label>
-          <textarea value={g.notes || ""} onChange={e => up("notes", e.target.value)}
-            placeholder="Add notes about this grant..."
-            style={{
-              width: "100%", minHeight: 140, padding: 18, fontSize: 14, lineHeight: 1.7,
-              border: `1.5px solid ${C.line}`, borderRadius: 14, fontFamily: FONT,
-              resize: "vertical", outline: "none", boxSizing: "border-box",
-              background: C.white, transition: "border-color 0.15s ease",
-            }}
-            onFocus={e => e.target.style.borderColor = C.primary}
-            onBlur={e => e.target.style.borderColor = C.line}
-          />
+          </Card>
+
+          <Hd mb={12}>Notes</Hd>
+          <Card pad="0">
+            <textarea value={g.notes || ""} onChange={e => up("notes", e.target.value)}
+              placeholder="Add notes about this grant..."
+              style={{
+                width: "100%", minHeight: 140, padding: 18, fontSize: 14, lineHeight: 1.7,
+                border: "none", borderRadius: 14, fontFamily: FONT,
+                resize: "vertical", outline: "none", boxSizing: "border-box",
+                background: "transparent",
+              }}
+            />
+          </Card>
         </div>
       )}
 
@@ -386,13 +412,12 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         const required = DOCS[g.type];
         if (!required) {
           return (
-            <div style={{ background: C.white, borderRadius: 16, padding: 32, boxShadow: C.cardShadow, textAlign: "center" }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+            <Card style={{ textAlign: "center", padding: 32 }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: C.dark, marginBottom: 4 }}>Set a Funder Type</div>
               <div style={{ fontSize: 13, color: C.t3, lineHeight: 1.6 }}>
                 Select a funder type on the Overview tab to see which documents are required for this application.
               </div>
-            </div>
+            </Card>
           );
         }
 
@@ -425,44 +450,43 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
 
         return (
           <div>
-            {/* Summary */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>
-                Required for {g.type}
+            {/* Summary + progress */}
+            <Card style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: docReadiness ? 12 : 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>
+                  Required for {g.type}
+                </div>
+                {docReadiness && (
+                  <span style={{
+                    fontSize: 12, fontWeight: 700,
+                    color: docReadiness.ready === docReadiness.total ? C.ok : C.t2,
+                  }}>
+                    {docReadiness.ready}/{docReadiness.total} ready
+                  </span>
+                )}
               </div>
               {docReadiness && (
-                <span style={{
-                  fontSize: 12, fontWeight: 700,
-                  color: docReadiness.ready === docReadiness.total ? C.ok : C.t2,
-                }}>
-                  {docReadiness.ready}/{docReadiness.total} ready
-                </span>
+                <div style={{ height: 4, background: C.line, borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%",
+                    width: `${(docReadiness.ready / docReadiness.total) * 100}%`,
+                    background: docReadiness.ready === docReadiness.total ? C.ok : C.primary,
+                    borderRadius: 2,
+                    transition: "width 0.3s ease",
+                  }} />
+                </div>
               )}
-            </div>
-
-            {/* Progress bar */}
-            {docReadiness && (
-              <div style={{ height: 4, background: C.line, borderRadius: 2, marginBottom: 20, overflow: "hidden" }}>
-                <div style={{
-                  height: "100%",
-                  width: `${(docReadiness.ready / docReadiness.total) * 100}%`,
-                  background: docReadiness.ready === docReadiness.total ? C.ok : C.primary,
-                  borderRadius: 2,
-                  transition: "width 0.3s ease",
-                }} />
-              </div>
-            )}
+            </Card>
 
             {/* Org-level documents */}
             {orgDocs.length > 0 && (
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, paddingLeft: 4 }}>
-                  Organisation Documents
-                </div>
-                <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden" }}>
+                <Hd mb={10}>Organisation Documents</Hd>
+                <Card pad="0" style={{ overflow: "hidden" }}>
                   {orgDocs.map((doc, i) => (
                     <div
                       key={doc.orgDocId}
+                      className="ge-hover-slide"
                       style={{
                         display: "flex", alignItems: "center", gap: 10,
                         padding: "10px 14px",
@@ -487,16 +511,11 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                       <span style={{ fontSize: 11, fontWeight: 600, color: doc.statusColor, whiteSpace: "nowrap" }}>
                         {doc.statusLabel}
                       </span>
-                      {doc.cd?.file_name && (
-                        <span style={{ fontSize: 10, color: C.t4, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          📄 {doc.cd.file_name}
-                        </span>
-                      )}
                     </div>
                   ))}
-                </div>
+                </Card>
                 <div style={{ fontSize: 11, color: C.t4, marginTop: 8, paddingLeft: 4 }}>
-                  Manage these documents in <span style={{ fontWeight: 600, color: C.primary, cursor: "default" }}>Settings → Compliance Documents</span>
+                  Manage these documents in <span style={{ fontWeight: 600, color: C.primary, cursor: "default" }}>Settings</span>
                 </div>
               </div>
             )}
@@ -504,13 +523,12 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             {/* Grant-specific documents */}
             {grantDocs.length > 0 && (
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, paddingLeft: 4 }}>
-                  Grant-Specific Documents
-                </div>
-                <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden" }}>
+                <Hd mb={10}>Grant-Specific Documents</Hd>
+                <Card pad="0" style={{ overflow: "hidden" }}>
                   {grantDocs.map((docName, i) => (
                     <div
                       key={docName}
+                      className="ge-hover-slide"
                       style={{
                         display: "flex", alignItems: "center", gap: 10,
                         padding: "10px 14px",
@@ -529,9 +547,9 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                       <span style={{ fontSize: 11, color: C.t4 }}>Prepare for submission</span>
                     </div>
                   ))}
-                </div>
+                </Card>
                 <div style={{ fontSize: 11, color: C.t4, marginTop: 8, paddingLeft: 4 }}>
-                  Upload these in the <span style={{ fontWeight: 600, color: C.primary, cursor: "default" }}>Attachments</span> tab for this grant.
+                  Upload these in the <span style={{ fontWeight: 600, color: C.primary, cursor: "default" }}>Attachments</span> tab.
                 </div>
               </div>
             )}
@@ -542,17 +560,14 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       {/* Activity */}
       {tab === "activity" && (
         <div>
-          <div style={{ background: C.white, borderRadius: 16, overflow: "hidden", boxShadow: C.cardShadow }}>
-            {(g.log || []).slice().reverse().map((entry, i) => (
-              <div key={i} style={{ display: "flex", gap: 10, padding: "12px 18px", borderBottom: `1px solid ${C.line}`, alignItems: "center", background: i % 2 === 1 ? C.warm100 : "transparent" }}>
-                <span style={{ fontSize: 11, color: C.t4, fontFamily: MONO, minWidth: 80 }}>{entry.d}</span>
-                <span style={{ fontSize: 13, color: C.t1 }}>{entry.t}</span>
-              </div>
+          <Card pad="0" style={{ overflow: "hidden" }}>
+            {(g.log || []).slice().reverse().map((entry, i, arr) => (
+              <ActivityRow key={i} date={entry.d} text={entry.t} isLast={i === arr.length - 1} />
             ))}
             {(!g.log || !g.log.length) && (
               <div style={{ padding: 24, textAlign: "center", color: C.t4, fontSize: 13 }}>No activity yet</div>
             )}
-          </div>
+          </Card>
         </div>
       )}
 
@@ -755,7 +770,6 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 title="Funder Research"
                 desc="Search the web for this funder's priorities, recent grants, and what they look for in applications"
                 step="1"
-                icon={"\uD83D\uDD0D"}
                 busy={busy.research}
                 result={ai.research}
                 generatedAt={g.aiResearchAt}
@@ -837,7 +851,6 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                   ? "Generate a proposal informed by your fit score — run Research first for deeper funder intelligence"
                   : "Generate a cover email and proposal — run Fit Score + Research first for the best result"}
                 step="2"
-                icon={"\uD83D\uDCDD"}
                 busy={busy.draft}
                 result={ai.draft}
                 generatedAt={g.aiDraftAt}
@@ -938,7 +951,6 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                   ? `Draft a follow-up for this ${g.stage} grant \u2014 tailored to ${g.funder}`
                   : "Draft a follow-up email appropriate to the grant stage and funder"}
                 step="3"
-                icon={"\u2709"}
                 busy={busy.followup}
                 result={ai.followup}
                 generatedAt={g.aiFollowupAt}
@@ -977,7 +989,6 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                       ? "Understand what worked and how to leverage this win for future applications"
                       : "Analyse why this didn't succeed and identify lessons for next time"}
                     step={g.stage === "won" ? "\u2713" : "!"}
-                    icon={g.stage === "won" ? "\uD83C\uDFC6" : "\uD83D\uDCA1"}
                     busy={busy.winloss}
                     result={ai.winloss}
                     generatedAt={g.aiWinlossAt}

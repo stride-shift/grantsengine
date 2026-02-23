@@ -35,6 +35,7 @@ const DEFAULT_STAGES = [
 ];
 
 const DEFAULT_FTYPES = ["Corporate CSI", "Government/SETA", "International", "Foundation", "Tech Company"];
+const EMPTY_GRANT = Object.freeze({ name: "", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "" });
 
 const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "\u25a6" },
@@ -221,8 +222,7 @@ function AppInner() {
     setNeedsPassword(false);
   };
 
-  const handleLogout = async () => {
-    await logout();
+  const resetSession = () => {
     setAuthed(false);
     setCurrentMember(null);
     setOrg(null);
@@ -236,19 +236,13 @@ function AppInner() {
     window.history.pushState({}, "", "/");
   };
 
+  const handleLogout = async () => {
+    await logout();
+    resetSession();
+  };
+
   const handleSwitchOrg = () => {
-    // Switch org without destroying the server session
-    setAuthed(false);
-    setCurrentMember(null);
-    setOrg(null);
-    setGrants([]);
-    setTeam([{ id: "team", name: "Unassigned", initials: "\u2014", role: "none" }]);
-    setView("dashboard");
-    setSel(null);
-    setSelectingOrg(true);
-    setLoggingIn(false);
-    uploadsCache.current = {};
-    window.history.pushState({}, "", "/");
+    resetSession();
   };
 
   // ── Grant mutations ──
@@ -618,10 +612,17 @@ SCORING GUIDE:
       );
     }
     if (type === "brief") {
-      const overdue = grants.filter(g => { const dd = dL(g.deadline); return dd !== null && dd < 0 && !["won","lost","deferred"].includes(g.stage); });
-      const urgent = grants.filter(g => { const dd = dL(g.deadline); return dd !== null && dd >= 0 && dd <= 14 && !["won","lost","deferred"].includes(g.stage); });
-      const drafting = grants.filter(g => g.stage === "drafting");
-      const submitted = grants.filter(g => ["submitted", "awaiting"].includes(g.stage));
+      // Single pass to categorise grants for brief
+      const overdue = [], urgent = [], drafting = [], submitted = [];
+      for (const g of grants) {
+        if (g.stage === "drafting") drafting.push(g);
+        if (g.stage === "submitted" || g.stage === "awaiting") submitted.push(g);
+        if (["won","lost","deferred"].includes(g.stage)) continue;
+        const dd = dL(g.deadline);
+        if (dd === null) continue;
+        if (dd < 0) overdue.push(g);
+        else if (dd <= 14) urgent.push(g);
+      }
       return await api(
         `You are d-lab's grant operations manager. Produce a daily action list — the 5-8 things that will move the pipeline forward TODAY.
 
@@ -708,58 +709,74 @@ One page max. Every sentence earns its place. No hollow phrases. Use the SYSTEM 
         `Organisation:\n${orgCtx}\n\nQ${Math.ceil((new Date().getMonth() + 1) / 3)} ${new Date().getFullYear()} quarterly report.
 Pipeline: ${act.length} active grants (R${totalAsk.toLocaleString()}), ${won.length} won (R${wonVal.toLocaleString()}), ${lost.length} lost.
 By stage: ${byStage}.
-Top grants: ${act.sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).map(g => `${g.name} (R${effectiveAsk(g).toLocaleString()}, ${g.stage})`).join("; ")}`,
+Top grants: ${[...act].sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).map(g => `${g.name} (R${effectiveAsk(g).toLocaleString()}, ${g.stage})`).join("; ")}`,
         false, 2000
       );
     }
-    if (type === "insights") {
-      const act = grants.filter(g => !["won", "lost", "deferred"].includes(g.stage));
-      const won = grants.filter(g => g.stage === "won");
-      const lost = grants.filter(g => g.stage === "lost");
-      const totalAsk = act.reduce((s, g) => s + effectiveAsk(g), 0);
-      const wonVal = won.reduce((s, g) => s + effectiveAsk(g), 0);
+    if (type === "insights" || type === "strategy") {
+      // Shared single-pass categorisation for insights & strategy
+      const act = [], won = [], lost = [];
+      const funderTypeMap = {}, relMap = {}, focusMap = {}, ownerMap = {};
+      const stageCounts = {};
+      let totalAsk = 0, wonVal = 0, withAI = 0;
+      let deadlinePressure = 0, overdueCount = 0, noDeadline = 0;
+
+      // Build team lookup once
+      const teamById = new Map();
+      if (team) for (const t of team) teamById.set(t.id, t);
+
+      for (const g of grants) {
+        const ask = effectiveAsk(g);
+        const isWon = g.stage === "won";
+        const isLost = g.stage === "lost";
+        const isActive = !["won", "lost", "deferred"].includes(g.stage);
+
+        if (isWon) { won.push(g); wonVal += ask; }
+        else if (isLost) { lost.push(g); }
+        else if (isActive) {
+          act.push(g); totalAsk += ask;
+          // Deadline stats
+          if (!g.deadline) noDeadline++;
+          else {
+            const dd = dL(g.deadline);
+            if (dd !== null && dd < 0) overdueCount++;
+            else if (dd !== null && dd >= 0 && dd <= 14) deadlinePressure++;
+          }
+          // Owner workload
+          const oid = g.owner || "team";
+          const m = teamById.get(oid);
+          const name = m ? m.name : (oid === "team" ? "Unassigned" : oid);
+          ownerMap[name] = (ownerMap[name] || 0) + 1;
+        }
+
+        // Stage counts
+        stageCounts[g.stage] = (stageCounts[g.stage] || 0) + 1;
+
+        // Funder types
+        const ft = g.type || "Unknown";
+        if (!funderTypeMap[ft]) funderTypeMap[ft] = { total: 0, won: 0, lost: 0, ask: 0 };
+        funderTypeMap[ft].total++; funderTypeMap[ft].ask += ask;
+        if (isWon) funderTypeMap[ft].won++; if (isLost) funderTypeMap[ft].lost++;
+
+        // Relationships
+        const rel = g.rel || "Unknown";
+        if (!relMap[rel]) relMap[rel] = { total: 0, won: 0, lost: 0 };
+        relMap[rel].total++;
+        if (isWon) relMap[rel].won++; if (isLost) relMap[rel].lost++;
+
+        // Focus tags
+        for (const tag of (g.focus || [])) focusMap[tag] = (focusMap[tag] || 0) + 1;
+
+        // AI coverage
+        if (g.aiDraft || g.aiResearch || g.aiFitscore) withAI++;
+      }
+
       const closed = won.length + lost.length;
 
-      // Build data snapshot for the AI
+    if (type === "insights") {
       const byStage = stages.filter(s => !["won", "lost", "deferred"].includes(s.id))
-        .map(s => ({ stage: s.label, count: grants.filter(g => g.stage === s.id).length }))
+        .map(s => ({ stage: s.label, count: stageCounts[s.id] || 0 }))
         .filter(s => s.count > 0);
-
-      const funderTypeMap = {};
-      for (const g of grants) {
-        const t = g.type || "Unknown";
-        if (!funderTypeMap[t]) funderTypeMap[t] = { total: 0, won: 0, lost: 0, ask: 0 };
-        funderTypeMap[t].total++;
-        funderTypeMap[t].ask += effectiveAsk(g);
-        if (g.stage === "won") funderTypeMap[t].won++;
-        if (g.stage === "lost") funderTypeMap[t].lost++;
-      }
-
-      const relMap = {};
-      for (const g of grants) {
-        const r = g.rel || "Unknown";
-        if (!relMap[r]) relMap[r] = { total: 0, won: 0, lost: 0 };
-        relMap[r].total++;
-        if (g.stage === "won") relMap[r].won++;
-        if (g.stage === "lost") relMap[r].lost++;
-      }
-
-      const deadlinePressure = act.filter(g => { const d = dL(g.deadline); return d !== null && d >= 0 && d <= 14; }).length;
-      const overdue = act.filter(g => { const d = dL(g.deadline); return d !== null && d < 0; }).length;
-      const noDeadline = act.filter(g => !g.deadline).length;
-
-      const focusMap = {};
-      for (const g of grants) for (const tag of (g.focus || [])) focusMap[tag] = (focusMap[tag] || 0) + 1;
-
-      const ownerMap = {};
-      for (const g of act) {
-        const owner = g.owner || "team";
-        const member = team?.find(t => t.id === owner);
-        const name = member ? member.name : (owner === "team" ? "Unassigned" : owner);
-        ownerMap[name] = (ownerMap[name] || 0) + 1;
-      }
-
-      const withAI = grants.filter(g => g.aiDraft || g.aiResearch || g.aiFitscore).length;
 
       return await api(
         `You are a sharp-eyed pipeline analyst for d-lab NPC, a South African youth skills NPO. You find the things that busy grant managers miss — the hidden risks, the unexploited patterns, the signals in the noise.
@@ -795,7 +812,7 @@ FUNDER TYPES: ${Object.entries(funderTypeMap).map(([t, v]) => `${t}: ${v.total} 
 
 RELATIONSHIPS: ${Object.entries(relMap).map(([r, v]) => `${r}: ${v.total} (${v.won}W/${v.lost}L)`).join("; ")}
 
-DEADLINE PRESSURE: ${deadlinePressure} due within 14 days, ${overdue} overdue, ${noDeadline} without deadlines
+DEADLINE PRESSURE: ${deadlinePressure} due within 14 days, ${overdueCount} overdue, ${noDeadline} without deadlines
 
 FOCUS AREAS: ${Object.entries(focusMap).sort(([, a], [, b]) => b - a).map(([tag, n]) => `${tag} (${n})`).join(", ")}
 
@@ -806,15 +823,9 @@ AI COVERAGE: ${withAI}/${grants.length} grants have some AI-generated content ($
 TOP 5 BY ASK: ${[...act].sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0, 5).map(g => `${g.name} for ${g.funder} (R${effectiveAsk(g).toLocaleString()}, ${g.stage}, rel: ${g.rel})`).join("; ")}`,
         false, 2000
       );
-    }
+    } // end insights
     if (type === "strategy") {
-      const act = grants.filter(g => !["won", "lost", "deferred"].includes(g.stage));
-      const won = grants.filter(g => g.stage === "won");
-      const lost = grants.filter(g => g.stage === "lost");
-      const totalAsk = act.reduce((s, g) => s + effectiveAsk(g), 0);
-      const wonVal = won.reduce((s, g) => s + effectiveAsk(g), 0);
-
-      // Programme type usage
+      // Programme type usage (strategy-specific — not shared with insights)
       const ptypeUsage = {};
       for (const g of grants) {
         const pt = detectType(g);
@@ -824,17 +835,6 @@ TOP 5 BY ASK: ${[...act].sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice
         ptypeUsage[label].ask += effectiveAsk(g);
         if (g.stage === "won") ptypeUsage[label].won++;
         if (g.stage === "lost") ptypeUsage[label].lost++;
-      }
-
-      // Funder type breakdown
-      const funderTypeMap = {};
-      for (const g of grants) {
-        const t = g.type || "Unknown";
-        if (!funderTypeMap[t]) funderTypeMap[t] = { total: 0, won: 0, lost: 0, ask: 0 };
-        funderTypeMap[t].total++;
-        funderTypeMap[t].ask += effectiveAsk(g);
-        if (g.stage === "won") funderTypeMap[t].won++;
-        if (g.stage === "lost") funderTypeMap[t].lost++;
       }
 
       // Build programme type reference
@@ -884,7 +884,8 @@ WON GRANTS: ${won.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiveA
 LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiveAsk(g).toLocaleString()})`).join("; ") || "None yet"}`,
         false, 2500
       );
-    }
+    } // end strategy
+    } // end insights || strategy
     return "Unknown AI action";
   };
 
@@ -1065,10 +1066,10 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
             orgName={org?.name}
             onSelectGrant={(id) => setSel(id)}
             onNavigate={(v) => { setSel(null); setView(v); }}
-            onRunBrief={() => runAI("brief", { name: "Pipeline", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "" })}
-            onRunReport={() => runAI("report", { name: "Report", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "" })}
-            onRunInsights={() => runAI("insights", { name: "Insights", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "" })}
-            onRunStrategy={() => runAI("strategy", { name: "Strategy", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "" })}
+            onRunBrief={() => runAI("brief", EMPTY_GRANT)}
+            onRunReport={() => runAI("report", EMPTY_GRANT)}
+            onRunInsights={() => runAI("insights", EMPTY_GRANT)}
+            onRunStrategy={() => runAI("strategy", EMPTY_GRANT)}
           />
         ) : view === "pipeline" ? (
           <Pipeline

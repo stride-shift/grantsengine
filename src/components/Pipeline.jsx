@@ -7,6 +7,7 @@ import { detectType, PTYPES } from "../data/funderStrategy";
 
 const VIEW_OPTIONS = [["kanban", "Board"], ["list", "List"], ["person", "Person"]];
 const CLOSED_STAGES = ["won", "lost", "deferred"];
+const SCOUT_TYPE_MAP = { corporate: "Corporate CSI", csi: "Corporate CSI", government: "Government/SETA", seta: "Government/SETA", international: "International", foundation: "Foundation", tech: "Tech Company" };
 const AVATAR_COLORS = [
   { bg: C.redSoft, accent: C.red },
   { bg: C.blueSoft, accent: C.blue },
@@ -187,7 +188,14 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
 
   const STAGES = stages || [];
 
-  const getMember = (id) => team.find(t => t.id === id) || team.find(t => t.id === "team") || { name: "Unassigned", initials: "\u2014" };
+  // Build team lookup once per team change (avoids O(n) find per grant card)
+  const teamById = useMemo(() => {
+    const m = new Map();
+    if (team) for (const t of team) m.set(t.id, t);
+    return m;
+  }, [team]);
+  const fallbackMember = teamById.get("team") || { name: "Unassigned", initials: "\u2014" };
+  const getMember = (id) => teamById.get(id) || fallbackMember;
 
   const filtered = useMemo(() => {
     let gs = [...grants];
@@ -279,8 +287,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, onSelectGr
   };
 
   const addScoutToPipeline = (s) => {
-    const typeMap = { corporate: "Corporate CSI", csi: "Corporate CSI", government: "Government/SETA", seta: "Government/SETA", international: "International", foundation: "Foundation", tech: "Tech Company" };
-    const gType = typeMap[Object.keys(typeMap).find(k => (s.type || "").toLowerCase().includes(k))] || "Foundation";
+    const gType = SCOUT_TYPE_MAP[Object.keys(SCOUT_TYPE_MAP).find(k => (s.type || "").toLowerCase().includes(k))] || "Foundation";
     const funderBudget = Number(s.funderBudget || s.ask) || 0;
     const accessLine = s.access ? `\nAccess: ${s.access}${s.accessNote ? " — " + s.accessNote : ""}` : "";
     const notes = `${s.reason || ""}${s.url ? "\nApply: " + s.url : ""}${accessLine}`;
