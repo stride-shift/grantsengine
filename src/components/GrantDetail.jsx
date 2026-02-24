@@ -926,7 +926,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 { label: "Fit Score", done: fitDone, active: busy.fitscore },
                 { label: "Research", done: researchDone, active: busy.research },
                 { label: "Proposal", done: draftDone, active: busy.draft },
-                { label: "Ask Set", done: askIsSetByAI, active: false },
+                { label: "Ask Set", done: askIsSet, active: false },
               ].map((s, i, arr) => (
                 <div key={s.label} style={{ display: "flex", alignItems: "center", flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
