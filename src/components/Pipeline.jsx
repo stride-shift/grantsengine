@@ -275,9 +275,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
 
   const sorted = useMemo(() => {
     let gs = [...filtered];
-    if (pSort === "deadline") gs.sort((a, b) => (a.deadline || "9").localeCompare(b.deadline || "9"));
-    else if (pSort === "ask") gs.sort((a, b) => (b.ask || 0) - (a.ask || 0));
+    if (pSort === "ask") gs.sort((a, b) => (b.ask || 0) - (a.ask || 0));
     else if (pSort === "priority") gs.sort((a, b) => (b.pri || 0) - (a.pri || 0));
+    else /* default + deadline */ gs.sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999"));
     return gs;
   }, [filtered, pSort]);
 
@@ -396,8 +396,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
           </select>
           <select value={pSort} onChange={e => setPSort(e.target.value)}
             style={{ padding: "6px 10px", fontSize: 12, border: `1.5px solid ${C.line}`, borderRadius: 10, fontFamily: FONT, background: C.white }}>
-            <option value="default">Default</option>
-            <option value="deadline">By deadline</option>
+            <option value="default">By deadline</option>
             <option value="ask">By amount</option>
             <option value="priority">By priority</option>
           </select>
