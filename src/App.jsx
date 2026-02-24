@@ -656,9 +656,23 @@ VARIED OPENINGS — use a different technique from the cover letter:
 - Striking data point, student story, funder's own mission, provocative question, concrete scene, or scale vision.`;
 
       } else if (isBudget) {
+        // If a real budget table exists, inject it as the source of truth
+        const bt = grant.budgetTable;
+        const budgetTableBlock = bt ? `
+BUDGET TABLE (SOURCE OF TRUTH — use these EXACT figures, do NOT invent budget numbers):
+Programme: Type ${bt.typeNum} — ${bt.typeLabel}
+${bt.cohorts > 1 ? `Cohorts: ${bt.cohorts} × ${bt.studentsPerCohort} students = ${bt.cohorts * bt.studentsPerCohort} total students` : `Students: ${bt.studentsPerCohort}`}
+Duration: ${bt.duration}
+Line items (per cohort):
+${bt.items.map(it => `  ${it.label}: R${it.amount.toLocaleString()}`).join("\n")}
+Subtotal per cohort: R${bt.items.reduce((s, it) => s + it.amount, 0).toLocaleString()}
+${bt.cohorts > 1 ? `× ${bt.cohorts} cohorts: R${bt.subtotal.toLocaleString()}` : ""}
+${bt.includeOrgContribution ? `30% org contribution: R${bt.orgContribution.toLocaleString()}` : ""}
+TOTAL: R${bt.total.toLocaleString()} | Per student: R${bt.perStudent.toLocaleString()}
+` : "";
         sectionGuide = `BUDGET INSTRUCTIONS:
 Tell the story of VALUE, not just line items. Show cost-per-student, cost-effectiveness vs traditional providers. Make every rand feel justified.
-
+${bt ? `\n${budgetTableBlock}\nIMPORTANT: The budget table above is the REAL, user-confirmed budget. Use these EXACT figures. Wrap compelling narrative around the real numbers. Do not hallucinate different amounts.\n` : ""}
 AMBITION: The budget should fill the funder's capacity, not sit timidly below it. If a corporate has R2M for CSI, propose R1.8M — not R500K. Match the ask to the funder's ambition.
 - Use d-lab's programme types as building blocks but design for what the FUNDER wants to achieve.
 - Go multi-cohort, add components, extend duration where the budget allows.
@@ -672,8 +686,8 @@ SCALE THROUGH AI — the economics argument:
 Use d-lab's EXACT programme cost lines. Weave the numbers into narrative: "For R25,800 per student — less than a semester at most private colleges — a young person receives 9 months of daily coaching, enterprise software access, ICITP accreditation, and a career launchpad."
 
 ASK RECOMMENDATION — include at the VERY END on its own line:
-ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer with no commas or spaces]
-Example: ASK_RECOMMENDATION: Type 3, 2 cohort(s), R2472000`;
+${bt ? `ASK_RECOMMENDATION: Type ${bt.typeNum}, ${bt.cohorts} cohort(s), R${bt.total}` : `ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer with no commas or spaces]
+Example: ASK_RECOMMENDATION: Type 3, 2 cohort(s), R2472000`}`;
 
       } else if (isProgramme) {
         sectionGuide = `PROGRAMME SECTION INSTRUCTIONS:

@@ -732,6 +732,172 @@ export async function generateDocxFromSections(sections, order, filename, meta =
     }
 
     flushKV();
+
+    // ── BUDGET TABLE — inject real structured table for budget sections ──
+    const isBudgetSection = sectionName.toLowerCase().includes("budget");
+    if (isBudgetSection && meta?.budgetTable) {
+      const bt = meta.budgetTable;
+      contentChildren.push(new Paragraph({ spacing: { before: 200 } }));
+      contentChildren.push(new Paragraph({
+        children: [new TextRun({ text: "BUDGET SUMMARY", bold: true, size: 18, color: RED, font: "Calibri", characterSpacing: 80 })],
+        spacing: { before: 120, after: 120 },
+      }));
+
+      const budgetRows = [];
+      // Header row
+      budgetRows.push(new TableRow({
+        tableHeader: true,
+        children: [
+          new TableCell({
+            width: { size: 65, type: WidthType.PERCENTAGE },
+            shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+            children: [new Paragraph({
+              children: [new TextRun({ text: `Line Item${bt.cohorts > 1 ? " (per cohort)" : ""}`, bold: true, size: 20, color: "FFFFFF", font: "Calibri" })],
+              spacing: { before: 80, after: 80 },
+            })],
+            borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED } },
+          }),
+          new TableCell({
+            width: { size: 35, type: WidthType.PERCENTAGE },
+            shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+            children: [new Paragraph({
+              children: [new TextRun({ text: "Amount (ZAR)", bold: true, size: 20, color: "FFFFFF", font: "Calibri" })],
+              spacing: { before: 80, after: 80 },
+              alignment: AlignmentType.RIGHT,
+            })],
+          }),
+        ],
+      }));
+      // Item rows
+      for (const item of bt.items) {
+        budgetRows.push(new TableRow({
+          children: [
+            new TableCell({
+              children: [new Paragraph({
+                children: [new TextRun({ text: item.label, size: 20, color: GREY_800, font: "Calibri" })],
+                spacing: { before: 60, after: 60 },
+              })],
+              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED } },
+            }),
+            new TableCell({
+              children: [new Paragraph({
+                children: [new TextRun({ text: `R${item.amount.toLocaleString()}`, size: 20, color: GREY_800, font: "Consolas", bold: true })],
+                spacing: { before: 60, after: 60 },
+                alignment: AlignmentType.RIGHT,
+              })],
+            }),
+          ],
+        }));
+      }
+      // Subtotal
+      if (bt.cohorts > 1) {
+        budgetRows.push(new TableRow({
+          children: [
+            new TableCell({
+              shading: { type: ShadingType.SOLID, color: GREY_50, fill: GREY_50 },
+              children: [new Paragraph({
+                children: [new TextRun({ text: `Subtotal per cohort`, bold: true, size: 20, color: GREY_600, font: "Calibri" })],
+                spacing: { before: 60, after: 60 },
+              })],
+              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED } },
+            }),
+            new TableCell({
+              shading: { type: ShadingType.SOLID, color: GREY_50, fill: GREY_50 },
+              children: [new Paragraph({
+                children: [new TextRun({ text: `R${bt.items.reduce((s, it) => s + it.amount, 0).toLocaleString()}`, bold: true, size: 20, color: GREY_800, font: "Consolas" })],
+                spacing: { before: 60, after: 60 },
+                alignment: AlignmentType.RIGHT,
+              })],
+            }),
+          ],
+        }));
+        budgetRows.push(new TableRow({
+          children: [
+            new TableCell({
+              shading: { type: ShadingType.SOLID, color: GREY_50, fill: GREY_50 },
+              children: [new Paragraph({
+                children: [new TextRun({ text: `\u00d7 ${bt.cohorts} cohorts`, size: 20, color: GREY_600, font: "Calibri" })],
+                spacing: { before: 60, after: 60 },
+              })],
+              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED } },
+            }),
+            new TableCell({
+              shading: { type: ShadingType.SOLID, color: GREY_50, fill: GREY_50 },
+              children: [new Paragraph({
+                children: [new TextRun({ text: `R${bt.subtotal.toLocaleString()}`, bold: true, size: 20, color: GREY_800, font: "Consolas" })],
+                spacing: { before: 60, after: 60 },
+                alignment: AlignmentType.RIGHT,
+              })],
+            }),
+          ],
+        }));
+      }
+      // Org contribution
+      if (bt.includeOrgContribution && bt.orgContribution > 0) {
+        budgetRows.push(new TableRow({
+          children: [
+            new TableCell({
+              children: [new Paragraph({
+                children: [new TextRun({ text: "30% organisational contribution", size: 20, color: GREY_600, font: "Calibri" })],
+                spacing: { before: 60, after: 60 },
+              })],
+              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED } },
+            }),
+            new TableCell({
+              children: [new Paragraph({
+                children: [new TextRun({ text: `R${bt.orgContribution.toLocaleString()}`, size: 20, color: GREY_800, font: "Consolas" })],
+                spacing: { before: 60, after: 60 },
+                alignment: AlignmentType.RIGHT,
+              })],
+            }),
+          ],
+        }));
+      }
+      // Total row
+      budgetRows.push(new TableRow({
+        children: [
+          new TableCell({
+            shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+            children: [new Paragraph({
+              children: [new TextRun({ text: "TOTAL", bold: true, size: 22, color: "FFFFFF", font: "Calibri" })],
+              spacing: { before: 80, after: 80 },
+            })],
+            borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED } },
+          }),
+          new TableCell({
+            shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+            children: [new Paragraph({
+              children: [new TextRun({ text: `R${bt.total.toLocaleString()}`, bold: true, size: 24, color: "FFFFFF", font: "Consolas" })],
+              spacing: { before: 80, after: 80 },
+              alignment: AlignmentType.RIGHT,
+            })],
+          }),
+        ],
+      }));
+
+      contentChildren.push(new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: {
+          top: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 },
+          bottom: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 },
+          left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
+          insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 },
+          insideVertical: { style: BorderStyle.NONE },
+        },
+        rows: budgetRows,
+      }));
+
+      // Per-student cost note
+      if (bt.perStudent > 0) {
+        contentChildren.push(new Paragraph({
+          children: [
+            new TextRun({ text: `Per student: R${bt.perStudent.toLocaleString()}`, bold: true, size: 20, color: GREY_600, font: "Calibri" }),
+            new TextRun({ text: `  \u00b7  ${bt.studentsPerCohort * bt.cohorts} students  \u00b7  ${bt.duration}`, size: 18, color: GREY_400, font: "Calibri" }),
+          ],
+          spacing: { before: 120, after: 80 },
+        }));
+      }
+    }
   }
 
   // ── BUILD DOCUMENT ──

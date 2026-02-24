@@ -272,7 +272,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
     if (!assembled.trim()) return;
     try {
       const { generateDocxFromSections, generateDocx } = await import("../docxGenerator.js");
-      const meta = { grantName: g.name, funder: g.funder, orgName: "d-lab NPC", ask: effectiveAsk(g), type: g.type };
+      const meta = { grantName: g.name, funder: g.funder, orgName: "d-lab NPC", ask: effectiveAsk(g), type: g.type, budgetTable: g.budgetTable || null };
       if (generateDocxFromSections) {
         await generateDocxFromSections(sections, order, `${g.name}_proposal`, meta);
       } else {
