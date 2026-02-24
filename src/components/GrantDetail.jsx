@@ -7,6 +7,7 @@ import { getUploads } from "../api";
 import { detectType, PTYPES, multiCohortInfo, funderStrategy } from "../data/funderStrategy";
 import { DOCS, DOC_MAP, ORG_DOCS } from "../data/constants";
 import ProposalWorkspace from "./ProposalWorkspace";
+import BudgetBuilder from "./BudgetBuilder";
 
 const fmtTs = (iso) => iso ? new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
 
@@ -420,9 +421,12 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           ? `${sectionCount}/${sectionTotal}`
           : draftDone ? "Ready" : null;
 
+        const budgetDone = !!g.budgetTable;
+
         const steps = [
           { key: "fitscore", label: "Fit Score", done: fitDone, busy: busy.fitscore, value: fitNum ? `${fitNum}` : null, color: fitDone ? (fitNum >= 70 ? C.ok : fitNum >= 40 ? C.amber : C.red) : C.t4 },
           { key: "research", label: "Research", done: resDone, busy: busy.research, value: resDone ? "Done" : null, color: resDone ? C.blue : C.t4 },
+          { key: "budget", label: "Budget", done: budgetDone, busy: false, value: budgetDone ? fmtK(g.budgetTable.total) : null, color: budgetDone ? C.ok : C.t4 },
           { key: "draft", label: "Draft", done: draftDone, busy: busy.draft || busy.generateAll || Object.values(busy.sections || {}).some(Boolean), value: draftValue, color: draftDone ? (hasSections && sectionCount === sectionTotal ? C.purple : C.amber) : C.t4 },
         ];
         const allDone = fitDone && resDone && draftDone;
@@ -788,8 +792,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         const followupDone = ai.followup && !isAIError(ai.followup);
         const fitDone = ai.fitscore && !isAIError(ai.fitscore);
         const winlossDone = ai.winloss && !isAIError(ai.winloss);
-        const askIsSetByAI = g.askSource === "ai-draft" && g.ask > 0;
-        const completedCount = [fitDone, researchDone, draftDone, askIsSetByAI].filter(Boolean).length;
+        const askIsSet = (g.askSource === "ai-draft" || g.askSource === "budget-builder") && g.ask > 0;
+        const completedCount = [fitDone, researchDone, draftDone, askIsSet].filter(Boolean).length;
         const isSubmittedPlus = ["submitted", "awaiting", "won", "lost", "deferred"].includes(g.stage);
         const isClosedStage = ["won", "lost"].includes(g.stage);
 
@@ -1035,7 +1039,21 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 </span>
               </div>
 
-              {/* Step 2 — Section-by-Section Proposal Workspace */}
+              {/* Step 2 — Budget Builder */}
+              <BudgetBuilder grant={g} onUpdate={onUpdate} />
+
+              {/* Connector */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 22px" }}>
+                <div style={{
+                  width: 20, height: 20, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                  background: g.budgetTable ? C.primarySoft : C.warm200, fontSize: 10, color: g.budgetTable ? C.primary : C.t4,
+                }}>{"\u2193"}</div>
+                <span style={{ fontSize: 11, color: g.budgetTable ? C.primary : C.t4, fontWeight: 500 }}>
+                  {g.budgetTable ? "Budget feeds real figures into the proposal" : "Optional: build a budget before generating the proposal"}
+                </span>
+              </div>
+
+              {/* Step 3 — Section-by-Section Proposal Workspace */}
               <ProposalWorkspace
                 grant={g}
                 ai={ai}
@@ -1044,8 +1062,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 busy={busy}
                 setBusy={setBusy}
               />
-              {/* Ask confirmation — shows after draft sets the ask */}
-              {draftDone && g.askSource === "ai-draft" && g.aiRecommendedAsk > 0 && (
+              {/* Ask confirmation — shows after budget-builder or draft sets the ask */}
+              {askIsSet && g.ask > 0 && (
                 <div style={{
                   padding: "10px 16px", margin: "0 22px", background: C.okSoft, borderRadius: 10,
                   border: `1px solid ${C.ok}20`, display: "flex", alignItems: "center", gap: 10,
@@ -1053,7 +1071,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 }}>
                   <span style={{ fontSize: 16 }}>{"\u2713"}</span>
                   <div style={{ flex: 1, fontSize: 12, color: C.t1, lineHeight: 1.4 }}>
-                    Ask set to <strong style={{ fontFamily: MONO }}>R{g.ask.toLocaleString()}</strong> based on the programme type recommended in the proposal.
+                    Ask set to <strong style={{ fontFamily: MONO }}>R{g.ask.toLocaleString()}</strong> {g.askSource === "budget-builder" ? "from the budget builder" : "based on the programme type recommended in the proposal"}.
                     {g.funderBudget && g.funderBudget !== g.ask && (
                       <span style={{ color: C.t3 }}> Funder budget was R{g.funderBudget.toLocaleString()}.</span>
                     )}

@@ -92,12 +92,13 @@ export const grantReadiness = (g, complianceDocs = []) => {
   }
   aiScore = aiDone / aiChecks.length;
 
-  // 3. Metadata completeness (30%) — deadline, owner, ask
+  // 3. Metadata completeness (30%) — deadline, owner, ask/budget
   let metaScore = 0;
+  const hasBudget = g.budgetTable && g.budgetTable.total > 0;
   const metaChecks = [
     { test: g.deadline, label: "No deadline" },
     { test: g.owner && g.owner !== "team", label: "Unassigned" },
-    { test: g.ask > 0 || g.funderBudget > 0, label: "No ask amount" },
+    { test: hasBudget || g.ask > 0 || g.funderBudget > 0, label: hasBudget ? null : "No budget" },
   ];
   let metaDone = 0;
   for (const ck of metaChecks) {
