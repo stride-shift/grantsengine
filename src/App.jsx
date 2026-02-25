@@ -1326,7 +1326,6 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
             orgName={org?.name}
             onSelectGrant={(id) => setSel(id)}
             onNavigate={(v) => { setSel(null); setView(v); }}
-            onRunBrief={() => runAI("brief", EMPTY_GRANT)}
             onRunReport={() => runAI("report", EMPTY_GRANT)}
             onRunInsights={() => runAI("insights", EMPTY_GRANT)}
             onRunStrategy={() => runAI("strategy", EMPTY_GRANT)}

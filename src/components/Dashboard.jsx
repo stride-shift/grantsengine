@@ -101,10 +101,8 @@ const AIBlock = ({ label, sub, busy, result, onRun, btnLabel, busyLabel, accentC
 
 export default function Dashboard({
   grants, team, stages, complianceDocs = [], onSelectGrant, onNavigate,
-  onRunBrief, onRunReport, onRunInsights, onRunStrategy, orgName,
+  onRunReport, onRunInsights, onRunStrategy, orgName,
 }) {
-  const [briefBusy, setBriefBusy] = useState(false);
-  const [briefResult, setBriefResult] = useState(null);
   const [reportBusy, setReportBusy] = useState(false);
   const [reportResult, setReportResult] = useState(null);
   const [insightsBusy, setInsightsBusy] = useState(false);
@@ -113,17 +111,6 @@ export default function Dashboard({
   const [strategyResult, setStrategyResult] = useState(null);
   const [expandedFunder, setExpandedFunder] = useState(null);
   const [showFullIntel, setShowFullIntel] = useState(false);
-
-  // Auto-run daily brief on mount (only once, only if grants exist)
-  const briefRanRef = useState(false);
-  useEffect(() => {
-    if (grants.length > 2 && onRunBrief && !briefResult && !briefBusy && !briefRanRef[0]) {
-      briefRanRef[0] = true;
-      setBriefBusy(true);
-      onRunBrief().then(r => { setBriefResult(r); setBriefBusy(false); })
-        .catch(e => { setBriefResult(`Error: ${e.message}`); setBriefBusy(false); });
-    }
-  }, [grants.length]);
 
   /* ── Core pipeline numbers ── */
   const pipe = useMemo(() => {
@@ -459,40 +446,7 @@ export default function Dashboard({
         </>
       )}
 
-      {/* ═══════════ 2. DAILY BRIEF (auto-generated) ═══════════ */}
-      <Hd right={
-        briefResult && <Btn v="ghost" style={{ fontSize: 11 }} onClick={runAI(setBriefResult, setBriefBusy, onRunBrief)} disabled={briefBusy}>Refresh</Btn>
-      }>Daily Brief</Hd>
-      <Card accent={C.purple} style={{ marginBottom: 8 }}>
-        {briefBusy && (
-          <div>
-            <div style={{ fontSize: 13, color: C.t3, marginBottom: 8 }}>Analysing your pipeline...</div>
-            <div style={{ height: 3, borderRadius: 2, overflow: "hidden" }}>
-              <div style={{ height: "100%", background: C.purple, animation: "ai-load-bar 2s ease-in-out infinite", borderRadius: 2 }} />
-            </div>
-          </div>
-        )}
-        {briefResult && (
-          <div style={{ position: "relative" }}>
-            <div style={{
-              fontSize: 13, lineHeight: 2, color: C.t1,
-              whiteSpace: "pre-wrap",
-            }}>
-              {stripMd(briefResult)}
-            </div>
-            <CopyBtn text={briefResult} style={{ position: "absolute", top: 0, right: 0 }} />
-          </div>
-        )}
-        {!briefBusy && !briefResult && (
-          <div style={{ textAlign: "center", padding: "12px 0" }}>
-            <Btn v="primary" onClick={runAI(setBriefResult, setBriefBusy, onRunBrief)} style={{ fontSize: 12 }}>
-              Generate Daily Brief
-            </Btn>
-          </div>
-        )}
-      </Card>
-
-      {/* ═══════════ 3. COMPACT PIPELINE SUMMARY ═══════════ */}
+      {/* ═══════════ 2. COMPACT PIPELINE SUMMARY ═══════════ */}
       <Hd right={
         <button onClick={() => onNavigate?.("pipeline")} style={{
           background: "none", border: "none", fontSize: 11, color: C.primary, fontWeight: 600,
