@@ -400,8 +400,38 @@ export default function Dashboard({
         </div>
       </div>
 
+      {/* ═══════════ EMPTY STATE — onboarding ═══════════ */}
+      {grants.length === 0 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 420 }}>
+          <div style={{ maxWidth: 520, width: "100%", textAlign: "center" }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: 20, margin: "0 auto 24px",
+              background: `linear-gradient(135deg, ${C.purpleSoft} 0%, ${C.blueSoft} 100%)`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: `1.5px solid ${C.purple}15`,
+            }}>
+              <span style={{ fontSize: 32 }}>☉</span>
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, marginBottom: 8, letterSpacing: -0.3 }}>
+              Welcome to Grant Engine
+            </div>
+            <div style={{ fontSize: 14, color: C.t3, lineHeight: 1.6, maxWidth: 400, margin: "0 auto 28px" }}>
+              Start by scouting for grant opportunities. AI will find funders matched to your organisation profile.
+            </div>
+            <button onClick={() => onNavigate?.("pipeline")} style={{
+              fontSize: 15, padding: "12px 32px", borderRadius: 12, border: "none",
+              background: `linear-gradient(135deg, ${C.purple} 0%, ${C.blue}DD 100%)`,
+              color: "#fff", fontWeight: 700, cursor: "pointer", fontFamily: FONT,
+              boxShadow: `0 4px 14px ${C.purple}30`,
+            }}>
+              Go to Pipeline →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ═══════════ 1. URGENT ACTION CARDS ═══════════ */}
-      {urgentGrants.length > 0 && (
+      {grants.length > 0 && urgentGrants.length > 0 && (
         <>
           <Hd>Needs Attention</Hd>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10, marginBottom: 8 }}>
@@ -446,6 +476,7 @@ export default function Dashboard({
         </>
       )}
 
+      {grants.length > 0 && (<>
       {/* ═══════════ 2. COMPACT PIPELINE SUMMARY ═══════════ */}
       <Hd right={
         <button onClick={() => onNavigate?.("pipeline")} style={{
@@ -1003,9 +1034,10 @@ export default function Dashboard({
           )}
         </>
       )}
+      </>)}
 
       {/* Minimum-data nudge */}
-      {!ana && (
+      {!ana && grants.length > 0 && (
         <div style={{
           marginTop: 36, padding: "32px 28px", textAlign: "center",
           background: C.warm100, borderRadius: 14, border: `1.5px dashed ${C.line}`,
