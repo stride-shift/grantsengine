@@ -156,7 +156,7 @@ export async function generateDocx(text, filename, meta = {}) {
     Table, TableRow, TableCell, WidthType, ShadingType,
     PageNumber, SectionType, convertInchesToTwip,
   } = docxModule;
-  const { saveAs } = fileSaverModule;
+  const saveAs = fileSaverModule.saveAs || fileSaverModule.default;
 
   const sections = parseProposalText(text);
   const grantName = meta.grantName || filename || "Proposal";
@@ -519,7 +519,7 @@ export async function generateDocxFromSections(sections, order, filename, meta =
     Table, TableRow, TableCell, WidthType, ShadingType,
     PageNumber, SectionType, convertInchesToTwip,
   } = docxModule;
-  const { saveAs } = fileSaverModule;
+  const saveAs = fileSaverModule.saveAs || fileSaverModule.default;
 
   const grantName = meta.grantName || filename || "Proposal";
   const funder = meta.funder || "";
