@@ -405,7 +405,7 @@ function AppInner() {
     // Add impact stats
     if (profile?.impact_stats && (type === "draft" || type === "sectionDraft")) {
       const s = profile.impact_stats;
-      profileSections.push(`=== VERIFIED IMPACT STATS (use these exact numbers) ===\nCompletion rate: ${Math.round((s.completion_rate || 0) * 100)}% (sector avg: ${Math.round((s.sector_average_completion || 0) * 100)}%)\nEmployment rate: ${Math.round((s.employment_rate || 0) * 100)}% within ${s.employment_window_months || 3} months\nLearners trained: ${s.learners_trained || "500+"}`);
+      profileSections.push(`=== VERIFIED IMPACT STATS (use these exact numbers) ===\nCompletion rate: ${Math.round((s.completion_rate || 0) * 100)}% (sector avg: ${Math.round((s.sector_average_completion || 0) * 100)}%)\nEmployment rate: ${Math.round((s.employment_rate || 0) * 100)}% within ${s.employment_window_months || 3} months\nLearners trained: ${s.learners_trained || "60+"}`);
     }
 
     // Add tone & anti-patterns
@@ -728,7 +728,7 @@ Weave numbers INTO narrative: "Of the 20 students in our most recent cohort, 17 
 Include specific, vivid outcomes:
 - 92% completion (vs 55% sector average) — nearly DOUBLE
 - 85% employment within 3 months
-- The AI tools mean quality at scale: traditional providers cap at 20-40 students, d-lab serves 60+ per cohort with equal or better outcomes
+- The AI tools mean quality at scale: 20 students per cohort with multi-cohort delivery reaching 60+ learners simultaneously, maintaining outcomes that traditional providers can't match beyond a single classroom
 
 SCALE THROUGH AI — the impact multiplier:
 - d-lab's AI infrastructure means per-student cost drops at scale while quality holds. This is the key to going from dozens to hundreds to thousands.
