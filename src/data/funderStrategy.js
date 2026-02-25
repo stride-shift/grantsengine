@@ -43,6 +43,51 @@ export const multiCohortInfo = g => {
   return m ? { count: parseInt(m[1]), typeNum: m[2] ? parseInt(m[2]) : 1 } : null;
 };
 
+/**
+ * Select the best PTYPE + cohort count that stays within the funder's budget.
+ * Used by "Roll the Dice" to auto-populate the BudgetBuilder.
+ * Returns { typeNum, cohorts } or null if no funderBudget.
+ */
+export const selectOptimalBudget = g => {
+  // If notes already specify a type, respect that
+  const n = (g.notes || "").toLowerCase();
+  for (let i = 7; i >= 1; i--) {
+    if (n.includes(`type ${i}`) || n.includes(`(type ${i})`)) {
+      const mc = multiCohortInfo(g);
+      return { typeNum: i, cohorts: mc?.count || 1 };
+    }
+  }
+
+  const budget = g.funderBudget || g.ask || 0;
+  if (budget <= 0) return { typeNum: 1, cohorts: 1 }; // default
+
+  // Preferred types by funder category
+  const t = (g.type || "").toLowerCase();
+  let preferred;
+  if (t.includes("corporate")) preferred = [5, 1, 7, 3];
+  else if (t.includes("government") || t.includes("seta")) preferred = [4, 1, 3, 7];
+  else if (t.includes("international")) preferred = [1, 3, 2];
+  else if (t.includes("tech")) preferred = [1, 5, 7];
+  else preferred = [1, 3, 5, 7, 4, 2]; // Foundation + default
+
+  let best = null;
+  let bestStudents = 0;
+
+  for (const num of preferred) {
+    const pt = PTYPES[num];
+    if (!pt || !pt.cost) continue; // skip Type 6 (no fixed cost)
+    const maxCohorts = Math.floor(budget / pt.cost);
+    if (maxCohorts < 1) continue;
+    const students = (pt.students || 0) * maxCohorts;
+    if (students > bestStudents) {
+      bestStudents = students;
+      best = { typeNum: num, cohorts: maxCohorts };
+    }
+  }
+
+  return best || { typeNum: 1, cohorts: 1 };
+};
+
 export const funderStrategy = g => {
   const f = g.funder || "";
   const t = g.type || "";

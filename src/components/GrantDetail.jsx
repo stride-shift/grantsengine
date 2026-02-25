@@ -4,7 +4,7 @@ import { fmtK, dL, td, effectiveAsk, grantReadiness } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, AICard, stripMd, timeAgo } from "./index";
 import UploadZone from "./UploadZone";
 import { getUploads } from "../api";
-import { detectType, PTYPES, multiCohortInfo, funderStrategy } from "../data/funderStrategy";
+import { detectType, PTYPES, multiCohortInfo, funderStrategy, selectOptimalBudget } from "../data/funderStrategy";
 import { DOCS, DOC_MAP, ORG_DOCS } from "../data/constants";
 import ProposalWorkspace from "./ProposalWorkspace";
 import BudgetBuilder from "./BudgetBuilder";
@@ -85,6 +85,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   const [editingAsk, setEditingAsk] = useState(false);
   const [askInput, setAskInput] = useState("");
   const [uploads, setUploads] = useState([]);
+  const [rollingDice, setRollingDice] = useState(false);
+  const [diceStep, setDiceStep] = useState("");
 
   // Sync AI state when switching between grants
   useEffect(() => {
@@ -417,6 +419,82 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           }
         };
 
+        // ── Roll the Dice — full auto-generate chain ──
+        const rollTheDice = async () => {
+          setRollingDice(true);
+
+          try {
+            // Step 1: Fit Score
+            if (!fitDone) {
+              setDiceStep("Scoring fit...");
+              setBusy(p => ({ ...p, fitscore: true }));
+              try {
+                const r = await onRunAI("fitscore", g);
+                setAi(p => ({ ...p, fitscore: r }));
+                if (!isAIError(r)) {
+                  onUpdate(g.id, { aiFitscore: r, aiFitscoreAt: new Date().toISOString() });
+                  aiLog("AI Fit Score calculated");
+                }
+              } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
+              setBusy(p => ({ ...p, fitscore: false }));
+            }
+
+            // Step 2: Research
+            if (!resDone) {
+              setDiceStep(`Researching ${g.funder}...`);
+              setBusy(p => ({ ...p, research: true }));
+              try {
+                const r = await onRunAI("research", g);
+                setAi(p => ({ ...p, research: r }));
+                if (!isAIError(r)) {
+                  onUpdate(g.id, { aiResearch: r, aiResearchAt: new Date().toISOString() });
+                  aiLog(`AI Funder Research completed for ${g.funder}`);
+                }
+              } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
+              setBusy(p => ({ ...p, research: false }));
+            }
+
+            // Step 3: Auto-budget (if not already set)
+            if (!g.budgetTable) {
+              setDiceStep("Building budget...");
+              const { typeNum, cohorts } = selectOptimalBudget(g);
+              const pt = PTYPES[typeNum];
+              if (pt?.table) {
+                const parseAmt = s => {
+                  if (!s || s === "varies") return 0;
+                  return parseInt(String(s).replace(/[,\s]/g, "")) || 0;
+                };
+                const items = pt.table
+                  .filter(([label]) => label !== "TOTAL")
+                  .map(([label, amount]) => ({ label, amount: parseAmt(amount), isCustom: false }));
+                const studentsPerCohort = pt.students || 0;
+                const itemTotal = items.reduce((s, it) => s + (it.amount || 0), 0);
+                const subtotal = itemTotal * cohorts;
+                const total = subtotal;
+                const totalStudents = studentsPerCohort * cohorts;
+                const perStudent = totalStudents > 0 ? Math.round(total / totalStudents) : 0;
+                const budgetTable = {
+                  typeNum, typeLabel: pt.label || "", cohorts, studentsPerCohort,
+                  duration: pt.duration || "", items,
+                  includeOrgContribution: false, subtotal, orgContribution: 0,
+                  total, perStudent, savedAt: new Date().toISOString(),
+                };
+                onUpdate(g.id, { budgetTable, ask: total, askSource: "budget-builder", aiRecommendedAsk: total });
+                aiLog(`Auto-budget: Type ${typeNum}, ${cohorts} cohort${cohorts > 1 ? "s" : ""}, R${total.toLocaleString()}`);
+              }
+            }
+
+            // Step 4: Switch to Write Proposal tab and trigger auto-generate
+            setDiceStep("Writing proposal...");
+            setTab("ai");
+            // rollingDice stays true — ProposalWorkspace picks it up via autoGenerate prop
+
+          } catch (e) {
+            setDiceStep(`Error: ${e.message}`);
+            setRollingDice(false);
+          }
+        };
+
         const draftValue = hasSections && sectionTotal > 0
           ? `${sectionCount}/${sectionTotal}`
           : draftDone ? "Ready" : null;
@@ -433,50 +511,109 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         const donePct = [fitDone, resDone, draftDone].filter(Boolean).length;
 
         return (
-          <div style={{
-            display: "flex", alignItems: "center", gap: 8, marginBottom: 16,
-            padding: "10px 16px", borderRadius: 12, background: C.white,
-            border: `1px solid ${C.line}`, boxShadow: C.cardShadow,
-          }}>
-            {steps.map((s, i) => (
-              <button key={s.key} onClick={() => { if (!s.done && !s.busy) setTab("ai"); }}
-                style={{
-                  flex: 1, display: "flex", alignItems: "center", gap: 6, padding: "6px 10px",
-                  borderRadius: 8, border: `1.5px solid ${s.done ? s.color + "30" : C.line}`,
-                  background: s.done ? s.color + "08" : s.busy ? C.purpleSoft : "transparent",
-                  cursor: s.done ? "default" : "pointer", fontFamily: FONT,
-                  transition: "all 0.15s ease",
-                  animation: s.busy ? "ge-pulse 1.4s ease-in-out infinite" : "none",
-                }}>
-                <span style={{
-                  width: 24, height: 24, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 11, fontWeight: 800, fontFamily: MONO,
-                  background: s.done ? s.color + "18" : C.raised,
-                  color: s.done ? s.color : C.t4,
-                }}>{s.busy ? "\u2026" : s.done ? (s.value || "\u2713") : (i + 1)}</span>
-                <div style={{ flex: 1, textAlign: "left" }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: s.done ? s.color : C.t3 }}>{s.label}</div>
-                </div>
-              </button>
-            ))}
+          <>
+            {/* Roll the Dice — big CTA for full auto-generate */}
             {!allDone && !isSubmittedPlus && (
-              <button onClick={runAllChain} disabled={anyBusy}
+              <button
+                onClick={rollTheDice}
+                disabled={rollingDice || anyBusy}
                 style={{
-                  padding: "8px 14px", borderRadius: 8, fontSize: 11, fontWeight: 700,
-                  background: anyBusy ? C.raised : C.primary, color: anyBusy ? C.t3 : C.white,
-                  border: "none", cursor: anyBusy ? "default" : "pointer", fontFamily: FONT,
-                  whiteSpace: "nowrap", flexShrink: 0,
-                  opacity: anyBusy ? 0.6 : 1,
-                }}>
-                {anyBusy ? "Running..." : `Run All (${3 - donePct})`}
+                  width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                  padding: "14px 24px", marginBottom: 12, borderRadius: 14,
+                  background: rollingDice
+                    ? `linear-gradient(135deg, ${C.purple}, ${C.primary})`
+                    : `linear-gradient(135deg, ${C.primary}, ${C.primary}DD)`,
+                  color: C.white, border: "none",
+                  cursor: rollingDice || anyBusy ? "default" : "pointer",
+                  fontFamily: FONT, fontSize: 15, fontWeight: 700, letterSpacing: -0.3,
+                  boxShadow: rollingDice ? "none" : "0 4px 16px rgba(208,50,40,0.25)",
+                  opacity: (rollingDice || anyBusy) ? 0.85 : 1,
+                  transition: "all 0.2s ease",
+                  animation: rollingDice ? "ge-pulse 1.4s ease-in-out infinite" : "none",
+                }}
+              >
+                {rollingDice ? (
+                  <>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ animation: "ge-spin 1s linear infinite" }}>
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                    <span>{diceStep}</span>
+                  </>
+                ) : (
+                  <>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <rect x="2" y="2" width="20" height="20" rx="4" stroke="currentColor" strokeWidth="2"/>
+                      <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+                      <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
+                      <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                      <circle cx="8" cy="16" r="1.5" fill="currentColor"/>
+                      <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
+                    </svg>
+                    <span>Roll the Dice</span>
+                    <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.8 }}>Auto-generate full proposal</span>
+                  </>
+                )}
               </button>
             )}
-            {allDone && (
-              <span style={{ fontSize: 10, fontWeight: 700, color: C.ok, padding: "4px 10px", borderRadius: 6, background: C.okSoft, whiteSpace: "nowrap" }}>
-                Workflow complete
-              </span>
+            {/* Success state after rolling */}
+            {allDone && rollingDice && g.ask > 0 && (
+              <div style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                padding: "14px 24px", marginBottom: 12, borderRadius: 14,
+                background: `linear-gradient(135deg, ${C.okSoft}, ${C.white})`,
+                border: `1.5px solid ${C.ok}30`,
+                fontFamily: FONT, fontSize: 15, fontWeight: 700, color: C.ok,
+              }}>
+                <span style={{ fontSize: 18 }}>{"\u2713"}</span>
+                <span>Proposal ready</span>
+                <span style={{ fontFamily: MONO, fontSize: 14 }}>{fmtK(g.ask)}</span>
+              </div>
             )}
-          </div>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8, marginBottom: 16,
+              padding: "10px 16px", borderRadius: 12, background: C.white,
+              border: `1px solid ${C.line}`, boxShadow: C.cardShadow,
+            }}>
+              {steps.map((s, i) => (
+                <button key={s.key} onClick={() => { if (!s.done && !s.busy) setTab("ai"); }}
+                  style={{
+                    flex: 1, display: "flex", alignItems: "center", gap: 6, padding: "6px 10px",
+                    borderRadius: 8, border: `1.5px solid ${s.done ? s.color + "30" : C.line}`,
+                    background: s.done ? s.color + "08" : s.busy ? C.purpleSoft : "transparent",
+                    cursor: s.done ? "default" : "pointer", fontFamily: FONT,
+                    transition: "all 0.15s ease",
+                    animation: s.busy ? "ge-pulse 1.4s ease-in-out infinite" : "none",
+                  }}>
+                  <span style={{
+                    width: 24, height: 24, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 11, fontWeight: 800, fontFamily: MONO,
+                    background: s.done ? s.color + "18" : C.raised,
+                    color: s.done ? s.color : C.t4,
+                  }}>{s.busy ? "\u2026" : s.done ? (s.value || "\u2713") : (i + 1)}</span>
+                  <div style={{ flex: 1, textAlign: "left" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: s.done ? s.color : C.t3 }}>{s.label}</div>
+                  </div>
+                </button>
+              ))}
+              {!allDone && !isSubmittedPlus && (
+                <button onClick={runAllChain} disabled={anyBusy}
+                  style={{
+                    padding: "8px 14px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                    background: anyBusy ? C.raised : C.primary, color: anyBusy ? C.t3 : C.white,
+                    border: "none", cursor: anyBusy ? "default" : "pointer", fontFamily: FONT,
+                    whiteSpace: "nowrap", flexShrink: 0,
+                    opacity: anyBusy ? 0.6 : 1,
+                  }}>
+                  {anyBusy ? "Running..." : `Run All (${3 - donePct})`}
+                </button>
+              )}
+              {allDone && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: C.ok, padding: "4px 10px", borderRadius: 6, background: C.okSoft, whiteSpace: "nowrap" }}>
+                  Workflow complete
+                </span>
+              )}
+            </div>
+          </>
         );
       })()}
 
@@ -1061,6 +1198,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 onUpdate={onUpdate}
                 busy={busy}
                 setBusy={setBusy}
+                autoGenerate={rollingDice}
+                onAutoGenerateComplete={() => { setRollingDice(false); setDiceStep(""); }}
               />
               {/* Ask confirmation — shows after budget-builder or draft sets the ask */}
               {askIsSet && g.ask > 0 && (
