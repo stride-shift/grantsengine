@@ -378,11 +378,12 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   return (
     <div style={{ padding: "28px 32px", height: "100%", display: "flex", flexDirection: "column" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: grants.length > 0 ? 16 : 0, flexWrap: "wrap", gap: 10 }}>
         <div>
           <div style={{ fontSize: 28, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Pipeline</div>
           <div style={{ width: 32, height: 4, background: C.primary, borderRadius: 2, marginTop: 4 }} />
         </div>
+        {grants.length > 0 && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search grants..."
             style={{ padding: "6px 12px", fontSize: 13, border: `1.5px solid ${C.line}`, borderRadius: 10, width: 180, fontFamily: FONT, outline: "none", transition: "border-color 0.15s" }}
@@ -413,10 +414,11 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
           </Btn>
           <Btn onClick={() => setShowAdd(!showAdd)} v="primary" style={{ fontSize: 12, padding: "6px 14px" }}>+ Add</Btn>
         </div>
+        )}
       </div>
 
-      {/* Filter chips */}
-      {(() => {
+      {/* Filter chips — only show when there are grants to filter */}
+      {grants.length > 0 && (() => {
         const toggleFilter = (f) => setActiveFilters(prev => {
           const next = new Set(prev);
           next.has(f) ? next.delete(f) : next.add(f);
@@ -787,17 +789,72 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
         </div>
       )}
 
-      {/* Empty state — no grants at all */}
-      {grants.length === 0 && (
-        <div style={{ textAlign: "center", padding: "60px 20px", color: C.t3 }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: C.dark, marginBottom: 6 }}>No grants yet</div>
-          <div style={{ fontSize: 13, color: C.t3, marginBottom: 20, maxWidth: 360, margin: "0 auto 20px" }}>
-            Start by adding a grant manually, pasting a URL, or scouting for new opportunities.
-          </div>
-          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-            <Btn onClick={() => setShowAdd(true)} v="primary" style={{ fontSize: 13 }}>+ Add Grant</Btn>
-            <Btn onClick={aiScout} disabled={scouting} v="ghost" style={{ fontSize: 13, color: C.purple, borderColor: C.purple + "40" }}>☉ Scout</Btn>
+      {/* Empty state — onboarding experience */}
+      {grants.length === 0 && !scouting && scoutResults.length === 0 && (
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ maxWidth: 520, width: "100%", textAlign: "center" }}>
+            {/* Hero icon */}
+            <div style={{
+              width: 72, height: 72, borderRadius: 20, margin: "0 auto 24px",
+              background: `linear-gradient(135deg, ${C.purpleSoft} 0%, ${C.blueSoft} 100%)`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: `1.5px solid ${C.purple}15`,
+            }}>
+              <span style={{ fontSize: 32 }}>☉</span>
+            </div>
+
+            {/* Headline */}
+            <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, marginBottom: 8, letterSpacing: -0.3 }}>
+              Build your pipeline
+            </div>
+            <div style={{ fontSize: 14, color: C.t3, lineHeight: 1.6, marginBottom: 32, maxWidth: 400, margin: "0 auto 32px" }}>
+              Scout uses AI to find grant opportunities matched to your organisation profile, or add grants you already know about.
+            </div>
+
+            {/* Primary CTA — Scout */}
+            <Btn onClick={aiScout} disabled={scouting} v="primary" style={{
+              fontSize: 15, padding: "12px 32px", borderRadius: 12,
+              background: `linear-gradient(135deg, ${C.purple} 0%, ${C.blue}DD 100%)`,
+              borderColor: C.purple, color: "#fff",
+              boxShadow: `0 4px 14px ${C.purple}30`,
+            }}>
+              ☉ Scout for opportunities
+            </Btn>
+
+            {/* Divider */}
+            <div style={{ display: "flex", alignItems: "center", gap: 16, margin: "28px auto", maxWidth: 300 }}>
+              <div style={{ flex: 1, height: 1, background: C.line }} />
+              <span style={{ fontSize: 11, color: C.t4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>or</span>
+              <div style={{ flex: 1, height: 1, background: C.line }} />
+            </div>
+
+            {/* Secondary options */}
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <button onClick={() => setShowAdd(true)} style={{
+                display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
+                borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.white,
+                cursor: "pointer", fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.t2,
+                transition: "all 0.15s ease",
+              }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary + "60"; e.currentTarget.style.background = C.primarySoft; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.background = C.white; }}
+              >
+                <span style={{ fontSize: 15 }}>+</span> Add a grant manually
+              </button>
+              {onRunAI && (
+                <button onClick={() => setShowUrlTool(true)} style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
+                  borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.white,
+                  cursor: "pointer", fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.t2,
+                  transition: "all 0.15s ease",
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = C.blue + "60"; e.currentTarget.style.background = C.blueSoft; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.background = C.white; }}
+                >
+                  <span style={{ fontSize: 14 }}>🔗</span> Paste a grant URL
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
