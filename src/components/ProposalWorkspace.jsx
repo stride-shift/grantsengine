@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
 import { Btn, CopyBtn, DownloadBtn } from "./index";
 import { assembleText, effectiveAsk } from "../utils";
@@ -24,7 +24,7 @@ const extractAskFromText = (text) => {
   return null;
 };
 
-export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, setBusy }) {
+export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, setBusy, autoGenerate, onAutoGenerateComplete }) {
   const g = grant;
   const fs = funderStrategy(g);
   const order = g.aiSectionsOrder || fs.structure;
@@ -222,6 +222,19 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
   const stopGenerateAll = useCallback(() => {
     generatingAllRef.current = false;
   }, []);
+
+  // ── Auto-generate when "Roll the Dice" triggers ──
+  const autoGenTriggered = useRef(false);
+  useEffect(() => {
+    if (autoGenerate && !autoGenTriggered.current && !isGeneratingAll && !anySectionBusy) {
+      autoGenTriggered.current = true;
+      generateAll().then(() => {
+        if (onAutoGenerateComplete) onAutoGenerateComplete();
+        autoGenTriggered.current = false;
+      });
+    }
+    if (!autoGenerate) autoGenTriggered.current = false;
+  }, [autoGenerate, isGeneratingAll, anySectionBusy, generateAll, onAutoGenerateComplete]);
 
   // ── Save section edit ──
   const saveSectionEdit = useCallback((sectionName, newText) => {
