@@ -17,7 +17,7 @@ Cost per student: R25,800. Model: d-lab provides curriculum, coaching, AI tools,
 
 TYPE 2: STANDARD COHORT — d-lab FUNDED WITH STIPENDS & LAPTOPS (R1.597M per 20-student cohort)
 Same 9-month programme, but d-lab provides EVERYTHING including laptops (R318K = R15,900 × 20) and stipends (R763K = R4,240/student × 9 months).
-Budget: Base programme R516K + Laptops R318K + Stipends R763K = R1,597,000.
+Budget: Base programme R516K + Laptops R318K + Stipends R763K = R1,597,200.
 Cost per student: R79,860. Active: Sci-Bono cohort.
 
 TYPE 3: STANDARD COHORT — WITH STIPENDS ONLY (R1.236M per 20-student cohort)
@@ -28,8 +28,8 @@ Cost per student: R61,800. Model: Nedbank Private Wealth proposal.
 TYPE 4: FET HIGH SCHOOL PROGRAMME (R1.079M for 60 students across 3 schools)
 3-year, 425-hour work-readiness journey for Grade 10-12 learners. Partnership with Gauteng Dept of Education + 3 Schools of Specialisation. ~170 hrs/year (Years 1-2), 85 hrs (Year 3). Weekly coaching + Saturday sessions + holiday Design Thinking sprints.
 Core blocks: AI/Cyborg Skills, PowerSkills, Digital Tools, Storytelling, Design Thinking, Entrepreneurship, Self-Discovery.
-Budget: Travel R8K, FET Teacher Support R14K, Subject specialist coaches R960K (R6,000 × 160 days), Accreditation R5K, Snacks/meals R81K, LMS R11K = R1,079,000.
-Cost per student: R18K/year. Status: MOU with GDE in progress.
+Budget: Travel R8K, FET Teacher Support R14K, Subject specialist coaches R960K (R6,000 × 160 days), Accreditation R5K, Snacks/meals R81K, LMS R11K = R1,079,742.
+Cost per student: R17,996/year. Status: MOU with GDE in progress.
 
 TYPE 5: CORPORATE PROGRAMME — CCBA FUTURE LEADERS (R651K for 63 participants)
 Corporate-funded leadership development for graduate hires. Design Thinking sprints, group coaching, Enneagram profiles, reflection assessments.
