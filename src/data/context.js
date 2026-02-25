@@ -2,13 +2,13 @@ export const CTX = `ABOUT d-lab (The Field Lab NPC)
 NPO 2017/382673/08 | PBO 930077003 | Section 18A tax-exempt
 Founded 2017, programme launched 2022. Director: Alison Jacobson.
 
-MISSION: d-lab equips young innovators with the skills, mindset, and digital fluency needed to thrive in the modern workplace. We combine design thinking, digital competence — particularly AI — and character development through a programme accredited by the Institute of Chartered IT Professionals (ICITP).
+MISSION: d-lab develops the whole person — character, collaborative problem-solving capability, work readiness, AND digital fluency — so young South Africans can thrive in the modern workplace. Our ICITP-accredited pivotal skills programme combines design thinking, character development, power skills, and AI-native digital competence into a single integrated journey.
 
-ACCREDITATION: ICITP (SAQA registered) via Portfolios of Evidence + ICDL + self-paced micro-courses.
+ACCREDITATION: ICITP-accredited pivotal skills programme (SAQA registered) via Portfolios of Evidence + ICDL + self-paced micro-courses.
 
-4 PILLARS: Design Thinking, Digital & AI Competency, Power Skills (communication, resilience, teamwork, problem-solving per WEF framework), Work Readiness.
+4 PILLARS: Character & Self-Discovery (resilience, initiative, integrity, growth mindset), Collaborative Problem-Solving (design thinking, teamwork, communication per WEF framework), Work Readiness (professional skills, career preparation, industry exposure), Digital & AI Fluency (AI-native tools, digital competence, data literacy).
 
-══ PROGRAMME TYPES (d-lab delivers 6 distinct programme types — choose the right one for each funder) ══
+══ PROGRAMME TYPES (d-lab delivers 7 distinct programme types — choose the right one for each funder) ══
 
 TYPE 1: STANDARD COHORT — PARTNER-FUNDED (R516K per 20-student cohort)
 9-month accredited work-readiness programme for unemployed youth 18-25. 6 months coursework + 3 months industry internship. Partner provides infrastructure, stipends, laptops. d-lab provides coaching, curriculum, assessment, accreditation, LMS.
@@ -36,12 +36,12 @@ Corporate-funded leadership development for graduate hires. Design Thinking spri
 Budget: Phase/DT facilitation R122K, 8 Group coaching sessions R183K, 8 Reflection sessions R46K, Enneagram profiles R271K (R4,300 × 63), Contingency R29K = R651,000.
 Cost per participant: R10,333. Delivered via The Field Institute.
 
-TYPE 6: CYBORG HABITS SHORT COURSE (US$49/learner = ~R930)
-4-6 week online behaviour-change challenge. Asynchronous, AI-supported work habits platform. Revenue-generating, scales to teachers/NGOs/corporates. Can be added to any cohort or sold standalone.
+TYPE 6: CYBORG HABITS — AI WORK-HABITS PROGRAMME (R930/learner)
+4-6 week online behaviour-change challenge, part of d-lab's AI-powered learning platform. Asynchronous, coach-supported. Builds productive AI work habits through daily challenges and reflection. Bundled into all cohort programmes; also available for teachers, NGOs, and corporates.
 
 TYPE 7: SCI-BONO EMPLOYABILITY SKILLS (R232K for 90 learners)
 Short-format: 15 working days over 13 weeks. 7 AI days (6 hrs/day, 2 coaches) + Design Thinking (1-day sprint + 5-day sprint + 2 presentation days).
-Budget: AI coaching R84K (2 coaches × R1K/hr × 6hrs × 7 days) + DT coaching R64K (1 coach × R2K/hr × 4hrs × 8 days) + Cyborg Habits platform R84K (US$49 × 90) = R232K.
+Budget: AI coaching R84K (2 coaches × R1K/hr × 6hrs × 7 days) + DT coaching R64K (1 coach × R2K/hr × 4hrs × 8 days) + Cyborg Habits platform R84K (R930 × 90) = R232K.
 Cost per learner: R2,576 (incl VAT). Excludes venue/AV (Sci-Bono provides).
 
 ══ 2026 ORGANISATIONAL BUDGET (from approved budget) ══
@@ -72,6 +72,7 @@ BARE BONES BUDGET: R3.601M (survival mode: 1 cohort, skeleton staff)
 - 85% of alumni employed, studying, or running ventures within 3 months
 - 29% pre-graduation placement
 - 100% internship placement for eligible learners, every cohort since inception
+- Graduates placed at organisations including StrideShift.AI, Maxtec, EQ-FIN, ITEC Tiyende, and apprenticeship host companies
 - Grew from 12-student pilot (2022) to a complete training SYSTEM with 7 programme types
 - FET partnership with Gauteng Dept of Education signed
 - Cyborg Habits short course launched
@@ -82,12 +83,14 @@ BARE BONES BUDGET: R3.601M (survival mode: 1 cohort, skeleton staff)
 8-month: STEM centre delivery contracts active, for-profit cohort contract signed, 2026 student numbers double 2025
 12-month: LMS AI chatbot live, 95% pass summative assessments, social media +50%, corporate collaborative contracts signed
 
-INNOVATIONS (in-house, AI-powered):
+d-lab AI TOOLKIT (suite of in-house tools powering the programme):
 - Bespoke LMS: tracks all student data, stores portfolios, supports blended delivery
 - Language Leveller: adjusts English content to each learner's proficiency level
 - Assessornator: automated assessment for consistent marking at scale
-- Cyborg Habits platform: behaviour-change challenge for AI work habits
+- PoE Assessor: AI-assisted Portfolio of Evidence evaluation and feedback
+- Cyborg Habits platform: behaviour-change challenge building productive AI work habits
 - Microjobbing programme: graduates earn early income through short paid tasks
+- Additional proprietary tools for curriculum delivery, coach support, and learner analytics
 
 GOVERNANCE: Board of 3 executive directors with 140+ years combined education leadership:
 - Alison Jacobson: Education, Marketing & Media
@@ -102,11 +105,11 @@ TONE GUIDANCE: Write proposals that are warm, human, and compelling — not dry 
 
 PROPOSAL STRATEGY: Match the programme type to the funder. Small foundations (R200K-R600K): offer a partner-funded cohort (R516K) or Sci-Bono-style short course (R232K). Medium foundations/CSI (R600K-R1.5M): offer a cohort with stipends (R1.236M) or FET programme (R1.079M). Large funders (R1.5M+): offer d-lab-funded cohort (R1.597M) or multi-cohort packages. SETAs: multi-cohort national programmes. Corporate: CCBA-style leadership or multi-cohort with B-BBEE value. Always include organisational cost contribution (30%) for sustainability.`;
 
-export const CTX_SLIM = `d-lab NPC (The Field Lab NPC) — South African NPO training unemployed youth in AI-native digital skills.
-NPO 2017/382673/08 | PBO 930077003 | Section 18A tax-exempt. Director: Alison Jacobson.
-KEY OUTCOMES: 92% completion (vs 55% sector avg), 85% employment within 3 months, 29% pre-graduation placement, 60 learners in 2025.
-7 PROGRAMME TYPES: Type 1 Partner-funded cohort R516K/20 students | Type 2 d-lab funded R1.597M/20 | Type 3 With stipends R1.236M/20 | Type 4 FET R1.079M/60 | Type 5 Corporate R651K/63 | Type 6 Cyborg Habits R930/learner | Type 7 Short-format R232K/90.
+export const CTX_SLIM = `d-lab NPC (The Field Lab NPC) — South African NPO developing the whole person: character, collaborative problem-solving, work readiness, and AI-native digital fluency.
+NPO 2017/382673/08 | PBO 930077003 | Section 18A tax-exempt. ICITP-accredited pivotal skills programme. Director: Alison Jacobson.
+KEY OUTCOMES: 92% completion (vs 55% sector avg), 85% employment within 3 months, 29% pre-graduation placement, 60 learners in 2025. Graduates placed at StrideShift.AI, Maxtec, EQ-FIN, ITEC Tiyende, and others.
+7 PROGRAMME TYPES: Type 1 Partner-funded cohort R516K/20 students | Type 2 d-lab funded R1.597M/20 | Type 3 With stipends R1.236M/20 | Type 4 FET R1.079M/60 | Type 5 Corporate R651K/63 | Type 6 Cyborg Habits (bundled AI work-habits platform) R930/learner | Type 7 Short-format R232K/90.
 DELIVERY: Partner model — d-lab provides curriculum, coaching, AI tools, assessment, accreditation; local partners provide venue + recruitment. Current: Inkcubeko (Gauteng), Penreach (Mpumalanga).
-AI TOOLS (in-house): LMS, Language Leveller, Assessornator, Cyborg Habits platform.
+AI TOOLKIT (in-house): LMS, Language Leveller, Assessornator, PoE Assessor, Cyborg Habits platform, and proprietary curriculum/coach tools.
 FUNDERS: Telkom Foundation, Get It Done Foundation, TK Foundation, Sage Foundation, SAP, C-Track, EOH.
 2026 BUDGET: R13.4M (R9.3M grants + R2.5M earned revenue + R1.08M in-kind).`;
