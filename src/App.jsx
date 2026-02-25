@@ -477,6 +477,32 @@ function AppInner() {
 - You MAY creatively design programme structures, propose new combinations of d-lab's components, and scale up delivery models — but ground everything in d-lab's real capabilities and cost structures.
 - Programme costs should be realistic and derived from the provided cost-per-student figures, scaled appropriately for the proposed scope.`;
 
+    // ── Budget context builder ── used by ALL prompt types
+    // Pulls from grant.budgetTable (BudgetBuilder) first, then detectType fallback
+    const bt = grant.budgetTable;
+    const detectedPt = detectType(grant);
+    const budgetInfo = bt
+      ? { perStudent: bt.perStudent, total: bt.total, typeNum: bt.typeNum, typeLabel: bt.typeLabel,
+          students: bt.cohorts * bt.studentsPerCohort, cohorts: bt.cohorts, duration: bt.duration,
+          block: `BUDGET (SOURCE OF TRUTH — use these EXACT figures):
+Programme: Type ${bt.typeNum} — ${bt.typeLabel}
+Students: ${bt.cohorts * bt.studentsPerCohort}${bt.cohorts > 1 ? ` (${bt.cohorts} cohorts × ${bt.studentsPerCohort})` : ""}
+Duration: ${bt.duration}
+Line items:
+${bt.items.map(it => `  ${it.label}: R${it.amount.toLocaleString()}`).join("\n")}
+${bt.includeOrgContribution ? `30% org contribution: R${bt.orgContribution.toLocaleString()}\n` : ""}TOTAL: R${bt.total.toLocaleString()} | Per student: R${bt.perStudent.toLocaleString()}` }
+      : detectedPt
+        ? { perStudent: detectedPt.perStudent, total: detectedPt.cost, typeLabel: detectedPt.label,
+            students: detectedPt.students, cohorts: 1, duration: detectedPt.duration,
+            block: `PROGRAMME TYPE (detected): ${detectedPt.label}
+Students: ${detectedPt.students || "varies"} | Duration: ${detectedPt.duration}
+Cost: R${(detectedPt.cost||0).toLocaleString()} | Per student: R${detectedPt.perStudent.toLocaleString()}` }
+        : null;
+    const perStudentStr = budgetInfo ? `R${budgetInfo.perStudent.toLocaleString()}` : "[per-student cost from budget]";
+    const costHook = budgetInfo
+      ? `"It costs R180,000 to keep one young person unemployed for a year. For ${perStudentStr}, d-lab turns them into a working professional in ${budgetInfo.duration || "nine months"}."`
+      : `"It costs R180,000 to keep one young person unemployed for a year. d-lab turns them into working professionals for a fraction of that."`;
+
     if (type === "draft") {
       const fs = funderStrategy(grant);
       const researchBlock = priorResearch
@@ -514,7 +540,7 @@ SCALE THROUGH AI — this is d-lab's secret weapon and a key part of the pitch:
 - d-lab has built proprietary AI tools (Language Leveller, Assessornator, LMS, Cyborg Habits) that radically change the economics of training delivery. These aren't off-the-shelf — they're built in-house, purpose-designed for South African youth.
 - Language Leveller: AI-powered real-time translation and comprehension support, meaning learners can engage with English-language tech content regardless of home language. This removes the biggest barrier to scale.
 - Assessornator: AI assessment and feedback engine that gives every student personalised, instant feedback — the equivalent of a dedicated tutor, at zero marginal cost per student.
-- Cyborg Habits platform: asynchronous AI coaching that extends learning beyond classroom hours, building daily digital habits through a subscription model (US$49/learner).
+- Cyborg Habits platform: asynchronous AI coaching that extends learning beyond classroom hours, building daily digital habits (R930/learner).
 - The coaching model: AI handles the repetitive, personalised feedback that traditionally requires 1-on-1 human time, freeing coaches to focus on mentorship, motivation, and career guidance. This means d-lab can maintain quality at 2-3x the student numbers of traditional training providers.
 - When proposing large programmes, LEAN INTO THIS: "d-lab's AI infrastructure means we can train 200 learners with the quality traditionally reserved for cohorts of 60" or "Our per-student cost drops significantly at scale because the AI tools absorb the work that would normally require additional coaches."
 - Propose higher student numbers than the funder might expect. If a traditional provider would propose 40 students, d-lab can credibly propose 100-120 at comparable cost. Make this a headline differentiator.
@@ -522,7 +548,7 @@ SCALE THROUGH AI — this is d-lab's secret weapon and a key part of the pitch:
 CYBORG HABITS AT SCALE — think beyond the classroom:
 - Cyborg Habits is not just a course add-on. It is a standalone, scalable digital behaviour-change platform that can reach thousands of learners asynchronously, with zero marginal instructor cost per additional user.
 - FOR SCHOOLS: Cyborg Habits can be deployed to entire school districts as a "digital readiness" layer — giving Grade 10-12 learners daily AI-guided micro-challenges that build real digital literacy BEFORE they enter the job market or tertiary education. Imagine 5,000 FET learners across 20 schools, each spending 15 minutes a day building the habits that separate digitally fluent workers from digitally illiterate ones. No new teachers required — just devices and connectivity.
-- FOR LARGE FUNDERS: The per-learner cost of Cyborg Habits (US$49) means a R5M investment could reach 1,500+ learners for a full year of daily AI coaching. That's a cost-per-outcome ratio that no traditional skills programme can match.
+- FOR LARGE FUNDERS: The per-learner cost of Cyborg Habits (R930) means a R5M investment could reach 5,000+ learners for a full cycle of daily AI coaching. That's a cost-per-outcome ratio that no traditional skills programme can match.
 - CASCADING IMPACT: Cyborg Habits learners don't just learn for themselves — they become AI ambassadors in their families and communities. A learner who builds the habit of using AI for problem-solving brings that skill home, to their parents' small business, to their church's admin, to their community WhatsApp group. One learner becomes a multiplier.
 - EMPLOYABILITY PIPELINE: For corporates, Cyborg Habits creates a pre-screened, digitally-ready talent pool. Learners who complete the programme arrive at interviews already fluent in AI-assisted work — a generation ahead of their peers. Propose this as a recruitment funnel, not just a CSI tick-box.
 - HYBRID MODELS: For big programmes, propose Cyborg Habits as the digital spine with periodic in-person bootcamps — e.g., 1,000 learners on Cyborg Habits year-round, with 100-200 selected for intensive face-to-face Type 3-5 programmes. This gives funders massive reach AND deep impact.
@@ -534,7 +560,7 @@ VARIED OPENINGS — CRITICAL:
 - Every proposal must have a UNIQUE opening that is specifically crafted for THIS funder, THIS grant, THIS moment. Do NOT recycle the same narrative structure across grants.
 - The opening paragraph is the most important paragraph. It must earn the next paragraph. Vary your technique:
   * Lead with a single student's story (a day in the life, a transformation moment, a before/after)
-  * Lead with a striking data point that reframes the problem ("It costs R180,000 to keep one young person unemployed for a year. For R25,800, d-lab turns them into a working professional in nine months.")
+  * Lead with a striking data point that reframes the problem (${costHook})
   * Lead with the funder's own stated mission and show how d-lab is already doing what they want to fund
   * Lead with a provocation or question ("What if the most effective way to close the digital divide isn't a laptop per child — but a habit per day?")
   * Lead with a very specific, concrete scene (the first morning of a new cohort, the moment a student ships their first project, the WhatsApp message from a graduate's parent)
@@ -550,15 +576,15 @@ DEPTH — this is critical. Write a SUBSTANTIVE proposal, not a skeleton:
 - The Executive Summary alone should be 200-300 words — a compelling standalone case.
 - Programme sections should describe the actual week-by-week or phase-by-phase journey: what happens on Day 1, what tools they use, what the coaching looks like, what a Design Thinking sprint feels like, what the Cyborg Habits platform does. Paint the picture.
 - Impact sections should weave numbers INTO narrative: "Of the 20 students in our most recent cohort, 17 were employed within 90 days — at companies like..." not just "85% employment rate."
-- Budget sections should tell the story of value: "For R25,800 per student — less than the cost of a semester at most private colleges — a young person receives 9 months of daily coaching, enterprise software access, ICITP accreditation, and a career launchpad."
-- Include specific d-lab details that bring it to life: the AI tools (Language Leveller, Assessornator, LMS), the coaching model, the partner delivery structure, the accreditation pathway.
+- Budget sections should tell the story of value: "For ${perStudentStr} per student — less than the cost of a semester at most private colleges — a young person receives ${budgetInfo?.duration || "9 months"} of daily coaching, enterprise software access, ICITP accreditation, and a career launchpad."
+- Include specific d-lab details that bring it to life: the AI tools (Language Leveller, Assessornator, PoE Assessor, LMS), the coaching model, the partner delivery structure, the accreditation pathway.
 - If the funder type expects compliance sections (SETA alignment, B-BBEE, M&E frameworks), write those with EQUAL depth — but still with narrative warmth.
 
 FUNDER ANGLE: Lead with "${fs.lead}"
 OPENING HOOK: ${fs.hook}
 USE THEIR LANGUAGE: ${fs.lang}
 ${relNote}
-${fs.pt ? `PROGRAMME TYPE: ${fs.pt.label} — ${fs.pt.students} students, R${(fs.pt.cost||0).toLocaleString()}, ${fs.pt.duration}. Budget: ${fs.pt.budget}` : ""}
+${budgetInfo ? `\n${budgetInfo.block}` : ""}
 ${fs.mc ? `MULTI-COHORT: ${fs.mc.count} cohorts requested` : ""}
 
 Use EXACT programme costs and impact stats from the context. Do NOT mention directors by name — refer to "directors, programme management and ops team" or "the leadership team". If grant notes mention a programme type, use that type's budget. If uploaded docs contain RFP guidelines, address them directly.
@@ -634,7 +660,7 @@ OPENING HOOK: ${fs.hook}
 
 VARIED OPENINGS — the opening must be UNIQUE and crafted for THIS funder:
 - Lead with a single student's transformation story (a day in the life, a before/after)
-- Lead with a striking data point that reframes the problem ("It costs R180,000 to keep one young person unemployed for a year. For R25,800, d-lab turns them into a working professional in nine months.")
+- Lead with a striking data point that reframes the problem (${costHook})
 - Lead with the funder's own stated mission and show how d-lab is already doing what they want to fund
 - Lead with a provocation ("What if the most effective way to close the digital divide isn't a laptop per child — but a habit per day?")
 - Lead with a very specific scene (the first morning of a new cohort, the WhatsApp message from a graduate's parent)
@@ -656,34 +682,20 @@ VARIED OPENINGS — use a different technique from the cover letter:
 - Striking data point, student story, funder's own mission, provocative question, concrete scene, or scale vision.`;
 
       } else if (isBudget) {
-        // If a real budget table exists, inject it as the source of truth
-        const bt = grant.budgetTable;
-        const budgetTableBlock = bt ? `
-BUDGET TABLE (SOURCE OF TRUTH — use these EXACT figures, do NOT invent budget numbers):
-Programme: Type ${bt.typeNum} — ${bt.typeLabel}
-${bt.cohorts > 1 ? `Cohorts: ${bt.cohorts} × ${bt.studentsPerCohort} students = ${bt.cohorts * bt.studentsPerCohort} total students` : `Students: ${bt.studentsPerCohort}`}
-Duration: ${bt.duration}
-Line items (per cohort):
-${bt.items.map(it => `  ${it.label}: R${it.amount.toLocaleString()}`).join("\n")}
-Subtotal per cohort: R${bt.items.reduce((s, it) => s + it.amount, 0).toLocaleString()}
-${bt.cohorts > 1 ? `× ${bt.cohorts} cohorts: R${bt.subtotal.toLocaleString()}` : ""}
-${bt.includeOrgContribution ? `30% org contribution: R${bt.orgContribution.toLocaleString()}` : ""}
-TOTAL: R${bt.total.toLocaleString()} | Per student: R${bt.perStudent.toLocaleString()}
-` : "";
         sectionGuide = `BUDGET INSTRUCTIONS:
 Tell the story of VALUE, not just line items. Show cost-per-student, cost-effectiveness vs traditional providers. Make every rand feel justified.
-${bt ? `\n${budgetTableBlock}\nIMPORTANT: The budget table above is the REAL, user-confirmed budget. Use these EXACT figures. Wrap compelling narrative around the real numbers. Do not hallucinate different amounts.\n` : ""}
+${budgetInfo ? `\n${budgetInfo.block}\nIMPORTANT: The budget above is the REAL, user-confirmed budget. Use these EXACT figures. Wrap compelling narrative around the real numbers. Do not hallucinate different amounts.\n` : ""}
 AMBITION: The budget should fill the funder's capacity, not sit timidly below it. If a corporate has R2M for CSI, propose R1.8M — not R500K. Match the ask to the funder's ambition.
 - Use d-lab's programme types as building blocks but design for what the FUNDER wants to achieve.
 - Go multi-cohort, add components, extend duration where the budget allows.
 
 SCALE THROUGH AI — the economics argument:
-- d-lab's AI tools (Language Leveller, Assessornator, LMS, Cyborg Habits) change the economics of delivery. Per-student cost drops at scale because AI absorbs work that would normally require additional coaches.
+- d-lab's AI tools (Language Leveller, Assessornator, PoE Assessor, LMS, Cyborg Habits) change the economics of delivery. Per-student cost drops at scale because AI absorbs work that would normally require additional coaches.
 - "d-lab can train 200 learners with the quality traditionally reserved for cohorts of 60."
-- Cyborg Habits at US$49/learner means a R5M investment could reach 1,500+ learners for a year. No traditional programme matches that cost-per-outcome.
+- Cyborg Habits at R930/learner means a R5M investment could reach 5,000+ learners. No traditional programme matches that cost-per-outcome.
 - Propose higher student numbers than expected. If a traditional provider proposes 40, d-lab can credibly propose 100-120.
 
-Use d-lab's EXACT programme cost lines. Weave the numbers into narrative: "For R25,800 per student — less than a semester at most private colleges — a young person receives 9 months of daily coaching, enterprise software access, ICITP accreditation, and a career launchpad."
+Use d-lab's EXACT programme cost lines. Weave the numbers into narrative: "For ${perStudentStr} per student — less than a semester at most private colleges — a young person receives ${budgetInfo?.duration || "9 months"} of daily coaching, enterprise software access, ICITP accreditation, and a career launchpad."
 
 ASK RECOMMENDATION — include at the VERY END on its own line:
 ${bt ? `ASK_RECOMMENDATION: Type ${bt.typeNum}, ${bt.cohorts} cohort(s), R${bt.total}` : `ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer with no commas or spaces]
@@ -697,7 +709,7 @@ SCALE THROUGH AI — d-lab's secret weapon:
 - d-lab has built proprietary AI tools that radically change training economics. NOT off-the-shelf — built in-house for SA youth.
 - Language Leveller: AI real-time translation/comprehension so learners engage with English tech content regardless of home language. Removes the biggest barrier to scale.
 - Assessornator: AI assessment giving every student personalised instant feedback — a dedicated tutor at zero marginal cost per student.
-- Cyborg Habits: asynchronous AI coaching extending learning beyond classroom hours, building daily digital habits (US$49/learner).
+- Cyborg Habits: asynchronous AI coaching extending learning beyond classroom hours, building daily digital habits (R930/learner).
 - The coaching model: AI handles repetitive personalised feedback, freeing coaches for mentorship and motivation. d-lab maintains quality at 2-3x student numbers of traditional providers.
 
 CYBORG HABITS AT SCALE — think beyond the classroom:
@@ -730,9 +742,9 @@ Write 2-4 rich paragraphs. Be specific to d-lab's model, not generic development
 ${isChallenge ? "Frame the challenge through d-lab's lens — not generic youth unemployment stats. What specific gap does d-lab fill that nobody else does? The answer: AI-native training that works at scale because the tools are built in-house." : ""}
 
 SUSTAINABILITY MODEL — d-lab's diversified engine:
-- 7 programme types from R199K to R5M create multiple revenue streams
+- 7 programme types from R232K to R5M create multiple revenue streams
 - Partner delivery model: partners provide infrastructure, d-lab provides the system. This means d-lab can expand to new sites without proportional cost increase.
-- Cyborg Habits is a subscription product (US$49/learner) that scales independently of classroom delivery
+- Cyborg Habits is a subscription product (R930/learner) that scales independently of classroom delivery
 - Corporate programmes (CCBA-style) generate revenue that cross-subsidises community programmes
 - In-house AI tools have zero licensing cost — they're proprietary, reducing per-student delivery cost as the organisation grows
 
@@ -772,7 +784,7 @@ ${sectionGuide}
 FUNDER ANGLE: Lead with "${fs.lead}"
 USE THEIR LANGUAGE: ${fs.lang}
 ${relNote}
-${fs.pt ? `PROGRAMME TYPE: ${fs.pt.label} — ${fs.pt.students} students, R${(fs.pt.cost||0).toLocaleString()}, ${fs.pt.duration}. Budget: ${fs.pt.budget}` : ""}
+${budgetInfo ? `\n${budgetInfo.block}` : ""}
 ${fs.mc ? `MULTI-COHORT: ${fs.mc.count} cohorts requested` : ""}
 ${customInstructions ? `\nUSER INSTRUCTIONS FOR THIS SECTION: ${customInstructions}` : ""}${fitScoreNote}
 
@@ -1098,7 +1110,7 @@ TOP 5 BY ASK: ${[...act].sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice
 
       // Build programme type reference
       const ptypeRef = Object.entries(PTYPES).map(([num, pt]) =>
-        `Type ${num}: ${pt.label} — ${pt.students ? pt.students + " students" : "Scales to any size"}, ${pt.duration}, ${pt.cost ? "R" + pt.cost.toLocaleString() : "US$49/learner"}`
+        `Type ${num}: ${pt.label} — ${pt.students ? pt.students + " students" : "Scales to any size"}, ${pt.duration}, ${pt.cost ? "R" + pt.cost.toLocaleString() : "R930/learner"}`
       ).join("\n");
 
       return await api(
@@ -1111,7 +1123,7 @@ ${ptypeRef}
 
 THINK ABOUT:
 - Which programme types are being pitched to the wrong funders? A R1.6M Type 2 programme pitched to a R500K corporate CSI budget is a mismatch. Name the mismatches.
-- Cyborg Habits (Type 6, US$49/learner, fully online) can scale to thousands — is the pipeline leveraging this for international funders, education departments, or large corporates who want reach?
+- Cyborg Habits (Type 6, R930/learner, fully online) can scale to thousands — is the pipeline leveraging this for international funders, education departments, or large corporates who want reach?
 - Which funder types actually convert? If Foundations win at 60% but Government/SETA wins at 10%, the team should rebalance prospecting time.
 - Multi-cohort and multi-year packaging: a R516K Type 1 programme becomes a R2.5M proposal when packaged as 5 cohorts across 2 years. Is anyone packaging like this?
 - Returning funders (Telkom, Sage, SAP, Get It Done) are the easiest revenue. Are renewals being actively managed or left to chance?
