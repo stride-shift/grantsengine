@@ -22,7 +22,7 @@ app.use(cors({
   credentials: true,
 }));
 
-// Rate limiting on auth endpoints — 20 attempts per 15 minutes per IP
+// Rate limiting on login endpoints only — 20 attempts per 15 minutes per IP
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -30,7 +30,8 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use('/api/org/', authLimiter);
+app.use('/api/org/:slug/auth/login', authLimiter);
+app.use('/api/org/:slug/auth/set-password', authLimiter);
 
 app.use(express.json({ limit: '10mb' }));
 
