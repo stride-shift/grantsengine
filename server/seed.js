@@ -4,7 +4,7 @@
 */
 import 'dotenv/config';
 import crypto from 'crypto';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import {
   getOrgBySlug, createOrg, updateOrgProfile, setOrgPassword,
   upsertTeamMember, upsertPipelineConfig, upsertGrant,
