@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import {
   getOrgBySlug, getOrgAuth, setOrgPassword, createSession, deleteSession, getSession,
   getMemberWithAuth, setMemberPassword, createMemberSession, endSession, logActivity,

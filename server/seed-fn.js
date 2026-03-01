@@ -3,7 +3,7 @@
   Extracted from seed.js so it can be imported without process.exit().
 */
 import crypto from 'crypto';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import {
   getOrgBySlug, createOrg, updateOrgProfile, setOrgPassword,
   upsertTeamMember, upsertPipelineConfig, upsertGrant,
