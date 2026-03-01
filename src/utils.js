@@ -132,6 +132,9 @@ export const grantReadiness = (g, complianceDocs = []) => {
   return { score, missing, nextAction };
 };
 
+// ── AI error detection (shared across components) ──
+export const isAIError = (r) => !r || r.startsWith("Error") || r.startsWith("Rate limit") || r.startsWith("Connection") || r.startsWith("Request failed") || r.startsWith("No response") || r.startsWith("The AI service");
+
 // ── Assemble sections into a single text (for backward compat + export) ──
 export const assembleText = (sections, order) =>
   order.filter(n => sections[n]?.text)

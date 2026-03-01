@@ -3,7 +3,7 @@ import multer from 'multer';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import {
-  getAllOrgs, getOrgBySlug, createOrg, updateOrg,
+  getAllOrgs, getOrgBySlug, createOrg, updateOrg, deleteOrg,
   getOrgProfile, updateOrgProfile,
   getOrgConfig, updateOrgConfig,
   getTeamMembers, upsertTeamMember, deleteTeamMember,
@@ -49,6 +49,13 @@ router.get('/orgs', w(async (req, res) => {
 }));
 
 router.post('/orgs', w(async (req, res) => {
+  // Require super-admin key to create new orgs
+  const adminKey = req.headers['x-admin-key'];
+  const expected = process.env.SUPER_ADMIN_KEY;
+  if (!expected || adminKey !== expected) {
+    return res.status(403).json({ error: 'Admin key required to create organisations' });
+  }
+
   const { name, slug, website, industry, country, currency, logo_url } = req.body;
   if (!name || !slug) return res.status(400).json({ error: 'Name and slug required' });
   if (!/^[a-z0-9-]+$/.test(slug)) return res.status(400).json({ error: 'Slug must be lowercase alphanumeric with hyphens' });
@@ -62,6 +69,19 @@ router.post('/orgs', w(async (req, res) => {
   }
 
   res.status(201).json({ id, slug, name, logo_url: logo_url || null });
+}));
+
+// ── Super-admin: delete an org (cascades all data) ──
+router.delete('/orgs/:slug', w(async (req, res) => {
+  const adminKey = req.headers['x-admin-key'];
+  const expected = process.env.SUPER_ADMIN_KEY;
+  if (!expected || adminKey !== expected) {
+    return res.status(403).json({ error: 'Invalid admin key' });
+  }
+  const org = await getOrgBySlug(req.params.slug);
+  if (!org) return res.status(404).json({ error: 'Org not found' });
+  await deleteOrg(org.id);
+  res.json({ ok: true, deleted: org.slug });
 }));
 
 router.get('/org/:slug', resolveOrg, requireAuth, (req, res) => {

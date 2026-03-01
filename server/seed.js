@@ -4,6 +4,7 @@
 */
 import 'dotenv/config';
 import crypto from 'crypto';
+import bcrypt from 'bcrypt';
 import {
   getOrgBySlug, createOrg, updateOrgProfile, setOrgPassword,
   upsertTeamMember, upsertPipelineConfig, upsertGrant,
@@ -53,7 +54,7 @@ EXISTING FUNDERS: Telkom Foundation, Get It Done Foundation, TK Foundation, Sage
 
 TONE: Warm, human, compelling — not dry or bureaucratic. Lead with human story and real impact. Specific numbers woven into narrative. Emphasise the SYSTEM — 7 programme types, partner delivery model, in-house AI tools, diversified revenue, exceptional outcomes.`;
 
-const hashPw = (pw) => crypto.createHash('sha256').update(pw).digest('hex');
+const hashPw = async (pw) => bcrypt.hash(pw, 10);
 
 // ── Check if already seeded ──
 const existing = getOrgBySlug('dlab');
@@ -75,7 +76,7 @@ const orgId = createOrg({
 });
 
 // ── Set password ──
-setOrgPassword(orgId, hashPw('dlab2026'));
+setOrgPassword(orgId, await hashPw('dlab2026'));
 
 // ── Profile ──
 updateOrgProfile(orgId, {

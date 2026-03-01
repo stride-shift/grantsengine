@@ -11,7 +11,17 @@ import { resolveOrg } from '../middleware/org.js';
 
 const router = Router();
 
-const hashPw = (pw) => crypto.createHash('sha256').update(pw).digest('hex');
+// Legacy SHA-256 hash (for migration only — new passwords use bcrypt)
+const sha256 = (pw) => crypto.createHash('sha256').update(pw).digest('hex');
+// Bcrypt hash for new passwords
+const hashPw = async (pw) => bcrypt.hash(pw, 10);
+// Compare: try bcrypt first, fallback to SHA-256 for legacy hashes
+const comparePw = async (pw, hash) => {
+  // Bcrypt hashes start with $2b$ or $2a$
+  if (hash.startsWith('$2')) return bcrypt.compare(pw, hash);
+  // Legacy SHA-256 comparison
+  return sha256(pw) === hash;
+};
 
 // Wrap async route handlers to catch unhandled errors
 const w = (fn) => (req, res, next) => fn(req, res, next).catch(next);
@@ -29,8 +39,15 @@ router.post('/org/:slug/auth/login', w(async (req, res) => {
   const auth = await getOrgAuth(org.id);
   if (!auth) return res.status(401).json({ error: 'No password set for this organisation' });
 
-  if (hashPw(password) !== auth.password_hash) {
+  const valid = await comparePw(password, auth.password_hash);
+  if (!valid) {
     return res.status(401).json({ error: 'Incorrect password' });
+  }
+
+  // Auto-upgrade legacy SHA-256 hash to bcrypt on successful login
+  if (!auth.password_hash.startsWith('$2')) {
+    const upgraded = await hashPw(password);
+    await setOrgPassword(org.id, upgraded);
   }
 
   const session = await createSession(org.id);
@@ -72,7 +89,7 @@ router.get('/auth/verify', w(async (req, res) => {
 router.post('/org/:slug/auth/set-password', w(async (req, res) => {
   const { slug } = req.params;
   const { password } = req.body;
-  if (!password || password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
   const org = await getOrgBySlug(slug);
   if (!org) return res.status(404).json({ error: 'Organisation not found' });
@@ -80,7 +97,7 @@ router.post('/org/:slug/auth/set-password', w(async (req, res) => {
   const existing = await getOrgAuth(org.id);
   if (existing) return res.status(400).json({ error: 'Password already set. Contact admin to reset.' });
 
-  await setOrgPassword(org.id, hashPw(password));
+  await setOrgPassword(org.id, await hashPw(password));
   const session = await createSession(org.id);
   res.json({ token: session.token, expires: session.expires, org: { id: org.id, slug: org.slug, name: org.name } });
 }));

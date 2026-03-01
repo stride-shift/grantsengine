@@ -25,18 +25,19 @@ export const C = {
   navyLight: "#252B48",
   navySoft: "#E8EAF0",
 
-  // ── Backward compat aliases (use C.primary in new code) ──
-  green: "#D03228",
-  greenSoft: "#FDE8E7",
-  greenBorder: "#D0322880",
-  accent: "#D03228",
+  // ── Backward compat aliases (DEPRECATED — use C.primary in new code) ──
+  // NOTE: These point to red/primary, NOT green. Named "green" from original theme.
+  green: "#D03228",      // DEPRECATED: actually primary red
+  greenSoft: "#FDE8E7",  // DEPRECATED: actually primarySoft
+  greenBorder: "#D0322880", // DEPRECATED: actually primaryBorder
+  accent: "#D03228",     // alias for primary
 
-  // ── Text ──
+  // ── Text (WCAG AA contrast-safe on #F7F7F8 and #FFFFFF) ──
   dark: "#111827",
   t1: "#1F2937",
   t2: "#4B5563",
-  t3: "#6B7280",
-  t4: "#9CA3AF",
+  t3: "#5C6370",   // was #6B7280 — bumped for 4.5:1+ contrast on #F7F7F8
+  t4: "#71767F",   // was #9CA3AF — bumped for 4.5:1+ contrast on white
 
   // ── Semantic ──
   red: "#D03228",
@@ -72,9 +73,9 @@ export const C = {
   cardShadowHover: "0 10px 30px rgba(26, 31, 54, 0.10), 0 2px 8px rgba(26, 31, 54, 0.06)",
   cardShadowLg: "0 16px 48px rgba(26, 31, 54, 0.12), 0 4px 16px rgba(26, 31, 54, 0.07)",
 
-  // ── Extra ──
-  yellow: "#D4A017",
-  yellowSoft: "#FEF7E0",
+  // ── Extra (aliases for amber — kept for backward compat) ──
+  yellow: "#D4A017",    // same as C.amber
+  yellowSoft: "#FEF7E0", // same as C.amberSoft
 };
 
 export const FONT = `'Outfit', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif`;

@@ -37,10 +37,15 @@ function toGeminiRequest(anthropicBody) {
 // ── Gemini → Anthropic response translation ──
 
 function toAnthropicResponse(geminiData) {
-  const text = geminiData.candidates?.[0]?.content?.parts
+  const candidate = geminiData.candidates?.[0];
+  const text = candidate?.content?.parts
     ?.filter(p => p.text)
     .map(p => p.text)
     .join('\n\n') || '';
+
+  // Map Gemini finishReason → Anthropic stop_reason
+  const finishReason = candidate?.finishReason;
+  const stop_reason = finishReason === 'MAX_TOKENS' ? 'max_tokens' : 'end_turn';
 
   return {
     content: [{ type: 'text', text }],
@@ -49,13 +54,12 @@ function toAnthropicResponse(geminiData) {
       output_tokens: geminiData.usageMetadata?.candidatesTokenCount || 0,
     },
     model: GEMINI_MODEL,
-    stop_reason: 'end_turn',
+    stop_reason,
   };
 }
 
 function geminiUrl() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+  return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 }
 
 // POST /api/org/:slug/ai/messages — proxied Gemini API call (authenticated)
@@ -71,11 +75,15 @@ router.post('/org/:slug/ai/messages', resolveOrg, requireAuth, async (req, res) 
     const { _agent_type, _grant_id, ...apiBody } = req.body;
     const geminiBody = toGeminiRequest(apiBody);
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60_000);
     const response = await fetch(geminiUrl(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify(geminiBody),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     const data = await response.text();
     const duration = Date.now() - start;
@@ -106,39 +114,6 @@ router.post('/org/:slug/ai/messages', resolveOrg, requireAuth, async (req, res) 
       });
     } catch { /* audit logging is best-effort */ }
 
-    res.status(200).json(anthropicResponse);
-  } catch (err) {
-    res.status(502).json({ error: { message: `Proxy error: ${err.message}` } });
-  }
-});
-
-// POST /api/messages — backward-compatible unauthenticated proxy (for dev/testing)
-router.post('/messages', async (req, res) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: { message: 'No GEMINI_API_KEY configured.' } });
-  }
-
-  try {
-    const geminiBody = toGeminiRequest(req.body);
-
-    const response = await fetch(geminiUrl(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(geminiBody),
-    });
-
-    const data = await response.text();
-
-    if (!response.ok) {
-      let errMsg = `Gemini API error (${response.status})`;
-      try { errMsg = JSON.parse(data).error?.message || errMsg; } catch {}
-      res.status(response.status).json({ error: { message: errMsg } });
-      return;
-    }
-
-    const parsed = JSON.parse(data);
-    const anthropicResponse = toAnthropicResponse(parsed);
     res.status(200).json(anthropicResponse);
   } catch (err) {
     res.status(502).json({ error: { message: `Proxy error: ${err.message}` } });

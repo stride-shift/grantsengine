@@ -2,11 +2,88 @@ import { useState, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
 import { Btn, CopyBtn, AILoadingPanel, stripMd, timeAgo } from "./index";
 
+/* ── Inline budget table ── */
+function BudgetTable({ bt }) {
+  if (!bt?.items?.length) return null;
+  const fmtR = (n) => `R${(n || 0).toLocaleString()}`;
+  const totalStudents = (bt.cohorts || 1) * (bt.studentsPerCohort || 0);
+  const isMultiCohort = bt.cohorts > 1;
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <table style={{
+        width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: FONT,
+        borderRadius: 10, overflow: "hidden",
+      }}>
+        <thead>
+          <tr style={{ background: C.navy }}>
+            <th style={{ padding: "9px 14px", textAlign: "left", color: "#fff", fontWeight: 700, fontSize: 11, letterSpacing: 0.3 }}>Line Item</th>
+            <th style={{ padding: "9px 14px", textAlign: "right", color: "#fff", fontWeight: 700, fontSize: 11, fontFamily: MONO, letterSpacing: 0.3 }}>Amount (ZAR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {bt.items.map((it, i) => (
+            <tr key={i} style={{ background: i % 2 === 0 ? C.warm100 : C.white, borderBottom: `1px solid ${C.line}` }}>
+              <td style={{ padding: "8px 14px", color: C.t1, borderLeft: `3px solid ${C.primary}25` }}>{it.label}</td>
+              <td style={{ padding: "8px 14px", textAlign: "right", fontFamily: MONO, fontWeight: 600, color: C.t1 }}>{fmtR(it.amount)}</td>
+            </tr>
+          ))}
+          {isMultiCohort && (
+            <tr style={{ background: C.raised, borderTop: `2px solid ${C.line}` }}>
+              <td style={{ padding: "8px 14px", fontWeight: 600, color: C.t2, borderLeft: `3px solid ${C.primary}40` }}>
+                Subtotal per cohort
+              </td>
+              <td style={{ padding: "8px 14px", textAlign: "right", fontFamily: MONO, fontWeight: 600, color: C.t2 }}>
+                {fmtR(bt.items.reduce((s, it) => s + (it.amount || 0), 0))}
+              </td>
+            </tr>
+          )}
+          {isMultiCohort && (
+            <tr style={{ background: C.raised }}>
+              <td style={{ padding: "8px 14px", fontWeight: 600, color: C.t2, borderLeft: `3px solid ${C.primary}40` }}>
+                {bt.cohorts} cohorts \u00d7 {bt.studentsPerCohort} students
+              </td>
+              <td style={{ padding: "8px 14px", textAlign: "right", fontFamily: MONO, fontWeight: 600, color: C.t2 }}>
+                {fmtR(bt.subtotal)}
+              </td>
+            </tr>
+          )}
+          {bt.includeOrgContribution && bt.orgContribution > 0 && (
+            <tr style={{ background: C.okSoft }}>
+              <td style={{ padding: "8px 14px", fontWeight: 600, color: C.ok, borderLeft: `3px solid ${C.ok}40` }}>
+                30% Org Contribution
+              </td>
+              <td style={{ padding: "8px 14px", textAlign: "right", fontFamily: MONO, fontWeight: 600, color: C.ok }}>
+                {fmtR(bt.orgContribution)}
+              </td>
+            </tr>
+          )}
+          <tr style={{ background: C.navy }}>
+            <td style={{ padding: "10px 14px", fontWeight: 800, color: "#fff", fontSize: 13 }}>
+              TOTAL
+              {totalStudents > 0 && <span style={{ fontWeight: 400, fontSize: 10, opacity: 0.7, marginLeft: 8 }}>{totalStudents} learners</span>}
+            </td>
+            <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: MONO, fontWeight: 800, color: "#fff", fontSize: 14 }}>
+              {fmtR(bt.total)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      {bt.perStudent > 0 && (
+        <div style={{ fontSize: 11, color: C.t3, marginTop: 6, textAlign: "right", fontFamily: MONO }}>
+          {fmtR(bt.perStudent)} per learner \u00b7 {bt.duration || ""}
+          {bt.typeLabel && <span style={{ marginLeft: 6, color: C.t4 }}>\u00b7 {bt.typeLabel}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Section Card ──
    Individual section of a section-by-section proposal.
    States: empty / loading / view / edit / error
 */
-export default function SectionCard({ name, index, total, section, busy, onGenerate, onSave, onRestore }) {
+export default function SectionCard({ name, index, total, section, busy, onGenerate, onSave, onRestore, budgetTable }) {
   const hasText = section?.text && !section.text.startsWith("Error");
   const isError = section?.text && (section.text.startsWith("Error") || section.text.startsWith("Rate limit") || section.text.startsWith("Connection"));
   const [expanded, setExpanded] = useState(!hasText);
@@ -41,6 +118,8 @@ export default function SectionCard({ name, index, total, section, busy, onGener
   const statusIcon = busy ? "\u2026" : hasText ? (section.isManualEdit ? "\u270E" : "\u2713") : isError ? "!" : (index + 1);
   const statusColor = busy ? C.purple : hasText ? (section.isManualEdit ? C.amber : C.ok) : isError ? C.red : C.t4;
   const statusBg = busy ? C.purpleSoft : hasText ? (section.isManualEdit ? C.amberSoft : C.okSoft) : isError ? C.redSoft : C.raised;
+
+  const isBudget = name.toLowerCase().includes("budget");
 
   // Loading step title — match section name to loading steps
   const loadTitle = name.toLowerCase().includes("cover") ? "Cover Letter"
@@ -150,6 +229,8 @@ export default function SectionCard({ name, index, total, section, busy, onGener
       {/* View mode — formatted text */}
       {hasText && !busy && expanded && !editing && (
         <div style={{ padding: "0 18px 14px" }}>
+          {/* Budget table — shown above prose for budget sections */}
+          {isBudget && budgetTable && <BudgetTable bt={budgetTable} />}
           <div style={{
             padding: "16px 18px", background: C.warm100, borderRadius: 10,
             border: `1.5px solid ${C.primary}15`,

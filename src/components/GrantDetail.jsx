@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmtK, dL, td, effectiveAsk, grantReadiness } from "../utils";
+import { fmtK, dL, td, effectiveAsk, grantReadiness, isAIError } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, AICard, stripMd, timeAgo } from "./index";
 import UploadZone from "./UploadZone";
 import { getUploads } from "../api";
@@ -12,14 +12,16 @@ import BudgetBuilder from "./BudgetBuilder";
 const fmtTs = (iso) => iso ? new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
 
 // Extract ask recommendation from draft text
+// Supports multi-year format: ASK_RECOMMENDATION: Type 3, 2 cohort(s), 3 year(s), R7416000
 const extractAskFromDraft = (draftText) => {
-  // Priority 1: Structured ASK_RECOMMENDATION line
-  const structured = draftText.match(/ASK_RECOMMENDATION:\s*Type\s*(\d),\s*(\d+)\s*cohort\(s?\),\s*R(\d+)/i);
+  // Priority 1: Structured ASK_RECOMMENDATION line (with optional years)
+  const structured = draftText.match(/ASK_RECOMMENDATION:\s*Type\s*(\d),\s*(\d+)\s*cohort\(s?\),\s*(?:(\d+)\s*year\(s?\),\s*)?R([\d,\s]+)/i);
   if (structured) {
     const typeNum = parseInt(structured[1]);
     const count = parseInt(structured[2]);
-    const amount = parseInt(structured[3]);
-    if (PTYPES[typeNum] && amount > 0) return { ask: amount, typeNum, mcCount: count };
+    const years = structured[3] ? parseInt(structured[3]) : 1;
+    const amount = parseInt(structured[4].replace(/[,\s]/g, ''));
+    if (PTYPES[typeNum] && amount > 0) return { ask: amount, typeNum, mcCount: count, years };
   }
   // Priority 2: Scan for Type X in body
   const typeMatch = draftText.match(/Type\s*(\d)/i);
@@ -29,7 +31,7 @@ const extractAskFromDraft = (draftText) => {
   if (!detectedPt || !detectedPt.cost) return null;
   const mcMatch = draftText.match(/(\d+)\s*(?:x|×)\s*(?:Type\s*\d|cohort)/i);
   const mcCount = mcMatch ? parseInt(mcMatch[1]) : 1;
-  return { ask: detectedPt.cost * mcCount, typeNum: detectedNum, mcCount };
+  return { ask: detectedPt.cost * mcCount, typeNum: detectedNum, mcCount, years: 1 };
 };
 
 /* ── Local presentational components (mirrors Dashboard patterns) ── */
@@ -137,7 +139,6 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
 
   if (!grant) return null;
   const g = grant;
-  const isAIError = (r) => !r || r.startsWith("Error") || r.startsWith("Rate limit") || r.startsWith("Connection") || r.startsWith("Request failed") || r.startsWith("No response") || r.startsWith("The AI service");
   const d = dL(g.deadline);
   const stg = (stages || []).find(s => s.id === g.stage);
   const getMember = (id) => team.find(t => t.id === id) || team.find(t => t.id === "team") || { name: "Unassigned", initials: "\u2014" };
@@ -358,7 +359,22 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               const parseAsk = (raw) => parseInt(String(raw).replace(/[,\s]/g, "")) || 0;
               const commitAsk = () => {
                 const v = parseAsk(askInput);
-                if (v >= 1000) { up("ask", v); up("askSource", "user-override"); setEditingAsk(false); }
+                if (v >= 1000) {
+                  const askChanged = v !== g.ask;
+                  up("ask", v); up("askSource", "user-override"); setEditingAsk(false);
+                  // If ask changed and proposal already exists, auto-regenerate all sections
+                  if (askChanged && g.aiSections && Object.keys(g.aiSections).length > 0) {
+                    // Clear isManualEdit so generateAll regenerates every section
+                    const resetSections = {};
+                    for (const [name, sec] of Object.entries(g.aiSections)) {
+                      resetSections[name] = { ...sec, isManualEdit: false };
+                    }
+                    onUpdate(g.id, { aiSections: resetSections });
+                    // Trigger full regeneration via ProposalWorkspace autoGenerate
+                    setRollingDice(true);
+                    setDiceStep("Regenerating for new ask...");
+                  }
+                }
               };
               const parsed = parseAsk(askInput);
               const isValid = parsed >= 1000;
@@ -381,7 +397,17 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               );
             })() : askIsSet ? (
               <>
-                <div style={{ fontSize: 28, fontWeight: 800, fontFamily: MONO, color: C.primary }}>{fmtK(g.ask)}</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, fontFamily: MONO, color: C.primary }}>{fmtK(g.ask)}</div>
+                  {(g.askYears || (g.budgetTable?.years)) > 1 && (
+                    <span style={{ fontSize: 12, fontWeight: 600, color: C.t3 }}>
+                      over {g.askYears || g.budgetTable?.years} years
+                      <span style={{ fontFamily: MONO, fontWeight: 700, color: C.t2, marginLeft: 6 }}>
+                        (R{Math.round(g.ask / (g.askYears || g.budgetTable?.years || 1)).toLocaleString()}/yr)
+                      </span>
+                    </span>
+                  )}
+                </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
                   {ptNum && (
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>

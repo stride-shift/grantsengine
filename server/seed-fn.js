@@ -3,6 +3,7 @@
   Extracted from seed.js so it can be imported without process.exit().
 */
 import crypto from 'crypto';
+import bcrypt from 'bcrypt';
 import {
   getOrgBySlug, createOrg, updateOrgProfile, setOrgPassword,
   upsertTeamMember, upsertPipelineConfig, upsertGrant,
@@ -51,7 +52,7 @@ EXISTING FUNDERS: Telkom Foundation, Get It Done Foundation, TK Foundation, Sage
 
 TONE: Warm, human, compelling — not dry or bureaucratic. Lead with human story and real impact. Specific numbers woven into narrative. Emphasise the SYSTEM — 7 programme types, partner delivery model, in-house AI tools, diversified revenue, exceptional outcomes.`;
 
-const hashPw = (pw) => crypto.createHash('sha256').update(pw).digest('hex');
+const hashPw = async (pw) => bcrypt.hash(pw, 10);
 
 export async function runSeed() {
   const existing = await getOrgBySlug('dlab');
@@ -66,7 +67,7 @@ export async function runSeed() {
     currency: 'ZAR',
   });
 
-  await setOrgPassword(orgId, hashPw('dlab2026'));
+  await setOrgPassword(orgId, await hashPw('dlab2026'));
 
   await updateOrgProfile(orgId, {
     mission: 'd-lab NPC (The Field Lab NPC) trains unemployed South African youth in AI-native digital skills, achieving 92% completion (vs 55% sector average) and 85% employment within 3 months.',
