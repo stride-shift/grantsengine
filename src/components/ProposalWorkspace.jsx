@@ -361,18 +361,18 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
 
   return (
     <div style={{
-      background: C.white, borderRadius: 16, overflow: "hidden",
-      border: `1.5px solid ${allDone ? C.ok + "30" : C.line}`,
+      background: C.white, borderRadius: 10, overflow: "hidden",
+      border: `1px solid ${allDone ? C.ok + "30" : C.line}`,
       boxShadow: C.cardShadow,
     }}>
       {/* ── Toolbar ── */}
       <div style={{
-        padding: "16px 20px 14px", display: "flex", alignItems: "center", gap: 10,
+        padding: "12px 16px 10px", display: "flex", alignItems: "center", gap: 8,
         borderBottom: `1px solid ${C.line}`,
       }}>
         {/* Title + progress */}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.dark, letterSpacing: -0.3 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.dark, letterSpacing: -0.3 }}>
             Proposal Workspace
           </div>
           <div style={{ fontSize: 11, color: C.t3, marginTop: 3, display: "flex", alignItems: "center", gap: 8 }}>
@@ -422,7 +422,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
       {/* ── Legacy migration banner ── */}
       {hasLegacyDraft && (
         <div style={{
-          padding: "12px 20px", background: C.amberSoft, borderBottom: `1px solid ${C.amber}20`,
+          padding: "10px 16px", background: C.amberSoft, borderBottom: `1px solid ${C.amber}20`,
           display: "flex", alignItems: "center", gap: 10,
         }}>
           <span style={{ fontSize: 12, color: C.t2, flex: 1, lineHeight: 1.4 }}>
@@ -438,7 +438,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
       )}
 
       {/* ── Section Cards ── */}
-      <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
         {order.map((name, i) => (
           <SectionCard
             key={name}
@@ -457,7 +457,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
 
       {/* ── Legacy draft viewer (toggle) ── */}
       {hasLegacyDraft && (
-        <div style={{ padding: "0 18px 14px" }}>
+        <div style={{ padding: "0 14px 12px" }}>
           <button onClick={() => setShowLegacy(p => !p)}
             style={{
               fontSize: 11, color: C.t4, background: "none", border: "none",

@@ -116,7 +116,7 @@ function ScoutLoader() {
   return (
     <div style={{
       background: `linear-gradient(135deg, ${C.white} 0%, ${C.purpleSoft} 100%)`,
-      borderRadius: 14, padding: "28px 32px", marginBottom: 14,
+      borderRadius: 10, padding: "20px 24px", marginBottom: 14,
       border: `1px solid ${C.purple}15`, boxShadow: C.cardShadow,
     }}>
       {/* Header with animated dots */}
@@ -149,7 +149,7 @@ function ScoutLoader() {
       {/* Insight card */}
       <div style={{
         display: "flex", gap: 20, alignItems: "center",
-        padding: "20px 24px", background: C.white, borderRadius: 12,
+        padding: "16px 20px", background: C.white, borderRadius: 8,
         border: `1px solid ${C.line}`,
         transition: "opacity 0.3s ease", opacity: fade ? 1 : 0,
         minHeight: 90,
@@ -376,32 +376,32 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   const closedStages = STAGES.filter(s => CLOSED_STAGES.includes(s.id));
 
   return (
-    <div style={{ padding: "28px 32px", height: "100%", display: "flex", flexDirection: "column" }}>
+    <div style={{ padding: "20px 24px", height: "100%", display: "flex", flexDirection: "column" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: grants.length > 0 ? 16 : 0, flexWrap: "wrap", gap: 10 }}>
         <div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Pipeline</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Pipeline</div>
           <div style={{ width: 32, height: 4, background: C.primary, borderRadius: 2, marginTop: 4 }} />
         </div>
         {grants.length > 0 && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search grants..."
-            style={{ padding: "6px 12px", fontSize: 13, border: `1.5px solid ${C.line}`, borderRadius: 10, width: 180, fontFamily: FONT, outline: "none", transition: "border-color 0.15s" }}
+            style={{ padding: "6px 12px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, width: 180, fontFamily: FONT, outline: "none", transition: "border-color 0.15s" }}
             onFocus={e => e.target.style.borderColor = C.primary}
             onBlur={e => e.target.style.borderColor = C.line}
           />
           <select value={sf} onChange={e => setSf(e.target.value)}
-            style={{ padding: "6px 10px", fontSize: 12, border: `1.5px solid ${C.line}`, borderRadius: 10, fontFamily: FONT, background: C.white }}>
+            style={{ padding: "6px 10px", fontSize: 11, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, background: C.white }}>
             <option value="all">All types</option>
             {(funderTypes || []).map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <select value={pSort} onChange={e => setPSort(e.target.value)}
-            style={{ padding: "6px 10px", fontSize: 12, border: `1.5px solid ${C.line}`, borderRadius: 10, fontFamily: FONT, background: C.white }}>
+            style={{ padding: "6px 10px", fontSize: 11, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, background: C.white }}>
             <option value="default">By deadline</option>
             <option value="ask">By amount</option>
             <option value="priority">By priority</option>
           </select>
-          <div style={{ display: "flex", border: `1.5px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
             {VIEW_OPTIONS.map(([k,l]) => (
               <button key={k} onClick={() => setPView(k)} style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: pView === k ? C.primary : C.white, color: pView === k ? "#fff" : C.t3, border: "none", cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>{l}</button>
             ))}
@@ -425,8 +425,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
           return next;
         });
         const chipStyle = (f) => ({
-          padding: "4px 10px", borderRadius: 100, fontSize: 10, fontWeight: 600,
-          cursor: "pointer", border: `1.5px solid ${activeFilters.has(f) ? C.primary : C.line}`,
+          padding: "3px 8px", borderRadius: 100, fontSize: 10, fontWeight: 600,
+          cursor: "pointer", border: `1px solid ${activeFilters.has(f) ? C.primary : C.line}`,
           background: activeFilters.has(f) ? C.primarySoft : C.white,
           color: activeFilters.has(f) ? C.primary : C.t3,
           fontFamily: FONT, transition: "all 0.15s ease",
@@ -454,8 +454,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
       {selectedIds.size > 0 && (
         <div style={{
           display: "flex", gap: 8, alignItems: "center", marginBottom: 10,
-          padding: "10px 16px", background: `linear-gradient(135deg, ${C.primarySoft} 0%, ${C.white} 100%)`,
-          borderRadius: 12, border: `1.5px solid ${C.primary}20`,
+          padding: "8px 14px", background: `linear-gradient(135deg, ${C.primarySoft} 0%, ${C.white} 100%)`,
+          borderRadius: 10, border: `1px solid ${C.primary}20`,
           boxShadow: C.cardShadow,
         }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: C.primary }}>{selectedIds.size} selected</span>
@@ -493,8 +493,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
       {showUrlTool && onRunAI && (
         <div style={{
           display: "flex", gap: 8, marginBottom: 14, alignItems: "center",
-          padding: "12px 16px", background: `linear-gradient(135deg, ${C.blueSoft}40 0%, ${C.white} 100%)`,
-          borderRadius: 14, boxShadow: C.cardShadow, border: `1.5px solid ${C.blue}15`,
+          padding: "10px 14px", background: `linear-gradient(135deg, ${C.blueSoft}40 0%, ${C.white} 100%)`,
+          borderRadius: 10, boxShadow: C.cardShadow, border: `1px solid ${C.blue}15`,
         }}>
           <div style={{
             width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
@@ -571,7 +571,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
 
       {/* Add grant inline */}
       {showAdd && (
-        <div style={{ marginBottom: 14, background: C.white, borderRadius: 14, boxShadow: C.cardShadow, overflow: "hidden" }}>
+        <div style={{ marginBottom: 14, background: C.white, borderRadius: 10, boxShadow: C.cardShadow, overflow: "hidden" }}>
           {/* Step indicator */}
           <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${C.line}` }}>
             {[{ n: 1, l: "Grant & Funder" }, { n: 2, l: "Programme Type" }].map(s => (
@@ -590,17 +590,17 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
               <div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                   <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Grant name" autoFocus
-                    style={{ flex: 2, padding: "8px 12px", fontSize: 13, border: `1.5px solid ${C.line}`, borderRadius: 10, fontFamily: FONT }} />
+                    style={{ flex: 2, padding: "8px 12px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT }} />
                   <input value={newFunder} onChange={e => setNewFunder(e.target.value)} placeholder="Funder name"
                     list="funder-suggestions"
-                    style={{ flex: 1.5, padding: "8px 12px", fontSize: 13, border: `1.5px solid ${C.line}`, borderRadius: 10, fontFamily: FONT }} />
+                    style={{ flex: 1.5, padding: "8px 12px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT }} />
                   <datalist id="funder-suggestions">
                     {[...new Set(grants.map(g => g.funder).filter(Boolean))].map(f => <option key={f} value={f} />)}
                   </datalist>
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <select value={newType} onChange={e => setNewType(e.target.value)}
-                    style={{ padding: "8px 12px", fontSize: 12, border: `1.5px solid ${C.line}`, borderRadius: 10, fontFamily: FONT, flex: 1 }}>
+                    style={{ padding: "8px 12px", fontSize: 11, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, flex: 1 }}>
                     {(funderTypes || []).map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                   <Btn onClick={() => { if (newName?.trim() && newFunder?.trim()) setWizStep(2); else setAddError("Name and funder required"); }}
@@ -626,8 +626,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                     return (
                       <div key={num} onClick={() => { setSelectedPType(num); if (pt.cost) setNewAsk(String(pt.cost * cohortMultiplier)); }}
                         style={{
-                          padding: "10px 14px", borderRadius: 10, cursor: "pointer",
-                          border: selected ? `2px solid ${C.primary}` : `1.5px solid ${C.line}`,
+                          padding: "8px 10px", borderRadius: 8, cursor: "pointer",
+                          border: selected ? `2px solid ${C.primary}` : `1px solid ${C.line}`,
                           background: selected ? C.primarySoft : C.white,
                           transition: "all 0.15s ease",
                         }}>
@@ -652,7 +652,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
 
                 {/* Multi-cohort multiplier */}
                 {selectedPType && PTYPES[selectedPType]?.cost && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "8px 12px", background: C.warm100, borderRadius: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "8px 12px", background: C.warm100, borderRadius: 8 }}>
                     <span style={{ fontSize: 11, fontWeight: 600, color: C.t2 }}>Cohorts:</span>
                     {[1, 2, 3, 5].map(n => (
                       <button key={n} onClick={() => { setCohortMultiplier(n); setNewAsk(String(PTYPES[selectedPType].cost * n)); }}
@@ -675,7 +675,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                   <span style={{ fontSize: 11, color: C.t3, fontWeight: 600 }}>Or custom ask:</span>
                   <input value={newAsk} onChange={e => { setNewAsk(e.target.value); setSelectedPType(null); }}
                     placeholder="R amount" type="number"
-                    style={{ width: 120, padding: "6px 10px", fontSize: 13, border: `1.5px solid ${C.line}`, borderRadius: 8, fontFamily: MONO }} />
+                    style={{ width: 120, padding: "6px 10px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: MONO }} />
                 </div>
 
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -699,7 +699,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
 
       {/* Scout results */}
       {!scouting && scoutResults.length > 0 && (
-        <div style={{ background: C.white, borderRadius: 14, padding: "18px 22px", marginBottom: 14, border: "none", boxShadow: C.cardShadow }}>
+        <div style={{ background: C.white, borderRadius: 10, padding: "14px 18px", marginBottom: 14, border: "none", boxShadow: C.cardShadow }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>Scouted opportunities</span>
@@ -742,7 +742,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
               const isByInvite = acc.includes("invitation");
               return (
                 <div key={i} style={{
-                  padding: "12px 14px", background: s.added ? `${C.ok}08` : expired ? `${C.red}05` : isByInvite ? `${C.red}04` : C.bg, borderRadius: 10,
+                  padding: "8px 10px", background: s.added ? `${C.ok}08` : expired ? `${C.red}05` : isByInvite ? `${C.red}04` : C.bg, borderRadius: 8,
                   border: `1px solid ${s.added ? C.ok + "30" : expired ? C.red + "25" : isByInvite ? C.red + "15" : C.line}`,
                   opacity: (s.inPipeline && !s.added) || expired ? 0.5 : isByInvite ? 0.6 : 1,
                 }}>
@@ -798,7 +798,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
               width: 72, height: 72, borderRadius: 20, margin: "0 auto 24px",
               background: `linear-gradient(135deg, ${C.purpleSoft} 0%, ${C.blueSoft} 100%)`,
               display: "flex", alignItems: "center", justifyContent: "center",
-              border: `1.5px solid ${C.purple}15`,
+              border: `1px solid ${C.purple}15`,
             }}>
               <span style={{ fontSize: 32 }}>☉</span>
             </div>
@@ -813,7 +813,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
 
             {/* Primary CTA — Scout */}
             <Btn onClick={aiScout} disabled={scouting} v="primary" style={{
-              fontSize: 15, padding: "12px 32px", borderRadius: 12,
+              fontSize: 15, padding: "12px 32px", borderRadius: 8,
               background: `linear-gradient(135deg, ${C.purple} 0%, ${C.blue}DD 100%)`,
               borderColor: C.purple, color: "#fff",
               boxShadow: `0 4px 14px ${C.purple}30`,
@@ -831,8 +831,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             {/* Secondary options */}
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
               <button onClick={() => setShowAdd(true)} style={{
-                display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
-                borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.white,
+                display: "flex", alignItems: "center", gap: 8, padding: "8px 16px",
+                borderRadius: 8, border: `1px solid ${C.line}`, background: C.white,
                 cursor: "pointer", fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.t2,
                 transition: "all 0.15s ease",
               }}
@@ -843,8 +843,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
               </button>
               {onRunAI && (
                 <button onClick={() => setShowUrlTool(true)} style={{
-                  display: "flex", alignItems: "center", gap: 8, padding: "10px 20px",
-                  borderRadius: 10, border: `1.5px solid ${C.line}`, background: C.white,
+                  display: "flex", alignItems: "center", gap: 8, padding: "8px 16px",
+                  borderRadius: 8, border: `1px solid ${C.line}`, background: C.white,
                   cursor: "pointer", fontFamily: FONT, fontSize: 13, fontWeight: 600, color: C.t2,
                   transition: "all 0.15s ease",
                 }}
@@ -884,8 +884,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                 onDrop={() => handleDrop(stage.id)}
                 style={{
                   minWidth: 220, maxWidth: 280, flex: 1, display: "flex", flexDirection: "column",
-                  background: (stage.bg || C.bg) + "40", borderRadius: 14, padding: 8,
-                  border: `1.5px solid ${stage.c}30`,
+                  background: (stage.bg || C.bg) + "40", borderRadius: 10, padding: 8,
+                  border: `1px solid ${stage.c}30`,
                 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px", marginBottom: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -911,19 +911,19 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                           }
                         }}
                         style={{
-                          background: isSelected ? `${C.primary}08` : C.white, borderRadius: 14, padding: "12px 14px",
-                          border: `1.5px solid ${isSelected ? C.primary : stage.c}30`,
+                          background: isSelected ? `${C.primary}08` : C.white, borderRadius: 8, padding: "8px 10px",
+                          border: `1px solid ${isSelected ? C.primary : stage.c}30`,
                           cursor: "pointer",
                           boxShadow: C.cardShadow,
                           transition: "box-shadow 0.15s, transform 0.15s",
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.boxShadow = C.cardShadowHover; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                        onMouseEnter={e => { e.currentTarget.style.boxShadow = C.cardShadowHover; e.currentTarget.style.transform = "translateY(-1px)"; }}
                         onMouseLeave={e => { e.currentTarget.style.boxShadow = C.cardShadow; e.currentTarget.style.transform = "none"; }}>
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                           {batchAction && (
                             <div style={{
                               width: 16, height: 16, borderRadius: 4, flexShrink: 0, marginTop: 1,
-                              border: `1.5px solid ${isSelected ? C.primary : C.line}`,
+                              border: `1px solid ${isSelected ? C.primary : C.line}`,
                               background: isSelected ? C.primary : "transparent",
                               display: "flex", alignItems: "center", justifyContent: "center",
                             }}>
@@ -959,10 +959,10 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
 
       {/* List view — navy header */}
       {pView === "list" && filtered.length > 0 && (
-        <div style={{ background: C.white, borderRadius: 16, border: "none", overflow: "hidden", boxShadow: C.cardShadow }}>
+        <div style={{ background: C.white, borderRadius: 10, border: "none", overflow: "hidden", boxShadow: C.cardShadow }}>
           <div style={{
             display: "grid", gridTemplateColumns: "2fr 1.5fr 140px 100px 90px 70px",
-            padding: "10px 16px", background: C.navy, borderRadius: "16px 16px 0 0",
+            padding: "10px 16px", background: C.navy, borderRadius: "10px 10px 0 0",
             fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: 0.5, textTransform: "uppercase",
           }}>
             <span>Grant</span><span>Funder</span><span>Type</span><span>Ask</span><span>Deadline</span><span>Stage</span>
@@ -1012,8 +1012,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
               return (
                 <div key={ownerId} style={{
                   minWidth: 240, maxWidth: 300, flex: 1, display: "flex", flexDirection: "column",
-                  background: ac.bg + "30", borderRadius: 14, padding: 8,
-                  border: `1.5px solid ${ac.accent}30`,
+                  background: ac.bg + "30", borderRadius: 10, padding: 8,
+                  border: `1px solid ${ac.accent}30`,
                 }}>
                   {/* Person header */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 8px 6px", marginBottom: 4 }}>
@@ -1043,12 +1043,12 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                         <div key={g.id} draggable onDragStart={() => setDragId(g.id)}
                           onClick={() => onSelectGrant(g.id)}
                           style={{
-                            background: C.white, borderRadius: 14, padding: "12px 14px",
-                            border: `1.5px solid ${(stg?.c || C.t4)}30`,
+                            background: C.white, borderRadius: 8, padding: "8px 10px",
+                            border: `1px solid ${(stg?.c || C.t4)}30`,
                             cursor: "pointer", boxShadow: C.cardShadow,
                             transition: "box-shadow 0.15s, transform 0.15s",
                           }}
-                          onMouseEnter={e => { e.currentTarget.style.boxShadow = C.cardShadowHover; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                          onMouseEnter={e => { e.currentTarget.style.boxShadow = C.cardShadowHover; e.currentTarget.style.transform = "translateY(-1px)"; }}
                           onMouseLeave={e => { e.currentTarget.style.boxShadow = C.cardShadow; e.currentTarget.style.transform = "none"; }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                             <span style={{ width: 7, height: 7, borderRadius: "50%", background: stg?.c || C.t4, flexShrink: 0 }} />

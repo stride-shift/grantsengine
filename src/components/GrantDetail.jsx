@@ -35,9 +35,9 @@ const extractAskFromDraft = (draftText) => {
 };
 
 /* ── Local presentational components (mirrors Dashboard patterns) ── */
-const Card = ({ children, accent, pad = "20px 24px", style: sx, className }) => (
+const Card = ({ children, accent, pad = "16px 20px", style: sx, className }) => (
   <div className={className} style={{
-    padding: pad, background: C.white, borderRadius: 14,
+    padding: pad, background: C.white, borderRadius: 10,
     boxShadow: C.cardShadow,
     borderTop: accent ? `3px solid ${accent}` : undefined,
     border: accent ? undefined : `1px solid ${C.line}`,
@@ -45,10 +45,10 @@ const Card = ({ children, accent, pad = "20px 24px", style: sx, className }) => 
   }}>{children}</div>
 );
 
-const Hd = ({ children, right, mb = 16 }) => (
+const Hd = ({ children, right, mb = 12 }) => (
   <div style={{
     display: "flex", alignItems: "baseline", justifyContent: "space-between",
-    marginBottom: mb, marginTop: 28,
+    marginBottom: mb, marginTop: 20,
   }}>
     <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.4, textTransform: "uppercase" }}>{children}</div>
     {right}
@@ -64,7 +64,7 @@ const Field = ({ label, children }) => (
 
 const ActivityRow = ({ date, text, isLast }) => (
   <div className="ge-hover-slide" style={{
-    display: "flex", gap: 10, padding: "11px 18px",
+    display: "flex", gap: 10, padding: "8px 14px",
     borderBottom: isLast ? "none" : `1px solid ${C.line}`,
     alignItems: "center", background: "transparent",
   }}>
@@ -211,12 +211,12 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
 
   // ── Collapsible section helper ──
   const SectionWrap = ({ title, defaultOpen, badge, children, id }) => (
-    <details open={defaultOpen || undefined} style={{ marginBottom: 16 }} id={id}>
+    <details open={defaultOpen || undefined} style={{ marginBottom: 12 }} id={id}>
       <summary style={{
         fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.4, textTransform: "uppercase",
-        cursor: "pointer", padding: "10px 0", userSelect: "none",
+        cursor: "pointer", padding: "8px 0", userSelect: "none",
         display: "flex", alignItems: "center", gap: 8,
-        borderBottom: `1px solid ${C.line}`, marginBottom: 12,
+        borderBottom: `1px solid ${C.line}`, marginBottom: 10,
       }}>
         {title}
         {badge}
@@ -226,7 +226,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   );
 
   return (
-    <div style={{ padding: "32px 36px", maxWidth: 920 }}>
+    <div style={{ padding: "24px 28px", maxWidth: 920 }}>
       {/* Breadcrumb trail */}
       <div style={{
         display: "flex", alignItems: "center", gap: 6, marginBottom: 20,
@@ -253,7 +253,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       <Card accent={stg?.c || C.t4} style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
           <div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: C.dark, marginBottom: 4, letterSpacing: -0.5, lineHeight: 1.2 }}>{g.name}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, marginBottom: 4, letterSpacing: -0.5, lineHeight: 1.2 }}>{g.name}</div>
             <div style={{ fontSize: 14, color: C.t2, fontWeight: 500, marginBottom: 8 }}>{g.funder}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <TypeBadge type={g.type} />
@@ -281,12 +281,12 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             {overflow && (
               <div style={{
                 position: "absolute", top: "100%", right: 0, marginTop: 6,
-                background: C.white, borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                background: C.white, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
                 border: `1px solid ${C.line}`, minWidth: 180, zIndex: 50, overflow: "hidden",
               }}>
                 {fitDone && (
                   <button onClick={() => { runFitScore(); setOverflow(false); }}
-                    style={{ width: "100%", padding: "10px 16px", fontSize: 12, fontWeight: 500, color: C.t1, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
+                    style={{ width: "100%", padding: "8px 12px", fontSize: 12, fontWeight: 500, color: C.t1, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
                     onMouseEnter={e => e.currentTarget.style.background = C.hover}
                     onMouseLeave={e => e.currentTarget.style.background = "none"}
                   >{"\u21bb"} Re-score Fit</button>
@@ -305,14 +305,14 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                     } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
                     setBusy(p => ({ ...p, research: false }));
                   }}
-                    style={{ width: "100%", padding: "10px 16px", fontSize: 12, fontWeight: 500, color: C.t1, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
+                    style={{ width: "100%", padding: "8px 12px", fontSize: 12, fontWeight: 500, color: C.t1, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
                     onMouseEnter={e => e.currentTarget.style.background = C.hover}
                     onMouseLeave={e => e.currentTarget.style.background = "none"}
                   >{"\u21bb"} Refresh Research</button>
                 )}
                 <div style={{ height: 1, background: C.line }} />
                 <button onClick={() => { setConfirmDel(true); setOverflow(false); }}
-                  style={{ width: "100%", padding: "10px 16px", fontSize: 12, fontWeight: 500, color: C.red, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
+                  style={{ width: "100%", padding: "8px 12px", fontSize: 12, fontWeight: 500, color: C.red, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
                   onMouseEnter={e => e.currentTarget.style.background = C.redSoft}
                   onMouseLeave={e => e.currentTarget.style.background = "none"}
                 >{"\u2717"} Delete Grant</button>
@@ -386,7 +386,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                     onChange={e => setAskInput(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") commitAsk(); if (e.key === "Escape") setEditingAsk(false); }}
                     placeholder="e.g. 1,200,000"
-                    style={{ width: 140, fontSize: 18, fontWeight: 700, fontFamily: MONO, border: `1.5px solid ${isValid || !askInput ? C.primary + "40" : C.red + "60"}`, borderRadius: 8, padding: "4px 8px", outline: "none", background: C.white }}
+                    style={{ width: 140, fontSize: 18, fontWeight: 700, fontFamily: MONO, border: `1px solid ${isValid || !askInput ? C.primary + "40" : C.red + "60"}`, borderRadius: 8, padding: "4px 8px", outline: "none", background: C.white }}
                   />
                   <Btn v="primary" style={{ fontSize: 10, padding: "4px 10px", opacity: isValid ? 1 : 0.5 }} onClick={commitAsk} disabled={!isValid}>Set</Btn>
                   <button onClick={() => setEditingAsk(false)} style={{ fontSize: 11, color: C.t4, background: "none", border: "none", cursor: "pointer" }}>✕</button>
@@ -398,7 +398,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             })() : askIsSet ? (
               <>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <div style={{ fontSize: 28, fontWeight: 800, fontFamily: MONO, color: C.primary }}>{fmtK(g.ask)}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, fontFamily: MONO, color: C.primary }}>{fmtK(g.ask)}</div>
                   {(g.askYears || (g.budgetTable?.years)) > 1 && (
                     <span style={{ fontSize: 12, fontWeight: 600, color: C.t3 }}>
                       over {g.askYears || g.budgetTable?.years} years
@@ -427,7 +427,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               </>
             ) : (
               <>
-                <div style={{ fontSize: 24, fontWeight: 800, fontFamily: MONO, color: C.t4 }}>TBD</div>
+                <div style={{ fontSize: 20, fontWeight: 800, fontFamily: MONO, color: C.t4 }}>TBD</div>
                 {hasFunderBudget && (
                   <div style={{ fontSize: 11, color: C.t3, marginTop: 4 }}>Funder offers ~R{g.funderBudget.toLocaleString()}</div>
                 )}
@@ -443,8 +443,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         </div>
 
         {/* Row 2: Stage / Owner / Priority grouped */}
-        <Card pad="16px 20px">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
+        <Card pad="12px 16px">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
             <Field label="Stage">
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: stg?.c || C.t4, flexShrink: 0 }} />
@@ -477,7 +477,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         const r = grantReadiness(g, complianceDocs);
         const barColor = r.score >= 80 ? C.ok : r.score >= 50 ? C.amber : C.red;
         return (
-          <div style={{ marginBottom: 20, padding: "10px 18px", borderRadius: 12, background: C.warm100, border: `1px solid ${C.line}` }}>
+          <div style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: C.warm100, border: `1px solid ${C.line}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: C.t3 }}>Readiness</span>
               <span style={{ fontSize: 14, fontWeight: 800, fontFamily: MONO, color: barColor }}>{r.score}%</span>
@@ -606,13 +606,13 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 disabled={rollingDice || anyBusy}
                 style={{
                   width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                  padding: "14px 24px", marginBottom: 12, borderRadius: 14,
+                  padding: "10px 20px", marginBottom: 10, borderRadius: 10,
                   background: rollingDice
                     ? `linear-gradient(135deg, ${C.purple}, ${C.primary})`
                     : `linear-gradient(135deg, ${C.primary}, ${C.primary}DD)`,
                   color: C.white, border: "none",
                   cursor: rollingDice || anyBusy ? "default" : "pointer",
-                  fontFamily: FONT, fontSize: 15, fontWeight: 700, letterSpacing: -0.3,
+                  fontFamily: FONT, fontSize: 14, fontWeight: 700, letterSpacing: -0.3,
                   boxShadow: rollingDice ? "none" : "0 4px 16px rgba(208,50,40,0.25)",
                   opacity: (rollingDice || anyBusy) ? 0.85 : 1,
                   transition: "all 0.2s ease",
@@ -646,10 +646,10 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             {allDone && rollingDice && g.ask > 0 && (
               <div style={{
                 width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                padding: "14px 24px", marginBottom: 12, borderRadius: 14,
+                padding: "10px 20px", marginBottom: 10, borderRadius: 10,
                 background: `linear-gradient(135deg, ${C.okSoft}, ${C.white})`,
-                border: `1.5px solid ${C.ok}30`,
-                fontFamily: FONT, fontSize: 15, fontWeight: 700, color: C.ok,
+                border: `1px solid ${C.ok}30`,
+                fontFamily: FONT, fontSize: 14, fontWeight: 700, color: C.ok,
               }}>
                 <span style={{ fontSize: 18 }}>{"\u2713"}</span>
                 <span>Proposal ready</span>
@@ -657,15 +657,15 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               </div>
             )}
             <div style={{
-              display: "flex", alignItems: "center", gap: 8, marginBottom: 16,
-              padding: "10px 16px", borderRadius: 12, background: C.white,
+              display: "flex", alignItems: "center", gap: 8, marginBottom: 12,
+              padding: "8px 12px", borderRadius: 8, background: C.white,
               border: `1px solid ${C.line}`, boxShadow: C.cardShadow,
             }}>
               {steps.map((s, i) => (
                 <div key={s.key}
                   style={{
                     flex: 1, display: "flex", alignItems: "center", gap: 6, padding: "6px 10px",
-                    borderRadius: 8, border: `1.5px solid ${s.done ? s.color + "30" : C.line}`,
+                    borderRadius: 8, border: `1px solid ${s.done ? s.color + "30" : C.line}`,
                     background: s.done ? s.color + "08" : s.busy ? C.purpleSoft : "transparent",
                     fontFamily: FONT,
                     transition: "all 0.15s ease",
@@ -710,7 +710,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               </Field>
               <Field label="Deadline">
                 <input type="date" value={g.deadline || ""} onChange={e => up("deadline", e.target.value || null)}
-                  style={{ fontSize: 13, border: `1.5px solid ${C.line}`, borderRadius: 8, padding: "5px 10px", fontFamily: FONT, marginTop: 2 }} />
+                  style={{ fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, padding: "5px 10px", fontFamily: FONT, marginTop: 2 }} />
               </Field>
             </div>
           </Card>
@@ -751,17 +751,17 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           ) : null}
         >
           <div style={{
-            display: "flex", alignItems: "center", gap: 14, padding: "14px 20px",
+            display: "flex", alignItems: "center", gap: 12, padding: "10px 16px",
             background: fitDone
               ? `linear-gradient(135deg, ${fitScoreNum >= 70 ? C.okSoft : fitScoreNum >= 40 ? C.amberSoft : C.redSoft} 0%, ${C.white} 100%)`
               : fitError ? C.redSoft + "40" : C.white,
-            borderRadius: 14, boxShadow: C.cardShadow, marginBottom: 14,
-            border: fitDone ? `1.5px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}20` : fitError ? `1.5px solid ${C.red}20` : `1.5px solid ${C.line}`,
+            borderRadius: 10, boxShadow: C.cardShadow, marginBottom: 12,
+            border: fitDone ? `1px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}20` : fitError ? `1px solid ${C.red}20` : `1px solid ${C.line}`,
           }}>
             {fitDone && fitScoreNum !== null ? (
               <>
                 <div style={{
-                  width: 48, height: 48, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 48, height: 48, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
                   background: fitScoreNum >= 70 ? C.okSoft : fitScoreNum >= 40 ? C.amberSoft : C.redSoft,
                   color: fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red,
                   fontSize: 18, fontWeight: 800, fontFamily: MONO,
@@ -780,7 +780,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             ) : (
               <>
                 <div style={{
-                  width: 48, height: 48, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 48, height: 48, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
                   background: fitError ? C.redSoft : C.purpleSoft, color: fitError ? C.red : C.purple, fontSize: 18,
                   animation: busy.fitscore ? "ge-pulse 1.4s ease-in-out infinite" : "none",
                 }}>{busy.fitscore ? "\u2026" : fitError ? "!" : "\u2605"}</div>
@@ -800,8 +800,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 View full analysis
               </summary>
               <div style={{
-                padding: "14px 18px", background: C.warm100, borderRadius: 12,
-                border: `1.5px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}25`,
+                padding: "10px 14px", background: C.warm100, borderRadius: 8,
+                border: `1px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}25`,
                 fontSize: 13, lineHeight: 1.7, color: C.t1, whiteSpace: "pre-wrap",
                 maxHeight: 200, overflow: "auto", marginTop: 6,
               }}>{stripMd(ai.fitscore)}</div>
@@ -937,7 +937,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             {/* Ask confirmation */}
             {(g.askSource === "ai-draft" || g.askSource === "budget-builder") && g.ask > 0 && (
               <div style={{
-                padding: "10px 16px", marginTop: 10, background: C.okSoft, borderRadius: 10,
+                padding: "8px 12px", marginTop: 8, background: C.okSoft, borderRadius: 8,
                 border: `1px solid ${C.ok}20`, display: "flex", alignItems: "center", gap: 10,
               }}>
                 <span style={{ fontSize: 16 }}>{"\u2713"}</span>
@@ -969,7 +969,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               const c = fup.done ? C.ok : isOverdue ? C.red : isToday ? C.amber : isSoon ? C.amber : C.t3;
               return (
                 <div key={i} style={{
-                  display: "flex", alignItems: "center", gap: 10, padding: "10px 18px",
+                  display: "flex", alignItems: "center", gap: 10, padding: "8px 14px",
                   borderBottom: i < g.fups.length - 1 ? `1px solid ${C.line}` : "none",
                   opacity: fup.done ? 0.5 : 1,
                 }}>
@@ -980,7 +980,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                     onUpdate(g.id, { fups: updated });
                   }} style={{
                     width: 18, height: 18, borderRadius: 4, flexShrink: 0,
-                    border: `1.5px solid ${fup.done ? C.ok : C.line}`,
+                    border: `1px solid ${fup.done ? C.ok : C.line}`,
                     background: fup.done ? C.ok : "transparent",
                     cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
@@ -1082,7 +1082,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               <Card pad="0" style={{ overflow: "hidden", marginBottom: 12 }}>
                 {orgDocs.map((doc, i) => (
                   <div key={doc.orgDocId} className="ge-hover-slide" style={{
-                    display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+                    display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
                     borderBottom: i < orgDocs.length - 1 ? `1px solid ${C.line}` : "none", background: "transparent",
                   }}>
                     <span style={{ width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: doc.statusColor, background: doc.statusBg }}>{doc.statusIcon}</span>
@@ -1099,7 +1099,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               <Card pad="0" style={{ overflow: "hidden" }}>
                 {grantDocs.map((docName, i) => (
                   <div key={docName} className="ge-hover-slide" style={{
-                    display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+                    display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
                     borderBottom: i < grantDocs.length - 1 ? `1px solid ${C.line}` : "none",
                   }}>
                     <span style={{ width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: C.t4, background: C.hover }}>○</span>
@@ -1165,8 +1165,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           <textarea value={g.notes || ""} onChange={e => up("notes", e.target.value)}
             placeholder="Add notes about this grant..."
             style={{
-              width: "100%", minHeight: 100, padding: 18, fontSize: 14, lineHeight: 1.7,
-              border: "none", borderRadius: 14, fontFamily: FONT,
+              width: "100%", minHeight: 100, padding: 14, fontSize: 14, lineHeight: 1.7,
+              border: "none", borderRadius: 10, fontFamily: FONT,
               resize: "vertical", outline: "none", boxSizing: "border-box",
               background: "transparent",
             }}
@@ -1181,7 +1181,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             <ActivityRow key={i} date={entry.d} text={entry.t} isLast={i === arr.length - 1} />
           ))}
           {(!g.log || !g.log.length) && (
-            <div style={{ padding: 24, textAlign: "center", color: C.t4, fontSize: 13 }}>No activity yet</div>
+            <div style={{ padding: 18, textAlign: "center", color: C.t4, fontSize: 13 }}>No activity yet</div>
           )}
         </Card>
       </SectionWrap>

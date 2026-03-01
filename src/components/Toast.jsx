@@ -62,14 +62,14 @@ export function ToastProvider({ children }) {
             return (
               <div key={t.id} style={{
                 display: "flex", alignItems: "center", gap: 10,
-                padding: "12px 16px", borderRadius: 12,
-                background: palette.bg, border: `1.5px solid ${palette.border}30`,
-                boxShadow: "0 8px 30px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)",
+                padding: "10px 14px", borderRadius: 8,
+                background: palette.bg, border: `1px solid ${palette.border}30`,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)",
                 pointerEvents: "auto", fontFamily: FONT,
                 animation: "ge-toast-in 0.25s ease-out",
               }}>
                 <span style={{
-                  width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                  width: 22, height: 22, borderRadius: 6, flexShrink: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   background: palette.border + "18", color: palette.color,
                   fontSize: 12, fontWeight: 800,

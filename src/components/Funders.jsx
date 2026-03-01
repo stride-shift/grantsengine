@@ -35,7 +35,7 @@ const CadenceTimeline = ({ type }) => {
             {step.l}
           </div>
           {i < cad.length - 1 && (
-            <div style={{ width: 16, height: 1.5, background: C.line, flexShrink: 0 }} />
+            <div style={{ width: 16, height: 1, background: C.line, flexShrink: 0 }} />
           )}
         </div>
       ))}
@@ -136,14 +136,14 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Funders</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Funders</div>
           <div style={{ width: 32, height: 4, background: C.purple, borderRadius: 2, marginTop: 4 }} />
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search funders..."
-            style={{ padding: "6px 12px", fontSize: 13, border: `1.5px solid ${C.line}`, borderRadius: 10, width: 180, fontFamily: FONT }} />
+            style={{ padding: "6px 12px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, width: 180, fontFamily: FONT }} />
           <select value={filterType} onChange={e => setFilterType(e.target.value)}
-            style={{ padding: "6px 10px", fontSize: 12, border: `1.5px solid ${C.line}`, borderRadius: 10, fontFamily: FONT, background: C.white }}>
+            style={{ padding: "6px 10px", fontSize: 12, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, background: C.white }}>
             <option value="all">All types</option>
             {FTYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -160,11 +160,11 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
           { label: "Win Rate", value: stats.wonCount + stats.lostCount > 0 ? Math.round(stats.wonCount / (stats.wonCount + stats.lostCount) * 100) + "%" : "--", color: C.blue },
         ].map((s, i) => (
           <div key={i} style={{
-            flex: 1, padding: "14px 16px", background: C.white, borderRadius: 12,
+            flex: 1, padding: "12px 14px", background: C.white, borderRadius: 10,
             boxShadow: C.cardShadow, border: `1px solid ${C.line}`,
           }}>
             <div style={{ fontSize: 9, fontWeight: 700, color: C.t4, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>{s.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: MONO, letterSpacing: -1 }}>{s.value}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: s.color, fontFamily: MONO, letterSpacing: -1 }}>{s.value}</div>
           </div>
         ))}
       </div>
@@ -177,7 +177,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
               padding: "5px 12px", borderRadius: 100, fontSize: 11, fontWeight: 600,
               background: filterType === type ? (FTYPE_COLORS[type] || C.t4) : (FTYPE_COLORS[type] || C.t4) + "12",
               color: filterType === type ? "#fff" : FTYPE_COLORS[type] || C.t4,
-              border: `1.5px solid ${(FTYPE_COLORS[type] || C.t4)}30`,
+              border: `1px solid ${(FTYPE_COLORS[type] || C.t4)}30`,
               cursor: "pointer", fontFamily: FONT, transition: "all 0.15s",
             }}>
             {type} ({count})
@@ -202,7 +202,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
 
           return (
             <div key={fd.funder} style={{
-              background: C.white, borderRadius: 14, boxShadow: C.cardShadow,
+              background: C.white, borderRadius: 10, boxShadow: C.cardShadow,
               border: `1px solid ${C.line}`, overflow: "hidden",
               transition: "box-shadow 0.15s",
             }}
@@ -211,7 +211,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
               {/* Funder header */}
               <div onClick={() => setExpandedFunder(isExpanded ? null : fd.funder)}
                 style={{
-                  padding: "16px 18px", cursor: "pointer",
+                  padding: "12px 14px", cursor: "pointer",
                   borderLeft: `4px solid ${FTYPE_COLORS[fd.type] || C.t4}`,
                 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -261,7 +261,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
 
               {/* Expanded: strategy + cadence + grants */}
               {isExpanded && (
-                <div style={{ padding: "0 18px 16px", borderTop: `1px solid ${C.line}` }}>
+                <div style={{ padding: "0 14px 12px", borderTop: `1px solid ${C.line}` }}>
                   {/* Strategy panel */}
                   {stratGrant && <StrategyPanel grant={stratGrant} />}
 

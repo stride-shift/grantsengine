@@ -193,14 +193,14 @@ export default function Settings({ org, profile, team, currentMember, compliance
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 800 }}>
-      <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.5, color: C.dark, marginBottom: 6 }}>Settings</div>
-      <div style={{ width: 32, height: 4, background: C.primary, borderRadius: 2, marginBottom: 24 }} />
+      <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, color: C.dark, marginBottom: 6 }}>Settings</div>
+      <div style={{ width: 32, height: 3, background: C.primary, borderRadius: 2, marginBottom: 20 }} />
 
       {/* Logged-in-as banner */}
       {currentMember && (
         <div style={{
-          background: C.white, borderRadius: 16, padding: "16px 20px", boxShadow: C.cardShadow, marginBottom: 20,
-          border: `1.5px solid ${C.primary}25`, display: "flex", alignItems: "center", gap: 14,
+          background: C.white, borderRadius: 10, padding: "12px 16px", boxShadow: C.cardShadow, marginBottom: 16,
+          border: `1px solid ${C.primary}25`, display: "flex", alignItems: "center", gap: 14,
         }}>
           <Avatar member={currentMember} size={36} />
           <div style={{ flex: 1 }}>
@@ -212,7 +212,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       )}
 
       {/* Org info */}
-      <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, border: `1.5px solid ${C.primary}25` }}>
+      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
         <Label>Organisation</Label>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div>
@@ -244,7 +244,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
 
       {/* Profile */}
       {profile && (
-        <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, border: `1.5px solid ${C.primary}25` }}>
+        <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
           <Label>Profile</Label>
           <div style={{ marginBottom: 12 }}>
             <span style={{ fontSize: 11, color: C.t4, fontWeight: 600 }}>Mission</span>
@@ -266,7 +266,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       )}
 
       {/* Knowledge Base */}
-      <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, border: `1.5px solid ${C.primary}25` }}>
+      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
         <UploadZone
           uploads={uploads}
           grantId={null}
@@ -280,7 +280,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       </div>
 
       {/* ═══ Compliance Documents ═══ */}
-      <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, border: `1.5px solid ${C.primary}25` }}>
+      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
         {/* Header + summary bar */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <Label style={{ marginBottom: 0 }}>Compliance Documents</Label>
@@ -468,7 +468,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       </div>
 
       {/* Team */}
-      <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, border: `1.5px solid ${C.primary}25` }}>
+      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
         <Label>Team</Label>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {team.filter(t => t.id !== "team").map(m => (
@@ -493,7 +493,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       </div>
 
       {/* Server status */}
-      <div style={{ background: C.white, borderRadius: 16, padding: 24, boxShadow: C.cardShadow, marginBottom: 20, border: `1.5px solid ${C.primary}25` }}>
+      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
         <Label>System</Label>
         <div style={{ display: "flex", gap: 20 }}>
           <div>

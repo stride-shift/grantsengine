@@ -21,21 +21,21 @@ const Spark = ({ data, color = C.primary, w = 80, h = 28 }) => {
   if (!data || data.length < 2) return null;
   const mn = Math.min(...data), mx = Math.max(...data), range = mx - mn || 1;
   const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - mn) / range) * (h - 4) - 2}`).join(" ");
-  return <svg width={w} height={h} style={{ display: "block" }}><polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  return <svg width={w} height={h} style={{ display: "block" }}><polyline points={pts} fill="none" stroke={color} strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 };
 
 /* Section divider with optional right-side element */
 const Hd = ({ children, right, mb = 20 }) => (
-  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: mb, marginTop: 36 }}>
-    <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.4, textTransform: "uppercase" }}>{children}</div>
+  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: mb, marginTop: 24 }}>
+    <div style={{ fontSize: 10, fontWeight: 700, color: C.t3, letterSpacing: 1.4, textTransform: "uppercase" }}>{children}</div>
     {right}
   </div>
 );
 
 /* Card with optional accent stripe */
-const Card = ({ children, accent, pad = "20px 24px", style: sx, className }) => (
+const Card = ({ children, accent, pad = "14px 16px", style: sx, className }) => (
   <div className={className} style={{
-    padding: pad, background: C.white, borderRadius: 14,
+    padding: pad, background: C.white, borderRadius: 10,
     boxShadow: C.cardShadow,
     borderTop: accent ? `3px solid ${accent}` : undefined,
     border: accent ? undefined : `1px solid ${C.line}`,
@@ -49,7 +49,7 @@ const Card = ({ children, accent, pad = "20px 24px", style: sx, className }) => 
 const Stat = ({ label, value, sub, color = C.dark, small }) => (
   <div style={{ minWidth: small ? 80 : 110 }}>
     <div style={{ fontSize: 10, fontWeight: 600, color: C.t4, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
-    <div style={{ fontSize: small ? 22 : 28, fontWeight: 800, color, fontFamily: MONO, letterSpacing: -1.5, lineHeight: 1 }}>{value}</div>
+    <div style={{ fontSize: small ? 20 : 22, fontWeight: 800, color, fontFamily: MONO, letterSpacing: -1.5, lineHeight: 1 }}>{value}</div>
     {sub && <div style={{ fontSize: 11, color: C.t3, marginTop: 6, fontWeight: 500 }}>{sub}</div>}
   </div>
 );
@@ -68,7 +68,7 @@ const AIBlock = ({ label, sub, busy, result, onRun, btnLabel, busyLabel, accentC
   <Card accent={accentColor} style={{ flex: 1, minWidth: 340, display: "flex", flexDirection: "column" }}>
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: result ? 14 : 0 }}>
       <div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>{label}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.dark }}>{label}</div>
         <div style={{ fontSize: 11, color: C.t3, marginTop: 2 }}>{sub}</div>
       </div>
       <Btn
@@ -388,11 +388,11 @@ export default function Dashboard({
   }, [pipe]);
 
   return (
-    <div style={{ padding: "32px 36px", maxWidth: 1200 }}>
+    <div style={{ padding: "24px 28px", maxWidth: 1200 }}>
 
       {/* ── Header ── */}
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Today</div>
+        <div style={{ fontSize: 24, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Today</div>
         <div style={{ width: 36, height: 3, background: C.primary, borderRadius: 2, marginTop: 6, marginBottom: 6 }} />
         <div style={{ fontSize: 13, color: C.t4, fontWeight: 400 }}>
           {new Date().toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
@@ -405,21 +405,21 @@ export default function Dashboard({
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 420 }}>
           <div style={{ maxWidth: 520, width: "100%", textAlign: "center" }}>
             <div style={{
-              width: 72, height: 72, borderRadius: 20, margin: "0 auto 24px",
+              width: 72, height: 72, borderRadius: 16, margin: "0 auto 20px",
               background: `linear-gradient(135deg, ${C.purpleSoft} 0%, ${C.blueSoft} 100%)`,
               display: "flex", alignItems: "center", justifyContent: "center",
-              border: `1.5px solid ${C.purple}15`,
+              border: `1px solid ${C.purple}15`,
             }}>
               <span style={{ fontSize: 32 }}>☉</span>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, marginBottom: 8, letterSpacing: -0.3 }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: C.dark, marginBottom: 8, letterSpacing: -0.3 }}>
               Welcome to Grant Engine
             </div>
-            <div style={{ fontSize: 14, color: C.t3, lineHeight: 1.6, maxWidth: 400, margin: "0 auto 28px" }}>
+            <div style={{ fontSize: 13, color: C.t3, lineHeight: 1.6, maxWidth: 400, margin: "0 auto 24px" }}>
               Start by scouting for grant opportunities. AI will find funders matched to your organisation profile.
             </div>
             <button onClick={() => onNavigate?.("pipeline")} style={{
-              fontSize: 15, padding: "12px 32px", borderRadius: 12, border: "none",
+              fontSize: 14, padding: "10px 28px", borderRadius: 8, border: "none",
               background: `linear-gradient(135deg, ${C.purple} 0%, ${C.blue}DD 100%)`,
               color: "#fff", fontWeight: 700, cursor: "pointer", fontFamily: FONT,
               boxShadow: `0 4px 14px ${C.purple}30`,
@@ -443,8 +443,8 @@ export default function Dashboard({
                 <div key={g.id} onClick={() => onSelectGrant?.(g.id)}
                   className="ge-hover-lift"
                   style={{
-                    padding: "14px 18px", background: C.white, borderRadius: 14,
-                    border: `1.5px solid ${color}25`, boxShadow: C.cardShadow,
+                    padding: "12px 14px", background: C.white, borderRadius: 10,
+                    border: `1px solid ${color}25`, boxShadow: C.cardShadow,
                     cursor: "pointer", borderLeft: `4px solid ${color}`,
                   }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
@@ -485,10 +485,10 @@ export default function Dashboard({
         }}>View Pipeline {"\u2192"}</button>
       }>Pipeline</Hd>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-        <Card accent={C.primary} className="ge-hover-lift" style={{ flex: "1.4 1 200px", display: "flex", alignItems: "center", gap: 16 }}>
+        <Card accent={C.primary} className="ge-hover-lift" style={{ flex: "1.4 1 200px", display: "flex", alignItems: "center", gap: 12 }}>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Active Pipeline</div>
-            <div style={{ fontSize: 30, fontWeight: 800, color: C.primary, fontFamily: MONO, letterSpacing: -2, lineHeight: 1 }}>{fmt(pipe.ask)}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: C.primary, fontFamily: MONO, letterSpacing: -2, lineHeight: 1 }}>{fmt(pipe.ask)}</div>
             <div style={{ fontSize: 11, color: C.t3, marginTop: 6, fontWeight: 500 }}>{pipe.act.length} grants</div>
           </div>
           {pipe.sparkPipeline && <Spark data={pipe.sparkPipeline} color={C.primary} w={60} h={28} />}
@@ -558,7 +558,7 @@ export default function Dashboard({
         return (
           <>
             <Hd>Upcoming Follow-ups</Hd>
-            <Card style={{ marginBottom: 8, padding: "14px 18px" }}>
+            <Card style={{ marginBottom: 8, padding: "12px 14px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {upcoming.slice(0, 6).map((item, i) => {
                   const isOverdue = item.daysUntil < 0;
@@ -608,7 +608,7 @@ export default function Dashboard({
 
       {/* ═══════════ 4. AI TOOLS (Report, Insights, Strategy) ═══════════ */}
       <Hd>AI Tools</Hd>
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 8 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
         {onRunReport && (
           <AIBlock
             label="Quarterly Report"
@@ -627,7 +627,7 @@ export default function Dashboard({
           <Hd>Pipeline Intelligence</Hd>
 
           {/* Row A: Secondary KPIs */}
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
             <Card style={{ flex: 1, minWidth: 140 }}>
               <Stat label="Avg Ask" value={fmt(ana.avgAsk)} sub={`Median ${fmt(ana.medianAsk)}`} color={C.primary} small />
             </Card>
@@ -643,11 +643,11 @@ export default function Dashboard({
           </div>
 
           {/* Row B: Funder types */}
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
             <Card style={{ flex: 1, minWidth: 300 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Funder Types</div>
-              <div style={{ fontSize: 10, color: C.t4, marginBottom: 14 }}>{ana.fTypes.length} types across {grants.length} grants</div>
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Funder Types</div>
+              <div style={{ fontSize: 10, color: C.t4, marginBottom: 10 }}>{ana.fTypes.length} types across {grants.length} grants</div>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <MiniDonut items={ana.fTypes.map((f, i) => ({ label: f.label.replace("Corporate ", "").replace("Government/", "Gov/"), value: f.n, color: FTYPE_COLORS[i % 5] }))} />
                 <div style={{ flex: 1, minWidth: 140 }}>
                   {ana.fTypes.map((f, i) => (
@@ -674,7 +674,7 @@ export default function Dashboard({
               }>
                 Funder Intelligence
               </Hd>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 12, marginBottom: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 10, marginBottom: 16 }}>
                 {(showFullIntel ? funders : funders.slice(0, 4)).map(f => {
                   const isExpanded = expandedFunder === f.name;
                   const closed = f.won + f.lost;
@@ -697,14 +697,14 @@ export default function Dashboard({
                     <div key={f.name} onClick={() => setExpandedFunder(isExpanded ? null : f.name)}
                       className="ge-hover-lift"
                       style={{
-                        background: C.white, borderRadius: 14,
+                        background: C.white, borderRadius: 10,
                         boxShadow: isExpanded ? C.cardShadowHover : C.cardShadow,
-                        border: isExpanded ? `1.5px solid ${C.primary}30` : `1px solid ${C.line}`,
+                        border: isExpanded ? `1px solid ${C.primary}30` : `1px solid ${C.line}`,
                         cursor: "pointer", transition: "all 0.2s ease",
                         overflow: "hidden",
                       }}>
                       {/* ── Card Header ── */}
-                      <div style={{ padding: "16px 20px 12px" }}>
+                      <div style={{ padding: "12px 16px 10px" }}>
                         {/* Row 1: Name + badges */}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                           {/* Momentum dot */}
@@ -734,7 +734,7 @@ export default function Dashboard({
                         </div>
 
                         {/* Row 3: Stats row */}
-                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                           <span style={{ fontSize: 10, color: C.t3, fontWeight: 600 }}>
                             {f.grants.length} grant{f.grants.length !== 1 ? "s" : ""}
                           </span>
@@ -805,7 +805,7 @@ export default function Dashboard({
                       {/* ── Expanded Detail Panel ── */}
                       {isExpanded && (
                         <div style={{
-                          borderTop: `1px solid ${C.line}`, padding: "14px 20px 18px",
+                          borderTop: `1px solid ${C.line}`, padding: "10px 16px 14px",
                           background: C.warm100,
                           animation: "ai-expand 0.25s ease-out",
                         }}>
@@ -895,10 +895,10 @@ export default function Dashboard({
           )}
 
           {/* Row C: Relationships + Ask distribution */}
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
             <Card style={{ flex: 1, minWidth: 260 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Relationships</div>
-              <div style={{ fontSize: 10, color: C.t4, marginBottom: 14 }}>Conversion by status</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Relationships</div>
+              <div style={{ fontSize: 10, color: C.t4, marginBottom: 10 }}>Conversion by status</div>
               {ana.rels.map((r, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <div style={{ width: 70, fontSize: 11, fontWeight: 600, color: C.t2, textAlign: "right" }}>{r.label}</div>
@@ -909,8 +909,8 @@ export default function Dashboard({
               ))}
             </Card>
             <Card style={{ flex: 1, minWidth: 260 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Ask Distribution</div>
-              <div style={{ fontSize: 10, color: C.t4, marginBottom: 14 }}>Grants by ask range</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Ask Distribution</div>
+              <div style={{ fontSize: 10, color: C.t4, marginBottom: 10 }}>Grants by ask range</div>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 100 }}>
                 {(() => {
                   const mx = Math.max(...ana.askHist.map(x => x.value), 1);
@@ -931,11 +931,11 @@ export default function Dashboard({
           </div>
 
           {/* Row D: Team workload + Deadline months */}
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
             {ana.workload.length > 0 && (
               <Card style={{ flex: 1, minWidth: 240 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Team Workload</div>
-                <div style={{ fontSize: 10, color: C.t4, marginBottom: 14 }}>Active grants per person</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Team Workload</div>
+                <div style={{ fontSize: 10, color: C.t4, marginBottom: 10 }}>Active grants per person</div>
                 {ana.workload.map((w, i) => (
                   <HRow key={i} label={w.label} value={w.value} max={ana.workload[0]?.value} color={C.navy} w={80} />
                 ))}
@@ -943,8 +943,8 @@ export default function Dashboard({
             )}
             {ana.months.length > 0 && (
               <Card style={{ flex: 1, minWidth: 240 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Deadline Pressure</div>
-                <div style={{ fontSize: 10, color: C.t4, marginBottom: 14 }}>Submissions by month</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Deadline Pressure</div>
+                <div style={{ fontSize: 10, color: C.t4, marginBottom: 10 }}>Submissions by month</div>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 80 }}>
                   {(() => {
                     const mx = Math.max(...ana.months.map(x => x.value), 1);
@@ -967,15 +967,15 @@ export default function Dashboard({
 
           {/* Row E: Focus tags */}
           {ana.tags.length > 0 && (
-            <Card style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.dark, marginBottom: 12 }}>Focus Areas</div>
+            <Card style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.dark, marginBottom: 10 }}>Focus Areas</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {ana.tags.map(({ tag, n }) => {
                   const mx = ana.tags[0]?.n || 1;
                   const intensity = n / mx;
                   return (
                     <span key={tag} style={{
-                      padding: "4px 12px", borderRadius: 16,
+                      padding: "4px 10px", borderRadius: 12,
                       background: intensity > 0.7 ? C.primarySoft : C.raised,
                       color: intensity > 0.7 ? C.primary : C.t2,
                       fontSize: Math.round(11 + intensity * 3), fontWeight: intensity > 0.7 ? 700 : 500,
@@ -991,16 +991,16 @@ export default function Dashboard({
 
           {/* Row F: Win/loss factors (if any) */}
           {(ana.winF.length > 0 || ana.lossF.length > 0) && (
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
               {ana.winF.length > 0 && (
                 <Card accent={C.ok} style={{ flex: 1, minWidth: 240 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: C.dark, marginBottom: 12 }}>Win Factors</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.dark, marginBottom: 10 }}>Win Factors</div>
                   {ana.winF.map((f, i) => <HRow key={i} label={f.label} value={f.value} max={ana.winF[0]?.value} color={C.ok} w={100} />)}
                 </Card>
               )}
               {ana.lossF.length > 0 && (
                 <Card accent={C.red} style={{ flex: 1, minWidth: 240 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: C.dark, marginBottom: 12 }}>Loss Factors</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.dark, marginBottom: 10 }}>Loss Factors</div>
                   {ana.lossF.map((f, i) => <HRow key={i} label={f.label} value={f.value} max={ana.lossF[0]?.value} color={C.red} w={100} />)}
                 </Card>
               )}
@@ -1009,7 +1009,7 @@ export default function Dashboard({
 
           {/* AI-generated insights + strategy — side by side */}
           {(canInsights || canStrategy) && (
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
               {canInsights && onRunInsights && (
                 <AIBlock
                   label="Pipeline Insights"
@@ -1039,10 +1039,10 @@ export default function Dashboard({
       {/* Minimum-data nudge */}
       {!ana && grants.length > 0 && (
         <div style={{
-          marginTop: 36, padding: "32px 28px", textAlign: "center",
-          background: C.warm100, borderRadius: 14, border: `1.5px dashed ${C.line}`,
+          marginTop: 24, padding: "24px 20px", textAlign: "center",
+          background: C.warm100, borderRadius: 10, border: `1px dashed ${C.line}`,
         }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.t2, marginBottom: 6 }}>Intelligence unlocks at 3+ grants</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.t2, marginBottom: 6 }}>Intelligence unlocks at 3+ grants</div>
           <div style={{ fontSize: 12, color: C.t3, maxWidth: 380, margin: "0 auto" }}>
             Add more opportunities to your pipeline to see funder analysis, relationship patterns, deadline pressure, and AI-powered strategic advice.
           </div>
