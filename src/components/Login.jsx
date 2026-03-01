@@ -24,15 +24,15 @@ const Header = () => (
 );
 
 const Card = ({ children, width = 420 }) => (
-  <div style={{ width, background: C.white, borderRadius: 20, padding: "36px 40px", boxShadow: C.cardShadowLg, marginTop: 40 }}>
+  <div style={{ width, background: C.white, borderRadius: 14, padding: "28px 32px", boxShadow: C.cardShadowLg, marginTop: 40 }}>
     {children}
   </div>
 );
 
 const Title = ({ slug, sub }) => (
-  <div style={{ textAlign: "center", marginBottom: 28 }}>
-    <div style={{ fontSize: 12, fontWeight: 700, color: C.t4, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Grant Engine</div>
-    <div style={{ fontSize: 22, fontWeight: 700, color: C.dark }}>{slug}</div>
+  <div style={{ textAlign: "center", marginBottom: 24 }}>
+    <div style={{ fontSize: 11, fontWeight: 700, color: C.t4, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Grant Engine</div>
+    <div style={{ fontSize: 20, fontWeight: 700, color: C.dark }}>{slug}</div>
     <div style={{ width: 28, height: 3, background: C.primary, borderRadius: 2, margin: "10px auto 0" }} />
     {sub && <div style={{ fontSize: 13, color: C.t3, marginTop: 10 }}>{sub}</div>}
   </div>
@@ -51,8 +51,8 @@ const BackLink = ({ onClick, label }) => (
 );
 
 const inputStyle = {
-  width: "100%", padding: "10px 14px", fontSize: 15, border: `1.5px solid ${C.line}`,
-  borderRadius: 12, outline: "none", fontFamily: FONT, boxSizing: "border-box",
+  width: "100%", padding: "10px 14px", fontSize: 15, border: `1px solid ${C.line}`,
+  borderRadius: 8, outline: "none", fontFamily: FONT, boxSizing: "border-box",
   transition: "border-color 0.15s",
 };
 
@@ -232,7 +232,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
                     onClick={() => pickMember(m)}
                     style={{
                       display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
-                      borderRadius: 12, border: `1.5px solid ${C.line}`, background: C.white,
+                      borderRadius: 8, border: `1px solid ${C.line}`, background: C.white,
                       cursor: "pointer", fontFamily: FONT, width: "100%", textAlign: "left",
                       transition: "all 0.15s",
                     }}

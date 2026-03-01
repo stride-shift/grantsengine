@@ -131,15 +131,15 @@ export default function SectionCard({ name, index, total, section, busy, onGener
 
   return (
     <div style={{
-      background: C.white, borderRadius: 14, overflow: "hidden",
-      border: busy ? `1.5px solid ${C.purple}30` : hasText ? `1.5px solid ${C.ok}20` : isError ? `1.5px solid ${C.red}20` : `1.5px solid ${C.line}`,
+      background: C.white, borderRadius: 10, overflow: "hidden",
+      border: busy ? `1px solid ${C.purple}30` : hasText ? `1px solid ${C.ok}20` : isError ? `1px solid ${C.red}20` : `1px solid ${C.line}`,
       boxShadow: C.cardShadow, transition: "all 0.2s ease",
       animation: busy ? "ge-pulse 1.4s ease-in-out infinite" : "none",
     }}>
       {/* Header */}
       <div
         style={{
-          padding: "14px 18px 12px", display: "flex", alignItems: "center", gap: 12,
+          padding: "12px 14px 10px", display: "flex", alignItems: "center", gap: 10,
           cursor: hasText && !editing ? "pointer" : "default",
         }}
         onClick={() => { if (hasText && !editing && !busy) setExpanded(p => !p); }}
@@ -180,7 +180,7 @@ export default function SectionCard({ name, index, total, section, busy, onGener
               <CopyBtn text={section.text} />
               <button onClick={(e) => { e.stopPropagation(); startEdit(); }}
                 style={{
-                  background: "none", border: `1.5px solid ${C.line}`, borderRadius: 7,
+                  background: "none", border: `1px solid ${C.line}`, borderRadius: 6,
                   padding: "4px 10px", fontSize: 10, fontWeight: 600, color: C.t3,
                   cursor: "pointer", fontFamily: FONT,
                 }}
@@ -211,16 +211,16 @@ export default function SectionCard({ name, index, total, section, busy, onGener
 
       {/* Loading panel */}
       {busy && (
-        <div style={{ padding: "0 18px 14px" }}>
+        <div style={{ padding: "0 14px 12px" }}>
           <AILoadingPanel title={loadTitle} />
         </div>
       )}
 
       {/* Error display */}
       {isError && !busy && (
-        <div style={{ padding: "0 18px 14px" }}>
+        <div style={{ padding: "0 14px 12px" }}>
           <div style={{
-            padding: "10px 14px", background: C.redSoft, borderRadius: 10,
+            padding: "10px 14px", background: C.redSoft, borderRadius: 8,
             border: `1px solid ${C.red}15`, fontSize: 12, color: C.red, lineHeight: 1.5,
           }}>{section.text}</div>
         </div>
@@ -228,13 +228,13 @@ export default function SectionCard({ name, index, total, section, busy, onGener
 
       {/* View mode — formatted text */}
       {hasText && !busy && expanded && !editing && (
-        <div style={{ padding: "0 18px 14px" }}>
+        <div style={{ padding: "0 14px 12px" }}>
           {/* Budget table — shown above prose for budget sections */}
           {isBudget && budgetTable && <BudgetTable bt={budgetTable} />}
           <div style={{
-            padding: "16px 18px", background: C.warm100, borderRadius: 10,
-            border: `1.5px solid ${C.primary}15`,
-            fontSize: 13, lineHeight: 1.8, color: C.t1, whiteSpace: "pre-wrap",
+            padding: "12px 14px", background: C.warm100, borderRadius: 8,
+            border: `1px solid ${C.primary}12`,
+            fontSize: 13, lineHeight: 1.75, color: C.t1, whiteSpace: "pre-wrap",
             maxHeight: 400, overflow: "auto",
           }}>{stripMd(section.text)}</div>
 
@@ -256,8 +256,8 @@ export default function SectionCard({ name, index, total, section, busy, onGener
                   onChange={e => setInstructions(e.target.value)}
                   placeholder="e.g. 'Make this more concise' or 'Emphasise AI tools'"
                   style={{
-                    flex: 1, padding: "7px 12px", fontSize: 12, borderRadius: 8,
-                    border: `1.5px solid ${C.line}`, fontFamily: FONT, color: C.t1,
+                    flex: 1, padding: "6px 10px", fontSize: 12, borderRadius: 6,
+                    border: `1px solid ${C.line}`, fontFamily: FONT, color: C.t1,
                     background: C.white, outline: "none",
                   }}
                   onFocus={e => { e.target.style.borderColor = C.primary; }}
@@ -304,14 +304,14 @@ export default function SectionCard({ name, index, total, section, busy, onGener
 
       {/* Edit mode — textarea */}
       {editing && (
-        <div style={{ padding: "0 18px 14px" }}>
+        <div style={{ padding: "0 14px 12px" }}>
           <textarea
             value={editText}
             onChange={e => setEditText(e.target.value)}
             style={{
-              width: "100%", minHeight: 200, padding: "14px 16px",
+              width: "100%", minHeight: 200, padding: "12px 14px",
               fontSize: 13, lineHeight: 1.7, fontFamily: FONT, color: C.t1,
-              borderRadius: 10, border: `1.5px solid ${C.primary}40`,
+              borderRadius: 8, border: `1px solid ${C.primary}40`,
               background: C.warm100, outline: "none", resize: "vertical",
               boxSizing: "border-box",
             }}
@@ -320,8 +320,8 @@ export default function SectionCard({ name, index, total, section, busy, onGener
           <div style={{ display: "flex", gap: 6, marginTop: 8, justifyContent: "flex-end" }}>
             <button onClick={cancelEdit}
               style={{
-                padding: "6px 14px", fontSize: 11, fontWeight: 600, color: C.t3,
-                background: "none", border: `1.5px solid ${C.line}`, borderRadius: 7,
+                padding: "5px 12px", fontSize: 11, fontWeight: 600, color: C.t3,
+                background: "none", border: `1px solid ${C.line}`, borderRadius: 6,
                 cursor: "pointer", fontFamily: FONT,
               }}>Cancel</button>
             <Btn onClick={saveEdit} v="primary" style={{ fontSize: 11, padding: "6px 14px" }}>
@@ -333,10 +333,10 @@ export default function SectionCard({ name, index, total, section, busy, onGener
 
       {/* Empty state */}
       {!hasText && !isError && !busy && (
-        <div style={{ padding: "0 18px 14px" }}>
+        <div style={{ padding: "0 14px 12px" }}>
           <div style={{
-            padding: "20px", textAlign: "center", background: C.warm100, borderRadius: 10,
-            border: `1.5px dashed ${C.line}`,
+            padding: "16px", textAlign: "center", background: C.warm100, borderRadius: 8,
+            border: `1px dashed ${C.line}`,
           }}>
             <div style={{ fontSize: 12, color: C.t4, marginBottom: 8 }}>
               Section not yet generated

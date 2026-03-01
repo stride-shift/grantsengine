@@ -60,8 +60,8 @@ const eventLabel = (event, meta) => {
 
 const Card = ({ children, style: sx }) => (
   <div style={{
-    background: C.white, borderRadius: 14, padding: 20, boxShadow: C.cardShadow,
-    border: `1px solid ${C.line}`, marginBottom: 16, ...sx,
+    background: C.white, borderRadius: 10, padding: 16, boxShadow: C.cardShadow,
+    border: `1px solid ${C.line}`, marginBottom: 14, ...sx,
   }}>{children}</div>
 );
 
@@ -70,7 +70,7 @@ const Input = ({ value, onChange, placeholder, type = "text", style: sx }) => (
     type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
     style={{
       width: "100%", padding: "8px 12px", fontSize: 13, fontFamily: FONT,
-      border: `1.5px solid ${C.line}`, borderRadius: 8, outline: "none",
+      border: `1px solid ${C.line}`, borderRadius: 8, outline: "none",
       color: C.dark, background: C.white, boxSizing: "border-box",
       ...sx,
     }}
@@ -190,7 +190,7 @@ export default function Admin({ org, team, currentMember, onTeamChanged }) {
     <div style={{ padding: "24px 32px", fontFamily: FONT, maxWidth: 900 }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Admin</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Admin</div>
         <div style={{ fontSize: 13, color: C.t3, marginTop: 2 }}>Manage users, sessions and activity</div>
       </div>
 
@@ -218,8 +218,8 @@ export default function Admin({ org, team, currentMember, onTeamChanged }) {
         {/* Add user form */}
         {addMode && (
           <div style={{
-            padding: 16, background: C.warm100, borderRadius: 10, marginBottom: 16,
-            border: `1.5px solid ${C.primary}20`,
+            padding: 14, background: C.warm100, borderRadius: 10, marginBottom: 14,
+            border: `1px solid ${C.primary}20`,
           }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.dark, marginBottom: 12 }}>New Team Member</div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
@@ -229,7 +229,7 @@ export default function Admin({ org, team, currentMember, onTeamChanged }) {
                 value={newRole} onChange={e => setNewRole(e.target.value)}
                 style={{
                   padding: "8px 12px", fontSize: 13, fontFamily: FONT,
-                  border: `1.5px solid ${C.line}`, borderRadius: 8, outline: "none",
+                  border: `1px solid ${C.line}`, borderRadius: 8, outline: "none",
                   color: C.dark, background: C.white, cursor: "pointer",
                 }}
               >
@@ -327,7 +327,7 @@ export default function Admin({ org, team, currentMember, onTeamChanged }) {
                       value={editRole} onChange={e => setEditRole(e.target.value)}
                       style={{
                         padding: "5px 10px", fontSize: 12, fontFamily: FONT,
-                        border: `1.5px solid ${C.line}`, borderRadius: 6, outline: "none",
+                        border: `1px solid ${C.line}`, borderRadius: 6, outline: "none",
                         color: C.dark, background: C.white, cursor: "pointer",
                       }}
                     >
@@ -529,8 +529,8 @@ export default function Admin({ org, team, currentMember, onTeamChanged }) {
             const lastActive = sessions[0]?.last_active_at || sessions[0]?.created_at;
             return (
               <div key={m.id} style={{
-                display: "flex", alignItems: "center", gap: 10, padding: "12px 14px",
-                borderRadius: 12, background: C.warm100, border: `1px solid ${C.line}`,
+                display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
+                borderRadius: 10, background: C.warm100, border: `1px solid ${C.line}`,
               }}>
                 <Avatar member={m} size={32} />
                 <div style={{ flex: 1 }}>

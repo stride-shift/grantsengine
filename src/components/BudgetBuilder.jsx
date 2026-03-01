@@ -167,8 +167,8 @@ export default function BudgetBuilder({ grant, onUpdate }) {
   if (saved && collapsed && !editing) {
     return (
       <div style={{
-        margin: "0 22px", padding: "12px 18px", background: C.white, borderRadius: 14,
-        border: `1.5px solid ${C.ok}25`, boxShadow: C.cardShadow,
+        margin: "0 16px", padding: "10px 14px", background: C.white, borderRadius: 10,
+        border: `1px solid ${C.ok}25`, boxShadow: C.cardShadow,
         display: "flex", alignItems: "center", gap: 12, cursor: "pointer",
       }} onClick={() => setCollapsed(false)}>
         <div style={{
@@ -191,13 +191,13 @@ export default function BudgetBuilder({ grant, onUpdate }) {
   // ── Main builder UI ──
   return (
     <div style={{
-      margin: "0 22px", background: C.white, borderRadius: 14,
-      border: `1.5px solid ${typeNum ? C.primary + "30" : C.line}`,
+      margin: "0 16px", background: C.white, borderRadius: 10,
+      border: `1px solid ${typeNum ? C.primary + "30" : C.line}`,
       boxShadow: C.cardShadow, overflow: "hidden",
     }}>
       {/* Header */}
       <div style={{
-        padding: "14px 18px 10px", display: "flex", alignItems: "center", gap: 12,
+        padding: "12px 14px 8px", display: "flex", alignItems: "center", gap: 10,
         borderBottom: `1px solid ${C.line}`,
       }}>
         <div style={{
@@ -215,7 +215,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
           {saved && !editing && (
             <button onClick={() => setEditing(true)}
               style={{
-                background: "none", border: `1.5px solid ${C.line}`, borderRadius: 7,
+                background: "none", border: `1px solid ${C.line}`, borderRadius: 6,
                 padding: "4px 10px", fontSize: 10, fontWeight: 600, color: C.t3,
                 cursor: "pointer", fontFamily: FONT,
               }}>Edit</button>
@@ -230,7 +230,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
         </div>
       </div>
 
-      <div style={{ padding: "14px 18px" }}>
+      <div style={{ padding: "12px 14px" }}>
         {/* Type selector */}
         {(editing || !typeNum) && (
           <div style={{ marginBottom: 14 }}>
@@ -244,8 +244,8 @@ export default function BudgetBuilder({ grant, onUpdate }) {
                 if (v) selectType(v);
               }}
               style={{
-                width: "100%", padding: "9px 12px", fontSize: 13, fontFamily: FONT,
-                borderRadius: 10, border: `1.5px solid ${C.line}`, color: C.t1,
+                width: "100%", padding: "7px 10px", fontSize: 12, fontFamily: FONT,
+                borderRadius: 8, border: `1px solid ${C.line}`, color: C.t1,
                 background: C.white, outline: "none", cursor: "pointer",
                 appearance: "auto",
               }}
@@ -561,7 +561,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
             )}
             {saved && editing && (
               <button onClick={() => { setEditing(false); setTypeNum(saved.typeNum); setCohorts(saved.cohorts); setYears(saved.years || 1); setItems(saved.items); setOrgContrib(saved.includeOrgContribution); }}
-                style={{ padding: "6px 14px", fontSize: 11, fontWeight: 600, color: C.t3, background: "none", border: `1.5px solid ${C.line}`, borderRadius: 7, cursor: "pointer", fontFamily: FONT }}>Cancel</button>
+                style={{ padding: "5px 12px", fontSize: 11, fontWeight: 600, color: C.t3, background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", fontFamily: FONT }}>Cancel</button>
             )}
             <button onClick={clearBudget}
               style={{ padding: "6px 14px", fontSize: 11, fontWeight: 600, color: C.t4, background: "none", border: "none", cursor: "pointer", fontFamily: FONT }}>Clear</button>
@@ -576,8 +576,8 @@ export default function BudgetBuilder({ grant, onUpdate }) {
         {/* Empty state — no type selected */}
         {!typeNum && (
           <div style={{
-            padding: "24px", textAlign: "center", background: C.warm100, borderRadius: 10,
-            border: `1.5px dashed ${C.line}`,
+            padding: "18px", textAlign: "center", background: C.warm100, borderRadius: 8,
+            border: `1px dashed ${C.line}`,
           }}>
             <div style={{ fontSize: 12, color: C.t4, marginBottom: 4 }}>
               No budget set yet

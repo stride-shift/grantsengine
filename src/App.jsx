@@ -37,7 +37,7 @@ const DEFAULT_STAGES = [
   { id: "deferred", label: "Deferred", c: "#94A3B8", bg: "#F8FAFC" },
 ];
 
-const DEFAULT_FTYPES = ["Corporate CSI", "Government/SETA", "International", "Foundation", "Tech Company"];
+const DEFAULT_FTYPES = ["Corporate CSI", "Government/SETA", "International", "Foundation", "Tech Company", "Partnership"];
 const EMPTY_GRANT = Object.freeze({ name: "", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "" });
 
 const SIDEBAR_ITEMS = [
@@ -757,7 +757,18 @@ Example (multi-year): ASK_RECOMMENDATION: Type 1, 3 cohort(s), 3 year(s), R46440
       } else if (isProgramme) {
         sectionGuide = `PROGRAMME SECTION INSTRUCTIONS:
 Open with a direct, concrete statement about the programme — NOT "imagine" or "picture this". For example: "Each cohort begins with a week of digital onboarding..." or "The programme runs in three distinct phases..." or "Twenty learners arrive on Day 1 with smartphones and ambition. Nine months later, they leave with ICITP accreditation and job offers."
-Describe the actual learner journey: what happens on Day 1, what tools they use, what coaching looks like, what a Design Thinking sprint involves. Be specific and factual — the reader should understand exactly what d-lab delivers.
+
+THE 6-PHASE LEARNER JOURNEY (36 weeks — use this structure to describe what d-lab actually delivers):
+1. Induction (2 weeks) — Orientation, baseline assessment, team formation, digital setup. Learners get laptops, accounts, and their first taste of AI tools.
+2. Launch (4 weeks) — Foundational digital & AI skills, first Design Thinking challenge (Remember/Understand on Bloom's), PowerSkills ME module (self-discovery, resilience).
+3. Orbit (8 weeks) — Core skill deepening, second DT challenge (Apply/Analyse), industry exposure visits, PowerSkills WE & WORK module (collaboration, professional conduct).
+4. Landing (10 weeks) — Advanced application, third DT challenge (Evaluate/Create), portfolio building, employer readiness prep, PowerSkills WORLD module (systems thinking).
+5. Internship (12 weeks) — Industry placement with workplace mentoring, employer assessment, real work experience. This is where theory becomes practice.
+6. Certification & Graduation — ICITP accreditation, Portfolio of Evidence submission, ICDL certification.
+
+4 COMPETENCY PILLARS woven through every phase: Design Thinking (creative problem-solving), Digital Competency (AI tools, data, project management), Work Readiness (career prep, industry exposure), Power Skills (ME → WE → WORK → WORLD progression).
+
+Describe what actually happens: what tools learners use, what coaching looks like (1:1 and group), what a Design Thinking sprint involves, how the 3 DT challenges progress through Bloom's Taxonomy. Be specific and factual — the reader should understand exactly what d-lab delivers.
 
 SCALE THROUGH AI — d-lab's secret weapon:
 - d-lab has built proprietary AI tools that radically change training economics. NOT off-the-shelf — built in-house for SA youth.
@@ -911,7 +922,12 @@ Subject: [specific, compelling — NOT "Following up on our application"]
 The email should:
 - Open with context (what was submitted, when) — but make it interesting, not administrative
 - Lead with what this funder cares about: "${fs.lead}"
-- Include one NEW proof point or update since submission — something that shows momentum
+- Include one NEW proof point or update since submission — something that shows momentum. Strong options:
+  • CCBA/Coca-Cola awarded d-lab R2.75M (Jan 2026) for an 18-month Graduate Leadership Accelerator across African markets — proves corporate delivery capability at scale
+  • 92% completion rate (vs 55% sector avg), 85% employment within 3 months
+  • 4 cohorts running simultaneously across 3 provinces in 2026
+  • Proprietary AI tools (Language Leveller, Assessornator) enabling quality at 2-3x student numbers
+  • Choose the proof point most relevant to THIS funder's priorities
 - Close with a specific, low-friction next step (15-min call, site visit, "happy to send our latest impact data")
 - Under 200 words. Every sentence earns its place.
 - Sign off as the director (do NOT name them — just "Director, d-lab NPC")
@@ -1295,8 +1311,8 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
         boxShadow: "1px 0 8px rgba(0, 0, 0, 0.04)",
       }}>
         {/* Org header */}
-        <div style={{ padding: "26px 20px 22px", borderBottom: `1px solid ${C.line}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${C.line}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {org?.logo_url ? (
               <img src={org.logo_url} alt="" onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
                 style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", boxShadow: `0 2px 10px ${C.primaryGlow}` }} />
@@ -1309,7 +1325,7 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
               boxShadow: `0 2px 10px ${C.primaryGlow}`,
             }}>{(org?.name || orgSlug)?.[0]?.toUpperCase()}</div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.dark, letterSpacing: -0.2 }}>{org?.name || orgSlug}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.dark, letterSpacing: -0.2 }}>{org?.name || orgSlug}</div>
               <div style={{ fontSize: 10, color: C.t4, letterSpacing: 0.5, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
                 Grant Engine
                 {saveState === "saving" && <span style={{ fontSize: 9, color: C.amber, fontWeight: 600, animation: "ge-pulse 1.2s ease-in-out infinite" }}>Saving...</span>}
@@ -1321,25 +1337,25 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
         </div>
 
         {/* Nav items */}
-        <div style={{ flex: 1, padding: "20px 12px" }}>
+        <div style={{ flex: 1, padding: "14px 10px" }}>
           {[...SIDEBAR_ITEMS, ...(currentMember?.role === "director" ? [{ id: "admin", label: "Admin", icon: "\u25CA" }] : [])].map(item => {
             const active = !sel && view === item.id;
             return (
               <button key={item.id}
                 onClick={() => { setView(item.id); setSel(null); }}
                 style={{
-                  display: "flex", alignItems: "center", gap: 10, width: "100%",
-                  padding: "11px 14px", marginBottom: 4, border: "none",
+                  display: "flex", alignItems: "center", gap: 8, width: "100%",
+                  padding: "8px 12px", marginBottom: 2, border: "none",
                   background: active ? C.sidebarActive : "transparent",
                   color: active ? C.sidebarTextActive : C.sidebarText,
-                  fontSize: 13, fontWeight: active ? 600 : 500, cursor: "pointer",
-                  borderRadius: 10, fontFamily: FONT, textAlign: "left",
+                  fontSize: 12, fontWeight: active ? 600 : 500, cursor: "pointer",
+                  borderRadius: 8, fontFamily: FONT, textAlign: "left",
                   transition: "all 0.15s ease",
-                  borderLeft: active ? `3px solid ${C.sidebarAccent}` : "3px solid transparent",
+                  borderLeft: active ? `2px solid ${C.sidebarAccent}` : "2px solid transparent",
                 }}
                 onMouseEnter={e => { if (!active) { e.currentTarget.style.background = C.sidebarHover; e.currentTarget.style.color = C.sidebarTextActive; } }}
                 onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.sidebarText; } }}>
-                <span style={{ fontSize: 15, opacity: active ? 1 : 0.6 }}>{item.icon}</span>
+                <span style={{ fontSize: 13, opacity: active ? 1 : 0.6 }}>{item.icon}</span>
                 {item.label}
                 {item.id === "dashboard" && notifCount > 0 && (
                   <span style={{
@@ -1354,11 +1370,11 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
         </div>
 
         {/* Logout / Switch Org */}
-        <div style={{ padding: "14px 12px", borderTop: `1px solid ${C.line}`, display: "flex", flexDirection: "column", gap: 2 }}>
+        <div style={{ padding: "10px 10px", borderTop: `1px solid ${C.line}`, display: "flex", flexDirection: "column", gap: 1 }}>
           <button onClick={handleSwitchOrg}
             style={{
-              display: "flex", alignItems: "center", gap: 10, width: "100%",
-              padding: "9px 14px", border: "none",
+              display: "flex", alignItems: "center", gap: 8, width: "100%",
+              padding: "7px 12px", border: "none",
               background: "transparent", color: C.sidebarText,
               fontSize: 12, fontWeight: 500, cursor: "pointer",
               borderRadius: 8, fontFamily: FONT, textAlign: "left",
@@ -1371,8 +1387,8 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
           </button>
           <button onClick={handleLogout}
             style={{
-              display: "flex", alignItems: "center", gap: 10, width: "100%",
-              padding: "9px 14px", border: "none",
+              display: "flex", alignItems: "center", gap: 8, width: "100%",
+              padding: "7px 12px", border: "none",
               background: "transparent", color: C.sidebarText,
               fontSize: 12, fontWeight: 500, cursor: "pointer",
               borderRadius: 8, fontFamily: FONT, textAlign: "left",

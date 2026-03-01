@@ -31,7 +31,7 @@ export const DeadlineBadge = ({ d, deadline, size = "sm", stage }) => {
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 4,
-      padding: isSm ? "3px 8px" : "4px 12px", fontSize: isSm ? 10 : 12, fontWeight: 600,
+      padding: isSm ? "2px 7px" : "3px 10px", fontSize: isSm ? 9 : 11, fontWeight: 600,
       color: col, background: bg, borderRadius: 20,
       animation: pulse ? "ge-pulse 1.2s ease-in-out infinite" : "none", whiteSpace: "nowrap",
       letterSpacing: 0.1,
@@ -48,12 +48,12 @@ const TYPE_BGS = { "Foundation": C.blueSoft, "Corporate CSI": C.redSoft, "Govern
 export const TypeBadge = ({ type }) => {
   const col = TYPE_COLORS[type] || C.t3;
   const bg = TYPE_BGS[type] || C.raised;
-  return <span style={{ padding: "3px 10px", fontSize: 11, fontWeight: 700, color: col, background: bg, borderRadius: 20, whiteSpace: "nowrap", letterSpacing: 0.4 }}>{type}</span>;
+  return <span style={{ padding: "2px 8px", fontSize: 10, fontWeight: 700, color: col, background: bg, borderRadius: 20, whiteSpace: "nowrap", letterSpacing: 0.4 }}>{type}</span>;
 };
 
 export const Tag = ({ text, color = C.primary }) => (
   <span style={{
-    display: "inline-block", padding: "3px 10px", fontSize: 12, fontWeight: 600,
+    display: "inline-block", padding: "2px 8px", fontSize: 11, fontWeight: 600,
     letterSpacing: 0.2, color, background: color + "14", borderRadius: 20,
     marginRight: 4, marginBottom: 3, fontFamily: FONT,
   }}>{text}</span>
@@ -102,8 +102,8 @@ export const Timeline = ({ grants, stages, team, onClickGrant }) => {
     return (
       <div onClick={() => onClickGrant(g.id)} className="ge-hover-slide"
         style={{
-          display: "flex", alignItems: "center", gap: 10, padding: "9px 16px",
-          cursor: "pointer", opacity: faded ? 0.5 : 1, minHeight: 38,
+          display: "flex", alignItems: "center", gap: 8, padding: "7px 14px",
+          cursor: "pointer", opacity: faded ? 0.5 : 1, minHeight: 32,
           borderBottom: `1px solid ${C.line}`,
         }}>
         <Avatar member={m} size={24} />
@@ -148,7 +148,7 @@ export const Timeline = ({ grants, stages, team, onClickGrant }) => {
   };
 
   return (
-    <div style={{ background: C.white, borderRadius: 16, overflow: "hidden", boxShadow: C.cardShadow, marginBottom: 24 }}>
+    <div style={{ background: C.white, borderRadius: 10, overflow: "hidden", boxShadow: C.cardShadow, marginBottom: 20 }}>
       {/* Header */}
       <div style={{ padding: "14px 18px", background: C.navy, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: "rgba(255,255,255,0.7)" }}>Submission Timeline</span>
@@ -164,33 +164,30 @@ export const Timeline = ({ grants, stages, team, onClickGrant }) => {
 
 export const Num = ({ label, value, sub, color = C.dark, sparkData, sparkColor, accent }) => (
   <div style={{
-    flex: 1, minWidth: 130, padding: "20px 22px", background: C.white, borderRadius: 16,
-    border: `1.5px solid ${(accent || color)}25`, boxShadow: C.cardShadow, transition: "box-shadow 0.2s ease, transform 0.2s ease",
-  }}
-    onMouseEnter={e => { e.currentTarget.style.boxShadow = C.cardShadowHover; e.currentTarget.style.transform = "translateY(-2px)"; }}
-    onMouseLeave={e => { e.currentTarget.style.boxShadow = C.cardShadow; e.currentTarget.style.transform = "none"; }}
-  >
+    flex: 1, minWidth: 120, padding: "14px 16px", background: C.white, borderRadius: 10,
+    border: `1px solid ${(accent || color)}20`, boxShadow: C.cardShadow,
+  }}>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: C.t3, marginBottom: 12, letterSpacing: 1.2, textTransform: "uppercase" }}>{label}</div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: C.t3, marginBottom: 8, letterSpacing: 1, textTransform: "uppercase" }}>{label}</div>
       {sparkData && <Sparkline data={sparkData} color={sparkColor || color} />}
     </div>
-    <div style={{ fontSize: 36, fontWeight: 800, color, letterSpacing: -1.5, fontFamily: MONO, lineHeight: 1 }}>{value}</div>
-    {sub && <div style={{ fontSize: 12, color: C.t3, marginTop: 10, fontWeight: 500 }}>{sub}</div>}
+    <div style={{ fontSize: 28, fontWeight: 800, color, letterSpacing: -1, fontFamily: MONO, lineHeight: 1 }}>{value}</div>
+    {sub && <div style={{ fontSize: 11, color: C.t3, marginTop: 8, fontWeight: 500 }}>{sub}</div>}
   </div>
 );
 
 export const Btn = ({ children, onClick, v = "primary", disabled, style: sx }) => {
   const base = {
-    padding: "9px 18px", border: "none", fontSize: 13, fontWeight: 600,
+    padding: "7px 14px", border: "none", fontSize: 12, fontWeight: 600,
     cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1,
-    fontFamily: FONT, borderRadius: 12, transition: "all 0.2s ease", letterSpacing: 0.1,
+    fontFamily: FONT, borderRadius: 8, transition: "all 0.15s ease", letterSpacing: 0.1,
   };
   const variants = {
-    primary: { background: C.primary, color: "#fff", boxShadow: `0 2px 8px rgba(208, 50, 40, 0.25)` },
-    ghost: { background: "transparent", color: C.t2, border: `1.5px solid ${C.line}` },
+    primary: { background: C.primary, color: "#fff", boxShadow: `0 1px 4px rgba(201, 59, 51, 0.2)` },
+    ghost: { background: "transparent", color: C.t2, border: `1px solid ${C.line}` },
     muted: { background: C.raised, color: C.t2 },
-    danger: { background: C.redSoft, color: C.red, border: `1.5px solid ${C.red}25` },
-    success: { background: C.ok, color: "#fff", boxShadow: `0 2px 8px ${C.ok}30` },
+    danger: { background: C.redSoft, color: C.red, border: `1px solid ${C.red}25` },
+    success: { background: C.ok, color: "#fff", boxShadow: `0 1px 4px ${C.ok}25` },
   };
   return <button onClick={onClick} disabled={disabled} style={{ ...base, ...variants[v], ...sx }}>{children}</button>;
 };
@@ -200,9 +197,9 @@ export const CopyBtn = ({ text }) => {
   return (
     <button onClick={() => { cp(text); setOk(true); setTimeout(() => setOk(false), 2e3); }}
       style={{
-        padding: "5px 14px", border: `1.5px solid ${ok ? C.primaryBorder : C.line}`,
+        padding: "4px 12px", border: `1px solid ${ok ? C.primaryBorder : C.line}`,
         background: ok ? C.primarySoft : C.white, color: ok ? C.primary : C.t3,
-        fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: FONT, borderRadius: 8,
+        fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: FONT, borderRadius: 6,
         transition: "all 0.2s ease",
       }}>
       {ok ? "\u2713 Copied" : "Copy"}
@@ -211,7 +208,7 @@ export const CopyBtn = ({ text }) => {
 };
 
 export const Label = ({ children, style: sx }) => (
-  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: C.t3, marginBottom: 14, ...sx }}>{children}</div>
+  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase", color: C.t3, marginBottom: 10, ...sx }}>{children}</div>
 );
 
 // Hoisted to module level
@@ -233,7 +230,7 @@ export const Avatar = ({ member, size = 26 }) => {
     <span title={m.name} style={{
       display: "inline-flex", alignItems: "center", justifyContent: "center",
       width: size, height: size, fontSize: size * 0.36, fontWeight: 700,
-      color: ac.fg, background: ac.bg, borderRadius: size * 0.35, flexShrink: 0, fontFamily: MONO,
+      color: ac.fg, background: ac.bg, borderRadius: size * 0.30, flexShrink: 0, fontFamily: MONO,
     }}>{m.initials || m.name?.[0] || "\u2014"}</span>
   );
 };
@@ -241,7 +238,7 @@ export const Avatar = ({ member, size = 26 }) => {
 export const RoleBadge = ({ role }) => {
   const rc = { director: { bg: C.primarySoft, fg: C.primary, l: "Admin" }, board: { bg: C.navySoft, fg: C.navy, l: "Board" }, hop: { bg: C.purpleSoft, fg: C.purple, l: "Head of Prog" }, pm: { bg: C.blueSoft, fg: C.blue, l: "Prog Manager" } };
   const r = rc[role]; if (!r) return null;
-  return <span style={{ padding: "3px 10px", fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: r.fg, background: r.bg, borderRadius: 20, textTransform: "uppercase" }}>{r.l}</span>;
+  return <span style={{ padding: "2px 8px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5, color: r.fg, background: r.bg, borderRadius: 20, textTransform: "uppercase" }}>{r.l}</span>;
 };
 
 export const downloadDoc = (text, filename) => {
@@ -265,9 +262,9 @@ export const downloadDoc = (text, filename) => {
 
 export const DownloadBtn = ({ text, filename, label, onDocx }) => (
   <button onClick={() => onDocx ? onDocx(text, filename) : downloadDoc(text, filename)} style={{
-    display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 16px",
-    fontSize: 12, fontWeight: 600, color: C.primary, background: C.primarySoft,
-    border: `1px solid ${C.primary}25`, borderRadius: 10, cursor: "pointer", fontFamily: FONT,
+    display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 12px",
+    fontSize: 11, fontWeight: 600, color: C.primary, background: C.primarySoft,
+    border: `1px solid ${C.primary}20`, borderRadius: 8, cursor: "pointer", fontFamily: FONT,
     transition: "all 0.2s ease",
   }}
     onMouseEnter={e => { e.currentTarget.style.background = C.primary; e.currentTarget.style.color = "#fff"; }}
@@ -350,7 +347,7 @@ export const AILoadingPanel = ({ title }) => {
   const tip = AI_LOAD_TIPS[tipIdx];
 
   return (
-    <div style={{ marginTop: 16, padding: "18px 20px", background: `linear-gradient(135deg, ${C.warm100} 0%, ${C.purpleSoft}60 100%)`, borderRadius: 12, border: `1px solid ${C.line}` }}>
+    <div style={{ marginTop: 12, padding: "14px 16px", background: `linear-gradient(135deg, ${C.warm100} 0%, ${C.purpleSoft}60 100%)`, borderRadius: 8, border: `1px solid ${C.line}` }}>
       {/* Status row */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
         <div style={{ display: "flex", gap: 3 }}>
@@ -410,16 +407,16 @@ export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, ste
 
   return (
     <div style={{
-      background: C.white, borderRadius: 16, marginBottom: 0,
-      border: hasResult && !busy ? `1.5px solid ${C.ok}20` : isError ? `1.5px solid ${C.red}20` : `1.5px solid transparent`,
+      background: C.white, borderRadius: 10, marginBottom: 0,
+      border: hasResult && !busy ? `1px solid ${C.ok}20` : isError ? `1px solid ${C.red}20` : `1px solid transparent`,
       boxShadow: C.cardShadow, transition: "all 0.25s ease",
       overflow: "hidden",
     }}>
       {/* Card header */}
-      <div style={{ padding: "18px 22px 16px", display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ padding: "14px 16px 12px", display: "flex", alignItems: "center", gap: 10 }}>
         {/* Step number / status icon */}
         <div style={{
-          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: busy ? 14 : hasResult ? 16 : 14, fontWeight: 700,
           background: busy ? C.purpleSoft : hasResult ? C.okSoft : locked ? C.raised : C.primarySoft,
@@ -432,7 +429,7 @@ export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, ste
 
         {/* Title + desc */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: locked ? C.t4 : C.dark, letterSpacing: -0.2 }}>{title}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: locked ? C.t4 : C.dark, letterSpacing: -0.2 }}>{title}</div>
           <div style={{ fontSize: 12, color: locked ? C.t4 : C.t3, lineHeight: 1.4, marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {locked ? lockedMsg : hasResult && !expanded
               ? <>
@@ -455,8 +452,8 @@ export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, ste
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {hasResult && !busy && (
             <button onClick={() => setExpanded(p => !p)} style={{
-              background: "none", border: `1.5px solid ${C.line}`, borderRadius: 8,
-              padding: "5px 12px", fontSize: 11, fontWeight: 600, color: C.t3,
+              background: "none", border: `1px solid ${C.line}`, borderRadius: 6,
+              padding: "4px 10px", fontSize: 10, fontWeight: 600, color: C.t3,
               cursor: "pointer", fontFamily: FONT, transition: "all 0.15s ease",
             }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = C.t3; e.currentTarget.style.color = C.dark; }}
@@ -474,16 +471,16 @@ export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, ste
 
       {/* Loading panel */}
       {busy && (
-        <div style={{ padding: "0 22px 18px" }}>
+        <div style={{ padding: "0 16px 14px" }}>
           <AILoadingPanel title={title} />
         </div>
       )}
 
       {/* Error display */}
       {isError && !busy && (
-        <div style={{ padding: "0 22px 18px" }}>
+        <div style={{ padding: "0 16px 14px" }}>
           <div style={{
-            padding: "12px 16px", background: C.redSoft, borderRadius: 10,
+            padding: "10px 14px", background: C.redSoft, borderRadius: 8,
             border: `1px solid ${C.red}15`, fontSize: 13, color: C.red, lineHeight: 1.5,
           }}>{result}</div>
         </div>
@@ -492,7 +489,7 @@ export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, ste
       {/* Result display (collapsible) */}
       {hasResult && !busy && expanded && (
         <div style={{
-          padding: "0 22px 20px",
+          padding: "0 16px 16px",
           animation: "ai-expand 0.2s ease-out",
         }}>
           {/* Action bar */}
@@ -505,9 +502,9 @@ export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, ste
           </div>
           {/* Result text */}
           <div style={{
-            padding: "20px 22px", background: C.warm100, borderRadius: 12,
-            border: `1.5px solid ${C.primary}20`,
-            fontSize: 13.5, lineHeight: 1.85, color: C.t1, whiteSpace: "pre-wrap",
+            padding: "14px 16px", background: C.warm100, borderRadius: 8,
+            border: `1px solid ${C.primary}15`,
+            fontSize: 13, lineHeight: 1.75, color: C.t1, whiteSpace: "pre-wrap",
             maxHeight: 500, overflow: "auto",
           }}>{stripMd(result)}</div>
         </div>

@@ -134,15 +134,15 @@ export default function OrgSelector({ onSelect }) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.bg, fontFamily: FONT }}>
         {header}
-        <div style={{ width: 420, background: C.white, borderRadius: 20, padding: 44, boxShadow: C.cardShadowLg, marginTop: 40, textAlign: "center" }}>
+        <div style={{ width: 420, background: C.white, borderRadius: 14, padding: 32, boxShadow: C.cardShadowLg, marginTop: 40, textAlign: "center" }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.t4, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Almost Done</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: C.dark, marginBottom: 6 }}>Add a Logo</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: C.dark, marginBottom: 6 }}>Add a Logo</div>
           <div style={{ fontSize: 13, color: C.t3, marginBottom: 28 }}>Give <strong>{name}</strong> a visual identity</div>
 
           {/* Logo preview */}
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
             <div style={{
-              width: 88, height: 88, borderRadius: 18, overflow: "hidden",
+              width: 88, height: 88, borderRadius: 14, overflow: "hidden",
               border: `2px dashed ${C.line}`, display: "flex", alignItems: "center", justifyContent: "center",
               background: C.warm100,
             }}>
@@ -203,7 +203,7 @@ export default function OrgSelector({ onSelect }) {
       display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT,
     }} onClick={() => { if (!deleting) { setDeleteTarget(null); setConfirmSlug(""); setDeleteErr(""); } }}>
       <div onClick={e => e.stopPropagation()} style={{
-        width: 420, background: C.white, borderRadius: 20, padding: 36, boxShadow: C.cardShadowLg,
+        width: 420, background: C.white, borderRadius: 14, padding: 28, boxShadow: C.cardShadowLg,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <div style={{
@@ -217,7 +217,7 @@ export default function OrgSelector({ onSelect }) {
         </div>
 
         <div style={{
-          background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 12, padding: "12px 16px",
+          background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, padding: "12px 16px",
           marginBottom: 20, fontSize: 13, color: "#991B1B", lineHeight: 1.5,
         }}>
           This will permanently delete <strong>{deleteTarget.name}</strong> and all its data including grants, proposals, team members, documents, and settings.
@@ -231,8 +231,8 @@ export default function OrgSelector({ onSelect }) {
             placeholder={deleteTarget.slug}
             style={{
               width: "100%", padding: "8px 12px", fontSize: 14, fontFamily: MONO,
-              border: `1.5px solid ${confirmSlug === deleteTarget.slug ? C.primary : C.line}`,
-              borderRadius: 10, boxSizing: "border-box",
+              border: `1px solid ${confirmSlug === deleteTarget.slug ? C.primary : C.line}`,
+              borderRadius: 8, boxSizing: "border-box",
             }} />
         </div>
 
@@ -245,7 +245,7 @@ export default function OrgSelector({ onSelect }) {
               flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600, fontFamily: FONT,
               background: confirmSlug === deleteTarget.slug ? C.primary : C.raised,
               color: confirmSlug === deleteTarget.slug ? "#fff" : C.t4,
-              border: "none", borderRadius: 10, cursor: confirmSlug === deleteTarget.slug ? "pointer" : "not-allowed",
+              border: "none", borderRadius: 8, cursor: confirmSlug === deleteTarget.slug ? "pointer" : "not-allowed",
               transition: "all 0.2s",
             }}>
             {deleting ? "Deleting..." : "Delete Forever"}
@@ -254,7 +254,7 @@ export default function OrgSelector({ onSelect }) {
             disabled={deleting}
             style={{
               padding: "10px 16px", fontSize: 14, fontWeight: 600, fontFamily: FONT,
-              background: "none", color: C.t3, border: `1.5px solid ${C.line}`, borderRadius: 10,
+              background: "none", color: C.t3, border: `1px solid ${C.line}`, borderRadius: 8,
               cursor: "pointer",
             }}>Cancel</button>
         </div>
@@ -268,10 +268,10 @@ export default function OrgSelector({ onSelect }) {
       {header}
       {deleteModal}
 
-      <div style={{ width: 500, background: C.white, borderRadius: 20, padding: 44, boxShadow: C.cardShadowLg, marginTop: 40 }}>
+      <div style={{ width: 500, background: C.white, borderRadius: 14, padding: 32, boxShadow: C.cardShadowLg, marginTop: 40 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.t4, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Grant Engine</div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Select Organisation</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Select Organisation</div>
           <div style={{ width: 28, height: 3, background: C.primary, borderRadius: 2, margin: "8px auto 0" }} />
           <div style={{ fontSize: 14, color: C.t3, marginTop: 10 }}>Choose an org to manage or create a new one</div>
         </div>
@@ -282,14 +282,14 @@ export default function OrgSelector({ onSelect }) {
           <>
             {/* Admin mode: enter key to unlock delete buttons */}
             {adminMode && !adminKey && (
-              <div style={{ marginBottom: 20, padding: 16, background: "#FEF2F2", borderRadius: 12, border: "1px solid #FECACA" }}>
+              <div style={{ marginBottom: 20, padding: 16, background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA" }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#991B1B", marginBottom: 8 }}>Super Admin Mode</div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <input type="password" placeholder="Enter admin key"
                     onKeyDown={e => { if (e.key === "Enter" && e.target.value) setAdminKey(e.target.value); }}
                     style={{
                       flex: 1, padding: "8px 12px", fontSize: 13, fontFamily: MONO,
-                      border: `1.5px solid #FECACA`, borderRadius: 8, boxSizing: "border-box",
+                      border: `1px solid #FECACA`, borderRadius: 8, boxSizing: "border-box",
                     }} />
                   <button onClick={e => {
                     const input = e.target.parentElement.querySelector("input");
@@ -327,7 +327,7 @@ export default function OrgSelector({ onSelect }) {
                     <button onClick={() => onSelect(org.slug, false)}
                       style={{
                         display: "flex", alignItems: "center", gap: 14, padding: "14px 18px",
-                        background: C.white, border: `1.5px solid ${C.line}`, borderRadius: adminMode && adminKey ? "14px 0 0 14px" : 14,
+                        background: C.white, border: `1px solid ${C.line}`, borderRadius: adminMode && adminKey ? "10px 0 0 10px" : 10,
                         boxShadow: C.cardShadow, flex: 1,
                         cursor: "pointer", textAlign: "left", fontFamily: FONT,
                         transition: "all 0.2s ease",
@@ -346,8 +346,8 @@ export default function OrgSelector({ onSelect }) {
                         title={`Delete ${org.name}`}
                         style={{
                           width: 44, height: "100%", minHeight: 56,
-                          background: "#FEF2F2", border: `1.5px solid #FECACA`, borderLeft: "none",
-                          borderRadius: "0 14px 14px 0", cursor: "pointer",
+                          background: "#FEF2F2", border: `1px solid #FECACA`, borderLeft: "none",
+                          borderRadius: "0 10px 10px 0", cursor: "pointer",
                           display: "flex", alignItems: "center", justifyContent: "center",
                           fontSize: 16, color: "#DC2626", transition: "all 0.2s",
                         }}
@@ -370,7 +370,7 @@ export default function OrgSelector({ onSelect }) {
                     <button onClick={() => setAdminMode(true)}
                       title="Super Admin"
                       style={{
-                        width: 36, height: 36, borderRadius: 10, border: `1.5px solid ${C.line}`,
+                        width: 36, height: 36, borderRadius: 8, border: `1px solid ${C.line}`,
                         background: C.white, cursor: "pointer", fontSize: 14,
                         display: "flex", alignItems: "center", justifyContent: "center",
                         color: C.t4, transition: "all 0.2s",
@@ -386,18 +386,18 @@ export default function OrgSelector({ onSelect }) {
                   <div style={{ marginBottom: 12 }}>
                     <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 4 }}>Name</label>
                     <input value={name} onChange={e => autoSlug(e.target.value)} placeholder="e.g. StrideShift" autoFocus
-                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: `1.5px solid ${C.line}`, borderRadius: 10, fontFamily: FONT, boxSizing: "border-box" }} />
+                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, boxSizing: "border-box" }} />
                   </div>
                   <div style={{ marginBottom: 12 }}>
                     <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 4 }}>URL slug</label>
                     <input value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="strideshift"
-                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: `1.5px solid ${C.line}`, borderRadius: 10, fontFamily: MONO, boxSizing: "border-box" }} />
+                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: MONO, boxSizing: "border-box" }} />
                     <div style={{ fontSize: 11, color: C.t4, marginTop: 3 }}>URL will be: /org/{slug || "..."}</div>
                   </div>
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 4 }}>Website (optional)</label>
                     <input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..."
-                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: `1.5px solid ${C.line}`, borderRadius: 10, fontFamily: FONT, boxSizing: "border-box" }} />
+                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, boxSizing: "border-box" }} />
                   </div>
                   {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
                   <div style={{ display: "flex", gap: 8 }}>
