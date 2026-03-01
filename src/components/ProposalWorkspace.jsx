@@ -1,25 +1,27 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
 import { Btn, CopyBtn, DownloadBtn } from "./index";
-import { assembleText, effectiveAsk } from "../utils";
+import { assembleText, effectiveAsk, isAIError } from "../utils";
 import { funderStrategy, detectType, PTYPES } from "../data/funderStrategy";
 import SectionCard from "./SectionCard";
+import { analyzeEditInBackground } from "../editLearner";
 
 /* ── Proposal Workspace ──
    Section-by-section proposal editor.
    Replaces the monolithic Draft Proposal AICard.
 */
 
-const isAIError = (r) => !r || r.startsWith("Error") || r.startsWith("Rate limit") || r.startsWith("Connection") || r.startsWith("Request failed") || r.startsWith("No response") || r.startsWith("The AI service");
-
 // Parse ASK_RECOMMENDATION from a section (typically Budget)
+// Format: ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), [years] year(s), R[total]
+// The year(s) part is optional — defaults to 1
 const extractAskFromText = (text) => {
-  const structured = text.match(/ASK_RECOMMENDATION:\s*Type\s*(\d),\s*(\d+)\s*cohort\(s?\),\s*R(\d+)/i);
+  const structured = text.match(/ASK_RECOMMENDATION:\s*Type\s*(\d),\s*(\d+)\s*cohort\(s?\),\s*(?:(\d+)\s*year\(s?\),\s*)?R([\d,\s]+)/i);
   if (structured) {
     const typeNum = parseInt(structured[1]);
     const count = parseInt(structured[2]);
-    const amount = parseInt(structured[3]);
-    if (PTYPES[typeNum] && amount > 0) return { ask: amount, typeNum, mcCount: count };
+    const years = structured[3] ? parseInt(structured[3]) : 1;
+    const amount = parseInt(structured[4].replace(/[,\s]/g, ''));
+    if (PTYPES[typeNum] && amount > 0) return { ask: amount, typeNum, mcCount: count, years };
   }
   return null;
 };
@@ -204,6 +206,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
         updates.ask = extracted.ask;
         updates.askSource = "ai-draft";
         updates.aiRecommendedAsk = extracted.ask;
+        if (extracted.years > 1) updates.askYears = extracted.years;
       }
     }
 
@@ -259,6 +262,12 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
     // Also update aiDraft for backward compat
     const assembled = assembleText(newSections, order);
     onUpdate(g.id, { aiSections: newSections, aiDraft: assembled, aiDraftAt: new Date().toISOString() });
+
+    // Learn from this edit — background analysis, never blocks the UI
+    const originalText = prev.text;
+    if (originalText && !isAIError(originalText) && originalText !== newText) {
+      analyzeEditInBackground(sectionName, originalText, newText);
+    }
   }, [g.id, sections, order, onUpdate]);
 
   // ── Restore section from history ──
@@ -441,6 +450,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
             onGenerate={(customInstructions) => generateSection(name, customInstructions)}
             onSave={(newText) => saveSectionEdit(name, newText)}
             onRestore={(historyIdx) => restoreSection(name, historyIdx)}
+            budgetTable={name.toLowerCase().includes("budget") ? g.budgetTable : undefined}
           />
         ))}
       </div>

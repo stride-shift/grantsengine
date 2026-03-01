@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { Pool } = pg;
 
 // AI fields stored in the ai_data JSON column
-const AI_KEYS = ['aiDraft','aiDraftAt','draftHistory','aiResearch','aiResearchAt','researchHistory','aiFitscore','aiFitscoreAt','fitscoreHistory','aiFollowup','aiFollowupAt','followupHistory','aiWinloss','aiWinlossAt','askSource','aiRecommendedAsk','funderBudget'];
+const AI_KEYS = ['aiDraft','aiDraftAt','draftHistory','aiResearch','aiResearchAt','researchHistory','aiFitscore','aiFitscoreAt','fitscoreHistory','aiFollowup','aiFollowupAt','followupHistory','aiWinloss','aiWinlossAt','askSource','aiRecommendedAsk','funderBudget','askYears','budgetTable','aiSections','aiSectionsOrder','aiSectionsAt'];
 
 const extractAiData = (grant) => {
   const aiData = {};
@@ -80,6 +80,11 @@ export const createOrg = async (data) => {
   await pool().query('INSERT INTO org_profiles (org_id) VALUES ($1)', [id]);
   await pool().query('INSERT INTO org_config (org_id) VALUES ($1)', [id]);
   return id;
+};
+
+export const deleteOrg = async (id) => {
+  // All child tables have ON DELETE CASCADE — this cleans up everything
+  await pool().query('DELETE FROM orgs WHERE id = $1', [id]);
 };
 
 export const updateOrg = async (id, data) => {
@@ -206,6 +211,13 @@ export const deleteTeamMember = async (id, orgId) => {
 
 // ── Grant helpers ──
 
+// Safe JSON.parse — returns fallback on malformed data instead of crashing
+const safeJSON = (str, fallback) => {
+  if (!str) return fallback;
+  try { return JSON.parse(str); }
+  catch { return fallback; }
+};
+
 export const getGrants = async (orgId) => {
   const { rows } = await pool().query('SELECT * FROM grants WHERE org_id = $1 ORDER BY created_at', [orgId]);
   return rows.map(row => ({
@@ -216,21 +228,21 @@ export const getGrants = async (orgId) => {
     stage: row.stage,
     ask: row.ask,
     deadline: row.deadline,
-    focus: JSON.parse(row.focus || '[]'),
-    geo: JSON.parse(row.geo || '[]'),
+    focus: safeJSON(row.focus, []),
+    geo: safeJSON(row.geo, []),
     rel: row.rel,
     pri: row.pri,
     hrs: row.hrs,
     notes: row.notes,
-    log: JSON.parse(row.log || '[]'),
+    log: safeJSON(row.log, []),
     on: row.on_factors,
-    of: JSON.parse(row.off_factors || '[]'),
+    of: safeJSON(row.off_factors, []),
     owner: row.owner,
-    docs: JSON.parse(row.docs || '{}'),
-    fups: JSON.parse(row.fups || '[]'),
+    docs: safeJSON(row.docs, {}),
+    fups: safeJSON(row.fups, []),
     subDate: row.sub_date,
     applyUrl: row.apply_url,
-    ...JSON.parse(row.ai_data || '{}'),
+    ...safeJSON(row.ai_data, {}),
   }));
 };
 
@@ -314,7 +326,7 @@ export const upsertPipelineConfig = async (orgId, config) => {
 
 export const getApprovals = async (orgId) => {
   const { rows } = await pool().query('SELECT * FROM approvals WHERE org_id = $1 ORDER BY created_at DESC', [orgId]);
-  return rows.map(r => ({ ...r, reviews: JSON.parse(r.reviews || '[]') }));
+  return rows.map(r => ({ ...r, reviews: safeJSON(r.reviews, []) }));
 };
 
 export const createApproval = async (orgId, data) => {
@@ -445,7 +457,7 @@ export const getActivityLog = async (orgId, { limit = 100, memberId = null } = {
   sql += ` ORDER BY al.created_at DESC LIMIT $${params.length + 1}`;
   params.push(limit);
   const { rows } = await pool().query(sql, params);
-  return rows.map(r => ({ ...r, meta: JSON.parse(r.meta || '{}') }));
+  return rows.map(r => ({ ...r, meta: safeJSON(r.meta, {}) }));
 };
 
 // ── Grant lookup (for stage change detection) ──
@@ -480,7 +492,7 @@ export const getAgentRuns = async (orgId, limit = 50) => {
 
 export const kvGet = async (orgId, key) => {
   const { rows } = await pool().query('SELECT value FROM kv WHERE org_id = $1 AND key = $2', [orgId, key]);
-  return rows[0] ? JSON.parse(rows[0].value) : null;
+  return rows[0] ? safeJSON(rows[0].value, null) : null;
 };
 
 export const kvSet = async (orgId, key, value) => {

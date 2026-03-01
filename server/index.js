@@ -7,8 +7,11 @@ import { initDb, cleanExpiredSessions, getOrgBySlug } from './db.js';
 
 const PORT = process.env.PORT || 3001;
 
-// Clean expired sessions every hour
-setInterval(() => cleanExpiredSessions(), 60 * 60 * 1000);
+// Clean expired sessions every hour (with error handling to prevent crashes)
+setInterval(async () => {
+  try { await cleanExpiredSessions(); }
+  catch (e) { console.error('Session cleanup failed:', e.message); }
+}, 60 * 60 * 1000);
 
 // Ensure Supabase Storage buckets exist
 async function ensureBuckets() {

@@ -52,7 +52,8 @@ const f = async (path, opts = {}) => {
     let msg = `Request failed (${res.status})`;
     try {
       const errBody = await res.clone().json();
-      msg = errBody.error || errBody.message || msg;
+      const err = errBody.error;
+      msg = (typeof err === 'object' ? err?.message : err) || errBody.message || msg;
     } catch { /* non-JSON error body */ }
     throw new Error(msg);
   }
@@ -166,18 +167,44 @@ export const adminResetPassword = async (memberId, password) => {
 
 export const getOrgs = async () => {
   const res = await fetch('/api/orgs');
-  return res.json();
+  const text = await res.text();
+  if (!text) return [];
+  return JSON.parse(text);
 };
 
-export const createNewOrg = async (data) => {
+export const createNewOrg = async (data, adminKey) => {
+  const headers = { 'Content-Type': 'application/json' };
+  if (adminKey) headers['X-Admin-Key'] = adminKey;
   const res = await fetch('/api/orgs', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(data),
   });
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Failed to create org');
+    let msg = 'Failed to create org';
+    try {
+      const err = await res.json();
+      msg = err.error || msg;
+    } catch { /* non-JSON error body */ }
+    throw new Error(msg);
+  }
+  const text = await res.text();
+  if (!text) return { slug: data.slug, name: data.name };
+  return JSON.parse(text);
+};
+
+export const deleteOrg = async (slug, adminKey) => {
+  const res = await fetch(`/api/orgs/${slug}`, {
+    method: 'DELETE',
+    headers: { 'X-Admin-Key': adminKey },
+  });
+  if (!res.ok) {
+    let msg = 'Failed to delete org';
+    try {
+      const err = await res.json();
+      msg = err.error || msg;
+    } catch { /* non-JSON error body */ }
+    throw new Error(msg);
   }
   return res.json();
 };
@@ -380,6 +407,9 @@ export const api = async (sys, usr, search = false, maxTok = 1500) => {
 
       const d = await res.json();
       if (d.error) return `Error: ${d.error.message || d.error.type}`;
+      if (d.stop_reason === 'max_tokens') {
+        console.warn(`[AI] Output truncated (hit token limit). Used ${d.usage?.output_tokens} tokens.`);
+      }
       const texts = d.content?.filter(b => b.type === 'text').map(b => b.text).filter(Boolean);
       return texts?.length ? texts.join('\n\n') : 'No response — try again.';
     } catch (e) {

@@ -28,7 +28,7 @@ export const DOCS = {
 // System-level compliance documents shared across all grants
 export const ORG_DOCS = [
   { id: "pbo", name: "PBO Certificate", desc: "Public Benefit Organisation approval letter from SARS", renew: false, cat: "Registration" },
-  { id: "npo", name: "NPO Registration Certificate", desc: "Department of Social Development NPO certificate (NPO 2017/382673/08)", renew: false, cat: "Registration" },
+  { id: "npo", name: "NPO Registration Certificate", desc: "Department of Social Development NPO certificate (273-412 NPO)", renew: false, cat: "Registration" },
   { id: "cipc", name: "Company Registration (CIPC)", desc: "CIPC registration documents for d-lab NPC", renew: false, cat: "Registration" },
   { id: "bbbee", name: "B-BBEE Certificate / Affidavit", desc: "Broad-Based Black Economic Empowerment verification certificate or EME/QSE affidavit", renew: true, cat: "Compliance" },
   { id: "tax", name: "Tax Clearance (SARS)", desc: "Valid SARS Tax Compliance Status (TCS) pin or certificate", renew: true, cat: "Compliance" },
@@ -72,17 +72,22 @@ export const CAD = {
 
 export const TEAM = [
   { id: "alison", name: "Alison", ini: "AJ", c: "#00E676", role: "director", title: "Director" },
-  { id: "david", name: "David", ini: "DM", c: "#F59E0B", role: "director", title: "Director" },
-  { id: "barbara", name: "Barbara", ini: "BK", c: "#EC4899", role: "director", title: "Director" },
-  { id: "nolan", name: "Nolan", ini: "NP", c: "#8B5CF6", role: "hop", title: "Head of Programmes" },
+  { id: "david", name: "David", ini: "DK", c: "#F59E0B", role: "board", title: "Board Member" },
+  { id: "barbara", name: "Barbara", ini: "BD", c: "#EC4899", role: "board", title: "Board Member" },
+  { id: "nolan", name: "Nolan", ini: "NB", c: "#8B5CF6", role: "hop", title: "Head of Programmes" },
   { id: "ayanda", name: "Ayanda", ini: "AO", c: "#5C9CFF", role: "pm", title: "Programme Manager" },
+  { id: "siphumezo", name: "Siphumezo", ini: "SA", c: "#14B8A6", role: "coord", title: "Cohort Coordinator" },
+  { id: "shanne", name: "Shanne", ini: "SS", c: "#F97316", role: "comms", title: "Social Media Coordinator" },
   { id: "team", name: "Unassigned", ini: "—", c: "#555", role: "none", title: "" },
 ];
 
 export const ROLES = {
   director: { label: "Director", level: 3, can: ["scouted","qualifying","drafting","review","submitted","awaiting","won","lost","deferred"] },
+  board: { label: "Board Member", level: 3, can: ["scouted","qualifying","drafting","review","submitted","awaiting","won","lost","deferred"] },
   hop: { label: "Head of Programmes", level: 2, can: ["scouted","qualifying","drafting","review"] },
   pm: { label: "Programme Manager", level: 1, can: ["scouted","qualifying","drafting"] },
+  coord: { label: "Coordinator", level: 1, can: ["scouted","qualifying","drafting"] },
+  comms: { label: "Communications", level: 0, can: ["scouted"] },
 };
 
 // Approval gates: stage transitions requiring sign-off from a specific role
@@ -96,8 +101,8 @@ export const GATES = {
 // Agent personas for AI emulation
 export const PERSONAS = {
   alison: "You are Alison Jacobson, Director of d-lab NPC. Strategic thinker focused on programme impact, sustainability, and mission alignment. Direct, analytical. Push for clarity on budgets and measurable impact.",
-  david: "You are David, Director of d-lab NPC. Focus on governance, financial prudence, risk, and compliance. Ask tough questions about budgets, funder relationships, and legal requirements. Thorough and detail-oriented.",
-  barbara: "You are Barbara, Director of d-lab NPC. Expertise in partnerships, stakeholder engagement, and programme design. Focus on compelling narratives, genuine partnerships, and appropriate ask amounts.",
-  nolan: "You are Nolan, Head of Programmes at d-lab NPC. Oversee programme delivery. Focus on operational feasibility, realistic timelines, curriculum readiness. Push back on overcommitting resources.",
-  ayanda: "You are Ayanda, Programme Manager at d-lab NPC. Hands-on with learners and delivery. Focus on practical details: venues, recruitment, facilitator capacity, day-to-day operations. Flag risks early.",
+  david: "You are David Kramer, Board Member of d-lab NPC (Fundraising & Sustainability). Focus on governance, financial prudence, risk, and compliance. Ask tough questions about budgets, funder relationships, and legal requirements. Thorough and detail-oriented.",
+  barbara: "You are Barbara Dale-Jones, Board Member of d-lab NPC (Governance & Finance). Expertise in partnerships, stakeholder engagement, and programme design. Focus on compelling narratives, genuine partnerships, and appropriate ask amounts.",
+  nolan: "You are Nolan Beudeker, Head of Programmes at d-lab NPC. Oversee programme delivery. Authorised to sign contracts up to R5K. Focus on operational feasibility, realistic timelines, curriculum readiness. Push back on overcommitting resources.",
+  ayanda: "You are Ayanda Orrai, Programme Manager at d-lab NPC. Hands-on with learners and delivery. Focus on practical details: venues, recruitment, facilitator capacity, day-to-day operations. Flag risks early.",
 };

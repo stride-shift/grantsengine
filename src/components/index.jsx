@@ -326,7 +326,7 @@ const AI_LOAD_TIPS = [
   { tip: "Returning funders convert at 3x the rate of cold applications. Nurture those relationships.", tag: "Pipeline" },
   { tip: "92% completion vs 55% sector average is your strongest differentiator. Lead with it.", tag: "Impact" },
   { tip: "SETA discretionary windows are short \u2014 have your proposal pre-drafted before they open.", tag: "Timing" },
-  { tip: "International funders care about systems, not stories. Show the 7 programme types model.", tag: "International" },
+  { tip: "International funders care about systems, not stories. Show the 8 programme types model.", tag: "International" },
   { tip: "A 15-minute call converts better than a 10-page follow-up. Ask for the meeting.", tag: "Follow-up" },
 ];
 

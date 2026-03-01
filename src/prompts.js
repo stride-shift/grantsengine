@@ -1,8 +1,12 @@
 /* ═══════════════════════════════════════
    d-lab Grant Engine — AI Prompt Templates
-   
-   All prompts are exported as functions that return { system, user, maxTok, search } objects.
-   This makes them easy to test, tune, and version independently.
+
+   STATUS: Only `scoutPrompt` is actively used (by Pipeline.jsx).
+   All other prompts are LEGACY — App.jsx has its own inline prompts
+   that are significantly more detailed. These exports are kept as
+   reference but are NOT wired into the app.
+
+   TODO: Either migrate App.jsx inline prompts here, or remove unused exports.
    ═══════════════════════════════════════ */
 
 import { CTX, CTX_SLIM } from "./data/context";
@@ -39,10 +43,10 @@ VOICE — maintain this in EVERY section, not just the opening:
 - Vary sentence length. Short punchy sentences land harder after longer ones.
 - CRITICAL: The emotive energy of the opening must carry through the ENTIRE proposal. Do NOT switch to dry grant-speak after the first paragraph.
 
-FRAMING: d-lab's story is the SYSTEM — 7 programme types, partner delivery model, in-house AI tools (LMS, Language Leveller, Assessornator, Cyborg Habits), corporate clients, diversified revenue. This isn't a charity asking for help. It's an engine asking for fuel.
+FRAMING: d-lab's story is the SYSTEM — 8 programme types, partner delivery model, in-house AI tools (LMS, Language Leveller, Assessornator, Cyborg Habits), corporate clients, diversified revenue. This isn't a charity asking for help. It's an engine asking for fuel.
 
 AMBITION — think BIG:
-- d-lab's 7 programme types are a GUIDE, not a cage. Use them as building blocks but design the programme around what the FUNDER wants to achieve.
+- d-lab's 8 programme types are a GUIDE, not a cage. Use them as building blocks but design the programme around what the FUNDER wants to achieve.
 - If the funder can support R5M, don't propose R232K. Go large — propose multi-cohort, extended duration, wraparound services, employer partnerships.
 - Combine programme elements creatively. Think about what would make the funder PROUD to back this.
 - The budget should fill the funder's capacity, not sit timidly below it.
@@ -73,8 +77,10 @@ ANTI-PATTERNS — never do these:
 - NEVER mention directors by name — refer to "directors, programme management and ops team" or "the leadership team"
 
 At the very END of your proposal, include this structured line (the system parses it to set the grant ask):
-ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), R[total amount as integer]
-Match the ask to the funder's capacity. Go multi-cohort, add components, propose a flagship programme.
+ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), [years] year(s), R[total amount as integer with no commas or spaces]
+Example (single year): ASK_RECOMMENDATION: Type 3, 2 cohort(s), 1 year(s), R2472000
+Example (multi-year): ASK_RECOMMENDATION: Type 1, 3 cohort(s), 3 year(s), R4644000
+Match the ask to the funder's capacity. Go multi-cohort and multi-year where appropriate, add components, propose a flagship programme.
 
 ${CTX}`,
   user: `Proposal for ${g.name} to ${g.funder}.
@@ -120,7 +126,7 @@ Recent proof points: 92% completion, 85% employment, FET partnership with GDE, C
 
 // ── INTEL ──
 export const intelPrompt = ({ g, returning }) => ({
-  system: `You are a funder intelligence analyst preparing a briefing for d-lab NPC (SA youth skills NPO, 92% completion, 85% employment, 7 programme types, R200K-R5M range).
+  system: `You are a funder intelligence analyst preparing a briefing for d-lab NPC (SA youth skills NPO, 92% completion, 85% employment, 8 programme types, R200K-R5M range).
 
 RESEARCH THOROUGHLY — search their website, annual report, CSI report, and recent news. Find:
 1. BUDGET & SCALE: Annual CSI/grant spend, typical grant size range
@@ -128,7 +134,7 @@ RESEARCH THOROUGHLY — search their website, annual report, CSI report, and rec
 3. KEY CONTACTS: Names and titles of CSI/foundation decision-makers
 4. WHAT WINS: Their stated priorities + what their actual funding pattern reveals
 5. APPLICATION PROCESS: Prescribed form or open proposal? Portal or email? Deadlines?
-6. d-lab STRATEGY: What angle to lead with, which programme type to offer (Type 1-7), what to emphasise, what to avoid
+6. d-lab STRATEGY: What angle to lead with, which programme type to offer (Type 1-8), what to emphasise, what to avoid
 ${returning ? "7. RELATIONSHIP LEVERAGE: How to use the existing relationship — what to reference, who to contact" : "7. DOOR-OPENER: How to get a first meeting — who to approach, what hook to use"}`,
   user: `Research ${g.funder} for d-lab NPC.
 Type: ${g.type}. Current ask: R${(g.ask||0).toLocaleString()}. Focus: ${(g.focus||[]).join(", ")}.
@@ -140,7 +146,7 @@ Search their website, annual report, and recent news.`,
 
 // ── SCOUT ──
 export const scoutPrompt = ({ existingFunders }) => ({
-  system: `You find grant opportunities for d-lab, a South African NPO training unemployed youth in AI-native digital skills (92% completion, 85% employment, 7 programme types from R232K to R5M).
+  system: `You find grant opportunities for d-lab, a South African NPO training unemployed youth in AI-native digital skills (92% completion, 85% employment, 8 programme types from R232K to R5M).
 
 SEARCH for open grant opportunities, CSI funding calls, SETA discretionary windows, and international tech funder programmes in 2026.
 
@@ -178,7 +184,7 @@ STRUCTURE:
 4. LOOKING AHEAD (next quarter milestones)
 5. THANK YOU (brief, genuine)
 
-One page max. Every sentence earns its place. Use the SYSTEM framing: 7 programme types, partner model, AI tools, diversified revenue.
+One page max. Every sentence earns its place. Use the SYSTEM framing: 8 programme types, partner model, AI tools, diversified revenue.
 
 ${CTX_SLIM}`,
   user: `Q1 2026 quarterly report for d-lab's funders.
@@ -218,8 +224,8 @@ VOICE: Warm, specific, confident. Every paragraph should make the reader think "
 
 CRITICAL RULES:
 - Use REAL d-lab numbers only. Never fabricate statistics.
-- Detect the programme type (Type 1-7) from Notes. Use the CORRECT budget, student count, duration.
-- Lead with the SYSTEM (7 programme types, partner model, AI tools, outcomes). Never with geographic expansion.
+- Detect the programme type (Type 1-8) from Notes. Use the CORRECT budget, student count, duration.
+- Lead with the SYSTEM (8 programme types, partner model, AI tools, outcomes). Never with geographic expansion.
 - Open with what THIS funder cares about, not generic unemployment stats.
 - Budget must use actual d-lab budget lines from CTX, not percentages.`,
   user: `Write a COMPLETE grant application for ${g.name} to ${g.funder}.

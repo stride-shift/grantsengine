@@ -36,6 +36,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
   // State
   const [typeNum, setTypeNum] = useState(saved?.typeNum || null);
   const [cohorts, setCohorts] = useState(saved?.cohorts || 1);
+  const [years, setYears] = useState(saved?.years || 1);
   const [items, setItems] = useState(saved?.items || []);
   const [orgContrib, setOrgContrib] = useState(saved?.includeOrgContribution || false);
   const [editing, setEditing] = useState(!saved);
@@ -87,19 +88,20 @@ export default function BudgetBuilder({ grant, onUpdate }) {
     const itemTotal = items.reduce((s, it) => s + (it.amount || 0), 0);
     const subtotal = itemTotal * cohorts;
     const orgAmount = orgContrib ? Math.round(subtotal * 0.3) : 0;
-    const total = subtotal + orgAmount;
-    const totalStudents = studentsPerCohort * cohorts;
+    const annualTotal = subtotal + orgAmount;
+    const total = annualTotal * years;
+    const totalStudents = studentsPerCohort * cohorts * years;
     const perStudent = totalStudents > 0 ? Math.round(total / totalStudents) : 0;
-    return { itemTotal, subtotal, orgAmount, total, totalStudents, perStudent };
-  }, [items, cohorts, orgContrib, studentsPerCohort]);
+    return { itemTotal, subtotal, orgAmount, annualTotal, total, totalStudents, perStudent };
+  }, [items, cohorts, years, orgContrib, studentsPerCohort]);
 
   // Check if unsaved changes
   const hasChanges = useMemo(() => {
     if (!saved) return items.length > 0;
-    if (saved.typeNum !== typeNum || saved.cohorts !== cohorts || saved.includeOrgContribution !== orgContrib) return true;
+    if (saved.typeNum !== typeNum || saved.cohorts !== cohorts || (saved.years || 1) !== years || saved.includeOrgContribution !== orgContrib) return true;
     if (saved.items.length !== items.length) return true;
     return saved.items.some((si, i) => si.label !== items[i]?.label || si.amount !== items[i]?.amount);
-  }, [saved, typeNum, cohorts, orgContrib, items]);
+  }, [saved, typeNum, cohorts, years, orgContrib, items]);
 
   // Save budget
   const saveBudget = () => {
@@ -107,12 +109,14 @@ export default function BudgetBuilder({ grant, onUpdate }) {
       typeNum,
       typeLabel: pt?.label || "",
       cohorts,
+      years,
       studentsPerCohort,
       duration: pt?.duration || "",
       items: items.map(it => ({ label: it.label, amount: it.amount, isCustom: it.isCustom })),
       includeOrgContribution: orgContrib,
       subtotal: calcs.subtotal,
       orgContribution: calcs.orgAmount,
+      annualTotal: calcs.annualTotal,
       total: calcs.total,
       perStudent: calcs.perStudent,
       savedAt: new Date().toISOString(),
@@ -122,6 +126,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
       ask: calcs.total,
       askSource: "budget-builder",
       aiRecommendedAsk: calcs.total,
+      ...(years > 1 ? { askYears: years } : { askYears: null }),
     });
     setEditing(false);
     setCollapsed(false);
@@ -131,11 +136,12 @@ export default function BudgetBuilder({ grant, onUpdate }) {
   const clearBudget = () => {
     setTypeNum(null);
     setCohorts(1);
+    setYears(1);
     setItems([]);
     setOrgContrib(false);
     setEditing(true);
     setCollapsed(false);
-    onUpdate(g.id, { budgetTable: null });
+    onUpdate(g.id, { budgetTable: null, askYears: null });
   };
 
   // Item mutations
@@ -174,7 +180,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
             Budget: {fmtR(saved.total)}
           </div>
           <div style={{ fontSize: 11, color: C.t3, marginTop: 1 }}>
-            {saved.typeLabel} {saved.cohorts > 1 ? `× ${saved.cohorts} cohorts` : ""} — {fmtR(saved.perStudent)}/student
+            {saved.typeLabel} {saved.cohorts > 1 ? `× ${saved.cohorts} cohorts` : ""}{saved.years > 1 ? ` × ${saved.years} years` : ""} — {fmtR(saved.perStudent)}/student
           </div>
         </div>
         <span style={{ fontSize: 11, color: C.t4, fontWeight: 500 }}>{"\u25BC"}</span>
@@ -264,7 +270,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
           <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
             <div>
               <label style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                Cohorts
+                Cohorts / yr
               </label>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
                 <button onClick={() => setCohorts(p => Math.max(1, p - 1))} disabled={!editing || cohorts <= 1}
@@ -274,11 +280,23 @@ export default function BudgetBuilder({ grant, onUpdate }) {
                   style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${C.line}`, background: C.warm100, fontSize: 14, cursor: editing ? "pointer" : "default", color: C.t3, fontFamily: MONO, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
               </div>
             </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 0.5, textTransform: "uppercase" }}>
+                Years
+              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                <button onClick={() => setYears(p => Math.max(1, p - 1))} disabled={!editing || years <= 1}
+                  style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${C.line}`, background: C.warm100, fontSize: 14, cursor: editing ? "pointer" : "default", color: C.t3, fontFamily: MONO, display: "flex", alignItems: "center", justifyContent: "center" }}>-</button>
+                <span style={{ fontSize: 18, fontWeight: 700, fontFamily: MONO, color: C.dark, minWidth: 24, textAlign: "center" }}>{years}</span>
+                <button onClick={() => setYears(p => Math.min(5, p + 1))} disabled={!editing}
+                  style={{ width: 28, height: 28, borderRadius: 6, border: `1px solid ${C.line}`, background: C.warm100, fontSize: 14, cursor: editing ? "pointer" : "default", color: C.t3, fontFamily: MONO, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+              </div>
+            </div>
             <div style={{ fontSize: 12, color: C.t2, paddingTop: 18 }}>
-              {"\u00d7"} {studentsPerCohort || "?"} students = <strong style={{ fontFamily: MONO, color: C.dark }}>{calcs.totalStudents}</strong> total students
+              {"\u00d7"} {studentsPerCohort || "?"} students = <strong style={{ fontFamily: MONO, color: C.dark }}>{calcs.totalStudents}</strong> total students{years > 1 ? ` over ${years} years` : ""}
             </div>
             <div style={{ fontSize: 11, color: C.t4, paddingTop: 18 }}>
-              {pt?.duration}
+              {pt?.duration}{years > 1 ? " / year" : ""}
             </div>
           </div>
         )}
@@ -455,13 +473,40 @@ export default function BudgetBuilder({ grant, onUpdate }) {
                 {editing && <span style={{ width: 32 }} />}
               </div>
 
+              {/* Annual total (shown only for multi-year) */}
+              {years > 1 && (
+                <div style={{
+                  display: "flex", padding: "8px 12px", alignItems: "center",
+                  borderTop: `2px solid ${C.line}`, background: C.warm200,
+                }}>
+                  <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: C.t2 }}>
+                    Annual total
+                  </span>
+                  <span style={{ width: 130, fontSize: 13, fontFamily: MONO, fontWeight: 700, color: C.t1, textAlign: "right" }}>
+                    {fmtR(calcs.annualTotal)}
+                  </span>
+                  {editing && <span style={{ width: 32 }} />}
+                </div>
+              )}
+              {years > 1 && (
+                <div style={{ display: "flex", padding: "4px 12px 8px", alignItems: "center", background: C.warm200 }}>
+                  <span style={{ flex: 1, fontSize: 12, color: C.t3 }}>
+                    {"\u00d7"} {years} years
+                  </span>
+                  <span style={{ width: 130, fontSize: 12, fontFamily: MONO, fontWeight: 600, color: C.t2, textAlign: "right" }}>
+                    {fmtR(calcs.total)}
+                  </span>
+                  {editing && <span style={{ width: 32 }} />}
+                </div>
+              )}
+
               {/* Grand total */}
               <div style={{
                 display: "flex", padding: "10px 12px", alignItems: "center",
                 borderTop: `2px solid ${C.primary}30`, background: C.primarySoft + "40",
               }}>
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 800, color: C.dark }}>
-                  TOTAL
+                  {years > 1 ? `TOTAL (${years}-YEAR ASK)` : "TOTAL"}
                 </span>
                 <span style={{ width: 130, fontSize: 16, fontFamily: MONO, fontWeight: 800, color: C.primary, textAlign: "right" }}>
                   {fmtR(calcs.total)}
@@ -473,7 +518,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
               {calcs.totalStudents > 0 && (
                 <div style={{ display: "flex", padding: "6px 12px 8px", alignItems: "center" }}>
                   <span style={{ flex: 1, fontSize: 11, color: C.t3 }}>
-                    Per student ({calcs.totalStudents} students)
+                    Per student ({calcs.totalStudents} students{years > 1 ? ` over ${years} yrs` : ""})
                   </span>
                   <span style={{ width: 130, fontSize: 12, fontFamily: MONO, fontWeight: 600, color: C.t2, textAlign: "right" }}>
                     {fmtR(calcs.perStudent)}
@@ -515,7 +560,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
               <span style={{ fontSize: 10, color: C.amber, fontWeight: 600, marginRight: "auto" }}>Unsaved changes</span>
             )}
             {saved && editing && (
-              <button onClick={() => { setEditing(false); setTypeNum(saved.typeNum); setCohorts(saved.cohorts); setItems(saved.items); setOrgContrib(saved.includeOrgContribution); }}
+              <button onClick={() => { setEditing(false); setTypeNum(saved.typeNum); setCohorts(saved.cohorts); setYears(saved.years || 1); setItems(saved.items); setOrgContrib(saved.includeOrgContribution); }}
                 style={{ padding: "6px 14px", fontSize: 11, fontWeight: 600, color: C.t3, background: "none", border: `1.5px solid ${C.line}`, borderRadius: 7, cursor: "pointer", fontFamily: FONT }}>Cancel</button>
             )}
             <button onClick={clearBudget}

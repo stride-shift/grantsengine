@@ -9,16 +9,18 @@ d-lab NPC (The Field Lab NPC) trains unemployed South African youth in AI-native
 ## Tech Stack
 - React 18 (no TypeScript yet)
 - Vite for dev/build
-- Anthropic Claude API (`claude-sonnet-4-20250514`) — called directly from browser
-- `window.storage` for persistence (Claude artifacts API; swap to localStorage for standalone)
+- Google Gemini API (`gemini-2.0-flash`) — proxied through Express backend (`server/routes/ai.js`)
+- Express 5 backend on port 3001 with Supabase PostgreSQL
+- Helmet, CORS, express-rate-limit for security
 - No CSS framework — all inline styles using design tokens from `src/theme.js`
 - No router — `view` state toggles between Dashboard / Pipeline / Detail / Docs / Tools
 
 ## Architecture
 - `App.jsx` (~2400 lines) contains all views and AI functions — this is the main file to work in
 - `src/data/` has all static data, org context, funder strategy, seed grants
-- `src/components/` has shared UI primitives (Btn, Tag, Avatar, CalendarStrip, etc.)
-- `src/prompts.js` has all AI prompts as exportable functions (not yet wired into App — App still has inline prompts)
+- `src/components/` has shared UI primitives (Btn, Tag, Avatar, CalendarStrip, etc.) + major views (Dashboard, Pipeline, GrantDetail, etc.)
+- `src/prompts.js` — only `scoutPrompt` is active (used by Pipeline.jsx). All other exports are LEGACY; App.jsx has its own inline prompts
+- `server/` — Express 5 backend: auth, data (grants CRUD), AI proxy, uploads, admin
 - `grant-engine.monolith.jsx` is the original single-file version that runs in Claude artifacts — keep it as a working reference
 
 ## Key Patterns
@@ -37,10 +39,11 @@ All prompts follow these principles:
 - Token budgets calibrated to output complexity (800 for extraction → 4096 for full applications)
 
 ## Data Flow
-1. On load: `window.storage.get("dlg12")` → grants array (falls back to SEED)
-2. Any mutation: `setGrants(...)` → `useEffect` → `window.storage.set("dlg12", grants)`
-3. AI calls: `api(system, user, search, maxTokens)` → Anthropic API → rendered in UI
-4. Scout results: JSON array → parsed → shown as cards with "+ Add" buttons → `setGrants(prev => [...prev, newGrant])`
+1. On load: fetch grants from Supabase via Express API (`GET /api/org/:slug/grants`)
+2. Any mutation: `up(id, changes)` → `PUT /api/org/:slug/grants/:id` → Supabase
+3. AI calls: `api(system, user, search, maxTokens)` → Express proxy → Gemini API → rendered in UI
+4. Scout results: JSON array → parsed → shown as cards with "+ Add" buttons → new grant created via API
+5. Context flow: `context.js` (CTX/CTX_SLIM) + `funderStrategy.js` + server profile → injected into every AI prompt as `orgCtx`
 
 ## Common Tasks
 - **Add a new AI prompt**: Add function to `src/prompts.js`, wire into App.jsx 
