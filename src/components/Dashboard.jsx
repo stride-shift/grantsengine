@@ -490,6 +490,12 @@ export default function Dashboard({
             <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Active Pipeline</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: C.primary, fontFamily: MONO, letterSpacing: -2, lineHeight: 1 }}>{fmt(pipe.ask)}</div>
             <div style={{ fontSize: 11, color: C.t3, marginTop: 6, fontWeight: 500 }}>{pipe.act.length} grants</div>
+            {(() => {
+              const sa = pipe.act.filter(g => (g.market || "sa") === "sa");
+              const gl = pipe.act.filter(g => g.market === "global");
+              if (gl.length === 0) return null;
+              return <div style={{ fontSize: 10, color: C.t4, marginTop: 3 }}>{"\uD83C\uDDFF\uD83C\uDDE6"} {sa.length} · {"\uD83C\uDF0D"} {gl.length}</div>;
+            })()}
           </div>
           {pipe.sparkPipeline && <Spark data={pipe.sparkPipeline} color={C.primary} w={60} h={28} />}
         </Card>

@@ -3,7 +3,7 @@ import { C, FONT } from "../theme";
 import { Btn, Avatar, RoleBadge } from "./index";
 import { getTeamPublic } from "../api";
 
-const ROLE_ORDER = { director: 0, hop: 1, pm: 2, none: 9 };
+const ROLE_ORDER = { director: 0, hop: 1, pm: 2, board: 3, none: 9 };
 
 // ── Shared layout components (defined outside to prevent remounting) ──
 
@@ -75,7 +75,6 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showLegacy, setShowLegacy] = useState(false);
 
   // Load public team list
   useEffect(() => {
@@ -121,89 +120,12 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
     setBusy(false);
   };
 
-  const submitLegacy = async (e) => {
-    e.preventDefault();
-    if (!pw) return;
-    setBusy(true);
-    setErr("");
-    try {
-      await onLogin(pw);
-    } catch (ex) {
-      setErr(ex.message);
-    }
-    setBusy(false);
-  };
-
-  const submitOrgPassword = async (e) => {
-    e.preventDefault();
-    if (!pw) return;
-    setBusy(true);
-    setErr("");
-    try { await onLogin(pw); } catch (ex) { setErr(ex.message); }
-    setBusy(false);
-  };
-
-  const goBack = (resetTo) => {
+  const goBack = () => {
     setPw("");
     setPw2("");
     setErr("");
-    if (resetTo === "pick") setStep("pick");
-    else if (resetTo === "legacy") setShowLegacy(true);
-    else if (resetTo === "team") setShowLegacy(false);
+    setStep("pick");
   };
-
-  // ── Handle first-time org setup (needsPassword = true, no team yet) ──
-  if (needsPassword) {
-    return (
-      <Page>
-        <Card width={380}>
-          <Title slug={slug} sub="Set your team password to get started" />
-          <form onSubmit={submitOrgPassword}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6, letterSpacing: 0.5 }}>
-              Set a team password
-            </label>
-            <input
-              type="password" value={pw} onChange={e => setPw(e.target.value)}
-              placeholder="Choose a password" autoFocus
-              style={{ ...inputStyle, marginBottom: 16 }}
-              onFocus={focusBorder}
-              onBlur={blurBorder}
-            />
-            {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
-            <Btn onClick={submitOrgPassword} disabled={busy || !pw} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
-              {busy ? "Setting up..." : "Set Password & Enter"}
-            </Btn>
-          </form>
-          <BackLink onClick={onBack} label="Back to organisations" />
-        </Card>
-      </Page>
-    );
-  }
-
-  // ── Legacy shared password ──
-  if (showLegacy) {
-    return (
-      <Page>
-        <Card width={380}>
-          <Title slug={slug} sub="Shared team password" />
-          <form onSubmit={submitLegacy}>
-            <input
-              type="password" value={pw} onChange={e => setPw(e.target.value)}
-              placeholder="Enter team password" autoFocus
-              style={{ ...inputStyle, marginBottom: 16 }}
-              onFocus={focusBorder}
-              onBlur={blurBorder}
-            />
-            {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
-            <Btn onClick={submitLegacy} disabled={busy || !pw} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
-              {busy ? "Signing in..." : "Sign In"}
-            </Btn>
-          </form>
-          <BackLink onClick={() => goBack("team")} label="← Back to team login" />
-        </Card>
-      </Page>
-    );
-  }
 
   return (
     <Page>
@@ -216,12 +138,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
           ) : members.length === 0 ? (
             <div style={{ textAlign: "center", padding: 20 }}>
               <div style={{ color: C.t3, fontSize: 13, marginBottom: 12 }}>No team members found.</div>
-              <div style={{ color: C.t4, fontSize: 12 }}>Use the shared team password to sign in and add team members in Settings.</div>
-              <div style={{ marginTop: 16 }}>
-                <Btn onClick={() => goBack("legacy")} v="ghost" style={{ fontSize: 13 }}>
-                  Use team password
-                </Btn>
-              </div>
+              <div style={{ color: C.t4, fontSize: 12 }}>Contact your admin to be added to the team.</div>
             </div>
           ) : (
             <>
@@ -253,7 +170,6 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
                   </button>
                 ))}
               </div>
-              <BackLink onClick={() => goBack("legacy")} label="Use shared team password instead" />
             </>
           )}
           <BackLink onClick={onBack} label="Back to organisations" />
@@ -264,7 +180,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
       {step === "password" && selected && (
         <Card width={380}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-            <button onClick={() => goBack("pick")} style={{
+            <button onClick={() => goBack()} style={{
               background: "none", border: "none", cursor: "pointer", fontSize: 18, color: C.t3, padding: 0,
             }}>{"\u2190"}</button>
             <Avatar member={selected} size={38} />
@@ -296,7 +212,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
       {step === "set-password" && selected && (
         <Card width={380}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-            <button onClick={() => goBack("pick")} style={{
+            <button onClick={() => goBack()} style={{
               background: "none", border: "none", cursor: "pointer", fontSize: 18, color: C.t3, padding: 0,
             }}>{"\u2190"}</button>
             <Avatar member={selected} size={38} />

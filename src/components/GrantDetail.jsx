@@ -257,6 +257,14 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             <div style={{ fontSize: 14, color: C.t2, fontWeight: 500, marginBottom: 8 }}>{g.funder}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <TypeBadge type={g.type} />
+              <button onClick={() => up("market", (g.market || "sa") === "sa" ? "global" : "sa")} style={{
+                fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, cursor: "pointer",
+                border: `1px solid ${C.line}`, fontFamily: FONT, transition: "all 0.15s",
+                background: (g.market || "sa") === "global" ? "#EFF6FF" : C.raised,
+                color: (g.market || "sa") === "global" ? "#2563EB" : C.t3,
+              }} title="Toggle South Africa / Global">
+                {(g.market || "sa") === "global" ? "\uD83C\uDF0D Global" : "\uD83C\uDDFF\uD83C\uDDE6 SA"}
+              </button>
               <DeadlineBadge d={d} deadline={g.deadline} size="md" stage={g.stage} />
               {g.rel && g.rel !== "Cold" && (
                 <span style={{ fontSize: 11, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "3px 10px", borderRadius: 20 }}>{g.rel}</span>
