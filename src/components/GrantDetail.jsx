@@ -111,6 +111,46 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
     });
   }, [grant?.id]);
 
+  // Auto-trigger AI actions queued from +Add wizard (_pendingAI field)
+  const pendingHandled = useRef(false);
+  useEffect(() => {
+    const pending = grant?._pendingAI;
+    if (!pending || pendingHandled.current) return;
+    pendingHandled.current = true;
+    // Clear the flag immediately
+    onUpdate(grant.id, { _pendingAI: null });
+    const runPending = async () => {
+      const g = grant;
+      if (pending.fitscore) {
+        setBusy(p => ({ ...p, fitscore: true }));
+        try {
+          const r = await onRunAI("fitscore", g);
+          setAi(p => ({ ...p, fitscore: r }));
+          if (!isAIError(r)) onUpdate(g.id, { aiFitscore: r, aiFitscoreAt: new Date().toISOString() });
+        } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
+        setBusy(p => ({ ...p, fitscore: false }));
+      }
+      if (pending.research) {
+        setBusy(p => ({ ...p, research: true }));
+        try {
+          const r = await onRunAI("research", g);
+          setAi(p => ({ ...p, research: r }));
+          if (!isAIError(r)) onUpdate(g.id, { aiResearch: r, aiResearchAt: new Date().toISOString() });
+        } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
+        setBusy(p => ({ ...p, research: false }));
+      }
+      if (pending.draft) {
+        setBusy(p => ({ ...p, draft: true }));
+        try {
+          const r = await onRunAI("sectionDraft", g);
+          setAi(p => ({ ...p, draft: r }));
+        } catch (e) { setAi(p => ({ ...p, draft: `Error: ${e.message}` })); }
+        setBusy(p => ({ ...p, draft: false }));
+      }
+    };
+    runPending();
+  }, [grant?.id]);
+
   // Auto-log AI actions to activity feed
   const aiLog = (action) => {
     const prev = grant?.log || [];
