@@ -220,6 +220,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   const [q, setQ] = useState("");
   const [sf, setSf] = useState("all");
   const [pSort, setPSort] = useState("default");
+  const [market, setMarket] = useState("all"); // "all" | "sa" | "global"
+  const [scoutMarket, setScoutMarket] = useState("both"); // "sa" | "global" | "both"
   const [dragId, setDragId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [wizStep, setWizStep] = useState(1); // 1 = funder, 2 = programme type
@@ -249,8 +251,19 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   const fallbackMember = teamById.get("team") || { name: "Unassigned", initials: "\u2014" };
   const getMember = (id) => teamById.get(id) || fallbackMember;
 
+  // Market counts (computed before filtering)
+  const marketCounts = useMemo(() => {
+    const sa = grants.filter(g => (g.market || "sa") === "sa");
+    const gl = grants.filter(g => g.market === "global");
+    return {
+      sa: { count: sa.length, ask: sa.reduce((s, g) => s + (effectiveAsk(g) || 0), 0) },
+      global: { count: gl.length, ask: gl.reduce((s, g) => s + (effectiveAsk(g) || 0), 0) },
+    };
+  }, [grants]);
+
   const filtered = useMemo(() => {
     let gs = [...grants];
+    if (market !== "all") gs = gs.filter(g => (g.market || "sa") === market);
     if (q) {
       const lq = q.toLowerCase();
       gs = gs.filter(g => g.name?.toLowerCase().includes(lq) || g.funder?.toLowerCase().includes(lq) || g.notes?.toLowerCase().includes(lq));
@@ -271,7 +284,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
       });
     }
     return gs;
-  }, [grants, q, sf, activeFilters]);
+  }, [grants, q, sf, market, activeFilters]);
 
   const sorted = useMemo(() => {
     let gs = [...filtered];
@@ -321,6 +334,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
       askSource: enteredAsk ? "manual" : null, aiRecommendedAsk: null,
       deadline: null,
       focus: [], geo: [], rel: "Cold", pri: 3, hrs: 0, notes: ptypeNote,
+      market: market !== "all" ? market : "sa",
       log: [{ d: td(), t: `Grant created${ptypeNote ? ` (${ptypeNote}, R${enteredAsk.toLocaleString()})` : ""}` }], on: "", of: [],
       owner: "team", docs: {}, fups: [], subDate: null, applyUrl: "",
     };
@@ -337,7 +351,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
       .map(g => g.funder.toLowerCase());
     const existingFunders = [...new Set(existing)].join(", ");
 
-    const p = scoutPrompt({ existingFunders });
+    const p = scoutPrompt({ existingFunders, market: scoutMarket });
     const r = await api(p.system, p.user, p.search, p.maxTok);
 
     let parsed = parseScoutResults(r);
@@ -359,12 +373,13 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
     const accessLine = s.access ? `\nAccess: ${s.access}${s.accessNote ? " — " + s.accessNote : ""}` : "";
     const notes = `${s.reason || ""}${s.url ? "\nApply: " + s.url : ""}${accessLine}`;
     // Store funder's raw budget — ask will be set after proposal generation
+    const scoutedMarket = s.market || (s.type === "International" ? "global" : "sa");
     const newG = {
       id: uid(), name: s.name || "New Grant", funder: s.funder || "Unknown", type: gType,
       stage: "scouted", ask: 0, funderBudget, askSource: null, aiRecommendedAsk: null,
       deadline: s.deadline || null,
       focus: s.focus || ["Youth Employment", "Digital Skills"], geo: [], rel: "Cold", pri: 3, hrs: 0,
-      notes,
+      notes, market: scoutedMarket,
       log: [{ d: td(), t: `Scouted by AI · funder budget R${funderBudget.toLocaleString()}${s.access ? ` · ${s.access}` : ""} · ask TBD` }],
       on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null, applyUrl: s.url || "",
     };
@@ -378,10 +393,35 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   return (
     <div style={{ padding: "20px 24px", height: "100%", display: "flex", flexDirection: "column" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: grants.length > 0 ? 16 : 0, flexWrap: "wrap", gap: 10 }}>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Pipeline</div>
-          <div style={{ width: 32, height: 4, background: C.primary, borderRadius: 2, marginTop: 4 }} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: grants.length > 0 ? 10 : 0, flexWrap: "wrap", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Pipeline</div>
+            <div style={{ width: 32, height: 4, background: C.primary, borderRadius: 2, marginTop: 4 }} />
+          </div>
+          {/* Market tabs */}
+          <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+            {[
+              { id: "all", label: "All", count: grants.length },
+              { id: "sa", label: "\uD83C\uDDFF\uD83C\uDDE6 South Africa", count: marketCounts.sa.count },
+              { id: "global", label: "\uD83C\uDF0D Global", count: marketCounts.global.count },
+            ].map(tab => (
+              <button key={tab.id} onClick={() => setMarket(tab.id)} style={{
+                padding: "4px 12px", fontSize: 12, fontWeight: 600, fontFamily: FONT,
+                borderRadius: 6, border: `1px solid ${market === tab.id ? C.primary : C.line}`,
+                background: market === tab.id ? C.primarySoft : C.white,
+                color: market === tab.id ? C.primary : C.t3,
+                cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 6,
+              }}>
+                {tab.label}
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10,
+                  background: market === tab.id ? C.primary : C.raised,
+                  color: market === tab.id ? "#fff" : C.t4,
+                }}>{tab.count}</span>
+              </button>
+            ))}
+          </div>
         </div>
         {grants.length > 0 && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -406,7 +446,16 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
               <button key={k} onClick={() => setPView(k)} style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: pView === k ? C.primary : C.white, color: pView === k ? "#fff" : C.t3, border: "none", cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>{l}</button>
             ))}
           </div>
-          <Btn onClick={aiScout} disabled={scouting} v="ghost" style={{ fontSize: 12, padding: "6px 14px", color: C.purple, borderColor: C.purple + "40" }}>{scouting ? "Scouting..." : "\u2609 Scout"}</Btn>
+          <div style={{ display: "flex", alignItems: "center", gap: 2, border: `1px solid ${C.purple}30`, borderRadius: 8, overflow: "hidden" }}>
+            {[{ id: "both", l: "Both" }, { id: "sa", l: "\uD83C\uDDFF\uD83C\uDDE6" }, { id: "global", l: "\uD83C\uDF0D" }].map(o => (
+              <button key={o.id} onClick={() => setScoutMarket(o.id)} style={{
+                padding: "5px 8px", fontSize: 11, fontWeight: 600, fontFamily: FONT, border: "none", cursor: "pointer",
+                background: scoutMarket === o.id ? C.purpleSoft : "transparent",
+                color: scoutMarket === o.id ? C.purple : C.t4, transition: "all 0.15s",
+              }}>{o.l}</button>
+            ))}
+            <Btn onClick={aiScout} disabled={scouting} v="ghost" style={{ fontSize: 12, padding: "6px 10px", color: C.purple, border: "none", borderLeft: `1px solid ${C.purple}20`, borderRadius: 0 }}>{scouting ? "..." : "\u2609 Scout"}</Btn>
+          </div>
           {onRunAI && <Btn onClick={() => setShowUrlTool(!showUrlTool)} v="ghost" style={{ fontSize: 12, padding: "6px 14px", color: C.blue, borderColor: C.blue + "40" }}>{"\uD83D\uDD17"} URL</Btn>}
           <Btn onClick={() => { if (batchAction) { setBatchAction(null); setSelectedIds(new Set()); } else { setBatchAction("select"); } }}
             v="ghost" style={{ fontSize: 12, padding: "6px 14px", color: batchAction ? C.primary : C.t3, borderColor: batchAction ? C.primary + "40" : undefined }}>
@@ -754,6 +803,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                         {s.access && (
                           <span style={{ fontSize: 10, fontWeight: 600, color: accessC, background: accessC + "15", padding: "1px 7px", borderRadius: 100 }} title={s.accessNote || ""}>{accessIcon} {s.access}</span>
                         )}
+                        {s.market && (
+                          <span style={{ fontSize: 9, fontWeight: 600, color: C.t4, background: C.raised, padding: "1px 6px", borderRadius: 100 }}>{s.market === "global" ? "\uD83C\uDF0D" : "\uD83C\uDDFF\uD83C\uDDE6"}</span>
+                        )}
                         {expired && <span style={{ fontSize: 10, fontWeight: 600, color: C.red, background: C.redSoft, padding: "1px 7px", borderRadius: 100 }}>Expired</span>}
                         {s.added && <span style={{ fontSize: 10, fontWeight: 600, color: C.ok }}>{"✓"}</span>}
                       </div>
@@ -809,6 +861,19 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             </div>
             <div style={{ fontSize: 14, color: C.t3, lineHeight: 1.6, marginBottom: 32, maxWidth: 400, margin: "0 auto 32px" }}>
               Scout uses AI to find grant opportunities matched to your organisation profile, or add grants you already know about.
+            </div>
+
+            {/* Scout market selector */}
+            <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 16 }}>
+              {[{ id: "both", l: "Both" }, { id: "sa", l: "\uD83C\uDDFF\uD83C\uDDE6 South Africa" }, { id: "global", l: "\uD83C\uDF0D Global" }].map(o => (
+                <button key={o.id} onClick={() => setScoutMarket(o.id)} style={{
+                  padding: "6px 14px", fontSize: 13, fontWeight: 600, fontFamily: FONT,
+                  borderRadius: 6, border: `1px solid ${scoutMarket === o.id ? C.purple : C.line}`,
+                  background: scoutMarket === o.id ? C.purpleSoft : C.white,
+                  color: scoutMarket === o.id ? C.purple : C.t3,
+                  cursor: "pointer", transition: "all 0.15s",
+                }}>{o.l}</button>
+              ))}
             </div>
 
             {/* Primary CTA — Scout */}
@@ -932,7 +997,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                           )}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: C.dark, marginBottom: 4, lineHeight: 1.3 }}>{g.name}</div>
-                            <div style={{ fontSize: 11, color: C.t3, marginBottom: 6 }}>{g.funder}</div>
+                            <div style={{ fontSize: 11, color: C.t3, marginBottom: 6 }}>{g.funder}{g.market === "global" ? " \uD83C\uDF0D" : ""}</div>
                           </div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>

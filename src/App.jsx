@@ -38,7 +38,7 @@ const DEFAULT_STAGES = [
 ];
 
 const DEFAULT_FTYPES = ["Corporate CSI", "Government/SETA", "International", "Foundation", "Tech Company", "Partnership"];
-const EMPTY_GRANT = Object.freeze({ name: "", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "" });
+const EMPTY_GRANT = Object.freeze({ name: "", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "", market: "sa" });
 
 const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "\u25a6" },

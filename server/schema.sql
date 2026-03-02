@@ -221,3 +221,6 @@ CREATE INDEX IF NOT EXISTS idx_alog_member ON activity_log(member_id, created_at
 
 -- Attribute AI runs to individual members
 ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS member_id TEXT REFERENCES team_members(id) ON DELETE SET NULL;
+
+-- ═══ Market Classification (SA vs Global) ═══
+ALTER TABLE grants ADD COLUMN IF NOT EXISTS market TEXT DEFAULT 'sa';

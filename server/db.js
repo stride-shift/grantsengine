@@ -242,6 +242,7 @@ export const getGrants = async (orgId) => {
     fups: safeJSON(row.fups, []),
     subDate: row.sub_date,
     applyUrl: row.apply_url,
+    market: row.market || 'sa',
     ...safeJSON(row.ai_data, {}),
   }));
 };
@@ -251,10 +252,10 @@ export const upsertGrant = async (orgId, grant) => {
   const aiData = extractAiData(grant);
   await pool().query(
     `INSERT INTO grants
-      (id, org_id, name, funder, type, stage, ask, deadline, focus, geo, rel, pri, hrs, notes, log, on_factors, off_factors, owner, docs, fups, sub_date, apply_url, ai_data, updated_at)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,NOW())
+      (id, org_id, name, funder, type, stage, ask, deadline, focus, geo, rel, pri, hrs, notes, log, on_factors, off_factors, owner, docs, fups, sub_date, apply_url, ai_data, market, updated_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,NOW())
      ON CONFLICT (id) DO UPDATE SET
-      org_id=$2, name=$3, funder=$4, type=$5, stage=$6, ask=$7, deadline=$8, focus=$9, geo=$10, rel=$11, pri=$12, hrs=$13, notes=$14, log=$15, on_factors=$16, off_factors=$17, owner=$18, docs=$19, fups=$20, sub_date=$21, apply_url=$22, ai_data=$23, updated_at=NOW()`,
+      org_id=$2, name=$3, funder=$4, type=$5, stage=$6, ask=$7, deadline=$8, focus=$9, geo=$10, rel=$11, pri=$12, hrs=$13, notes=$14, log=$15, on_factors=$16, off_factors=$17, owner=$18, docs=$19, fups=$20, sub_date=$21, apply_url=$22, ai_data=$23, market=$24, updated_at=NOW()`,
     [id, orgId, grant.name, grant.funder || null, grant.type || null,
      grant.stage || 'scouted', grant.ask || 0, grant.deadline || null,
      JSON.stringify(grant.focus || []), JSON.stringify(grant.geo || []),
@@ -263,7 +264,7 @@ export const upsertGrant = async (orgId, grant) => {
      grant.on || '', JSON.stringify(grant.of || []),
      grant.owner || 'team', JSON.stringify(grant.docs || {}),
      JSON.stringify(grant.fups || []), grant.subDate || null, grant.applyUrl || null,
-     aiData]
+     aiData, grant.market || 'sa']
   );
   return id;
 };
@@ -281,8 +282,8 @@ export const replaceAllGrants = async (orgId, grants) => {
       const id = g.id || uid();
       const aiData = extractAiData(g);
       await client.query(
-        `INSERT INTO grants (id, org_id, name, funder, type, stage, ask, deadline, focus, geo, rel, pri, hrs, notes, log, on_factors, off_factors, owner, docs, fups, sub_date, apply_url, ai_data)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
+        `INSERT INTO grants (id, org_id, name, funder, type, stage, ask, deadline, focus, geo, rel, pri, hrs, notes, log, on_factors, off_factors, owner, docs, fups, sub_date, apply_url, ai_data, market)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
         [id, orgId, g.name, g.funder || null, g.type || null,
          g.stage || 'scouted', g.ask || 0, g.deadline || null,
          JSON.stringify(g.focus || []), JSON.stringify(g.geo || []),
@@ -291,7 +292,7 @@ export const replaceAllGrants = async (orgId, grants) => {
          g.on || '', JSON.stringify(g.of || []),
          g.owner || 'team', JSON.stringify(g.docs || {}),
          JSON.stringify(g.fups || []), g.subDate || null, g.applyUrl || null,
-         aiData]
+         aiData, g.market || 'sa']
       );
     }
     await client.query('COMMIT');
