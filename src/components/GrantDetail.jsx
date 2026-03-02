@@ -112,15 +112,15 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   }, [grant?.id]);
 
   // Auto-trigger AI actions queued from +Add wizard (_pendingAI field)
-  const pendingHandled = useRef(false);
+  const pendingHandled = useRef(null); // tracks which grant ID was handled
   useEffect(() => {
     const pending = grant?._pendingAI;
-    if (!pending || pendingHandled.current) return;
-    pendingHandled.current = true;
+    if (!pending || pendingHandled.current === grant?.id) return;
+    pendingHandled.current = grant?.id;
     // Clear the flag immediately
     onUpdate(grant.id, { _pendingAI: null });
+    const g = grant;
     const runPending = async () => {
-      const g = grant;
       if (pending.fitscore) {
         setBusy(p => ({ ...p, fitscore: true }));
         try {
@@ -142,8 +142,9 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       if (pending.draft) {
         setBusy(p => ({ ...p, draft: true }));
         try {
-          const r = await onRunAI("sectionDraft", g);
+          const r = await onRunAI("draft", g);
           setAi(p => ({ ...p, draft: r }));
+          if (!isAIError(r)) onUpdate(g.id, { aiDraft: r, aiDraftAt: new Date().toISOString() });
         } catch (e) { setAi(p => ({ ...p, draft: `Error: ${e.message}` })); }
         setBusy(p => ({ ...p, draft: false }));
       }
