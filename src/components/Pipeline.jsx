@@ -637,6 +637,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                       focus: parsed.focus || [], geo: [], rel: "Cold", pri: 3, hrs: 0,
                       notes: parsed.notes || "", applyUrl: parsed.applyUrl || urlInput.trim(),
                       log: [{ d: td(), t: `Created from URL · funder budget R${fBudget.toLocaleString()} · ask TBD` }],
+                      market: parsed.type === "International" ? "global" : "sa",
                       on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null,
                     };
                     onAddGrant(g);
@@ -657,13 +658,16 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
               try {
                 const r = await onRunAI("urlextract", { name: "", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "Cold", notes: "", deadline: null, stage: "scouted" }, urlInput.trim());
                 const parsed = JSON.parse(r);
+                const fBudget = parsed.ask || 0;
                 const g = {
                   id: uid(), name: parsed.name || "Untitled Grant", funder: parsed.funder || "",
                   type: parsed.type || "Foundation", stage: "scouted",
-                  ask: parsed.ask || 0, deadline: parsed.deadline || null,
+                  ask: 0, funderBudget: fBudget, askSource: null, aiRecommendedAsk: null,
+                  deadline: parsed.deadline || null,
                   focus: parsed.focus || [], geo: [], rel: "Cold", pri: 3, hrs: 0,
                   notes: parsed.notes || "", applyUrl: parsed.applyUrl || urlInput.trim(),
-                  log: [{ d: td(), t: `Created from URL: ${urlInput.trim().slice(0, 60)}` }],
+                  log: [{ d: td(), t: `Created from URL · funder budget R${fBudget.toLocaleString()} · ask TBD` }],
+                  market: parsed.type === "International" ? "global" : "sa",
                   on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null,
                 };
                 onAddGrant(g);
