@@ -242,40 +242,117 @@ export default function Settings({ org, profile, team, currentMember, compliance
         </div>
       </div>
 
-      {/* Profile */}
-      {profile && (
-        <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
-          <Label>Profile</Label>
-          <div style={{ marginBottom: 12 }}>
-            <span style={{ fontSize: 11, color: C.t4, fontWeight: 600 }}>Mission</span>
-            <div style={{ fontSize: 13, color: C.t1, marginTop: 4, lineHeight: 1.6 }}>{profile.mission || "Not set"}</div>
-          </div>
-          {profile.programmes && profile.programmes.length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <span style={{ fontSize: 11, color: C.t4, fontWeight: 600 }}>Programmes</span>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-                {profile.programmes.map((p, i) => (
-                  <span key={i} style={{ padding: "4px 10px", fontSize: 12, background: C.primarySoft, color: C.primary, borderRadius: 6, fontWeight: 600 }}>
-                    {p.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Knowledge Base */}
       <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
+        <Label>Knowledge Base</Label>
+        <div style={{ fontSize: 11, color: C.t4, marginBottom: 14, lineHeight: 1.5 }}>
+          Everything below feeds into all AI-generated proposals, funder research, and scout results.
+        </div>
+
+        {/* Org Context (from profile) */}
+        {profile && (profile.mission || profile.context_slim) && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{
+              fontSize: 11, fontWeight: 700, color: C.t3, textTransform: "uppercase",
+              letterSpacing: 0.8, marginBottom: 8, display: "flex", alignItems: "center", gap: 6,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.ok }} />
+              Org Context (auto-loaded)
+            </div>
+            <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden" }}>
+              {/* Mission */}
+              {profile.mission && (
+                <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.line}` }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 }}>Mission</div>
+                  <div style={{ fontSize: 12, color: C.t1, lineHeight: 1.5 }}>{profile.mission}</div>
+                </div>
+              )}
+              {/* Programmes */}
+              {profile.programmes && profile.programmes.length > 0 && (
+                <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.line}` }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>Programmes ({profile.programmes.length})</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {profile.programmes.map((p, i) => (
+                      <span key={i} style={{
+                        padding: "3px 8px", fontSize: 11, background: C.primarySoft, color: C.primary,
+                        borderRadius: 6, fontWeight: 600,
+                      }}>
+                        {p.name}{p.cost ? ` · R${(p.cost/1000).toFixed(0)}K` : ""}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Impact Stats */}
+              {profile.impact_stats && (
+                <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.line}` }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>Impact</div>
+                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                    {profile.impact_stats.completion_rate != null && (
+                      <div><span style={{ fontSize: 16, fontWeight: 800, color: C.ok }}>{Math.round(profile.impact_stats.completion_rate * 100)}%</span><div style={{ fontSize: 10, color: C.t4 }}>Completion</div></div>
+                    )}
+                    {profile.impact_stats.employment_rate != null && (
+                      <div><span style={{ fontSize: 16, fontWeight: 800, color: C.primary }}>{Math.round(profile.impact_stats.employment_rate * 100)}%</span><div style={{ fontSize: 10, color: C.t4 }}>Employment</div></div>
+                    )}
+                    {profile.impact_stats.learners_trained != null && (
+                      <div><span style={{ fontSize: 16, fontWeight: 800, color: C.dark }}>{profile.impact_stats.learners_trained}+</span><div style={{ fontSize: 10, color: C.t4 }}>Learners trained</div></div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* Tone + Anti-patterns */}
+              <div style={{ display: "flex" }}>
+                {profile.tone && (
+                  <div style={{ flex: 1, padding: "10px 14px", borderRight: profile.anti_patterns ? `1px solid ${C.line}` : "none" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 }}>Tone</div>
+                    <div style={{ fontSize: 11, color: C.t2, lineHeight: 1.5 }}>{profile.tone}</div>
+                  </div>
+                )}
+                {profile.anti_patterns && (
+                  <div style={{ flex: 1, padding: "10px 14px" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 }}>Anti-patterns</div>
+                    <div style={{ fontSize: 11, color: C.t2, lineHeight: 1.5 }}>{profile.anti_patterns}</div>
+                  </div>
+                )}
+              </div>
+              {/* Past Funders */}
+              {profile.past_funders && (
+                <div style={{ padding: "10px 14px", borderTop: `1px solid ${C.line}` }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 }}>Past Funders</div>
+                  <div style={{ fontSize: 11, color: C.t2 }}>{profile.past_funders}</div>
+                </div>
+              )}
+              {/* Context size indicator */}
+              <div style={{ padding: "8px 14px", background: C.warm100, display: "flex", alignItems: "center", gap: 6, borderTop: `1px solid ${C.line}` }}>
+                <span style={{ fontSize: 10, color: C.ok, fontWeight: 700 }}>AI CONTEXT</span>
+                <span style={{ fontSize: 10, color: C.t4 }}>
+                  {profile.context_slim ? `${(profile.context_slim.length / 1000).toFixed(1)}K chars (slim)` : ""}
+                  {profile.context_full ? ` · ${(profile.context_full.length / 1000).toFixed(1)}K chars (full)` : ""}
+                  {" — injected into every AI prompt"}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Uploaded Documents */}
+        <div style={{
+          fontSize: 11, fontWeight: 700, color: C.t3, textTransform: "uppercase",
+          letterSpacing: 0.8, marginBottom: 8, display: "flex", alignItems: "center", gap: 6,
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: uploads.length > 0 ? C.ok : C.t4 }} />
+          Uploaded Documents ({uploads.length})
+        </div>
         <UploadZone
           uploads={uploads}
           grantId={null}
           onUploadsChange={loadUploads}
-          label="Knowledge Base"
+          label={null}
         />
         <div style={{ fontSize: 11, color: C.t4, marginTop: 8, lineHeight: 1.5 }}>
           Upload annual reports, strategy docs, budgets, impact reports, and YouTube URLs.
-          Extracted text feeds into all AI-generated proposals and research for this organisation.
+          Extracted text is combined with the org context above for AI prompts.
         </div>
       </div>
 

@@ -95,7 +95,7 @@ export default function UploadZone({ uploads = [], grantId, onUploadsChange, lab
 
   return (
     <div>
-      <Label>{label || "Uploads"}</Label>
+      {label !== null && <Label>{label || "Uploads"}</Label>}
 
       {/* Drop zone */}
       <div
