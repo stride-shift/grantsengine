@@ -73,7 +73,7 @@ const ActivityRow = ({ date, text, isLast }) => (
   </div>
 );
 
-export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], onUpdate, onDelete, onBack, onRunAI, onUploadsChanged }) {
+export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], currentMember, onUpdate, onDelete, onBack, onRunAI, onUploadsChanged }) {
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState({});
   const [ai, setAi] = useState(() => ({
@@ -359,12 +359,14 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                     onMouseLeave={e => e.currentTarget.style.background = "none"}
                   >{"\u21bb"} Refresh Research</button>
                 )}
-                <div style={{ height: 1, background: C.line }} />
-                <button onClick={() => { setConfirmDel(true); setOverflow(false); }}
-                  style={{ width: "100%", padding: "8px 12px", fontSize: 12, fontWeight: 500, color: C.red, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
-                  onMouseEnter={e => e.currentTarget.style.background = C.redSoft}
-                  onMouseLeave={e => e.currentTarget.style.background = "none"}
-                >{"\u2717"} Delete Grant</button>
+                {currentMember?.role === "director" && (<>
+                  <div style={{ height: 1, background: C.line }} />
+                  <button onClick={() => { setConfirmDel(true); setOverflow(false); }}
+                    style={{ width: "100%", padding: "8px 12px", fontSize: 12, fontWeight: 500, color: C.red, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
+                    onMouseEnter={e => e.currentTarget.style.background = C.redSoft}
+                    onMouseLeave={e => e.currentTarget.style.background = "none"}
+                  >{"\u2717"} Delete Grant</button>
+                </>)}
               </div>
             )}
           </div>

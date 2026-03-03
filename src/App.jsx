@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { C, FONT, MONO, injectFonts } from "./theme";
 import { uid, td, dL, addD, effectiveAsk } from "./utils";
 import { CAD } from "./data/constants";
@@ -15,13 +15,15 @@ import { getWritingLearnings } from "./editLearner";
 
 import OrgSelector from "./components/OrgSelector";
 import Login from "./components/Login";
-import Dashboard from "./components/Dashboard";
-import Pipeline from "./components/Pipeline";
-import GrantDetail from "./components/GrantDetail";
-import Settings from "./components/Settings";
-import Funders from "./components/Funders";
-import Admin from "./components/Admin";
 import { ToastProvider, useToast } from "./components/Toast";
+
+// Lazy-load major views — each becomes its own chunk
+const Dashboard = lazy(() => import("./components/Dashboard"));
+const Pipeline = lazy(() => import("./components/Pipeline"));
+const GrantDetail = lazy(() => import("./components/GrantDetail"));
+const Settings = lazy(() => import("./components/Settings"));
+const Funders = lazy(() => import("./components/Funders"));
+const Admin = lazy(() => import("./components/Admin"));
 
 injectFonts();
 
@@ -1404,6 +1406,12 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
 
       {/* Main content */}
       <div style={{ flex: 1, overflow: "auto" }}>
+        <Suspense fallback={
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", gap: 10 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.primary, animation: "ge-pulse 1.4s ease-in-out infinite" }} />
+            <span style={{ fontSize: 13, color: C.t3, fontFamily: FONT }}>Loading...</span>
+          </div>
+        }>
         {sel && selectedGrant ? (
           <GrantDetail
             grant={selectedGrant}
@@ -1411,6 +1419,7 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
             stages={stages}
             funderTypes={funderTypes}
             complianceDocs={complianceDocs}
+            currentMember={currentMember}
             onUpdate={updateGrant}
             onDelete={deleteGrant}
             onBack={() => setSel(null)}
@@ -1467,6 +1476,7 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
             try { const t = await getTeam(); setTeam(t); } catch (e) { console.error("Team refresh failed:", e); }
           }} />
         ) : null}
+        </Suspense>
       </div>
 
       {/* animations injected globally via injectFonts() */}
