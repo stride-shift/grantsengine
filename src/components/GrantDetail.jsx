@@ -140,6 +140,17 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         setBusy(p => ({ ...p, research: false }));
       }
       if (pending.draft) {
+        // Ensure research is done before drafting — run it now if missing
+        const hasResearch = !!(g.aiResearch && !isAIError(g.aiResearch));
+        if (!hasResearch && !pending.research) {
+          setBusy(p => ({ ...p, research: true }));
+          try {
+            const r = await onRunAI("research", g);
+            setAi(p => ({ ...p, research: r }));
+            if (!isAIError(r)) onUpdate(g.id, { aiResearch: r, aiResearchAt: new Date().toISOString() });
+          } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
+          setBusy(p => ({ ...p, research: false }));
+        }
         setBusy(p => ({ ...p, draft: true }));
         try {
           const r = await onRunAI("draft", g);
