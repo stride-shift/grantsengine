@@ -1,6 +1,30 @@
 import { C } from "./theme";
 import { DOCS, DOC_MAP, GATES } from "./data/constants";
 
+// ── Parse structured research JSON from AI response ──
+export const parseStructuredResearch = (raw) => {
+  if (!raw || typeof raw !== "string") return null;
+  try {
+    const parsed = JSON.parse(raw.trim());
+    if (parsed && typeof parsed === "object" && parsed.rawText) return parsed;
+  } catch { /* fall through */ }
+  try {
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenced) {
+      const parsed = JSON.parse(fenced[1].trim());
+      if (parsed && typeof parsed === "object" && parsed.rawText) return parsed;
+    }
+  } catch { /* fall through */ }
+  try {
+    const first = raw.indexOf("{"), last = raw.lastIndexOf("}");
+    if (first >= 0 && last > first) {
+      const parsed = JSON.parse(raw.slice(first, last + 1));
+      if (parsed && typeof parsed === "object" && parsed.rawText) return parsed;
+    }
+  } catch { /* fall through */ }
+  return null;
+};
+
 export const fmt = n => n ? `R${(n / 1e6).toFixed(1)}M` : "—";
 export const fmtK = n => n ? (n >= 1e6 ? `R${(n / 1e6).toFixed(1)}M` : `R${(n / 1e3).toFixed(0)}K`) : "—";
 export const dL = d => d ? Math.ceil((new Date(d) - new Date()) / 864e5) : null;

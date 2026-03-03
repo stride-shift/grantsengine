@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { C, FONT, MONO, injectFonts } from "./theme";
-import { uid, td, dL, addD, effectiveAsk } from "./utils";
+import { uid, td, dL, addD, effectiveAsk, parseStructuredResearch } from "./utils";
 import { CAD } from "./data/constants";
 import { funderStrategy, isFunderReturning, detectType, PTYPES } from "./data/funderStrategy";
 import {
@@ -388,6 +388,72 @@ function AppInner() {
     }
   };
 
+  // ── Select research fields relevant to a specific proposal section ──
+  const getResearchForSection = (structured, sectionName, budget) => {
+    if (!structured) return "";
+    const sn = (sectionName || "").toLowerCase();
+    const isCover = sn.includes("cover");
+    const isExecSummary = sn.includes("summary") || sn.includes("executive");
+    const isBudget = sn.includes("budget");
+    const isImpact = sn.includes("impact") || sn.includes("outcome") || sn.includes("evidence");
+    const isProgramme = sn.includes("programme") || sn.includes("program") || sn.includes("approach") || sn.includes("design");
+    const isScale = sn.includes("scale") || sn.includes("sustainability");
+
+    const parts = [];
+    const add = (label, key) => { if (structured[key]) parts.push(`${label}: ${structured[key]}`); };
+
+    if (isCover) {
+      add("Key contacts", "contacts");
+      add("Strategy", "strategy");
+      add("Application process", "applicationProcess");
+      add("Relationship", "relationshipLeverage"); add("Door opener", "doorOpener");
+    } else if (isExecSummary) {
+      add("Funder priorities", "priorities");
+      add("Strategy", "strategy");
+      add("Budget range", "budgetRange");
+      add("Relationship", "relationshipLeverage"); add("Door opener", "doorOpener");
+    } else if (isBudget) {
+      add("Budget range", "budgetRange");
+      add("Recent grants", "recentGrants");
+      add("Funder priorities", "priorities");
+    } else if (isImpact) {
+      add("Funder priorities", "priorities");
+      add("Recent grants", "recentGrants");
+      add("Strategy", "strategy");
+    } else if (isProgramme) {
+      add("Funder priorities", "priorities");
+      add("Strategy", "strategy");
+      add("Recent grants", "recentGrants");
+    } else if (isScale) {
+      add("Funder priorities", "priorities");
+      add("Strategy", "strategy");
+      add("Budget range", "budgetRange");
+    } else {
+      // Default: all fields except rawText
+      for (const [k, v] of Object.entries(structured)) {
+        if (k !== "rawText" && v) add(k.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()), k);
+      }
+    }
+    const result = parts.join("\n");
+    return budget ? result.slice(0, budget) : result;
+  };
+
+  // ── Get full research for draft prompt (all fields, structured) ──
+  const getResearchForDraft = (structured, budget = 2500) => {
+    if (!structured) return "";
+    const parts = [];
+    const add = (label, key) => { if (structured[key]) parts.push(`${label}: ${structured[key]}`); };
+    add("Budget & scale", "budgetRange");
+    add("Recent grants", "recentGrants");
+    add("Key contacts", "contacts");
+    add("Funder priorities", "priorities");
+    add("Application process", "applicationProcess");
+    add("Strategy", "strategy");
+    add("Relationship leverage", "relationshipLeverage");
+    add("Door opener", "doorOpener");
+    return parts.join("\n").slice(0, budget);
+  };
+
   // ── AI handler (enriched with uploads context + optional prior research) ──
   const runAI = async (type, grant, priorResearch, priorFitScore) => {
     // Build org context — use context_slim to stay within API token limits
@@ -427,75 +493,81 @@ function AppInner() {
     if (profile?.anti_patterns) profileSections.push(`ANTI-PATTERNS: ${profile.anti_patterns}`);
     if (profile?.past_funders) profileSections.push(`PAST FUNDERS: ${profile.past_funders}`);
 
+    const isDraftType = type === "draft" || type === "sectionDraft";
+    const maxCtx = isDraftType ? 10000 : 8000;
+
+    // Smart context priority assembly — budget-aware, never truncates high-priority content
+    // Priority order: base profile → impact stats → grant docs → writing learnings → org docs → tone
     let orgCtx = baseCtx;
     if (profileSections.length) {
       orgCtx += "\n\n" + profileSections.join("\n\n");
     }
 
+    let remaining = maxCtx - orgCtx.length;
+
     // Load uploaded document context — cached per grant to avoid redundant fetches
-    // Budgets reduced to stay within API rate limits (30K input tokens ≈ 22K chars total)
-    const isDraftType = type === "draft" || type === "sectionDraft";
-    const grantDocBudget = isDraftType ? 3000 : 2000;
-    const orgDocBudget = isDraftType ? 2000 : 1500;
     try {
       const grantId = grant?.id;
       if (!uploadsCache.current[grantId]) {
         uploadsCache.current[grantId] = await getUploadsContext(grantId);
       }
       const uploads = uploadsCache.current[grantId];
-      const sections = [];
 
       // Grant-level documents (HIGHEST priority — user uploaded these specifically for this grant)
-      if (uploads.grant_uploads?.length) {
-        sections.push("=== GRANT DOCUMENTS ===");
+      if (uploads.grant_uploads?.length && remaining > 200) {
+        const grantDocBudget = Math.min(isDraftType ? 3000 : 2000, remaining - 100);
+        const parts = ["=== GRANT DOCUMENTS ==="];
         let budget = grantDocBudget;
         for (const u of uploads.grant_uploads) {
           if (budget <= 0) break;
           if (!u.extracted_text) continue;
           const text = u.extracted_text.slice(0, Math.min(2000, budget));
-          sections.push(`[${u.original_name}]\n${text}`);
+          parts.push(`[${u.original_name}]\n${text}`);
           budget -= text.length;
+        }
+        if (parts.length > 1) {
+          const block = "\n\n" + parts.join("\n\n");
+          orgCtx += block;
+          remaining -= block.length;
         }
       }
 
-      // Org-level knowledge base
-      if (uploads.org_uploads?.length) {
-        sections.push("=== ORG KNOWLEDGE BASE ===");
+      // Writing learnings (small but high-value — insert before org docs so they're never truncated)
+      if (isDraftType && remaining > 200) {
+        try {
+          const now = Date.now();
+          if (!learningsCache.current.text || now - learningsCache.current.fetchedAt > 60000) {
+            learningsCache.current = { text: await getWritingLearnings() || "", fetchedAt: now };
+          }
+          if (learningsCache.current.text) {
+            const block = `\n\n=== WRITING PREFERENCES (learned from user edits — follow these closely) ===\n${learningsCache.current.text}`;
+            orgCtx += block;
+            remaining -= block.length;
+          }
+        } catch { /* Non-blocking */ }
+      }
+
+      // Org-level knowledge base (fills remaining space)
+      if (uploads.org_uploads?.length && remaining > 200) {
+        const orgDocBudget = Math.min(isDraftType ? 2000 : 1500, remaining - 100);
+        const parts = ["=== ORG KNOWLEDGE BASE ==="];
         let budget = orgDocBudget;
         for (const u of uploads.org_uploads) {
           if (budget <= 0) break;
           if (!u.extracted_text) continue;
           const text = u.extracted_text.slice(0, Math.min(2000, budget));
-          sections.push(`[${u.original_name}]\n${text}`);
+          parts.push(`[${u.original_name}]\n${text}`);
           budget -= text.length;
         }
-      }
-
-      if (sections.length) {
-        orgCtx += "\n\n" + sections.join("\n\n");
+        if (parts.length > 1) {
+          const block = "\n\n" + parts.join("\n\n");
+          orgCtx += block;
+          remaining -= block.length;
+        }
       }
     } catch {
       // If uploads fetch fails, proceed with basic context
     }
-
-    // Inject learned writing preferences (from user edits) — refreshes every 60s
-    if (isDraftType) {
-      try {
-        const now = Date.now();
-        if (!learningsCache.current.text || now - learningsCache.current.fetchedAt > 60000) {
-          learningsCache.current = { text: await getWritingLearnings() || "", fetchedAt: now };
-        }
-        if (learningsCache.current.text) {
-          orgCtx += `\n\n=== WRITING PREFERENCES (learned from user edits — follow these closely) ===\n${learningsCache.current.text}`;
-        }
-      } catch {
-        // Non-blocking — proceed without learnings
-      }
-    }
-
-    // Cap total context — tuned to stay within 30K input token API limit
-    const maxCtx = isDraftType ? 10000 : 8000;
-    if (orgCtx.length > maxCtx) orgCtx = orgCtx.slice(0, maxCtx) + "\n[...context trimmed for length]";
 
     // Anti-hallucination instruction — added to every prompt type
     const factGuard = `\n\nCRITICAL ACCURACY RULES:
@@ -536,8 +608,12 @@ Cost: R${(detectedPt.cost||0).toLocaleString()} | Per student: R${detectedPt.per
 
     if (type === "draft") {
       const fs = funderStrategy(grant);
-      const researchBlock = priorResearch
-        ? `\n\n=== FUNDER INTELLIGENCE (from prior research) ===\n${priorResearch.slice(0, 2000)}`
+      // Use structured research if available, fall back to raw text
+      const structuredRes = grant.aiResearchStructured || parseStructuredResearch(priorResearch || grant.aiResearch);
+      const rawResearch = priorResearch || grant.aiResearch;
+      const researchText = structuredRes ? getResearchForDraft(structuredRes, 2500) : rawResearch ? rawResearch.slice(0, 2000) : "";
+      const researchBlock = researchText
+        ? `\n\n=== FUNDER INTELLIGENCE (from prior research) ===\n${researchText}`
         : "";
       const fitScoreBlock = (priorFitScore || grant.aiFitscore)
         ? `\n\n=== FIT SCORE ANALYSIS ===\n${(priorFitScore || grant.aiFitscore).slice(0, 1500)}`
@@ -656,8 +732,14 @@ Use d-lab's programme types as a starting framework, but MATCH THE ASK TO THE FU
       // Section-by-section proposal generation — full strategic depth per section
       const { sectionName, sectionIndex, totalSections, completedSections, customInstructions } = priorResearch || {};
       const fs = funderStrategy(grant);
-      const researchBlock = (priorFitScore?.research || grant.aiResearch)
-        ? `\n\n=== FUNDER INTELLIGENCE ===\n${(priorFitScore?.research || grant.aiResearch).slice(0, 1500)}`
+      // Use structured research for section-specific injection, fall back to raw text
+      const rawResearch = priorFitScore?.research || grant.aiResearch;
+      const structuredRes = grant.aiResearchStructured || parseStructuredResearch(rawResearch);
+      const researchText = structuredRes
+        ? getResearchForSection(structuredRes, sectionName, 2000)
+        : rawResearch ? rawResearch.slice(0, 1500) : "";
+      const researchBlock = researchText
+        ? `\n\n=== FUNDER INTELLIGENCE (tailored for ${sectionName}) ===\n${researchText}`
         : "";
       const fitBlock = (priorFitScore?.fitscore || grant.aiFitscore)
         ? `\n\n=== FIT SCORE ===\n${(priorFitScore?.fitscore || grant.aiFitscore).slice(0, 1000)}`
@@ -673,7 +755,7 @@ Use d-lab's programme types as a starting framework, but MATCH THE ASK TO THE FU
       // so the AI knows which stories, stats, and openings were already used
       const priorSummary = completedSections && Object.keys(completedSections).length > 0
         ? Object.entries(completedSections).map(([name, sec]) =>
-            `[${name}]: ${(sec.text || "").slice(0, 400).replace(/\n/g, " ")}...`
+            `[${name}]: ${(sec.text || "").slice(0, 800).replace(/\n/g, " ")}...`
           ).join("\n")
         : "";
 
@@ -894,18 +976,26 @@ Write ONLY the "${sectionName}" section content. No section header — just the 
       return await api(
         `You are a funder intelligence analyst for d-lab NPC, a South African NPO training unemployed youth in AI-native digital skills (92% completion, 85% employment, 8 programme types from R232K to R5M).
 
-RESEARCH THOROUGHLY — search this funder's website, annual report, CSI report, and recent news. Provide:
-1. BUDGET & SCALE: Annual CSI/grant spend, typical grant size range
-2. RECENT GRANTS: 2-3 examples of who they funded recently, for how much, for what
-3. KEY CONTACTS: Names and titles of CSI/foundation decision-makers
-4. WHAT WINS: Their stated priorities + what their actual funding pattern reveals
-5. APPLICATION PROCESS: Prescribed form or open proposal? Portal or email? Deadlines?
-6. d-lab STRATEGY: What angle to lead with, which programme type to offer (Type 1-7), what to emphasise, what to avoid
-${fs.returning ? "7. RELATIONSHIP LEVERAGE: How to use the existing relationship — what to reference, who to contact" : "7. DOOR-OPENER: How to get a first meeting — who to approach, what hook to use"}
+RESEARCH THOROUGHLY — search this funder's website, annual report, CSI report, and recent news.
+
+Return your findings as a JSON object with these fields. Each field should be a concise, information-dense string (not arrays or nested objects). Be specific — names, numbers, dates, not generalities.
+
+{
+  "budgetRange": "Their annual CSI/grant spend, typical grant size range, and any caps or minimums",
+  "recentGrants": "2-3 specific examples of who they funded recently, for how much, for what purpose",
+  "contacts": "Names and titles of CSI/foundation decision-makers, plus best contact method",
+  "priorities": "Their stated funding priorities + what their actual funding pattern reveals they really care about",
+  "applicationProcess": "Prescribed form or open proposal? Portal or email? Deadlines? Multi-stage? What documents required?",
+  "strategy": "What angle d-lab should lead with, which programme type (Type 1-8) to offer, what to emphasise, what to avoid",
+  "${fs.returning ? "relationshipLeverage" : "doorOpener"}": "${fs.returning ? "How to use the existing relationship — what to reference from past grants, who to contact, what continuity angle works" : "How to get a first meeting — who to approach, what hook to use, what intro channel"}",
+  "rawText": "A full narrative summary of all the above (4-6 paragraphs) suitable for human reading — include all the detail from the other fields woven into flowing text"
+}
+
+IMPORTANT: Return ONLY valid JSON. No markdown code fences, no text before or after the JSON object. Every field value must be a string (escape any quotes inside values).
 
 Use uploaded documents for additional context about the organisation. Reference specific programme types and costs from the org profile when discussing fit.${factGuard}`,
         `Organisation context:\n${orgCtx}\n\nFunder: ${grant.funder}\nType: ${grant.type}\nGrant: ${grant.name}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD — will be set after proposal)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER — d-lab has an existing relationship)" : ""}\nFocus areas: ${(grant.focus || []).join(", ")}\nFunder angle: ${fs.lead}\nNotes: ${grant.notes || "None"}`,
-        true, 2500
+        true, 3000
       );
     }
     if (type === "followup") {

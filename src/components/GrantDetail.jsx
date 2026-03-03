@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmtK, dL, td, effectiveAsk, grantReadiness, isAIError } from "../utils";
+import { fmtK, dL, td, effectiveAsk, grantReadiness, isAIError, parseStructuredResearch } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, AICard, stripMd, timeAgo } from "./index";
 import UploadZone from "./UploadZone";
 import { getUploads } from "../api";
@@ -134,8 +134,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         setBusy(p => ({ ...p, research: true }));
         try {
           const r = await onRunAI("research", g);
-          setAi(p => ({ ...p, research: r }));
-          if (!isAIError(r)) onUpdate(g.id, { aiResearch: r, aiResearchAt: new Date().toISOString() });
+          if (!isAIError(r)) storeResearch(g.id, r);
+          else setAi(p => ({ ...p, research: r }));
         } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
         setBusy(p => ({ ...p, research: false }));
       }
@@ -146,8 +146,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           setBusy(p => ({ ...p, research: true }));
           try {
             const r = await onRunAI("research", g);
-            setAi(p => ({ ...p, research: r }));
-            if (!isAIError(r)) onUpdate(g.id, { aiResearch: r, aiResearchAt: new Date().toISOString() });
+            if (!isAIError(r)) storeResearch(g.id, r);
+            else setAi(p => ({ ...p, research: r }));
           } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
           setBusy(p => ({ ...p, research: false }));
         }
@@ -162,6 +162,17 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
     };
     runPending();
   }, [grant?.id]);
+
+  // Store research result — parse JSON structure, extract display text, persist both
+  const storeResearch = (grantId, rawResult) => {
+    const structured = parseStructuredResearch(rawResult);
+    const displayText = structured?.rawText || rawResult;
+    const now = new Date().toISOString();
+    const updates = { aiResearch: displayText, aiResearchAt: now };
+    if (structured) updates.aiResearchStructured = structured;
+    setAi(p => ({ ...p, research: displayText }));
+    onUpdate(grantId, updates);
+  };
 
   // Auto-log AI actions to activity feed
   const aiLog = (action) => {
@@ -357,11 +368,10 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                     setBusy(p => ({ ...p, research: true }));
                     try {
                       const r = await onRunAI("research", g);
-                      setAi(p => ({ ...p, research: r }));
                       if (!isAIError(r)) {
-                        onUpdate(g.id, { aiResearch: r, aiResearchAt: new Date().toISOString() });
+                        storeResearch(g.id, r);
                         aiLog(`AI Funder Research refreshed for ${g.funder}`);
-                      }
+                      } else setAi(p => ({ ...p, research: r }));
                     } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
                     setBusy(p => ({ ...p, research: false }));
                   }}
@@ -593,11 +603,10 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               setBusy(p => ({ ...p, research: true }));
               try {
                 const r = await onRunAI("research", g);
-                setAi(p => ({ ...p, research: r }));
                 if (!isAIError(r)) {
-                  onUpdate(g.id, { aiResearch: r, aiResearchAt: new Date().toISOString() });
+                  storeResearch(g.id, r);
                   aiLog(`AI Funder Research completed for ${g.funder}`);
-                }
+                } else setAi(p => ({ ...p, research: r }));
               } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
               setBusy(p => ({ ...p, research: false }));
             }
@@ -928,12 +937,10 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                   onUpdate(g.id, { researchHistory: [...prev, { ts, text: ai.research }].slice(-5) });
                 }
                 const r = await onRunAI("research", g);
-                setAi(p => ({ ...p, research: r }));
                 if (!isAIError(r)) {
-                  const now = new Date().toISOString();
-                  onUpdate(g.id, { aiResearch: r, aiResearchAt: now });
+                  storeResearch(g.id, r);
                   aiLog(`AI Funder Research completed for ${g.funder}`);
-                }
+                } else setAi(p => ({ ...p, research: r }));
               } catch (e) {
                 setAi(p => ({ ...p, research: `Error: ${e.message}` }));
               }
