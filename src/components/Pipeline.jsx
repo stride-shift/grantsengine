@@ -1193,16 +1193,24 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                 </div>
                 {[
                   { key: "fitscore", label: "Fit Score", desc: "Assess alignment with d-lab's strengths" },
-                  { key: "research", label: "Funder Research", desc: "Research funder priorities, history, requirements" },
-                  { key: "draft", label: "Draft Proposal", desc: "Generate full proposal sections from your inputs" },
+                  { key: "research", label: "Funder Research", desc: "Research funder priorities, history, requirements", locked: autoAI.draft },
+                  { key: "draft", label: "Draft Proposal", desc: "Research runs first to tailor the proposal to the funder" },
                 ].map(action => (
-                  <label key={action.key} onClick={() => setAutoAI(prev => ({ ...prev, [action.key]: !prev[action.key] }))}
+                  <label key={action.key} onClick={() => {
+                      if (action.locked) return; // research is locked on when draft is enabled
+                      setAutoAI(prev => {
+                        const next = { ...prev, [action.key]: !prev[action.key] };
+                        // Enabling draft forces research on
+                        if (action.key === "draft" && next.draft) next.research = true;
+                        return next;
+                      });
+                    }}
                     style={{
                       display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
-                      borderRadius: 8, marginBottom: 4, cursor: "pointer",
+                      borderRadius: 8, marginBottom: 4, cursor: action.locked ? "default" : "pointer",
                       background: autoAI[action.key] ? C.primarySoft : C.white,
                       border: `1px solid ${autoAI[action.key] ? C.primary + "50" : C.line}`,
-                      transition: "all 0.15s",
+                      transition: "all 0.15s", opacity: action.locked ? 0.7 : 1,
                     }}>
                     <span style={{
                       width: 18, height: 18, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center",
@@ -1212,7 +1220,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                       border: `1px solid ${autoAI[action.key] ? C.primary : C.line}`,
                     }}>{autoAI[action.key] ? "\u2713" : ""}</span>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: C.dark }}>{action.label}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.dark }}>
+                        {action.label}{action.locked ? " (required for draft)" : ""}
+                      </div>
                       <div style={{ fontSize: 10, color: C.t3 }}>{action.desc}</div>
                     </div>
                   </label>

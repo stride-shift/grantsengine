@@ -33,6 +33,10 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
   const sections = g.aiSections || {};
   const generatingAllRef = useRef(false);
   const [showLegacy, setShowLegacy] = useState(false);
+  const [researchNudge, setResearchNudge] = useState(false);
+
+  // Research must be done before drafting
+  const researchDone = !!(g.aiResearch && !isAIError(g.aiResearch)) || !!(ai?.research && !isAIError(ai.research));
 
   // Count completed sections
   const completedCount = order.filter(n => sections[n]?.text && !isAIError(sections[n].text)).length;
@@ -47,6 +51,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
 
   // ── Generate a single section ──
   const generateSection = useCallback(async (sectionName, customInstructions) => {
+    if (!researchDone) { setResearchNudge(true); return; }
     const sectionIndex = order.indexOf(sectionName);
     setBusy(p => ({ ...p, sections: { ...(p.sections || {}), [sectionName]: true } }));
 
@@ -112,6 +117,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
 
   // ── Generate All sections sequentially ──
   const generateAll = useCallback(async () => {
+    if (!researchDone) { setResearchNudge(true); return; }
     if (generatingAllRef.current) return;
     generatingAllRef.current = true;
     setBusy(p => ({ ...p, generateAll: true }));
@@ -409,15 +415,32 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
           ) : (
             <Btn
               onClick={generateAll}
-              disabled={anySectionBusy}
+              disabled={anySectionBusy || !researchDone}
               v={allDone ? "ghost" : "primary"}
-              style={{ fontSize: 12, padding: "7px 16px" }}
+              style={{ fontSize: 12, padding: "7px 16px", opacity: researchDone ? 1 : 0.5 }}
+              title={researchDone ? undefined : "Run Funder Research first"}
             >
-              {anySectionBusy ? "Generating..." : allDone ? "\u21bb Regenerate All" : `Generate All (${pendingCount})`}
+              {anySectionBusy ? "Generating..." : !researchDone ? "Research Required" : allDone ? "\u21bb Regenerate All" : `Generate All (${pendingCount})`}
             </Btn>
           )}
         </div>
       </div>
+
+      {/* ── Research required banner ── */}
+      {researchNudge && !researchDone && (
+        <div style={{
+          padding: "10px 16px", background: C.amberSoft, borderBottom: `1px solid ${C.amber}20`,
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <span style={{ fontSize: 18 }}>🔍</span>
+          <span style={{ fontSize: 12, color: C.t1, flex: 1, lineHeight: 1.4 }}>
+            <strong>Research required before drafting.</strong> Run Funder Research first so the proposal is tailored to what {g.funder || "the funder"} actually funds and how they evaluate applications.
+          </span>
+          <Btn onClick={() => setResearchNudge(false)} v="ghost" style={{ fontSize: 11, padding: "5px 10px", flexShrink: 0 }}>
+            Dismiss
+          </Btn>
+        </div>
+      )}
 
       {/* ── Legacy migration banner ── */}
       {hasLegacyDraft && (
@@ -431,8 +454,9 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
           <Btn onClick={migrateToSections} v="ghost" style={{ fontSize: 11, padding: "5px 12px", flexShrink: 0 }}>
             Convert Existing
           </Btn>
-          <Btn onClick={generateAll} v="primary" style={{ fontSize: 11, padding: "5px 12px", flexShrink: 0 }}>
-            Generate Fresh
+          <Btn onClick={generateAll} v="primary" disabled={!researchDone} style={{ fontSize: 11, padding: "5px 12px", flexShrink: 0, opacity: researchDone ? 1 : 0.5 }}
+            title={researchDone ? undefined : "Run Funder Research first"}>
+            {researchDone ? "Generate Fresh" : "Research First"}
           </Btn>
         </div>
       )}
