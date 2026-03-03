@@ -5,6 +5,7 @@ import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "./index";
 import { scoutPrompt } from "../prompts";
 import { detectType, PTYPES } from "../data/funderStrategy";
 import { GATES, ROLES } from "../data/constants";
+import { uploadFile } from "../api";
 
 /* ── Readiness Chips — show missing items on kanban cards ── */
 const ReadinessChips = ({ missing }) => {
@@ -274,6 +275,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   const [newFocusTags, setNewFocusTags] = useState([]);
   const [customFocusInput, setCustomFocusInput] = useState("");
   const [newNotes, setNewNotes] = useState("");
+  const [pendingFiles, setPendingFiles] = useState([]); // files to upload after grant creation
   // Step 3: AI actions
   const [autoAI, setAutoAI] = useState({ fitscore: true, research: false, draft: false });
   const [scouting, setScouting] = useState(false);
@@ -457,7 +459,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
     setSelectedPTypes(new Map()); setCustomProgrammes([]);
     setNewAsk(""); setNewDeadline(""); setNewRel("Cold");
     setNewMarket("sa"); setNewApplyUrl(""); setNewFocusTags([]);
-    setNewNotes(""); setCustomFocusInput("");
+    setNewNotes(""); setCustomFocusInput(""); setPendingFiles([]);
     setAutoAI({ fitscore: true, research: false, draft: false });
   };
 
@@ -493,9 +495,20 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
       _pendingAI: pendingAI,
     };
 
+    const filesToUpload = [...pendingFiles];
     onAddGrant(g);
     resetWizard();
     if (pendingAI) onSelectGrant(grantId);
+
+    // Upload any attached files in the background after grant creation
+    if (filesToUpload.length > 0) {
+      (async () => {
+        for (const file of filesToUpload) {
+          try { await uploadFile(file, grantId, null); }
+          catch (err) { console.error("Upload failed:", file.name, err.message); }
+        }
+      })();
+    }
   };
 
   /* ── Scout: AI search for new grant opportunities ── */
@@ -1056,11 +1069,65 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                   </div>
                 </div>
 
-                {/* Notes */}
-                <textarea value={newNotes} onChange={e => setNewNotes(e.target.value)}
-                  placeholder="Additional context, funder guidelines, requirements..."
-                  style={{ width: "100%", minHeight: 50, padding: "8px 12px", fontSize: 12, border: `1px solid ${C.line}`,
-                    borderRadius: 8, fontFamily: FONT, resize: "vertical", boxSizing: "border-box", marginBottom: 10 }} />
+                {/* Context & Attachments */}
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: C.t3, marginBottom: 4 }}>Context & direction</div>
+                  <textarea value={newNotes} onChange={e => setNewNotes(e.target.value)}
+                    placeholder={"Paste funder guidelines, application requirements, strategic notes, or any context that should inform the AI when researching and drafting...\n\nExamples:\n• \"Returning funder — focus on continuity and outcomes from last cycle\"\n• \"They want a focus on rural youth and digital skills\"\n• \"Max 10 pages, must include theory of change\""}
+                    style={{ width: "100%", minHeight: 90, padding: "10px 12px", fontSize: 12, lineHeight: 1.5,
+                      border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, resize: "vertical",
+                      boxSizing: "border-box", background: C.bg }} />
+
+                  {/* File attachments */}
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <label style={{
+                        display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px",
+                        fontSize: 11, fontWeight: 600, color: C.t3, background: C.raised,
+                        borderRadius: 6, cursor: "pointer", border: `1px solid ${C.line}`,
+                        transition: "all 0.15s",
+                      }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.color = C.t3; }}
+                      >
+                        <span style={{ fontSize: 13 }}>+</span> Attach files
+                        <input type="file" multiple
+                          accept=".pdf,.doc,.docx,.xlsx,.xls,.csv,.txt,.md,.jpg,.jpeg,.png,.gif,.webp"
+                          style={{ display: "none" }}
+                          onChange={e => {
+                            if (e.target.files.length) setPendingFiles(prev => [...prev, ...Array.from(e.target.files)]);
+                            e.target.value = "";
+                          }} />
+                      </label>
+                      <span style={{ fontSize: 10, color: C.t4 }}>
+                        Funder docs, RFPs, guidelines — uploaded after grant is created
+                      </span>
+                    </div>
+
+                    {pendingFiles.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {pendingFiles.map((f, i) => (
+                          <div key={i} style={{
+                            display: "flex", alignItems: "center", gap: 6, padding: "4px 10px",
+                            background: C.white, border: `1px solid ${C.line}`, borderRadius: 6, fontSize: 11,
+                          }}>
+                            <span style={{ fontWeight: 600, color: C.dark, maxWidth: 180, overflow: "hidden",
+                              textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                            <span style={{ color: C.t4, fontSize: 10 }}>
+                              {f.size < 1024 * 1024 ? `${(f.size / 1024).toFixed(0)}KB` : `${(f.size / (1024 * 1024)).toFixed(1)}MB`}
+                            </span>
+                            <button onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))}
+                              style={{ background: "none", border: "none", color: C.t4, cursor: "pointer",
+                                fontSize: 13, padding: "0 2px", lineHeight: 1 }}
+                              onMouseEnter={e => { e.currentTarget.style.color = C.red; }}
+                              onMouseLeave={e => { e.currentTarget.style.color = C.t4; }}
+                            >×</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <Btn v="ghost" onClick={() => setWizStep(1)} style={{ fontSize: 12 }}>Back</Btn>
@@ -1102,6 +1169,20 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                   {newFocusTags.length > 0 && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 6 }}>
                       {newFocusTags.map(t => <span key={t} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, background: C.raised, color: C.t3 }}>{t}</span>)}
+                    </div>
+                  )}
+                  {(newNotes.trim() || pendingFiles.length > 0) && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6, alignItems: "center" }}>
+                      {newNotes.trim() && (
+                        <span style={{ fontSize: 10, color: C.t3 }}>
+                          Context: {newNotes.trim().length > 60 ? newNotes.trim().slice(0, 60) + "..." : newNotes.trim()}
+                        </span>
+                      )}
+                      {pendingFiles.length > 0 && (
+                        <span style={{ fontSize: 10, fontWeight: 600, color: C.blue, background: C.blueSoft || C.primarySoft, padding: "2px 8px", borderRadius: 4 }}>
+                          {pendingFiles.length} file{pendingFiles.length > 1 ? "s" : ""} attached
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
