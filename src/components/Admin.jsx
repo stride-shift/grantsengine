@@ -79,12 +79,29 @@ const Input = ({ value, onChange, placeholder, type = "text", style: sx }) => (
   />
 );
 
-export default function Admin({ org, team, currentMember, onTeamChanged }) {
+// AI fields to clear when resetting
+const AI_FIELDS = {
+  aiResearch: null, aiResearchAt: null, aiResearchStructured: null,
+  aiDraft: null, aiDraftAt: null,
+  aiFitscore: null, aiFitscoreAt: null,
+  aiFollowup: null, aiFollowupAt: null,
+  aiWinloss: null,
+  aiRecommendedAsk: null,
+  aiSections: null,
+  researchHistory: null,
+};
+
+export default function Admin({ org, team, grants = [], currentMember, onSaveGrant, onSetGrants, onTeamChanged }) {
   const [activeSessions, setActiveSessions] = useState([]);
   const [sessionHistory, setSessionHistory] = useState([]);
   const [activity, setActivity] = useState([]);
   const [filterMember, setFilterMember] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Data tools state
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetProgress, setResetProgress] = useState(null);
 
   // User management state
   const [addMode, setAddMode] = useState(false);
@@ -363,6 +380,68 @@ export default function Admin({ org, team, currentMember, onTeamChanged }) {
               </div>
             );
           })}
+        </div>
+      </Card>
+
+      {/* ═══ DATA TOOLS ═══ */}
+      <Card>
+        <Label>Data Tools</Label>
+        <div style={{ marginTop: 8 }}>
+          {/* Reset AI content */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "12px 14px", borderRadius: 10, background: C.warm100, border: `1px solid ${C.line}`,
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.dark }}>Reset All AI Content</div>
+              <div style={{ fontSize: 11, color: C.t3, marginTop: 2 }}>
+                Clear research, drafts, fit scores, and proposals from all {grants.length} opportunities.
+                Keeps funder names, notes, uploads, budgets, and stages intact.
+              </div>
+            </div>
+            {!confirmReset ? (
+              <Btn v="ghost" onClick={() => setConfirmReset(true)}
+                style={{ fontSize: 12, padding: "6px 14px", color: C.red, whiteSpace: "nowrap", marginLeft: 16 }}>
+                Reset AI
+              </Btn>
+            ) : (
+              <div style={{ display: "flex", gap: 8, marginLeft: 16, flexShrink: 0 }}>
+                <Btn v="danger" disabled={resetBusy} onClick={async () => {
+                  setResetBusy(true);
+                  setResetProgress({ done: 0, total: grants.length });
+                  try {
+                    // Count grants with AI content
+                    const withAI = grants.filter(g =>
+                      g.aiResearch || g.aiDraft || g.aiFitscore || g.aiFollowup || g.aiWinloss || g.aiSections || g.aiResearchStructured
+                    );
+                    let done = 0;
+                    for (const g of withAI) {
+                      const cleaned = { ...g, ...AI_FIELDS };
+                      await onSaveGrant(cleaned);
+                      done++;
+                      setResetProgress({ done, total: withAI.length });
+                    }
+                    // Update local state
+                    onSetGrants(prev => prev.map(g => ({ ...g, ...AI_FIELDS })));
+                    flash(`AI content cleared from ${withAI.length} grant${withAI.length !== 1 ? "s" : ""}`);
+                  } catch (e) {
+                    flash(`Error: ${e.message}`);
+                  }
+                  setResetBusy(false);
+                  setResetProgress(null);
+                  setConfirmReset(false);
+                }} style={{ fontSize: 12, padding: "6px 14px" }}>
+                  {resetBusy
+                    ? `${resetProgress?.done || 0}/${resetProgress?.total || "?"}...`
+                    : `Yes, reset ${grants.filter(g => g.aiResearch || g.aiDraft || g.aiFitscore || g.aiFollowup || g.aiWinloss || g.aiSections || g.aiResearchStructured).length} grants`}
+                </Btn>
+                <Btn v="ghost" onClick={() => setConfirmReset(false)} disabled={resetBusy}
+                  style={{ fontSize: 12, padding: "6px 14px" }}>
+                  Cancel
+                </Btn>
+              </div>
+            )}
+          </div>
         </div>
       </Card>
 
