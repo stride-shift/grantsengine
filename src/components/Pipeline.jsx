@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { C, FONT, MONO } from "../theme";
 import { fmt, fmtK, dL, uid, td, effectiveAsk, grantReadiness } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "./index";
@@ -54,6 +54,40 @@ const GateIndicator = ({ stage, ownerRole }) => {
 const VIEW_OPTIONS = [["kanban", "Board"], ["list", "List"], ["person", "Person"]];
 const CLOSED_STAGES = ["won", "lost", "deferred"];
 const SCOUT_TYPE_MAP = { corporate: "Corporate CSI", csi: "Corporate CSI", government: "Government/SETA", seta: "Government/SETA", international: "International", foundation: "Foundation", tech: "Tech Company" };
+
+/* ── Local fit score for scout results (0-100, calculated client-side before display) ── */
+const calcScoutFitScore = (s) => {
+  let score = 40; // base for any scouted result
+  // Focus alignment
+  const goodFocus = ["Youth Employment", "Digital Skills", "AI/4IR", "Education", "STEM", "Work Readiness"];
+  const focusHits = (s.focus || []).filter(f => goodFocus.includes(f)).length;
+  score += Math.min(focusHits * 8, 24);
+  // Budget range fit (R200K-R5M sweet spot)
+  const budget = Number(s.funderBudget || s.ask) || 0;
+  if (budget >= 200000 && budget <= 5000000) score += 12;
+  else if (budget > 0 && budget < 200000) score += 4;
+  else if (budget > 5000000) score += 6;
+  // Access — open is best
+  const acc = (s.access || "").toLowerCase();
+  if (acc === "open") score += 10;
+  else if (acc.includes("relationship")) score += 4;
+  // AI fit label from scout prompt
+  if (s.fit === "High") score += 10;
+  else if (s.fit === "Medium") score += 4;
+  // Type bonus — some funder types historically better
+  const typ = (s.type || "").toLowerCase();
+  if (typ.includes("foundation") || typ.includes("csi")) score += 4;
+  if (typ.includes("seta")) score += 3;
+  // Deadline exists and is in the future
+  if (s.deadline) {
+    const dl = new Date(s.deadline);
+    const now = new Date();
+    if (dl > now) score += 4;
+    const daysLeft = (dl - now) / 86400000;
+    if (daysLeft > 14 && daysLeft < 180) score += 3; // sweet spot — enough time, not stale
+  }
+  return Math.min(100, Math.max(0, Math.round(score)));
+};
 const COMMON_FOCUS = ["Youth Employment", "Digital Skills", "AI/4IR", "Education", "Women", "Rural Dev", "STEM", "Entrepreneurship", "Work Readiness", "Leadership"];
 const AVATAR_COLORS = [
   { bg: C.redSoft, accent: C.red },
@@ -244,12 +278,16 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   const [autoAI, setAutoAI] = useState({ fitscore: true, research: false, draft: false });
   const [scouting, setScouting] = useState(false);
   const [scoutResults, setScoutResults] = useState([]);
+  const [scoutSort, setScoutSort] = useState("fit"); // "fit" | "deadline" | "budget"
+  const [scoutFitFilter, setScoutFitFilter] = useState("all"); // "all" | "high" | "medium"
   const [urlInput, setUrlInput] = useState("");
   const [urlBusy, setUrlBusy] = useState(false);
   const [showUrlTool, setShowUrlTool] = useState(false);
   const [activeFilters, setActiveFilters] = useState(new Set()); // "due-week", "due-month", "no-deadline", "no-draft", "unassigned", owner ids
   const [selectedIds, setSelectedIds] = useState(new Set()); // batch operations
   const [batchAction, setBatchAction] = useState(null); // "stage" | "owner" | "priority"
+  const [scoringAll, setScoringAll] = useState(false);
+  const [scoreProgress, setScoreProgress] = useState({ done: 0, total: 0, current: "" });
 
   const STAGES = stages || [];
 
@@ -261,6 +299,15 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   }, [team]);
   const fallbackMember = teamById.get("team") || { name: "Unassigned", initials: "\u2014" };
   const getMember = (id) => teamById.get(id) || fallbackMember;
+
+  // Debounced search — immediate typing, delayed filtering (150ms)
+  const [debouncedQ, setDebouncedQ] = useState("");
+  const debounceRef = useRef(null);
+  const handleSearchChange = useCallback((val) => {
+    setQ(val);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedQ(val), 150);
+  }, []);
 
   // Market counts (computed before filtering)
   const marketCounts = useMemo(() => {
@@ -275,12 +322,11 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   const filtered = useMemo(() => {
     let gs = [...grants];
     if (market !== "all") gs = gs.filter(g => (g.market || "sa") === market);
-    if (q) {
-      const lq = q.toLowerCase();
+    if (debouncedQ) {
+      const lq = debouncedQ.toLowerCase();
       gs = gs.filter(g => g.name?.toLowerCase().includes(lq) || g.funder?.toLowerCase().includes(lq) || g.notes?.toLowerCase().includes(lq));
     }
     if (sf !== "all") gs = gs.filter(g => g.type === sf);
-    // Apply smart filters
     if (activeFilters.size > 0) {
       gs = gs.filter(g => {
         for (const f of activeFilters) {
@@ -295,12 +341,21 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
       });
     }
     return gs;
-  }, [grants, q, sf, market, activeFilters]);
+  }, [grants, debouncedQ, sf, market, activeFilters]);
 
   const sorted = useMemo(() => {
     let gs = [...filtered];
     if (pSort === "ask") gs.sort((a, b) => (b.ask || 0) - (a.ask || 0));
     else if (pSort === "priority") gs.sort((a, b) => (b.pri || 0) - (a.pri || 0));
+    else if (pSort === "fit") {
+      // Extract numeric score from AI fit score text (SCORE: XX)
+      const getFit = g => {
+        if (!g.aiFitscore) return -1;
+        const m = g.aiFitscore.match(/SCORE:\s*(\d+)/);
+        return m ? parseInt(m[1]) : -1;
+      };
+      gs.sort((a, b) => getFit(b) - getFit(a));
+    }
     else /* default + deadline */ gs.sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999"));
     return gs;
   }, [filtered, pSort]);
@@ -319,6 +374,44 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
       return b[1].length - a[1].length;
     });
   }, [sorted]);
+
+  // Memoized owner names for filter chips
+  const ownerNames = useMemo(() =>
+    [...new Set(grants.map(g => g.owner).filter(o => o && o !== "team"))],
+    [grants]
+  );
+
+  // Memoized funder list for datalist suggestions
+  const funderSuggestions = useMemo(() =>
+    [...new Set(grants.map(g => g.funder).filter(Boolean))],
+    [grants]
+  );
+
+  // Single-pass scout stats (replaces 5 separate .filter() calls)
+  const scoutStats = useMemo(() => {
+    let added = 0, expired = 0, open = 0, rel = 0, inv = 0;
+    const now = new Date();
+    for (const s of scoutResults) {
+      if (s.added) added++;
+      if (s.deadline && new Date(s.deadline) < now) expired++;
+      const acc = (s.access || "").toLowerCase();
+      if (acc === "open") open++;
+      else if (acc.includes("relationship")) rel++;
+      else if (acc.includes("invitation")) inv++;
+    }
+    return { added, expired, open, rel, inv };
+  }, [scoutResults]);
+
+  // Memoized sorted/filtered scout results
+  const scoutDisplay = useMemo(() => {
+    let results = [...scoutResults];
+    if (scoutFitFilter === "high") results = results.filter(s => s.fitScore >= 70);
+    else if (scoutFitFilter === "medium") results = results.filter(s => s.fitScore >= 40);
+    if (scoutSort === "fit") results.sort((a, b) => b.fitScore - a.fitScore);
+    else if (scoutSort === "deadline") results.sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999"));
+    else if (scoutSort === "budget") results.sort((a, b) => (Number(b.funderBudget || b.ask) || 0) - (Number(a.funderBudget || a.ask) || 0));
+    return results;
+  }, [scoutResults, scoutFitFilter, scoutSort]);
 
   const handleDrop = (stageId) => {
     if (!dragId) return;
@@ -421,12 +514,17 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
     if (!parsed) parsed = SCOUT_FALLBACK;
 
     setScoutResults(
-      parsed.map(s => ({
-        ...s,
-        inPipeline: existing.includes((s.funder || "").toLowerCase()),
-        added: false,
-      }))
+      parsed.map(s => {
+        const fitScore = calcScoutFitScore(s);
+        return {
+          ...s,
+          fitScore,
+          inPipeline: existing.includes((s.funder || "").toLowerCase()),
+          added: false,
+        };
+      }).sort((a, b) => b.fitScore - a.fitScore) // pre-sort by fit
     );
+    setScoutSort("fit");
     setScouting(false);
   };
 
@@ -448,6 +546,28 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
     };
     onAddGrant(newG);
     setScoutResults(prev => prev.map(x => x.name === s.name && x.funder === s.funder ? { ...x, added: true } : x));
+  };
+
+  /* ── Score All: batch AI fit score for every active grant ── */
+  const scoreAllGrants = async () => {
+    const active = grants.filter(g => !CLOSED_STAGES.includes(g.stage));
+    if (active.length === 0) return;
+    setScoringAll(true);
+    setScoreProgress({ done: 0, total: active.length, current: "" });
+    for (let i = 0; i < active.length; i++) {
+      const g = active[i];
+      setScoreProgress({ done: i, total: active.length, current: g.funder });
+      try {
+        const r = await onRunAI("fitscore", g);
+        if (r && !r.startsWith?.("Error")) {
+          onUpdateGrant(g.id, { aiFitscore: r, aiFitscoreAt: new Date().toISOString() });
+        }
+      } catch (e) {
+        console.error(`Fit score failed for ${g.name}:`, e);
+      }
+    }
+    setScoreProgress({ done: active.length, total: active.length, current: "" });
+    setScoringAll(false);
   };
 
   const activeStages = STAGES.filter(s => !CLOSED_STAGES.includes(s.id));
@@ -488,7 +608,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
         </div>
         {grants.length > 0 && (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search grants..."
+          <input value={q} onChange={e => handleSearchChange(e.target.value)} placeholder="Search grants..."
             style={{ padding: "6px 12px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, width: 180, fontFamily: FONT, outline: "none", transition: "border-color 0.15s" }}
             onFocus={e => e.target.style.borderColor = C.primary}
             onBlur={e => e.target.style.borderColor = C.line}
@@ -503,6 +623,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             <option value="default">By deadline</option>
             <option value="ask">By amount</option>
             <option value="priority">By priority</option>
+            <option value="fit">By fit score</option>
           </select>
           <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
             {VIEW_OPTIONS.map(([k,l]) => (
@@ -520,6 +641,16 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             <Btn onClick={aiScout} disabled={scouting} v="ghost" style={{ fontSize: 12, padding: "6px 10px", color: C.purple, border: "none", borderLeft: `1px solid ${C.purple}20`, borderRadius: 0 }}>{scouting ? "..." : "\u2609 Scout"}</Btn>
           </div>
           {onRunAI && <Btn onClick={() => setShowUrlTool(!showUrlTool)} v="ghost" style={{ fontSize: 12, padding: "6px 14px", color: C.blue, borderColor: C.blue + "40" }}>{"\uD83D\uDD17"} URL</Btn>}
+          {onRunAI && (
+            <Btn onClick={scoreAllGrants} disabled={scoringAll} v="ghost" style={{
+              fontSize: 12, padding: "6px 14px",
+              color: scoringAll ? C.purple : C.amber,
+              borderColor: (scoringAll ? C.purple : C.amber) + "40",
+              animation: scoringAll ? "ge-pulse 1.4s ease-in-out infinite" : "none",
+            }}>
+              {scoringAll ? `Scoring ${scoreProgress.done}/${scoreProgress.total}...` : "⚡ Score All"}
+            </Btn>
+          )}
           <Btn onClick={() => { if (batchAction) { setBatchAction(null); setSelectedIds(new Set()); } else { setBatchAction("select"); } }}
             v="ghost" style={{ fontSize: 12, padding: "6px 14px", color: batchAction ? C.primary : C.t3, borderColor: batchAction ? C.primary + "40" : undefined }}>
             {batchAction ? "Done" : "Select"}
@@ -536,14 +667,10 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
           next.has(f) ? next.delete(f) : next.add(f);
           return next;
         });
-        const chipStyle = (f) => ({
-          padding: "3px 8px", borderRadius: 100, fontSize: 10, fontWeight: 600,
-          cursor: "pointer", border: `1px solid ${activeFilters.has(f) ? C.primary : C.line}`,
-          background: activeFilters.has(f) ? C.primarySoft : C.white,
-          color: activeFilters.has(f) ? C.primary : C.t3,
-          fontFamily: FONT, transition: "all 0.15s ease",
-        });
-        const ownerNames = [...new Set(grants.map(g => g.owner).filter(o => o && o !== "team"))];
+        const chipBase = { padding: "3px 8px", borderRadius: 100, fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: FONT, transition: "all 0.15s ease" };
+        const chipStyle = (f) => activeFilters.has(f)
+          ? { ...chipBase, border: `1px solid ${C.primary}`, background: C.primarySoft, color: C.primary }
+          : { ...chipBase, border: `1px solid ${C.line}`, background: C.white, color: C.t3 };
         return (
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
             <button onClick={() => toggleFilter("due-week")} style={chipStyle("due-week")}>Due this week</button>
@@ -598,6 +725,37 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
           <div style={{ marginLeft: "auto" }} />
           <button onClick={() => setSelectedIds(new Set())}
             style={{ fontSize: 11, color: C.t4, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, fontWeight: 600 }}>Cancel</button>
+        </div>
+      )}
+
+      {/* Score All progress bar */}
+      {scoringAll && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", marginBottom: 14,
+          background: `linear-gradient(135deg, ${C.amberSoft}60 0%, ${C.white} 100%)`,
+          borderRadius: 10, border: `1px solid ${C.amber}20`, boxShadow: C.cardShadow,
+        }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+            background: C.amberSoft, color: C.amber, fontSize: 14, fontWeight: 700, flexShrink: 0,
+            animation: "ge-pulse 1.4s ease-in-out infinite",
+          }}>⚡</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.dark }}>Scoring all grants</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.amber, fontFamily: MONO }}>{scoreProgress.done}/{scoreProgress.total}</span>
+            </div>
+            <div style={{ height: 4, background: C.line, borderRadius: 2, overflow: "hidden" }}>
+              <div style={{
+                height: "100%", borderRadius: 2, transition: "width 0.3s ease",
+                background: `linear-gradient(90deg, ${C.amber}, ${C.ok})`,
+                width: `${scoreProgress.total > 0 ? (scoreProgress.done / scoreProgress.total * 100) : 0}%`,
+              }} />
+            </div>
+            {scoreProgress.current && (
+              <div style={{ fontSize: 11, color: C.t3, marginTop: 3 }}>Scoring fit for {scoreProgress.current}...</div>
+            )}
+          </div>
         </div>
       )}
 
@@ -711,7 +869,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                     list="funder-suggestions"
                     style={{ flex: 1.5, padding: "8px 12px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT }} />
                   <datalist id="funder-suggestions">
-                    {[...new Set(grants.map(g => g.funder).filter(Boolean))].map(f => <option key={f} value={f} />)}
+                    {funderSuggestions.map(f => <option key={f} value={f} />)}
                   </datalist>
                 </div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
@@ -1004,36 +1162,53 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>Scouted opportunities</span>
               <span style={{ fontSize: 12, fontWeight: 600, color: C.purple, background: C.purpleSoft, padding: "2px 10px", borderRadius: 100 }}>{scoutResults.length} found</span>
-              {scoutResults.filter(s => s.added).length > 0 && (
+              {scoutStats.added > 0 && (
                 <span style={{ fontSize: 12, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "2px 10px", borderRadius: 100 }}>
-                  {scoutResults.filter(s => s.added).length} added
+                  {scoutStats.added} added
                 </span>
               )}
-              {scoutResults.filter(s => s.deadline && new Date(s.deadline) < new Date()).length > 0 && (
+              {scoutStats.expired > 0 && (
                 <span style={{ fontSize: 12, fontWeight: 600, color: C.red, background: C.redSoft, padding: "2px 10px", borderRadius: 100 }}>
-                  {scoutResults.filter(s => s.deadline && new Date(s.deadline) < new Date()).length} expired
+                  {scoutStats.expired} expired
                 </span>
               )}
-              {(() => {
-                const open = scoutResults.filter(s => (s.access || "").toLowerCase() === "open").length;
-                const rel = scoutResults.filter(s => (s.access || "").toLowerCase().includes("relationship")).length;
-                const inv = scoutResults.filter(s => (s.access || "").toLowerCase().includes("invitation")).length;
-                if (!open && !rel && !inv) return null;
-                return <>
-                  {open > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "2px 8px", borderRadius: 100 }}>✓ {open} open</span>}
-                  {rel > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.amber, background: C.amberSoft, padding: "2px 8px", borderRadius: 100 }}>→ {rel} relationship</span>}
-                  {inv > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.red, background: C.redSoft, padding: "2px 8px", borderRadius: 100 }}>✕ {inv} invite-only</span>}
-                </>;
-              })()}
+              {(scoutStats.open > 0 || scoutStats.rel > 0 || scoutStats.inv > 0) && <>
+                {scoutStats.open > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "2px 8px", borderRadius: 100 }}>✓ {scoutStats.open} open</span>}
+                {scoutStats.rel > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.amber, background: C.amberSoft, padding: "2px 8px", borderRadius: 100 }}>→ {scoutStats.rel} relationship</span>}
+                {scoutStats.inv > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.red, background: C.redSoft, padding: "2px 8px", borderRadius: 100 }}>✕ {scoutStats.inv} invite-only</span>}
+              </>}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <Btn v="ghost" style={{ fontSize: 12, padding: "5px 12px" }} onClick={aiScout} disabled={scouting}>{scouting ? "Searching..." : "Search again"}</Btn>
               <button onClick={() => setScoutResults([])} style={{ fontSize: 12, color: C.t4, background: "none", border: "none", cursor: "pointer", fontFamily: FONT }}>Dismiss</button>
             </div>
           </div>
+          {/* Sort & filter controls */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: C.t4, textTransform: "uppercase", letterSpacing: 0.5 }}>Sort</span>
+            {[["fit", "Fit Score"], ["deadline", "Deadline"], ["budget", "Budget"]].map(([k, l]) => (
+              <button key={k} onClick={() => setScoutSort(k)} style={{
+                padding: "3px 10px", fontSize: 11, fontWeight: 600, fontFamily: FONT,
+                borderRadius: 5, border: `1px solid ${scoutSort === k ? C.purple : C.line}`,
+                background: scoutSort === k ? C.purpleSoft : "transparent",
+                color: scoutSort === k ? C.purple : C.t4, cursor: "pointer",
+              }}>{l}</button>
+            ))}
+            <div style={{ width: 1, height: 16, background: C.line, margin: "0 4px" }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: C.t4, textTransform: "uppercase", letterSpacing: 0.5 }}>Filter</span>
+            {[["all", "All"], ["high", "70+"], ["medium", "40+"]].map(([k, l]) => (
+              <button key={k} onClick={() => setScoutFitFilter(k)} style={{
+                padding: "3px 10px", fontSize: 11, fontWeight: 600, fontFamily: FONT,
+                borderRadius: 5, border: `1px solid ${scoutFitFilter === k ? C.ok : C.line}`,
+                background: scoutFitFilter === k ? C.okSoft : "transparent",
+                color: scoutFitFilter === k ? C.ok : C.t4, cursor: "pointer",
+              }}>{l}</button>
+            ))}
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {scoutResults.map((s, i) => {
-              const fitC = s.fit === "High" ? C.ok : s.fit === "Medium" ? C.amber : C.t4;
+            {scoutDisplay.map((s, i) => {
+              const fs = s.fitScore || 0;
+              const fitC = fs >= 70 ? C.ok : fs >= 40 ? C.amber : C.t4;
               const expired = s.deadline && new Date(s.deadline) < new Date();
               const alreadyIn = s.inPipeline || s.added;
               const acc = (s.access || "").toLowerCase();
@@ -1050,7 +1225,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 600, fontSize: 13, color: expired ? C.t4 : C.dark, textDecoration: expired ? "line-through" : "none" }}>{s.name}</span>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: fitC, background: fitC + "15", padding: "1px 7px", borderRadius: 100 }}>{s.fit}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: fitC, background: fitC + "15", padding: "1px 7px", borderRadius: 100, fontFamily: MONO }} title={`Fit: ${s.fit} (${fs}/100)`}>{fs}</span>
                         {s.access && (
                           <span style={{ fontSize: 10, fontWeight: 600, color: accessC, background: accessC + "15", padding: "1px 7px", borderRadius: 100 }} title={s.accessNote || ""}>{accessIcon} {s.access}</span>
                         )}
