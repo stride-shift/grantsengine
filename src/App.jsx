@@ -402,30 +402,29 @@ function AppInner() {
     const parts = [];
     const add = (label, key) => { if (structured[key]) parts.push(`${label}: ${structured[key]}`); };
 
+    // Universal: every section gets funder priorities as baseline
+    add("Funder priorities", "priorities");
+
     if (isCover) {
       add("Key contacts", "contacts");
       add("Strategy", "strategy");
       add("Application process", "applicationProcess");
+      add("Recent grants", "recentGrants");
       add("Relationship", "relationshipLeverage"); add("Door opener", "doorOpener");
     } else if (isExecSummary) {
-      add("Funder priorities", "priorities");
       add("Strategy", "strategy");
       add("Budget range", "budgetRange");
       add("Relationship", "relationshipLeverage"); add("Door opener", "doorOpener");
     } else if (isBudget) {
       add("Budget range", "budgetRange");
       add("Recent grants", "recentGrants");
-      add("Funder priorities", "priorities");
     } else if (isImpact) {
-      add("Funder priorities", "priorities");
       add("Recent grants", "recentGrants");
       add("Strategy", "strategy");
     } else if (isProgramme) {
-      add("Funder priorities", "priorities");
       add("Strategy", "strategy");
       add("Recent grants", "recentGrants");
     } else if (isScale) {
-      add("Funder priorities", "priorities");
       add("Strategy", "strategy");
       add("Budget range", "budgetRange");
     } else {
@@ -619,7 +618,7 @@ Cost: R${(detectedPt.cost||0).toLocaleString()} | Per student: R${detectedPt.per
         ? `\n\n=== FIT SCORE ANALYSIS ===\n${(priorFitScore || grant.aiFitscore).slice(0, 1500)}`
         : "";
       const relNote = fs.returning
-        ? "RETURNING FUNDER — reference the existing relationship. This is a partner renewing, not a stranger."
+        ? `RETURNING FUNDER — this is a partner renewing, not a stranger. Reference the existing relationship with specifics:\n${fs.hook}\nFrame as continuity and deepening, not a new pitch. Show what their previous investment built and what comes next.`
         : `NEW FUNDER — relationship is "${grant.rel || "Cold"}". Make it easy to say yes to a first conversation.`;
       return await api(
         `You write funding proposals for d-lab NPC — a South African NPO that trains unemployed youth in AI-native digital skills, with a 92% completion rate and 85% employment within 3 months.
@@ -697,7 +696,14 @@ ${relNote}
 ${budgetInfo ? `\n${budgetInfo.block}` : ""}
 ${fs.mc ? `MULTI-COHORT: ${fs.mc.count} cohorts requested` : ""}
 
-Use EXACT programme costs and impact stats from the context. Do NOT mention directors by name — refer to "directors, programme management and ops team" or "the leadership team". If grant notes mention a programme type, use that type's budget. If uploaded docs contain RFP guidelines, address them directly.
+UPLOADED DOCUMENTS — if GRANT DOCUMENTS appear in the context below, they are the funder's RFP, application form, or guidelines. You MUST:
+- Structure your response to directly answer THEIR questions in THEIR order
+- Use THEIR terminology and framing (mirror their language)
+- Address every requirement they specify — don't skip sections they ask for
+- If they provide word limits, scoring criteria, or specific questions, treat those as the primary framework
+- d-lab's content fills THEIR structure, not the other way around
+
+Use EXACT programme costs and impact stats from the context. Do NOT mention directors by name — refer to "directors, programme management and ops team" or "the leadership team". If grant notes mention a programme type, use that type's budget.
 
 FORMAT: "COVER EMAIL" heading, then separator, then "PROPOSAL" heading.
 
@@ -753,7 +759,7 @@ Use d-lab's programme types as a starting framework, but MATCH THE ASK TO THE FU
         ? "\nIMPORTANT: A fit score analysis is included. Lean into the STRENGTHS it identifies, directly address GAPS or RISKS (turn weaknesses into narrative strengths), match emphasis to the highest-scored alignment areas."
         : "";
       const relNote = fs.returning
-        ? "RETURNING FUNDER — reference the existing relationship. This is a partner renewing, not a stranger."
+        ? `RETURNING FUNDER — this is a partner renewing, not a stranger. Reference the existing relationship with specifics:\n${fs.hook}\nFrame as continuity and deepening, not a new pitch.`
         : `NEW FUNDER — relationship is "${grant.rel || "Cold"}". Make it easy to say yes to a first conversation.`;
 
       // Build prior-sections summary for cross-section awareness — generous excerpts
@@ -827,7 +833,7 @@ FORMAT — MANDATORY: Present the budget as a clean MARKDOWN TABLE, then wrap it
 4. Close with 1-2 sentences on cost-effectiveness and what the investment buys
 
 ${budgetInfo ? `${budgetInfo.block}\nIMPORTANT: The budget above is the REAL, user-confirmed budget. Use these EXACT figures in the table. Do not hallucinate different amounts.\n` : ""}
-AMBITION: The budget should fill the funder's capacity, not sit timidly below it. If a corporate has R2M for CSI, propose R1.8M — not R500K. Match the ask to the funder's ambition.
+${structuredRes?.budgetRange ? `FUNDER BUDGET INTELLIGENCE (from research): ${structuredRes.budgetRange}\nSize the ask to match their capacity — don't propose R500K when they typically give R2M.\n` : ""}AMBITION: The budget should fill the funder's capacity, not sit timidly below it. If a corporate has R2M for CSI, propose R1.8M — not R500K. Match the ask to the funder's ambition.
 - Use d-lab's programme types as building blocks but design for what the FUNDER wants to achieve.
 - Go multi-cohort, add components, extend duration where the budget allows.
 
@@ -956,6 +962,8 @@ ${budgetInfo ? `\n${budgetInfo.block}` : ""}
 ${fs.mc ? `MULTI-COHORT: ${fs.mc.count} cohorts requested` : ""}
 ${customInstructions ? `\nUSER INSTRUCTIONS FOR THIS SECTION: ${customInstructions}` : ""}${fitScoreNote}
 
+UPLOADED DOCUMENTS — if GRANT DOCUMENTS appear in the context below, they are the funder's RFP, application form, or guidelines. Address THEIR specific questions, use THEIR terminology, follow THEIR requested structure. Their requirements are the primary framework — d-lab's content fills it.
+
 BANNED PHRASES — if ANY of these appear in your output, the section fails. Zero tolerance:
 - "Imagine a..." / "Imagine a young..." / "Picture a..." / "Picture this..." / "Consider a..." / "Think of a..." / "Meet [name]..." / "What if you could..." / "Close your eyes..."
 - "I hope this finds you well" / "I am writing to..." / "We are pleased to..."
@@ -1003,7 +1011,7 @@ Return your findings as a JSON object with these fields. Each field should be a 
 IMPORTANT: Return ONLY valid JSON. No markdown code fences, no text before or after the JSON object. Every field value must be a string (escape any quotes inside values).
 
 Use uploaded documents for additional context about the organisation. Reference specific programme types and costs from the org profile when discussing fit.${factGuard}`,
-        `Organisation context:\n${orgCtx}\n\nFunder: ${grant.funder}\nType: ${grant.type}\nGrant: ${grant.name}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD — will be set after proposal)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER — d-lab has an existing relationship)" : ""}\nFocus areas: ${(grant.focus || []).join(", ")}\nFunder angle: ${fs.lead}\nNotes: ${grant.notes || "None"}`,
+        `Organisation context:\n${orgCtx}\n\nFunder: ${grant.funder}\nType: ${grant.type}\nGrant: ${grant.name}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD — will be set after proposal)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER — d-lab has an existing relationship)" : ""}\nFocus areas: ${(grant.focus || []).join(", ")}${fs.noIntel ? "\n\nNO PRE-EXISTING FUNDER INTELLIGENCE — research from scratch. Build a complete picture." : `\n\n=== EXISTING FUNDER INTELLIGENCE (build on this, don't duplicate) ===\nLead angle: ${fs.lead}\nHook: ${fs.hook}\nRecommended sections: ${(fs.sections || []).join(", ")}\nLanguage register: ${fs.lang}${fs.returning ? "\nStatus: RETURNING FUNDER — look for what d-lab delivered with their previous funding, what outcomes were achieved, and what the continuity angle is." : ""}`}\n\n${grant.notes ? `TEAM INTEL (from grant notes — treat as high-priority context):\n${grant.notes}` : "Notes: None"}`,
         true, 3000
       );
     }
@@ -1056,6 +1064,13 @@ RISK FACTORS:
 - [risk 2]
 
 RECOMMENDATION: [1-2 sentences on whether to pursue and what to emphasise]
+
+DRAFTING DIRECTIVES (specific instructions for the proposal writer):
+- EMPHASISE: [what to highlight — e.g., "AI tools heavily — this funder has funded tech upskilling before"]
+- EMPHASISE: [second emphasis — e.g., "partner delivery model — addresses the small org size concern"]
+- AVOID: [what to downplay — e.g., "don't lead with scale numbers — this funder cares about depth not breadth"]
+- PROGRAMME FIT: [which Type 1-8 to propose and why — e.g., "Type 3 (R1.236M) matches their typical grant range of R1-2M"]
+- TONE: [register adjustment — e.g., "formal and evidence-heavy — this is a government funder" or "warm and entrepreneurial — this is a corporate CSI team"]
 
 SCORING GUIDE:
 - Funder focuses on youth/education/skills/digital = +15
