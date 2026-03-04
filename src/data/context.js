@@ -179,4 +179,11 @@ CORPORATE DELIVERY: CCBA Graduate Leadership Accelerator (R2.75M, 25 graduates, 
 AI TOOLKIT (in-house): LMS, Language Leveller, Assessornator, PoE Assessor, Cyborg Habits platform, and proprietary curriculum/coach tools.
 FUNDERS: Get It Done Foundation (R4.97M/yr), TK Foundation (R1M/yr), CCBA/Coca-Cola (R2.75M Graduate Programme + R651K Future Leaders), Inkcubeko, EOH, Telkom Foundation, Sage Foundation, SAP, C-Track.
 2026 BUDGET: R14.2M total (R9.3M grants + R2.5M earned + R4.95M in-kind). Reserves: R4.98M. Cash: R4.83M.
-ALUMNI: Siphumezo Adam (pilot→ABSA CIB→d-lab staff), Simanye Mdunyelwa (graduate→ECD Facilitator), Prieska Mofokeng (started own design business), 50+ alumni on microjobbing contracts.`;
+ALUMNI STORIES (use in proposals — each story ONCE):
+- Siphumezo Adam: Pilot 2022, KwaLanga → ABSA CIB intern → d-lab staff. Overcame imposter syndrome as a "university dropout from KwaLanga." Beneficiary becomes builder. Quote: "Empowerment is not a handover. It is a continuous negotiation between opportunity and support, courage and fear, readiness and reality."
+- Simanye Mdunyelwa: 2024 Inkcubeko → Technolab → ECD Facilitator. Multiplier effect — graduate now develops others. Quote: "d-lab not only teaches technical skills but also builds confidence, teamwork, and problem-solving abilities."
+- Prieska Mofokeng: 2025 Penreach → started own design business in rural Mpumalanga. Entrepreneurship beyond formal employment. Quote: "d-lab taught me how to think differently, how to solve problems, how to create with purpose."
+- Employer: Michelle Adler (forgood): "They consistently demonstrated professionalism beyond their years."
+- 50+ alumni on microjobbing contracts.
+KEY LESSONS: Programmes without stipends = higher churn (Penreach 2025). FET entrants have substantial work-readiness gaps. Employers now expect baseline coding + AI proficiency. Core problem: "the conversion gap between qualification and employability." Trajectory: "from pilot to proof" — system embedding, not expansion.
+TONE: Warm, human, compelling — not bureaucratic. Lead with human story and real impact. Show passion. Weave numbers into narrative. The story is the SYSTEM — 8 programme types, partner model, AI tools, diversified revenue, exceptional outcomes. Never lead with geographic expansion. Geography is where; the system is why.`;

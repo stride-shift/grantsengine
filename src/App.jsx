@@ -762,12 +762,35 @@ Use d-lab's programme types as a starting framework, but MATCH THE ASK TO THE FU
         ? `RETURNING FUNDER — this is a partner renewing, not a stranger. Reference the existing relationship with specifics:\n${fs.hook}\nFrame as continuity and deepening, not a new pitch.`
         : `NEW FUNDER — relationship is "${grant.rel || "Cold"}". Make it easy to say yes to a first conversation.`;
 
-      // Build prior-sections summary for cross-section awareness — generous excerpts
-      // so the AI knows which stories, stats, and openings were already used
+      // Build smart prior-sections summary — extract key metadata to prevent repetition
+      // instead of raw truncation which loses alumni/stats used mid-section
       const priorSummary = completedSections && Object.keys(completedSections).length > 0
-        ? Object.entries(completedSections).map(([name, sec]) =>
-            `[${name}]: ${(sec.text || "").slice(0, 800).replace(/\n/g, " ")}...`
-          ).join("\n")
+        ? Object.entries(completedSections).map(([name, sec]) => {
+            const text = sec.text || "";
+            const firstSentence = text.split(/(?<=[.!?])\s+/)[0] || "";
+            // Detect which alumni stories were used
+            const alumniUsed = [];
+            if (/siphu/i.test(text)) alumniUsed.push("Siphumezo");
+            if (/siman/i.test(text)) alumniUsed.push("Simanye");
+            if (/prieska/i.test(text)) alumniUsed.push("Prieska");
+            if (/sci.?bono.*graduate/i.test(text)) alumniUsed.push("Sci-Bono graduate");
+            if (/michelle.*adler|forgood/i.test(text)) alumniUsed.push("Michelle Adler/forgood");
+            // Detect key stats used
+            const statsUsed = [];
+            if (/92%/.test(text)) statsUsed.push("92% completion");
+            if (/85%/.test(text)) statsUsed.push("85% employment");
+            if (/29%/.test(text)) statsUsed.push("29% pre-grad");
+            if (/R180.?000/.test(text)) statsUsed.push("R180K unemployment cost");
+            // Detect opening device
+            let openingDevice = "direct statement";
+            if (/^["""']/.test(firstSentence)) openingDevice = "quote";
+            else if (/\d/.test(firstSentence.slice(0, 30))) openingDevice = "data/statistic";
+            else if (alumniUsed.length && text.indexOf(alumniUsed[0]) < 200) openingDevice = "alumni story";
+            const meta = [`Opens with: ${openingDevice}`];
+            if (alumniUsed.length) meta.push(`Alumni used: ${alumniUsed.join(", ")}`);
+            if (statsUsed.length) meta.push(`Stats used: ${statsUsed.join(", ")}`);
+            return `[${name}]: ${meta.join(" | ")}\nFirst line: "${firstSentence.slice(0, 150)}"`;
+          }).join("\n")
         : "";
 
       // Classify section for targeted strategic blocks
@@ -921,21 +944,130 @@ SUSTAINABILITY MODEL — d-lab's diversified engine:
 DON'T BE TIMID about Cyborg Habits for audiences beyond traditional unemployed youth — school learners, NEET youth, working adults upskilling, community organisations, teacher digital literacy. Match to the funder's mandate.`;
 
       } else {
-        // Default for compliance, regulatory, organisational, appendices, etc.
-        sectionGuide = `Open with a direct, factual statement relevant to this section's topic — NOT an "imagine" or scene-setting device.
+        // Targeted guidance for common section types that would otherwise get generic output
+        const isAppendices = sn.includes("appendix") || sn.includes("appendices");
+        const isBBBEE = sn.includes("b-bbee") || sn.includes("bbee") || sn.includes("transformation") || sn.includes("equity");
+        const isME = sn.includes("m&e") || sn.includes("monitoring") || sn.includes("evaluation") || sn.includes("framework");
+        const isRisk = sn.includes("risk");
+        const isSafeguarding = sn.includes("safeguard") || sn.includes("child");
+        const isOrgBackground = sn.includes("organisational") || sn.includes("organizational") || sn.includes("org capacity") || sn.includes("background");
+        const isRegulatory = sn.includes("regulatory") || sn.includes("nqf") || sn.includes("saqa") || sn.includes("accreditation") || sn.includes("quality assur");
+        const isTimeline = sn.includes("timeline") || sn.includes("implementation");
+        const isBrand = sn.includes("brand") || sn.includes("visibility");
+
+        if (isAppendices) {
+          sectionGuide = `APPENDICES — produce a structured list of supporting documents d-lab can provide:
+
+1. Section 18A Tax Exemption Certificate (PBO 930077003)
+2. NPO Registration Certificate (273-412 NPO)
+3. CIPC Registration (2017/382673/08)
+4. ICITP Accreditation Certificate (pivotal skills programme)
+5. Latest Audited Financial Statements (compiled by Orkin Brown and Associates, CA(SA))
+6. Board Resolution authorising this application
+7. Organisational Organogram
+8. B-BBEE Certificate / Sworn Affidavit
+9. Proof of Banking Details
+10. CVs of Key Personnel (Director, Head of Programmes, Programme Manager)
+11. Letters of Support from delivery partners (Inkcubeko, Penreach, Sci-Bono)
+12. Sample Portfolio of Evidence (student work)
+
+Format as a numbered list with brief descriptions. Add a closing note: "All documents available on request. Contact [Director, d-lab NPC] for additional supporting materials."
+Do NOT fabricate document contents — just list what's available.`;
+        } else if (isBBBEE) {
+          sectionGuide = `B-BBEE / TRANSFORMATION section — write with substance, not checkbox compliance:
+- d-lab is a Level 1 B-BBEE contributor (as an EME NPO with >75% black beneficiaries)
+- 100% of programme beneficiaries are black South African youth
+- Programme directly addresses skills development (SDA element) and socio-economic development (SED element)
+- Corporate funders can claim FULL B-BBEE points for their investment in d-lab
+- Quantify the B-BBEE value: "For every R1M invested, [funder] receives [X] B-BBEE points across skills development and SED"
+- Emphasise the double return: social impact AND regulatory compliance value
+- Reference ICITP accreditation (NQF-aligned) and SETA alignment where relevant
+Write 2-3 paragraphs that make B-BBEE value tangible, not bureaucratic.`;
+        } else if (isME) {
+          sectionGuide = `M&E FRAMEWORK — describe d-lab's actual measurement system:
+- LMS tracks all student data: attendance, assignment completion, assessment scores, portfolio progress
+- 6-phase milestone tracking: each phase has specific assessment gates
+- Key metrics: completion rate (92%), employment rate at 3/6/12 months (85% at 3mo), pre-graduation placement (29%)
+- Quarterly OKR reporting to board
+- Beneficiary tracking: post-graduation employment tracking at 3, 6, and 12 months
+- Partner delivery quality: standardised coaching rubrics, monthly partner reviews
+- AI-powered assessment (Assessornator) ensures consistent marking standards across sites
+- Portfolio of Evidence (PoE) system provides auditable proof of competence
+- Data-informed iteration: programme design updated quarterly based on cohort outcomes
+Write 2-3 substantive paragraphs. Make it clear this is a data-driven organisation, not one that measures attendance and calls it M&E.`;
+        } else if (isRisk) {
+          sectionGuide = `RISK MANAGEMENT — d-lab's actual risk framework:
+- Financial: diversified revenue (grants + corporate + earned + in-kind), R4.98M reserves, two-director sign-off above R5K
+- Delivery: partner model means site-specific risks don't cascade. If one partner site has issues, others continue independently
+- Student attrition: stipend programmes achieve 92% completion. Programmes without stipends carry higher churn risk (lesson from Penreach 2025)
+- Quality: ICITP accreditation, standardised assessment via Assessornator, coaching rubrics
+- Safeguarding: child safeguarding policy for FET programme (minors), POPIA compliance for all data
+- Technology: in-house AI tools mean zero vendor dependency for core delivery. No licensing risk.
+- Scale: partner model allows geographic expansion without proportional cost increase
+Write 2-3 paragraphs that show genuine risk awareness, not generic risk matrices.`;
+        } else if (isSafeguarding) {
+          sectionGuide = `SAFEGUARDING — d-lab has a formal Child Safeguarding Policy (required for FET programme with minors):
+- All staff undergo vetting and background checks
+- Clear reporting protocols for safeguarding concerns
+- POPIA-compliant data handling for all beneficiary information
+- FET programme (Type 4) works with Grade 10-12 learners through partnership with Gauteng Department of Education
+- Adult programmes (18+) operate under standard duty-of-care principles
+- Digital safeguarding: AI tools are monitored, learner data stays on d-lab's own LMS, no third-party data sharing
+Write 1-2 focused paragraphs. Be factual and specific.`;
+        } else if (isOrgBackground) {
+          sectionGuide = `ORGANISATIONAL BACKGROUND — tell d-lab's growth story:
+- Founded 2017, programme launched 2022 with 12-student pilot in Johannesburg
+- Trajectory: pilot (2022) → proof of concept (2023, 3 cohorts) → system (2024-25, 4 provinces, 60+ learners, corporate clients)
+- Board of 3 directors: Education/Marketing, Governance/Finance, Fundraising/Sustainability
+- Team: Head of Programmes, Programme Manager, Cohort Coordinator, AI/LMS support
+- Governance: weekly risk monitoring, quarterly OKRs, two-director financial authority above R5K
+- Sister entity: The Field Institute (corporate delivery vehicle for CCBA, EOH, BAT)
+- Accreditation: ICITP (SAQA registered), ICDL, Portfolios of Evidence
+- Financial stewardship: approved budget R11.08M vs actual R8.23M (2025) — deliberate underspend shows discipline
+Write 2-3 paragraphs that convey competence and growth trajectory.`;
+        } else if (isRegulatory) {
+          sectionGuide = `REGULATORY ALIGNMENT — d-lab's compliance credentials:
+- ICITP-accredited pivotal skills programme (SAQA registered)
+- NQF-aligned curriculum: Portfolios of Evidence + ICDL certification
+- SETA alignment: programme content maps to MICT SETA requirements
+- NPO 273-412 NPO | CIPC 2017/382673/08 | PBO 930077003 | Section 18A tax-exempt
+- Quality assurance: Assessornator AI provides standardised assessment across all delivery sites
+- B-BBEE: Level 1 contributor, 100% black beneficiaries, skills development + SED elements
+Write 2-3 paragraphs with specific reference numbers and compliance details. Funders who ask for this section want proof, not promises.`;
+        } else if (isTimeline) {
+          sectionGuide = `IMPLEMENTATION TIMELINE — use d-lab's actual delivery phases:
+- Month 1-2: Partner site setup, student recruitment and selection, facilitator training
+- Month 3: Induction phase (2 weeks), digital onboarding, baseline assessments
+- Month 4: Launch phase — foundational skills, first Design Thinking challenge
+- Month 5-6: Orbit phase — core skill deepening, industry exposure, second DT challenge
+- Month 7-8: Landing phase — advanced application, portfolio building, employer readiness
+- Month 9-11: Internship placement — workplace mentoring, real work experience
+- Month 12: Certification, graduation, employment placement support
+Present as a clear timeline or table. Include key milestones and decision points.`;
+        } else if (isBrand) {
+          sectionGuide = `BRAND ALIGNMENT & VISIBILITY — what the funder gets:
+- Logo placement on all cohort materials, certificates, and digital platforms
+- Acknowledgement in quarterly impact reports and annual review
+- Social media recognition across d-lab channels (LinkedIn, Instagram, website)
+- Invitation to cohort showcase events and graduation ceremonies
+- Option for branded cohort naming (e.g., "[Funder] Future Leaders Cohort")
+- Student project alignment: Design Thinking challenges can be themed around funder's industry or social goals
+- Employee volunteering: funder staff as guest speakers, mentors, or industry exposure hosts
+Write 1-2 paragraphs focused on GENUINE partnership value, not just logo placement.`;
+        } else {
+          sectionGuide = `Open with a direct, factual statement relevant to this section's topic — NOT an "imagine" or scene-setting device.
 Write 2-4 rich paragraphs. Do NOT produce bullet-only content — weave data into narrative.
-Be specific about d-lab's actual capabilities. Even compliance sections should read with clarity and warmth.
-Include specific d-lab details where relevant: the AI tools (Language Leveller, Assessornator, LMS, Cyborg Habits), the coaching model, partner delivery structure, accreditation pathway (ICITP, ICDL).
-If this is a regulatory/compliance section (SETA, B-BBEE, M&E, NQF), write with EQUAL depth but still with the human voice.`;
+Be specific about d-lab's actual capabilities. Include specific details where relevant: the AI tools (Language Leveller, Assessornator, LMS, Cyborg Habits), the coaching model, partner delivery structure, accreditation pathway (ICITP, ICDL).`;
+        }
       }
 
       // Token budget per section type — generous to avoid truncated output
       const tokenBudget = isCover ? 1200
         : isExecSummary ? 1800
         : isBudget ? 2500
-        : isProgramme ? 2000
-        : isImpact ? 1800
-        : isScale || isChallenge ? 1800
+        : isProgramme ? 2800
+        : isImpact ? 2000
+        : isScale || isChallenge ? 2000
         : 1500;
 
       return await api(

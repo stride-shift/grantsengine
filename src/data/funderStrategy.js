@@ -80,22 +80,26 @@ export const selectOptimalBudget = g => {
   else if (t.includes("tech")) preferred = [1, 5, 7];
   else preferred = [1, 3, 5, 7, 4, 2]; // Foundation + default
 
-  let best = null;
-  let bestStudents = 0;
-
+  // Prefer the FIRST viable option in the preferred list (strategic fit first)
+  // Only fall through to next type if the preferred one doesn't fit the budget at all
   for (const num of preferred) {
     const pt = PTYPES[num];
     if (!pt || !pt.cost) continue; // skip Type 6 (no fixed cost)
     const maxCohorts = Math.floor(budget / pt.cost);
-    if (maxCohorts < 1) continue;
-    const students = (pt.students || 0) * maxCohorts;
-    if (students > bestStudents) {
-      bestStudents = students;
-      best = { typeNum: num, cohorts: maxCohorts };
+    if (maxCohorts >= 1) {
+      // Use as many cohorts as the budget supports for this strategically-preferred type
+      return { typeNum: num, cohorts: maxCohorts };
     }
   }
 
-  return best || { typeNum: 1, cohorts: 1 };
+  // If no preferred type fits, find whatever does
+  for (let num = 7; num >= 1; num--) {
+    const pt = PTYPES[num];
+    if (!pt || !pt.cost) continue;
+    if (budget >= pt.cost) return { typeNum: num, cohorts: Math.floor(budget / pt.cost) };
+  }
+
+  return { typeNum: 1, cohorts: 1 };
 };
 
 export const funderStrategy = g => {
