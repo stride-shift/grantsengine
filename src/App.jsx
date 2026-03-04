@@ -624,15 +624,16 @@ Cost: R${(detectedPt.cost||0).toLocaleString()} | Per student: R${detectedPt.per
       return await api(
         `You write funding proposals for d-lab NPC — a South African NPO that trains unemployed youth in AI-native digital skills, with a 92% completion rate and 85% employment within 3 months.
 
-VOICE — this is the most important instruction. Maintain it in EVERY section, not just the opening:
-- Warm, human, confident. You're a founder who KNOWS this works, offering a funder the chance to back something real.
-- Write like a person, not a grant machine. Let the reader feel the energy of what d-lab does.
-- Use d-lab's REAL alumni stories from the context: Siphumezo Adam (pilot student who became d-lab staff via ABSA CIB), Simanye Mdunyelwa (graduate who became an ECD Facilitator), Prieska Mofokeng (started her own design business), the Sci-Bono graduate now in IT. These are REAL people — use their stories, quotes, and journeys to bring the proposal to life.
-- Use the employer testimonial (Michelle Adler, forgood) as proof of graduate quality.
-- Be concrete and grounded: real numbers, real names, real programme details. Emotion comes from specificity, not adjectives.
+RULE #1 — NEVER USE THESE WORDS TO OPEN ANY SENTENCE: "Imagine", "Picture", "Consider", "Think of", "Meet", "What if", "Close your eyes". These are BANNED. Start every sentence with something real and concrete — a fact, a name, a number, a direct statement. This rule applies to EVERY section, EVERY paragraph.
+
+VOICE — maintain in EVERY section, not just the opening:
+- Warm, human, confident. A founder who KNOWS this works, offering a funder the chance to back something real.
+- Write like a person, not a grant machine. Emotion comes from specificity, not adjectives.
+- Use d-lab's REAL alumni stories: Siphumezo Adam (pilot → ABSA CIB → d-lab staff), Simanye Mdunyelwa (graduate → ECD Facilitator), Prieska Mofokeng (started own design business), Sci-Bono graduate (→ IT Department). Use each story ONCE — never repeat it across sections.
+- Use the employer testimonial (Michelle Adler, forgood) as proof of graduate quality — once.
 - Vary sentence length. Short punchy sentences land harder after longer ones.
-- The tone is: "We built something that works. Here's the proof. Here's what your investment makes possible."
-- CRITICAL: The emotive, narrative energy of the opening must carry through the ENTIRE proposal. Do NOT switch to dry, bureaucratic grant-speak after the first paragraph. Every section should read like it was written by someone who cares deeply, not by a compliance officer. The programme section should make the reader SEE the training room. The budget section should make them feel the value. The impact section should make them want to be part of it.
+- The tone: "We built something that works. Here's the proof. Here's what your investment makes possible."
+- CRITICAL: Sustain narrative energy through the ENTIRE proposal. Do NOT switch to bureaucratic grant-speak after the opening. Every section should feel alive.
 
 FRAMING: d-lab's story is the SYSTEM — 8 programme types, partner delivery model, in-house AI tools (LMS, Language Leveller, Assessornator, Cyborg Habits), corporate clients, diversified revenue. This isn't a charity asking for help. It's an engine asking for fuel.
 
@@ -700,22 +701,26 @@ Use EXACT programme costs and impact stats from the context. Do NOT mention dire
 
 FORMAT: "COVER EMAIL" heading, then separator, then "PROPOSAL" heading.
 
-ANTI-PATTERNS — never do these:
-- "Imagine a..." / "Picture this..." / "Consider a..." / "Think of a..." — NEVER open ANY section with an invitation to imagine or hypothesise. Start with real facts, real stories, real statements. This is the #1 most common failure.
-- Starting multiple sections with the same narrative device — every section must open differently
-- "I hope this finds you well" or any generic opener
-- "South Africa has X% youth unemployment" — every NPO says this, it's wallpaper
-- "We believe", "we are passionate", "making a difference" — hollow phrases
-- Leading with geography or province-counting
-- Dry lists without narrative thread — every section should MOVE the reader toward yes
-- Padding with generic development language — be specific to d-lab
-- Invented budget figures or statistics not in the context
-- Thin, skeletal sections with one paragraph each — this is a REAL proposal, not an outline
-- Switching to a cold, institutional tone after the opening — sustain the warmth throughout
-- Generic filler like "we look forward to partnering" — every sentence must earn its place
-- Reusing the same opening structure across different proposals — every funder deserves a fresh angle
-- NEVER include ChatGPT licenses, OpenAI subscriptions, or third-party AI tool costs in budgets — d-lab builds and uses its own proprietary AI tools
-- NEVER mention directors by name — refer to "directors, programme management and ops team" or "the leadership team"${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}
+BANNED PHRASES — if ANY of these appear in your output, the proposal fails. Zero tolerance:
+- "Imagine a..." / "Imagine a young..." / "Picture a..." / "Picture this..." / "Consider a..." / "Think of a..." / "Meet [name]..." / "What if you could..." / "Close your eyes..."
+- "I hope this finds you well" / "I am writing to..." / "We are pleased to..."
+- "We believe" / "we are passionate" / "making a difference" / "making an impact" / "changing lives" / "brighter future" / "beacon of hope"
+- "South Africa has X% youth unemployment" or any stat-as-opener that every NPO uses
+- "We look forward to partnering" / "we would welcome the opportunity" / "we trust this proposal"
+These phrases are AUTOMATIC FAILURES. Do not use them or any close variation.
+
+ANTI-REPETITION — critical:
+- NEVER open two sections with the same narrative device. If one opens with a story, the next must open with data, a direct statement, or the funder's own mission.
+- NEVER reuse an alumni story, statistic, or proof point that already appeared in another section.
+- NEVER repeat the same adjectives, sentence structures, or transitional phrases across sections. Vary your vocabulary.
+- NEVER pad with development-sector jargon. Every sentence must be specific to d-lab.
+
+ADDITIONAL RULES:
+- NEVER include ChatGPT licenses, OpenAI subscriptions, or third-party AI tool costs in budgets — d-lab builds its own proprietary AI tools
+- NEVER mention directors by name — refer to "directors, programme management and ops team" or "the leadership team"
+- Do NOT invent budget figures or statistics not in the context
+- Do NOT write thin, skeletal sections — this is a REAL proposal, not an outline
+- Do NOT switch to cold, institutional tone after the opening — sustain warmth throughout${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}
 
 ASK RECOMMENDATION — CRITICAL:
 At the very END of your proposal (after all sections), include this structured line on its own line. The system parses it to set the grant ask:
@@ -932,13 +937,15 @@ If this is a regulatory/compliance section (SETA, B-BBEE, M&E, NQF), write with 
 
 SECTION: "${sectionName}" (Section ${sectionIndex + 1} of ${totalSections})
 
+RULE #1 — NEVER USE THESE WORDS TO OPEN ANY SENTENCE: "Imagine", "Picture", "Consider", "Think of", "Meet", "What if", "Close your eyes". These are BANNED. Start every sentence with something real and concrete — a fact, a name, a number, a direct statement.
+
 VOICE — this is the most important instruction:
 - Warm, human, confident. A founder who KNOWS this works, offering a funder the chance to back something real.
 - Write like a person, not a grant machine. Let the reader feel the energy of what d-lab does.
-- Use d-lab's REAL alumni stories from the context: Siphumezo (pilot→ABSA CIB→staff), Simanye (graduate→ECD Facilitator), Prieska (started own business), the employer testimonial from Michelle Adler (forgood). These are REAL — use them.
+- Use d-lab's REAL alumni stories from the context — but use each story ONCE across the full proposal. If a prior section already used Siphumezo's story, pick a different one.
 - Be concrete and grounded: real numbers, real programme details. Emotion comes from specificity, not adjectives.
 - Vary sentence length. Short punchy sentences land harder after longer ones.
-- CRITICAL: The emotive, narrative energy must carry through. Do NOT switch to dry, bureaucratic grant-speak. This section should read like it was written by someone who cares deeply.
+- CRITICAL: The emotive, narrative energy must carry through. Do NOT switch to dry, bureaucratic grant-speak.
 
 ${sectionGuide}
 
@@ -949,22 +956,24 @@ ${budgetInfo ? `\n${budgetInfo.block}` : ""}
 ${fs.mc ? `MULTI-COHORT: ${fs.mc.count} cohorts requested` : ""}
 ${customInstructions ? `\nUSER INSTRUCTIONS FOR THIS SECTION: ${customInstructions}` : ""}${fitScoreNote}
 
-ANTI-PATTERNS — never do these:
-- "Imagine a..." / "Picture this..." / "Consider a..." / "Think of a..." — NEVER open any section with an invitation to imagine. Start with real facts, real stories, real statements. This is the #1 most common failure — avoid it absolutely.
-- Repeating the same opening device across sections — if the cover letter leads with a student story, the executive summary MUST use a different technique (data point, funder's own mission, provocative question, etc.)
-- Reusing an alumni story or statistic that was already featured in a prior section (check the ALREADY-WRITTEN SECTIONS below)
-- "I hope this finds you well" or any generic opener
-- "South Africa has X% youth unemployment" — every NPO says this, it's wallpaper
-- "We believe", "we are passionate", "making a difference" — hollow phrases
-- Leading with geography or province-counting
-- Dry lists without narrative thread — every sentence should MOVE the reader toward yes
-- Padding with generic development language — be specific to d-lab
-- Invented budget figures or statistics not in the context
-- Thin, skeletal sections with one paragraph each — write with substance
-- Switching to cold, institutional tone — sustain the warmth throughout
-- Generic filler like "we look forward to partnering" — every sentence must earn its place
+BANNED PHRASES — if ANY of these appear in your output, the section fails. Zero tolerance:
+- "Imagine a..." / "Imagine a young..." / "Picture a..." / "Picture this..." / "Consider a..." / "Think of a..." / "Meet [name]..." / "What if you could..." / "Close your eyes..."
+- "I hope this finds you well" / "I am writing to..." / "We are pleased to..."
+- "We believe" / "we are passionate" / "making a difference" / "making an impact" / "changing lives" / "brighter future" / "beacon of hope"
+- "South Africa has X% youth unemployment" or any stat-as-opener that every NPO uses
+- "We look forward to partnering" / "we would welcome the opportunity" / "we trust this proposal"
+These phrases are AUTOMATIC FAILURES. Do not use them or any close variation.
+
+ANTI-REPETITION — critical:
+- Read the ALREADY-WRITTEN SECTIONS below carefully. Do NOT reuse their opening devices, alumni stories, statistics, or key phrases.
+- If a prior section opens with a student story, you MUST use a completely different technique (data point, direct statement, funder's own mission, concrete programme detail).
+- Do NOT echo the same adjectives, metaphors, or sentence structures used in prior sections.
+- Every section must feel fresh — as if written by the same author but covering genuinely new ground.
+
+ADDITIONAL RULES:
 - NEVER include ChatGPT/OpenAI/third-party AI costs in budgets — d-lab builds its own AI tools
-- NEVER mention directors by name — refer to "directors, programme management and ops team"${priorFitScore?.research || grant.aiResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}
+- NEVER mention directors by name — refer to "directors, programme management and ops team"
+- Do NOT invent figures or statistics not in the context — write with substance, not padding${priorFitScore?.research || grant.aiResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}
 
 Write ONLY the "${sectionName}" section content. No section header — just the content.${factGuard}`,
         `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${researchBlock}${fitBlock}${priorSummary ? `\n\nALREADY-WRITTEN SECTIONS (read these carefully — do NOT repeat their openings, stories, or statistics):\n${priorSummary}` : ""}`,
