@@ -156,6 +156,21 @@ export const getAdminActivity = async (memberId = null, limit = 100) => {
   return res.json();
 };
 
+export const forgotPassword = async (slug, memberId, adminKey, newPassword) => {
+  const res = await fetch(`/api/org/${slug}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ memberId, adminKey, newPassword }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Password reset failed');
+  }
+  const data = await res.json();
+  setAuth(data.token, slug, data.member);
+  return data;
+};
+
 export const adminResetPassword = async (memberId, password) => {
   const res = await f('/auth/admin-reset-password', {
     method: 'POST', body: JSON.stringify({ memberId, password }),

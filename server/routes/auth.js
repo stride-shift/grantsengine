@@ -203,5 +203,49 @@ router.post('/org/:slug/auth/admin-reset-password', resolveOrg, requireAuth, w(a
   res.json({ ok: true });
 }));
 
+// ── Forgot password (self-service via admin key) ──
+router.post('/org/:slug/auth/forgot-password', w(async (req, res) => {
+  const { slug } = req.params;
+  const { memberId, adminKey, newPassword } = req.body;
+
+  if (!memberId || !adminKey || !newPassword) {
+    return res.status(400).json({ error: 'Member ID, admin key, and new password are required' });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  // Validate admin key from environment
+  const validKey = process.env.SUPER_ADMIN_KEY;
+  if (!validKey || adminKey !== validKey) {
+    return res.status(403).json({ error: 'Invalid recovery key' });
+  }
+
+  const org = await getOrgBySlug(slug);
+  if (!org) return res.status(404).json({ error: 'Organisation not found' });
+
+  const member = await getMemberWithAuth(org.id, memberId);
+  if (!member) return res.status(404).json({ error: 'Team member not found' });
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await setMemberPassword(memberId, hash);
+
+  // Auto-login after reset
+  const session = await createMemberSession(org.id, member.id);
+
+  await logActivity(org.id, 'password_reset', {
+    memberId: member.id,
+    sessionToken: session.token,
+    meta: { member_name: member.name, method: 'admin_key' },
+  });
+
+  res.json({
+    token: session.token,
+    expires: session.expires,
+    org: { id: org.id, slug: org.slug, name: org.name },
+    member: { id: member.id, name: member.name, role: member.role, initials: member.initials },
+  });
+}));
+
 export { hashPw };
 export default router;
