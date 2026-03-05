@@ -25,6 +25,43 @@ export const parseStructuredResearch = (raw) => {
   return null;
 };
 
+// ── Post-processing filter for banned phrases that the AI ignores ──
+// Gemini sometimes uses these despite explicit bans. This catches them after generation.
+const BANNED_OPENERS = [
+  /^Imagine\b/im, /^Picture\b/im, /^Consider\b/im, /^Think of\b/im,
+  /^Meet\b/im, /^What if\b/im, /^Close your eyes\b/im,
+];
+const BANNED_PHRASES = [
+  /\bwe believe\b/gi, /\bwe are passionate\b/gi, /\bmaking a difference\b/gi,
+  /\bmaking an impact\b/gi, /\bchanging lives\b/gi, /\bbrighter future\b/gi,
+  /\bbeacon of hope\b/gi, /\bwe look forward to partnering\b/gi,
+  /\bwe would welcome the opportunity\b/gi, /\bwe trust this proposal\b/gi,
+  /\bI hope this finds you well\b/gi, /\bI am writing to\b/gi,
+  /\bwe are pleased to\b/gi, /\bcatalytic intervention\b/gi,
+  /\bthat spark\b/gi, /\btransformative journey\b/gi,
+  /\bholistic approach\b/gi, /\bgame.?changer\b/gi,
+  /\bthis isn't just [a-z]+; it's\b/gi, /\bnot just [a-z]+ — it's\b/gi,
+];
+
+export const cleanProposalText = (text) => {
+  if (!text || typeof text !== "string") return text;
+  let cleaned = text;
+  // Fix banned sentence openers — replace with the rest of the sentence
+  for (const re of BANNED_OPENERS) {
+    cleaned = cleaned.replace(re, match => {
+      // Just remove the banned word, let the sentence start with what follows
+      return "";
+    });
+  }
+  // Remove banned phrases inline
+  for (const re of BANNED_PHRASES) {
+    cleaned = cleaned.replace(re, "");
+  }
+  // Clean up artifacts: double spaces, empty sentence starts, leading punctuation
+  cleaned = cleaned.replace(/\n\s*[,;]\s/g, "\n").replace(/  +/g, " ").replace(/\n +/g, "\n");
+  return cleaned;
+};
+
 export const fmt = n => n ? `R${(n / 1e6).toFixed(1)}M` : "—";
 export const fmtK = n => n ? (n >= 1e6 ? `R${(n / 1e6).toFixed(1)}M` : `R${(n / 1e3).toFixed(0)}K`) : "—";
 export const dL = d => d ? Math.ceil((new Date(d) - new Date()) / 864e5) : null;
