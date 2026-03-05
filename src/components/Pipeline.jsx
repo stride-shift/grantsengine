@@ -643,15 +643,27 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
               <button key={k} onClick={() => setPView(k)} style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: pView === k ? C.primary : C.white, color: pView === k ? "#fff" : C.t3, border: "none", cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>{l}</button>
             ))}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 2, border: `1px solid ${C.purple}30`, borderRadius: 8, overflow: "hidden" }}>
-            {[{ id: "both", l: "Both" }, { id: "sa", l: "\uD83C\uDDFF\uD83C\uDDE6" }, { id: "global", l: "\uD83C\uDF0D" }].map(o => (
-              <button key={o.id} onClick={() => setScoutMarket(o.id)} style={{
-                padding: "5px 8px", fontSize: 11, fontWeight: 600, fontFamily: FONT, border: "none", cursor: "pointer",
-                background: scoutMarket === o.id ? C.purpleSoft : "transparent",
-                color: scoutMarket === o.id ? C.purple : C.t4, transition: "all 0.15s",
-              }}>{o.l}</button>
-            ))}
-            <Btn onClick={aiScout} disabled={scouting} v="ghost" style={{ fontSize: 12, padding: "6px 10px", color: C.purple, border: "none", borderLeft: `1px solid ${C.purple}20`, borderRadius: 0 }}>{scouting ? "..." : "\u2609 Scout"}</Btn>
+          <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", border: `1px solid ${C.purple}30`, borderRadius: "8px 0 0 8px", overflow: "hidden" }}>
+              {[{ id: "both", l: "All" }, { id: "sa", l: "\uD83C\uDDFF\uD83C\uDDE6" }, { id: "global", l: "\uD83C\uDF0D" }].map(o => (
+                <button key={o.id} onClick={() => setScoutMarket(o.id)} style={{
+                  padding: "5px 8px", fontSize: 11, fontWeight: 600, fontFamily: FONT, border: "none", cursor: "pointer",
+                  background: scoutMarket === o.id ? C.purpleSoft : "transparent",
+                  color: scoutMarket === o.id ? C.purple : C.t4, transition: "all 0.15s",
+                }}>{o.l}</button>
+              ))}
+            </div>
+            <button onClick={aiScout} disabled={scouting} style={{
+              padding: "6px 16px", fontSize: 13, fontWeight: 700, fontFamily: FONT,
+              background: scouting ? C.purpleSoft : `linear-gradient(135deg, ${C.purple}, #7C3AED)`,
+              color: scouting ? C.purple : "#fff",
+              border: "none", borderRadius: "0 8px 8px 0", cursor: scouting ? "wait" : "pointer",
+              transition: "all 0.2s", letterSpacing: 0.3,
+              boxShadow: scouting ? "none" : `0 2px 8px ${C.purple}40`,
+            }}
+              onMouseEnter={e => { if (!scouting) e.currentTarget.style.boxShadow = `0 4px 14px ${C.purple}50`; }}
+              onMouseLeave={e => { if (!scouting) e.currentTarget.style.boxShadow = `0 2px 8px ${C.purple}40`; }}
+            >{scouting ? "Scouting..." : "\u2609 Scout"}</button>
           </div>
           {onRunAI && <Btn onClick={() => setShowUrlTool(!showUrlTool)} v="ghost" style={{ fontSize: 12, padding: "6px 14px", color: C.blue, borderColor: C.blue + "40" }}>{"\uD83D\uDD17"} URL</Btn>}
           {onRunAI && (
