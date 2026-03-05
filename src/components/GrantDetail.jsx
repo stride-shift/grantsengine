@@ -489,7 +489,16 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                     </div>
                   )}
                   {hasFunderBudget && g.funderBudget !== g.ask && (
-                    <span style={{ fontSize: 10, color: C.t4 }}>Funder budget: R{g.funderBudget.toLocaleString()}</span>
+                    <span style={{ fontSize: 10, color: g.ask < g.funderBudget ? C.amber : C.t4 }}>
+                      Funder budget: R{g.funderBudget.toLocaleString()}
+                      {g.ask < g.funderBudget && (
+                        <button onClick={() => { up("ask", g.funderBudget); up("askSource", "user-override"); }}
+                          title="Set ask to match funder budget"
+                          style={{ fontSize: 9, fontWeight: 700, color: C.primary, background: C.primary + "12", border: `1px solid ${C.primary}30`, borderRadius: 4, padding: "1px 6px", cursor: "pointer", fontFamily: FONT, marginLeft: 6 }}>
+                          Match ↑
+                        </button>
+                      )}
+                    </span>
                   )}
                   <button onClick={() => { setAskInput(String(g.ask)); setEditingAsk(true); }}
                     title="Edit ask amount"
@@ -505,6 +514,12 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                   <div style={{ fontSize: 11, color: C.t3, marginTop: 4 }}>Funder offers ~R{g.funderBudget.toLocaleString()}</div>
                 )}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                  {hasFunderBudget && (
+                    <button onClick={() => { up("ask", g.funderBudget); up("askSource", "user-override"); }}
+                      style={{ fontSize: 10, fontWeight: 700, color: C.white, background: C.primary, border: "none", borderRadius: 5, padding: "3px 10px", cursor: "pointer", fontFamily: FONT }}>
+                      Use funder budget (R{g.funderBudget.toLocaleString()})
+                    </button>
+                  )}
                   <button onClick={() => { setAskInput(""); setEditingAsk(true); }}
                     style={{ fontSize: 10, fontWeight: 600, color: C.t3, background: "none", border: `1px solid ${C.line}`, borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontFamily: FONT }}>
                     Set manually
