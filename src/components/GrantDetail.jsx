@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmtK, dL, td, effectiveAsk, grantReadiness, isAIError, parseStructuredResearch } from "../utils";
+import { fmtK, dL, td, effectiveAsk, grantReadiness, isAIError, parseStructuredResearch, cleanProposalText } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, AICard, stripMd, timeAgo } from "./index";
 import UploadZone from "./UploadZone";
 import { getUploads } from "../api";
@@ -153,7 +153,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         }
         setBusy(p => ({ ...p, draft: true }));
         try {
-          const r = await onRunAI("draft", g);
+          const raw = await onRunAI("draft", g);
+          const r = isAIError(raw) ? raw : cleanProposalText(raw);
           setAi(p => ({ ...p, draft: r }));
           if (!isAIError(r)) onUpdate(g.id, { aiDraft: r, aiDraftAt: new Date().toISOString() });
         } catch (e) { setAi(p => ({ ...p, draft: `Error: ${e.message}` })); }

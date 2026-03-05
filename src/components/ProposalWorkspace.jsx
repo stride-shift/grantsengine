@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
 import { Btn, CopyBtn, DownloadBtn } from "./index";
-import { assembleText, effectiveAsk, isAIError } from "../utils";
+import { assembleText, effectiveAsk, isAIError, cleanProposalText } from "../utils";
 import { funderStrategy, detectType, PTYPES } from "../data/funderStrategy";
 import SectionCard from "./SectionCard";
 import { analyzeEditInBackground } from "../editLearner";
@@ -76,6 +76,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
       }, null);
 
       if (!isAIError(result)) {
+        const cleaned = cleanProposalText(result);
         // Save previous version to history
         const prev = sections[sectionName] || {};
         const newHistory = [...(prev.history || [])];
@@ -87,7 +88,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
         const newSections = {
           ...sections,
           [sectionName]: {
-            text: result,
+            text: cleaned,
             generatedAt: new Date().toISOString(),
             editedAt: null,
             isManualEdit: false,
@@ -155,6 +156,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
         }, null);
 
         if (!isAIError(result)) {
+          const cleaned = cleanProposalText(result);
           // Save previous version to history
           const prev = currentSections[sectionName] || {};
           const newHistory = [...(prev.history || [])];
@@ -166,7 +168,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
           currentSections = {
             ...currentSections,
             [sectionName]: {
-              text: result,
+              text: cleaned,
               generatedAt: new Date().toISOString(),
               editedAt: null,
               isManualEdit: false,

@@ -708,25 +708,32 @@ Use EXACT programme costs and impact stats from the context. Do NOT mention dire
 FORMAT: "COVER EMAIL" heading, then separator, then "PROPOSAL" heading.
 
 BANNED PHRASES — if ANY of these appear in your output, the proposal fails. Zero tolerance:
-- "Imagine a..." / "Imagine a young..." / "Picture a..." / "Picture this..." / "Consider a..." / "Think of a..." / "Meet [name]..." / "What if you could..." / "Close your eyes..."
+- "Imagine a..." / "Picture a..." / "Consider a..." / "Think of a..." / "Meet [name]..." / "What if you could..." / "Close your eyes..."
 - "I hope this finds you well" / "I am writing to..." / "We are pleased to..."
 - "We believe" / "we are passionate" / "making a difference" / "making an impact" / "changing lives" / "brighter future" / "beacon of hope"
+- "catalytic intervention" / "that spark" / "transformative journey" / "holistic approach" / "game-changer" / "game changer"
+- "this isn't just X; it's Y" / "not just X — it's Y" (the fake-profound reframe structure)
 - "South Africa has X% youth unemployment" or any stat-as-opener that every NPO uses
 - "We look forward to partnering" / "we would welcome the opportunity" / "we trust this proposal"
-These phrases are AUTOMATIC FAILURES. Do not use them or any close variation.
+- "empowering" as a verb / "stakeholders" / "leverage" (as a verb) / "synergy" / "paradigm shift"
+These phrases are AUTOMATIC FAILURES. Do not use them or any close variation. Use PLAIN, SPECIFIC language instead.
 
 ANTI-REPETITION — critical:
 - NEVER open two sections with the same narrative device. If one opens with a story, the next must open with data, a direct statement, or the funder's own mission.
 - NEVER reuse an alumni story, statistic, or proof point that already appeared in another section.
-- NEVER repeat the same adjectives, sentence structures, or transitional phrases across sections. Vary your vocabulary.
+- NEVER repeat the same adjectives, sentence structures, or transitional phrases across sections.
 - NEVER pad with development-sector jargon. Every sentence must be specific to d-lab.
+- NEVER name staff in the narrative. Do NOT write "Imagine Ayanda welcoming..." or name any team member.
 
 ADDITIONAL RULES:
-- NEVER include ChatGPT licenses, OpenAI subscriptions, or third-party AI tool costs in budgets — d-lab builds its own proprietary AI tools
-- NEVER mention directors by name — refer to "directors, programme management and ops team" or "the leadership team"
+- NEVER include ChatGPT licenses, OpenAI subscriptions, or third-party AI tool costs in budgets — d-lab builds its own proprietary AI tools. The budget line is "AI platform & tools (proprietary)" not "Software licences (ChatGPT, Canva, etc.)"
+- NEVER mention directors or staff by name — refer to "the leadership team" or "programme management and ops team"
 - Do NOT invent budget figures or statistics not in the context
 - Do NOT write thin, skeletal sections — this is a REAL proposal, not an outline
 - Do NOT switch to cold, institutional tone after the opening — sustain warmth throughout${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}
+
+BUDGET-ASK CONSISTENCY — THE MOST COMMON ERROR:
+The total amount in your budget table, the amount in the budget narrative, and the ASK_RECOMMENDATION MUST all be the SAME number. If you propose 2 cohorts, the budget table must show 2 cohorts and the total must be 2× the per-cohort cost. If you write about 1 cohort in the narrative but recommend 2 in the ASK_RECOMMENDATION, the proposal is broken. Decide how many cohorts FIRST, then write the ENTIRE proposal around that number.
 
 ASK RECOMMENDATION — CRITICAL:
 At the very END of your proposal (after all sections), include this structured line on its own line. The system parses it to set the grant ask:
@@ -1097,22 +1104,26 @@ ${customInstructions ? `\nUSER INSTRUCTIONS FOR THIS SECTION: ${customInstructio
 UPLOADED DOCUMENTS — if GRANT DOCUMENTS appear in the context below, they are the funder's RFP, application form, or guidelines. Address THEIR specific questions, use THEIR terminology, follow THEIR requested structure. Their requirements are the primary framework — d-lab's content fills it.
 
 BANNED PHRASES — if ANY of these appear in your output, the section fails. Zero tolerance:
-- "Imagine a..." / "Imagine a young..." / "Picture a..." / "Picture this..." / "Consider a..." / "Think of a..." / "Meet [name]..." / "What if you could..." / "Close your eyes..."
+- "Imagine a..." / "Picture a..." / "Consider a..." / "Think of a..." / "Meet [name]..." / "What if you could..." / "Close your eyes..."
 - "I hope this finds you well" / "I am writing to..." / "We are pleased to..."
 - "We believe" / "we are passionate" / "making a difference" / "making an impact" / "changing lives" / "brighter future" / "beacon of hope"
+- "catalytic intervention" / "that spark" / "transformative journey" / "holistic approach" / "game-changer" / "game changer"
+- "this isn't just X; it's Y" / "not just X — it's Y" (the fake-profound reframe structure)
 - "South Africa has X% youth unemployment" or any stat-as-opener that every NPO uses
 - "We look forward to partnering" / "we would welcome the opportunity" / "we trust this proposal"
-These phrases are AUTOMATIC FAILURES. Do not use them or any close variation.
+- "empowering" as a verb / "stakeholders" / "leverage" (as a verb) / "synergy" / "paradigm shift"
+These phrases are AUTOMATIC FAILURES. Use PLAIN, SPECIFIC language instead.
 
 ANTI-REPETITION — critical:
 - Read the ALREADY-WRITTEN SECTIONS below carefully. Do NOT reuse their opening devices, alumni stories, statistics, or key phrases.
 - If a prior section opens with a student story, you MUST use a completely different technique (data point, direct statement, funder's own mission, concrete programme detail).
 - Do NOT echo the same adjectives, metaphors, or sentence structures used in prior sections.
 - Every section must feel fresh — as if written by the same author but covering genuinely new ground.
+- NEVER name staff in the narrative. Do NOT write "Imagine Ayanda welcoming..." or name any team member.
 
 ADDITIONAL RULES:
-- NEVER include ChatGPT/OpenAI/third-party AI costs in budgets — d-lab builds its own AI tools
-- NEVER mention directors by name — refer to "directors, programme management and ops team"
+- NEVER include ChatGPT/OpenAI/third-party AI costs in budgets — d-lab builds its own AI tools. Use "AI platform & tools (proprietary)"
+- NEVER mention directors or staff by name — refer to "the leadership team" or "programme management and ops team"
 - Do NOT invent figures or statistics not in the context — write with substance, not padding${priorFitScore?.research || grant.aiResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}
 
 Write ONLY the "${sectionName}" section content. No section header — just the content.${factGuard}`,
