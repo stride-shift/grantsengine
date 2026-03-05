@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { C, FONT } from "../theme";
 import { Btn, Avatar, RoleBadge } from "./index";
-import { getTeamPublic } from "../api";
+import { getTeamPublic, forgotPassword } from "../api";
 
 const ROLE_ORDER = { director: 0, hop: 1, pm: 2, board: 3, none: 9 };
 
@@ -67,11 +67,12 @@ const Page = ({ children }) => (
 );
 
 export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassword }) {
-  const [step, setStep] = useState("pick"); // pick | password | set-password
+  const [step, setStep] = useState("pick"); // pick | password | set-password | forgot
   const [members, setMembers] = useState([]);
   const [selected, setSelected] = useState(null);
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
+  const [adminKey, setAdminKey] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -120,9 +121,25 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
     setBusy(false);
   };
 
+  const submitForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!adminKey) { setErr("Recovery key is required"); return; }
+    if (!pw || pw.length < 6) { setErr("New password must be at least 6 characters"); return; }
+    if (pw !== pw2) { setErr("Passwords don't match"); return; }
+    setBusy(true);
+    setErr("");
+    try {
+      await forgotPassword(slug, selected.id, adminKey, pw);
+    } catch (ex) {
+      setErr(ex.message);
+    }
+    setBusy(false);
+  };
+
   const goBack = () => {
     setPw("");
     setPw2("");
+    setAdminKey("");
     setErr("");
     setStep("pick");
   };
@@ -205,6 +222,15 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
               {busy ? "Signing in..." : "Sign In"}
             </Btn>
           </form>
+          <div style={{ textAlign: "center", marginTop: 14 }}>
+            <button onClick={() => { setPw(""); setErr(""); setStep("forgot"); }} style={{
+              background: "none", border: "none", color: C.t4, fontSize: 12, cursor: "pointer",
+              fontFamily: FONT, textDecoration: "underline", transition: "color 0.15s",
+            }}
+              onMouseEnter={e => e.currentTarget.style.color = C.primary}
+              onMouseLeave={e => e.currentTarget.style.color = C.t4}
+            >Forgot password?</button>
+          </div>
         </Card>
       )}
 
@@ -245,6 +271,63 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
             {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
             <Btn onClick={submitSetPassword} disabled={busy || !pw || !pw2} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
               {busy ? "Setting up..." : "Set Password & Sign In"}
+            </Btn>
+          </form>
+        </Card>
+      )}
+      {/* ── Step 4: Forgot password (admin key recovery) ── */}
+      {step === "forgot" && selected && (
+        <Card width={400}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+            <button onClick={() => { setPw(""); setPw2(""); setAdminKey(""); setErr(""); setStep("password"); }} style={{
+              background: "none", border: "none", cursor: "pointer", fontSize: 18, color: C.t3, padding: 0,
+            }}>{"\u2190"}</button>
+            <Avatar member={selected} size={38} />
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: C.dark }}>{selected.name}</div>
+              <div style={{ fontSize: 11, color: C.amber, fontWeight: 600 }}>Reset password</div>
+            </div>
+          </div>
+          <div style={{
+            background: C.warm100, borderRadius: 8, padding: "10px 14px", marginBottom: 18,
+            fontSize: 12, color: C.t3, lineHeight: 1.5,
+          }}>
+            Enter the admin recovery key to reset your password. Ask your director or check your team's records for the key.
+          </div>
+          <form onSubmit={submitForgotPassword}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6, letterSpacing: 0.5 }}>
+              Recovery key
+            </label>
+            <input
+              type="password" value={adminKey} onChange={e => setAdminKey(e.target.value)}
+              placeholder="Admin recovery key" autoFocus
+              style={{ ...inputStyle, marginBottom: 14 }}
+              onFocus={focusBorder}
+              onBlur={blurBorder}
+            />
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6, letterSpacing: 0.5 }}>
+              New password
+            </label>
+            <input
+              type="password" value={pw} onChange={e => setPw(e.target.value)}
+              placeholder="At least 6 characters"
+              style={{ ...inputStyle, marginBottom: 14 }}
+              onFocus={focusBorder}
+              onBlur={blurBorder}
+            />
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6, letterSpacing: 0.5 }}>
+              Confirm new password
+            </label>
+            <input
+              type="password" value={pw2} onChange={e => setPw2(e.target.value)}
+              placeholder="Type it again"
+              style={{ ...inputStyle, marginBottom: 16 }}
+              onFocus={focusBorder}
+              onBlur={blurBorder}
+            />
+            {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
+            <Btn onClick={submitForgotPassword} disabled={busy || !adminKey || !pw || !pw2} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
+              {busy ? "Resetting..." : "Reset Password & Sign In"}
             </Btn>
           </form>
         </Card>
