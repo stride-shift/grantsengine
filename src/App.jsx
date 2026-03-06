@@ -742,7 +742,7 @@ Example (single year): ASK_RECOMMENDATION: Type 3, 2 cohort(s), 1 year(s), R2472
 Example (multi-year): ASK_RECOMMENDATION: Type 1, 3 cohort(s), 3 year(s), R4644000
 The total R amount is the GRAND TOTAL across all years (annual × years). For multi-year proposals, include a year-by-year breakdown table in the Budget section.
 Use d-lab's programme types as a starting framework, but MATCH THE ASK TO THE FUNDER'S CAPACITY. If the funder budget is R2M, don't propose R500K — propose something that fills their capacity with genuine impact. Go multi-cohort, multi-year, add components, extend duration, propose a flagship programme. The ask should be ambitious but justified — every rand should map to real delivery.${factGuard}`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${researchBlock}${fitScoreBlock}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderFeedback ? `\n\n=== FUNDER FEEDBACK (from previous application) ===\n${grant.funderFeedback}\nCRITICAL: This is real feedback from the funder. Address every concern raised. If they said the budget was too high, adjust. If they wanted more evidence, provide it. This feedback is your most important input.` : ""}${researchBlock}${fitScoreBlock}`,
         false, 5000
       );
     }
@@ -1127,7 +1127,7 @@ ADDITIONAL RULES:
 - Do NOT invent figures or statistics not in the context — write with substance, not padding${priorFitScore?.research || grant.aiResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}
 
 Write ONLY the "${sectionName}" section content. No section header — just the content.${factGuard}`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${researchBlock}${fitBlock}${priorSummary ? `\n\nALREADY-WRITTEN SECTIONS (read these carefully — do NOT repeat their openings, stories, or statistics):\n${priorSummary}` : ""}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderFeedback ? `\n\n=== FUNDER FEEDBACK (from previous application) ===\n${grant.funderFeedback}\nAddress every concern raised in this feedback.` : ""}${researchBlock}${fitBlock}${priorSummary ? `\n\nALREADY-WRITTEN SECTIONS (read these carefully — do NOT repeat their openings, stories, or statistics):\n${priorSummary}` : ""}`,
         false, tokenBudget
       );
     }
@@ -1154,7 +1154,7 @@ Return your findings as a JSON object with these fields. Each field should be a 
 IMPORTANT: Return ONLY valid JSON. No markdown code fences, no text before or after the JSON object. Every field value must be a string (escape any quotes inside values).
 
 Use uploaded documents for additional context about the organisation. Reference specific programme types and costs from the org profile when discussing fit.${factGuard}`,
-        `Organisation context:\n${orgCtx}\n\nFunder: ${grant.funder}\nType: ${grant.type}\nGrant: ${grant.name}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD — will be set after proposal)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER — d-lab has an existing relationship)" : ""}\nFocus areas: ${(grant.focus || []).join(", ")}${fs.noIntel ? "\n\nNO PRE-EXISTING FUNDER INTELLIGENCE — research from scratch. Build a complete picture." : `\n\n=== EXISTING FUNDER INTELLIGENCE (build on this, don't duplicate) ===\nLead angle: ${fs.lead}\nHook: ${fs.hook}\nRecommended sections: ${(fs.sections || []).join(", ")}\nLanguage register: ${fs.lang}${fs.returning ? "\nStatus: RETURNING FUNDER — look for what d-lab delivered with their previous funding, what outcomes were achieved, and what the continuity angle is." : ""}`}\n\n${grant.notes ? `TEAM INTEL (from grant notes — treat as high-priority context):\n${grant.notes}` : "Notes: None"}`,
+        `Organisation context:\n${orgCtx}\n\nFunder: ${grant.funder}\nType: ${grant.type}\nGrant: ${grant.name}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD — will be set after proposal)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER — d-lab has an existing relationship)" : ""}\nFocus areas: ${(grant.focus || []).join(", ")}${fs.noIntel ? "\n\nNO PRE-EXISTING FUNDER INTELLIGENCE — research from scratch. Build a complete picture." : `\n\n=== EXISTING FUNDER INTELLIGENCE (build on this, don't duplicate) ===\nLead angle: ${fs.lead}\nHook: ${fs.hook}\nRecommended sections: ${(fs.sections || []).join(", ")}\nLanguage register: ${fs.lang}${fs.returning ? "\nStatus: RETURNING FUNDER — look for what d-lab delivered with their previous funding, what outcomes were achieved, and what the continuity angle is." : ""}`}\n\n${grant.notes ? `TEAM INTEL (from grant notes — treat as high-priority context):\n${grant.notes}` : "Notes: None"}${grant.funderFeedback ? `\n\n=== PREVIOUS FUNDER FEEDBACK ===\n${grant.funderFeedback}\nUse this feedback to refine your research — understand what the funder valued or didn't value.` : ""}`,
         true, 3000
       );
     }
@@ -1284,9 +1284,9 @@ LESSONS:
 RECOVERY OPTIONS:
 - [Alternative funders to approach, or whether to reapply next cycle]`}
 
-Keep it concise and specific to this grant. No generic advice.`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\nAsk: R${grant.ask?.toLocaleString()}\nRelationship: ${grant.rel}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}\nOutcome: ${outcome}`,
-        false, 800
+Keep it concise and specific to this grant. No generic advice.${grant.funderFeedback ? "\n\nACTUAL FUNDER FEEDBACK is provided below. This is the most important input — ground your analysis in what they actually said, not speculation." : ""}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\nAsk: R${grant.ask?.toLocaleString()}\nRelationship: ${grant.rel}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}\nOutcome: ${outcome}${grant.funderFeedback ? `\n\n=== ACTUAL FUNDER FEEDBACK ===\n${grant.funderFeedback}` : ""}`,
+        false, 1000
       );
     }
     if (type === "urlextract") {
@@ -1303,12 +1303,12 @@ RULES: "ask" = realistic midpoint if range given, convert USD at ~R18/$. "type" 
       );
     }
     if (type === "report") {
-      const act = grants.filter(g => !["won", "lost", "deferred"].includes(g.stage));
+      const act = grants.filter(g => !["won", "lost", "deferred", "archived"].includes(g.stage));
       const won = grants.filter(g => g.stage === "won");
       const lost = grants.filter(g => g.stage === "lost");
       const totalAsk = act.reduce((s, g) => s + effectiveAsk(g), 0);
       const wonVal = won.reduce((s, g) => s + effectiveAsk(g), 0);
-      const byStage = stages.filter(s => !["won", "lost", "deferred"].includes(s.id))
+      const byStage = stages.filter(s => !["won", "lost", "deferred", "archived"].includes(s.id))
         .map(s => `${s.label}: ${grants.filter(g => g.stage === s.id).length}`)
         .join(", ");
       return await api(
@@ -1347,7 +1347,7 @@ Top grants: ${[...act].sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0
         const ask = effectiveAsk(g);
         const isWon = g.stage === "won";
         const isLost = g.stage === "lost";
-        const isActive = !["won", "lost", "deferred"].includes(g.stage);
+        const isActive = !["won", "lost", "deferred", "archived"].includes(g.stage);
 
         if (isWon) { won.push(g); wonVal += ask; }
         else if (isLost) { lost.push(g); }
@@ -1392,7 +1392,7 @@ Top grants: ${[...act].sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0
       const closed = won.length + lost.length;
 
     if (type === "insights") {
-      const byStage = stages.filter(s => !["won", "lost", "deferred"].includes(s.id))
+      const byStage = stages.filter(s => !["won", "lost", "deferred", "archived"].includes(s.id))
         .map(s => ({ stage: s.label, count: stageCounts[s.id] || 0 }))
         .filter(s => s.count > 0);
 
@@ -1555,7 +1555,7 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
 
   const selectedGrant = sel ? grants.find(g => g.id === sel) : null;
   const notifCount = grants.filter(g => {
-    if (["won", "lost", "deferred"].includes(g.stage)) return false;
+    if (["won", "lost", "deferred", "archived"].includes(g.stage)) return false;
     const d = dL(g.deadline);
     return d !== null && d <= 14;
   }).length;

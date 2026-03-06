@@ -26,14 +26,13 @@ const extractAskFromText = (text) => {
   return null;
 };
 
-export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, setBusy, autoGenerate, onAutoGenerateComplete }) {
+export default function ProposalWorkspace({ grant, ai, onRunAI, onRunResearch, onUpdate, busy, setBusy, autoGenerate, onAutoGenerateComplete }) {
   const g = grant;
   const fs = funderStrategy(g);
   const order = g.aiSectionsOrder || fs.structure;
   const sections = g.aiSections || {};
   const generatingAllRef = useRef(false);
   const [showLegacy, setShowLegacy] = useState(false);
-  const [researchNudge, setResearchNudge] = useState(false);
 
   // Research must be done before drafting
   const researchDone = !!(g.aiResearch && !isAIError(g.aiResearch)) || !!(ai?.research && !isAIError(ai.research));
@@ -51,7 +50,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
 
   // ── Generate a single section ──
   const generateSection = useCallback(async (sectionName, customInstructions) => {
-    if (!researchDone) { setResearchNudge(true); return; }
+    if (!researchDone) { onRunResearch?.(); return; }
     const sectionIndex = order.indexOf(sectionName);
     setBusy(p => ({ ...p, sections: { ...(p.sections || {}), [sectionName]: true } }));
 
@@ -118,7 +117,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
 
   // ── Generate All sections sequentially ──
   const generateAll = useCallback(async () => {
-    if (!researchDone) { setResearchNudge(true); return; }
+    if (!researchDone) { onRunResearch?.(); return; }
     if (generatingAllRef.current) return;
     generatingAllRef.current = true;
     setBusy(p => ({ ...p, generateAll: true }));
@@ -428,19 +427,30 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onUpdate, busy, 
         </div>
       </div>
 
-      {/* ── Research required banner ── */}
-      {researchNudge && !researchDone && (
+      {/* ── Research required — prominent inline card ── */}
+      {!researchDone && (
         <div style={{
-          padding: "10px 16px", background: C.amberSoft, borderBottom: `1px solid ${C.amber}20`,
-          display: "flex", alignItems: "center", gap: 10,
+          margin: "12px 16px", padding: "16px 20px", background: `linear-gradient(135deg, ${C.blueSoft}, ${C.purpleSoft})`,
+          borderRadius: 12, border: `1px solid ${C.blue}20`,
         }}>
-          <span style={{ fontSize: 18 }}>🔍</span>
-          <span style={{ fontSize: 12, color: C.t1, flex: 1, lineHeight: 1.4 }}>
-            <strong>Research required before drafting.</strong> Run Funder Research first so the proposal is tailored to what {g.funder || "the funder"} actually funds and how they evaluate applications.
-          </span>
-          <Btn onClick={() => setResearchNudge(false)} v="ghost" style={{ fontSize: 11, padding: "5px 10px", flexShrink: 0 }}>
-            Dismiss
-          </Btn>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+            <span style={{ fontSize: 24, lineHeight: 1 }}>🔍</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.dark, marginBottom: 4 }}>
+                Research {g.funder || "this funder"} first
+              </div>
+              <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.5, marginBottom: 12 }}>
+                Every proposal section will be tailored to what {g.funder || "the funder"} actually funds, their application process, and what they look for. Without research, sections use generic content.
+              </div>
+              <Btn
+                onClick={() => onRunResearch?.()}
+                disabled={busy.research}
+                style={{ fontSize: 13, padding: "8px 20px", fontWeight: 700 }}
+              >
+                {busy.research ? "Researching..." : `Run Research on ${g.funder || "Funder"}`}
+              </Btn>
+            </div>
+          </div>
         </div>
       )}
 

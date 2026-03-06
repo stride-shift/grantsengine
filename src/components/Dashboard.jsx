@@ -4,7 +4,7 @@ import { fmt, fmtK, dL, deadlineCtx, effectiveAsk, grantReadiness } from "../uti
 import { Num, Timeline, Label, Btn, CopyBtn, stripMd, TypeBadge, DeadlineBadge, Avatar } from "./index";
 import { isFunderReturning } from "../data/funderStrategy";
 
-const CLOSED = ["won", "lost", "deferred"];
+const CLOSED = ["won", "lost", "deferred", "archived"];
 const PRE_SUB = ["scouted", "qualifying", "drafting", "review"];
 const FTYPE_COLORS = [C.primary, C.blue, C.purple, C.amber, C.ok];
 const REL_COLORS = { Hot: C.primary, Warm: C.amber, Cold: C.blue, New: C.purple };
@@ -541,6 +541,95 @@ export default function Dashboard({
           )}
         </div>
       </Card>
+
+      {/* ═══════════ IN PLAY — active grants grouped by workflow phase ═══════════ */}
+      {pipe.act.length > 0 && (() => {
+        const groups = [
+          { label: "Qualifying", stages: ["scouted", "qualifying"], color: C.blue, icon: "◇" },
+          { label: "In Progress", stages: ["drafting", "review", "resubmit"], color: C.amber, icon: "▶" },
+          { label: "Submitted", stages: ["submitted", "awaiting"], color: C.purple, icon: "◈" },
+        ];
+        const grouped = groups.map(grp => ({
+          ...grp,
+          grants: pipe.act.filter(g => grp.stages.includes(g.stage)).sort((a, b) => {
+            // Sort by deadline (soonest first), then by ask (largest first)
+            const da = dL(a.deadline), db = dL(b.deadline);
+            if (da !== null && db !== null) return da - db;
+            if (da !== null) return -1;
+            if (db !== null) return 1;
+            return effectiveAsk(b) - effectiveAsk(a);
+          }),
+        })).filter(grp => grp.grants.length > 0);
+
+        if (grouped.length === 0) return null;
+
+        return (
+          <>
+            <Hd right={
+              <span style={{ fontSize: 11, color: C.t4, fontWeight: 500 }}>
+                {pipe.act.length} active · {fmt(pipe.ask)} total
+              </span>
+            }>In Play</Hd>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(grouped.length, 3)}, 1fr)`, gap: 10, marginBottom: 8 }}>
+              {grouped.map(grp => (
+                <Card key={grp.label} accent={grp.color} style={{ padding: "10px 12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                    <span style={{ fontSize: 12, color: grp.color }}>{grp.icon}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: grp.color, letterSpacing: 0.5, textTransform: "uppercase" }}>{grp.label}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: C.t4, fontFamily: MONO, marginLeft: "auto" }}>
+                      {fmtK(grp.grants.reduce((s, g) => s + effectiveAsk(g), 0))}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {grp.grants.slice(0, 5).map(g => {
+                      const stg = (stages || []).find(s => s.id === g.stage);
+                      const dl = dL(g.deadline);
+                      const dlCtx = deadlineCtx(dl, g.stage);
+                      const m = teamById.get(g.owner);
+                      return (
+                        <div key={g.id} onClick={() => onSelectGrant?.(g.id)}
+                          className="ge-hover-lift"
+                          style={{
+                            padding: "8px 10px", background: C.warm100, borderRadius: 8,
+                            cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+                            border: `1px solid transparent`, transition: "border-color 0.15s",
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.borderColor = grp.color + "40"}
+                          onMouseLeave={e => e.currentTarget.style.borderColor = "transparent"}
+                        >
+                          {m && <Avatar member={m} size={20} />}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: C.dark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {g.name}
+                            </div>
+                            <div style={{ fontSize: 10, color: C.t4, display: "flex", gap: 6, alignItems: "center" }}>
+                              <span>{g.funder}</span>
+                              <span style={{ color: stg?.c, fontWeight: 600 }}>{stg?.label}</span>
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "right", flexShrink: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, color: C.t2 }}>
+                              {effectiveAsk(g) > 0 ? fmtK(effectiveAsk(g)) : "TBD"}
+                            </div>
+                            {dlCtx.label && (
+                              <div style={{ fontSize: 9, fontWeight: 600, color: dlCtx.color }}>{dlCtx.icon} {dlCtx.label}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {grp.grants.length > 5 && (
+                      <div style={{ fontSize: 10, color: C.t4, textAlign: "center", padding: "4px 0" }}>
+                        +{grp.grants.length - 5} more
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </>
+        );
+      })()}
 
       {/* ── Submission Timeline ── */}
       <Timeline grants={grants} stages={stages} team={team} onClickGrant={onSelectGrant} />
