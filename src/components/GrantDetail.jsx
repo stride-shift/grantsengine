@@ -1184,41 +1184,93 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           <SectionWrap
             title={docReadiness ? `Docs (${docReadiness.ready}/${docReadiness.total})` : "Docs"}
             defaultOpen={isLate}
+            badge={(() => {
+              const attached = g.attachedDocs || [];
+              const total = orgDocs.length + grantDocs.length;
+              return attached.length > 0 ? `${attached.length}/${total} attached` : null;
+            })()}
           >
             {docReadiness && (
-              <div style={{ height: 4, background: C.line, borderRadius: 2, overflow: "hidden", marginBottom: 14 }}>
+              <div style={{ height: 4, background: C.line, borderRadius: 2, overflow: "hidden", marginBottom: 10 }}>
                 <div style={{ height: "100%", width: `${(docReadiness.ready / docReadiness.total) * 100}%`, background: docReadiness.ready === docReadiness.total ? C.ok : C.primary, borderRadius: 2, transition: "width 0.3s ease" }} />
               </div>
             )}
+            <div style={{ fontSize: 11, color: C.t4, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+              Tick documents to attach to this submission
+              {(g.attachedDocs || []).length > 0 && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: C.ok, background: C.okSoft, padding: "2px 8px", borderRadius: 100 }}>
+                  {(g.attachedDocs || []).length} attached
+                </span>
+              )}
+            </div>
             {orgDocs.length > 0 && (
               <Card pad="0" style={{ overflow: "hidden", marginBottom: 12 }}>
-                {orgDocs.map((doc, i) => (
-                  <div key={doc.orgDocId} className="ge-hover-slide" style={{
-                    display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
-                    borderBottom: i < orgDocs.length - 1 ? `1px solid ${C.line}` : "none", background: "transparent",
-                  }}>
-                    <span style={{ width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: doc.statusColor, background: doc.statusBg }}>{doc.statusIcon}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: C.dark }}>{doc.docName}</div>
-                      {doc.orgDocDef?.desc && <div style={{ fontSize: 11, color: C.t4, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.orgDocDef.desc}</div>}
+                {orgDocs.map((doc, i) => {
+                  const attached = (g.attachedDocs || []).includes(doc.orgDocId);
+                  const toggleDoc = (e) => {
+                    e.stopPropagation();
+                    const prev = g.attachedDocs || [];
+                    const next = attached ? prev.filter(d => d !== doc.orgDocId) : [...prev, doc.orgDocId];
+                    up("attachedDocs", next);
+                  };
+                  return (
+                    <div key={doc.orgDocId} className="ge-hover-slide" onClick={toggleDoc} style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
+                      borderBottom: i < orgDocs.length - 1 ? `1px solid ${C.line}` : "none",
+                      background: attached ? C.okSoft + "40" : "transparent", cursor: "pointer", transition: "background 0.15s",
+                    }}>
+                      <div style={{
+                        width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                        border: `2px solid ${attached ? C.ok : C.line}`,
+                        background: attached ? C.ok : "transparent",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.15s",
+                      }}>
+                        {attached && <span style={{ color: "#fff", fontSize: 11, fontWeight: 800 }}>{"\u2713"}</span>}
+                      </div>
+                      <span style={{ width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: doc.statusColor, background: doc.statusBg, flexShrink: 0 }}>{doc.statusIcon}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: C.dark }}>{doc.docName}</div>
+                        {doc.orgDocDef?.desc && <div style={{ fontSize: 11, color: C.t4, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.orgDocDef.desc}</div>}
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: doc.statusColor, whiteSpace: "nowrap" }}>{doc.statusLabel}</span>
                     </div>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: doc.statusColor, whiteSpace: "nowrap" }}>{doc.statusLabel}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </Card>
             )}
             {grantDocs.length > 0 && (
               <Card pad="0" style={{ overflow: "hidden" }}>
-                {grantDocs.map((docName, i) => (
-                  <div key={docName} className="ge-hover-slide" style={{
-                    display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
-                    borderBottom: i < grantDocs.length - 1 ? `1px solid ${C.line}` : "none",
-                  }}>
-                    <span style={{ width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: C.t4, background: C.hover }}>○</span>
-                    <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: C.dark }}>{docName}</div></div>
-                    <span style={{ fontSize: 11, color: C.t4 }}>Prepare for submission</span>
-                  </div>
-                ))}
+                {grantDocs.map((docName, i) => {
+                  const docKey = `custom:${docName}`;
+                  const attached = (g.attachedDocs || []).includes(docKey);
+                  const toggleDoc = (e) => {
+                    e.stopPropagation();
+                    const prev = g.attachedDocs || [];
+                    const next = attached ? prev.filter(d => d !== docKey) : [...prev, docKey];
+                    up("attachedDocs", next);
+                  };
+                  return (
+                    <div key={docName} className="ge-hover-slide" onClick={toggleDoc} style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "8px 12px",
+                      borderBottom: i < grantDocs.length - 1 ? `1px solid ${C.line}` : "none",
+                      background: attached ? C.okSoft + "40" : "transparent", cursor: "pointer", transition: "background 0.15s",
+                    }}>
+                      <div style={{
+                        width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                        border: `2px solid ${attached ? C.ok : C.line}`,
+                        background: attached ? C.ok : "transparent",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.15s",
+                      }}>
+                        {attached && <span style={{ color: "#fff", fontSize: 11, fontWeight: 800 }}>{"\u2713"}</span>}
+                      </div>
+                      <span style={{ width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: C.t4, background: C.hover, flexShrink: 0 }}>○</span>
+                      <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: C.dark }}>{docName}</div></div>
+                      <span style={{ fontSize: 11, color: C.t4 }}>Prepare for submission</span>
+                    </div>
+                  );
+                })}
               </Card>
             )}
           </SectionWrap>
