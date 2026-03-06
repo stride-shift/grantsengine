@@ -189,7 +189,9 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
               </div>
             </>
           )}
-          <BackLink onClick={onBack} label="Back to organisations" />
+          <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 16 }}>
+            <BackLink onClick={onBack} label="Back to organisations" />
+          </div>
         </Card>
       )}
 
@@ -222,13 +224,14 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
               {busy ? "Signing in..." : "Sign In"}
             </Btn>
           </form>
-          <div style={{ textAlign: "center", marginTop: 14 }}>
+          <div style={{ textAlign: "center", marginTop: 16 }}>
             <button onClick={() => { setPw(""); setErr(""); setStep("forgot"); }} style={{
-              background: "none", border: "none", color: C.t4, fontSize: 12, cursor: "pointer",
-              fontFamily: FONT, textDecoration: "underline", transition: "color 0.15s",
+              background: "none", border: `1px solid ${C.line}`, borderRadius: 8,
+              color: C.t3, fontSize: 13, fontWeight: 500, padding: "8px 20px",
+              cursor: "pointer", fontFamily: FONT, transition: "all 0.15s",
             }}
-              onMouseEnter={e => e.currentTarget.style.color = C.primary}
-              onMouseLeave={e => e.currentTarget.style.color = C.t4}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.color = C.t3; }}
             >Forgot password?</button>
           </div>
         </Card>
