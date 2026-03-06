@@ -4,7 +4,7 @@ import { resolveOrg } from '../middleware/org.js';
 import { logAgentRun } from '../db.js';
 
 const router = Router();
-const GEMINI_MODEL = 'gemini-2.0-flash';
+export const GEMINI_MODEL = 'gemini-2.0-flash';
 
 // ── Anthropic → Gemini request translation ──
 
@@ -60,6 +60,44 @@ function toAnthropicResponse(geminiData) {
 
 function geminiUrl() {
   return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+}
+
+// ── Standalone Gemini caller for server-side jobs (no Express req/res) ──
+export async function callGemini(system, user, { search = false, maxTokens = 1500 } = {}) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('No GEMINI_API_KEY configured');
+
+  const body = { messages: [{ role: 'user', content: user }], max_tokens: maxTokens };
+  if (system) body.system = system;
+  if (search) body.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
+
+  const geminiBody = toGeminiRequest(body);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 90_000); // 90s for scout (web search)
+
+  try {
+    const response = await fetch(geminiUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify(geminiBody),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let msg = `Gemini API error (${response.status})`;
+      try { msg = JSON.parse(errText).error?.message || msg; } catch {}
+      throw new Error(msg);
+    }
+
+    const data = await response.json();
+    const result = toAnthropicResponse(data);
+    return result.content?.[0]?.text || '';
+  } catch (err) {
+    clearTimeout(timeout);
+    throw err;
+  }
 }
 
 // POST /api/org/:slug/ai/messages — proxied Gemini API call (authenticated)

@@ -2,8 +2,10 @@ import dotenv from 'dotenv';
 dotenv.config({ override: true });
 
 import { createClient } from '@supabase/supabase-js';
+import cron from 'node-cron';
 import app from './app.js';
 import { initDb, cleanExpiredSessions, getOrgBySlug } from './db.js';
+import { runAutoScout } from './jobs/scout.js';
 
 const PORT = process.env.PORT || 3001;
 
@@ -57,4 +59,15 @@ app.listen(PORT, async () => {
       console.log('Run manually: node server/seed.js');
     }
   }
+
+  // ── Nightly auto-scout: midnight SAST (UTC+2 = 22:00 UTC) ──
+  cron.schedule('0 22 * * *', async () => {
+    console.log('[Cron] Nightly auto-scout triggered');
+    try {
+      await runAutoScout();
+    } catch (e) {
+      console.error('[Cron] Auto-scout failed:', e.message);
+    }
+  }, { timezone: 'Africa/Johannesburg' });
+  console.log('Nightly auto-scout scheduled for 00:00 SAST');
 });
