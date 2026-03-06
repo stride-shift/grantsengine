@@ -26,11 +26,20 @@ export const parseStructuredResearch = (raw) => {
 };
 
 // ── Post-processing filter for banned phrases that the AI ignores ──
-// Gemini sometimes uses these despite explicit bans. This catches them after generation.
-const BANNED_OPENERS = [
-  /^Imagine\b/im, /^Picture\b/im, /^Consider\b/im, /^Think of\b/im,
-  /^Meet\b/im, /^What if\b/im, /^Close your eyes\b/im,
+// Gemini sometimes uses these despite explicit prompt-level bans.
+// This is the last line of defence — it removes entire sentences containing banned patterns.
+
+// Sentences starting with these words get REMOVED ENTIRELY (the whole sentence, not just the word)
+const BANNED_SENTENCE_STARTERS = /^(Imagine|Picture|Consider|Think of|Meet|What if|Close your eyes|Now imagine|Let'?s imagine|Envision)[^.!?\n]*[.!?]?/gim;
+
+// Any sentence containing these phrases gets REMOVED ENTIRELY
+const BANNED_SENTENCE_PHRASES = [
+  /[^.!?\n]*\bimagine\b[^.!?\n]*[.!?\n]/gi,  // ANY use of "imagine" in any sentence
+  /[^.!?\n]*\bpicture\s+(a|this|the|yourself)\b[^.!?\n]*[.!?\n]/gi,  // "picture a/this/yourself..."
+  /[^.!?\n]*\benvision\b[^.!?\n]*[.!?\n]/gi,
 ];
+
+// These phrases get stripped inline (sentence preserved, phrase removed)
 const BANNED_PHRASES = [
   /\bwe believe\b/gi, /\bwe are passionate\b/gi, /\bmaking a difference\b/gi,
   /\bmaking an impact\b/gi, /\bchanging lives\b/gi, /\bbrighter future\b/gi,
@@ -41,24 +50,24 @@ const BANNED_PHRASES = [
   /\bthat spark\b/gi, /\btransformative journey\b/gi,
   /\bholistic approach\b/gi, /\bgame.?changer\b/gi,
   /\bthis isn't just [a-z]+; it's\b/gi, /\bnot just [a-z]+ — it's\b/gi,
+  /\bwe welcome the opportunity\b/gi, /\bwe are committed to\b/gi,
 ];
 
 export const cleanProposalText = (text) => {
   if (!text || typeof text !== "string") return text;
   let cleaned = text;
-  // Fix banned sentence openers — replace with the rest of the sentence
-  for (const re of BANNED_OPENERS) {
-    cleaned = cleaned.replace(re, match => {
-      // Just remove the banned word, let the sentence start with what follows
-      return "";
-    });
+  // 1. Remove entire sentences starting with banned openers
+  cleaned = cleaned.replace(BANNED_SENTENCE_STARTERS, "");
+  // 2. Remove entire sentences containing "imagine" etc anywhere
+  for (const re of BANNED_SENTENCE_PHRASES) {
+    cleaned = cleaned.replace(re, m => m.endsWith("\n") ? "\n" : "");
   }
-  // Remove banned phrases inline
+  // 3. Strip banned phrases inline
   for (const re of BANNED_PHRASES) {
     cleaned = cleaned.replace(re, "");
   }
-  // Clean up artifacts: double spaces, empty sentence starts, leading punctuation
-  cleaned = cleaned.replace(/\n\s*[,;]\s/g, "\n").replace(/  +/g, " ").replace(/\n +/g, "\n");
+  // 4. Clean up artifacts: double spaces, blank lines, leading punctuation
+  cleaned = cleaned.replace(/\n\s*[,;]\s/g, "\n").replace(/  +/g, " ").replace(/\n{3,}/g, "\n\n").replace(/\n +/g, "\n").trim();
   return cleaned;
 };
 

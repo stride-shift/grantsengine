@@ -124,7 +124,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       if (pending.fitscore) {
         setBusy(p => ({ ...p, fitscore: true }));
         try {
-          const r = await onRunAI("fitscore", g);
+          const raw = await onRunAI("fitscore", g);
+          const r = isAIError(raw) ? raw : cleanProposalText(raw);
           setAi(p => ({ ...p, fitscore: r }));
           if (!isAIError(r)) onUpdate(g.id, { aiFitscore: r, aiFitscoreAt: new Date().toISOString() });
         } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
@@ -134,7 +135,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         setBusy(p => ({ ...p, research: true }));
         try {
           const r = await onRunAI("research", g);
-          if (!isAIError(r)) storeResearch(g.id, r);
+          if (!isAIError(r)) storeResearch(g.id, cleanProposalText(r));
           else setAi(p => ({ ...p, research: r }));
         } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
         setBusy(p => ({ ...p, research: false }));
@@ -146,7 +147,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           setBusy(p => ({ ...p, research: true }));
           try {
             const r = await onRunAI("research", g);
-            if (!isAIError(r)) storeResearch(g.id, r);
+            if (!isAIError(r)) storeResearch(g.id, cleanProposalText(r));
             else setAi(p => ({ ...p, research: r }));
           } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
           setBusy(p => ({ ...p, research: false }));
@@ -260,7 +261,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         const ts = g.aiFitscoreAt || new Date().toISOString();
         onUpdate(g.id, { fitscoreHistory: [...prev, { ts, text: ai.fitscore }].slice(-5) });
       }
-      const r = await onRunAI("fitscore", g);
+      const raw = await onRunAI("fitscore", g);
+      const r = isAIError(raw) ? raw : cleanProposalText(raw);
       setAi(p => ({ ...p, fitscore: r }));
       if (!isAIError(r)) {
         const now = new Date().toISOString();
@@ -370,7 +372,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                     try {
                       const r = await onRunAI("research", g);
                       if (!isAIError(r)) {
-                        storeResearch(g.id, r);
+                        storeResearch(g.id, cleanProposalText(r));
                         aiLog(`AI Funder Research refreshed for ${g.funder}`);
                       } else setAi(p => ({ ...p, research: r }));
                     } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
@@ -603,7 +605,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               setDiceStep("Scoring fit...");
               setBusy(p => ({ ...p, fitscore: true }));
               try {
-                const r = await onRunAI("fitscore", g);
+                const rawFs = await onRunAI("fitscore", g);
+                const r = isAIError(rawFs) ? rawFs : cleanProposalText(rawFs);
                 setAi(p => ({ ...p, fitscore: r }));
                 if (!isAIError(r)) {
                   onUpdate(g.id, { aiFitscore: r, aiFitscoreAt: new Date().toISOString() });
@@ -620,7 +623,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               try {
                 const r = await onRunAI("research", g);
                 if (!isAIError(r)) {
-                  storeResearch(g.id, r);
+                  storeResearch(g.id, cleanProposalText(r));
                   aiLog(`AI Funder Research completed for ${g.funder}`);
                 } else setAi(p => ({ ...p, research: r }));
               } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
@@ -954,7 +957,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 }
                 const r = await onRunAI("research", g);
                 if (!isAIError(r)) {
-                  storeResearch(g.id, r);
+                  storeResearch(g.id, cleanProposalText(r));
                   aiLog(`AI Funder Research completed for ${g.funder}`);
                 } else setAi(p => ({ ...p, research: r }));
               } catch (e) {
@@ -1114,7 +1117,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                   const ts = g.aiFollowupAt || new Date().toISOString();
                   onUpdate(g.id, { followupHistory: [...prev, { ts, text: ai.followup }].slice(-5) });
                 }
-                const r = await onRunAI("followup", g);
+                const rawFu = await onRunAI("followup", g);
+                const r = isAIError(rawFu) ? rawFu : cleanProposalText(rawFu);
                 setAi(p => ({ ...p, followup: r }));
                 if (!isAIError(r)) {
                   const now = new Date().toISOString();
@@ -1228,7 +1232,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             onRun={async () => {
               setBusy(p => ({ ...p, winloss: true }));
               try {
-                const r = await onRunAI("winloss", g, g.stage);
+                const rawWl = await onRunAI("winloss", g, g.stage);
+                const r = isAIError(rawWl) ? rawWl : cleanProposalText(rawWl);
                 setAi(p => ({ ...p, winloss: r }));
                 if (!isAIError(r)) {
                   const now = new Date().toISOString();
