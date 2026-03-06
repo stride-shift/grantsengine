@@ -151,16 +151,16 @@ function ScoutLoader() {
 
   return (
     <div style={{
-      background: `linear-gradient(135deg, ${C.white} 0%, ${C.purpleSoft} 100%)`,
+      background: `linear-gradient(135deg, ${C.white} 0%, ${C.primarySoft} 100%)`,
       borderRadius: 10, padding: "20px 24px", marginBottom: 14,
-      border: `1px solid ${C.purple}15`, boxShadow: C.cardShadow,
+      border: `1px solid ${C.primary}15`, boxShadow: C.cardShadow,
     }}>
       {/* Header with animated dots */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
             width: 32, height: 32, borderRadius: 10,
-            background: `linear-gradient(135deg, ${C.purple} 0%, ${C.blue}CC 100%)`,
+            background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
             display: "flex", alignItems: "center", justifyContent: "center",
             animation: "ge-pulse 2s ease-in-out infinite",
           }}>
@@ -174,7 +174,7 @@ function ScoutLoader() {
         <div style={{ display: "flex", gap: 4 }}>
           {[0, 1, 2].map(i => (
             <div key={i} style={{
-              width: 6, height: 6, borderRadius: "50%", background: C.purple,
+              width: 6, height: 6, borderRadius: "50%", background: C.primary,
               animation: "ge-pulse 1.4s ease-in-out infinite",
               animationDelay: `${i * 0.2}s`,
             }} />
@@ -194,7 +194,7 @@ function ScoutLoader() {
           minWidth: 72, textAlign: "center", padding: "8px 0",
         }}>
           <div style={{
-            fontSize: 28, fontWeight: 800, color: C.purple, fontFamily: MONO,
+            fontSize: 28, fontWeight: 800, color: C.primary, fontFamily: MONO,
             letterSpacing: -1, lineHeight: 1,
           }}>{insight.stat}</div>
           <div style={{
@@ -214,7 +214,7 @@ function ScoutLoader() {
         marginTop: 16, height: 3, background: C.line, borderRadius: 2, overflow: "hidden",
       }}>
         <div style={{
-          height: "100%", background: `linear-gradient(90deg, ${C.purple}, ${C.blue})`,
+          height: "100%", background: `linear-gradient(90deg, ${C.primary}, ${C.primaryDark})`,
           borderRadius: 2, animation: "scout-progress 8s ease-in-out infinite",
         }} />
       </div>
@@ -593,30 +593,26 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
 
   return (
     <div style={{ padding: "20px 24px", height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: grants.length > 0 ? 10 : 0, flexWrap: "wrap", gap: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Pipeline</div>
-            <div style={{ width: 32, height: 4, background: C.primary, borderRadius: 2, marginTop: 4 }} />
-          </div>
-          {/* Market tabs */}
-          <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+      {/* Row 1: Title + Market tabs + Add */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Pipeline</div>
+          <div style={{ display: "flex", gap: 3 }}>
             {[
               { id: "all", label: "All", count: grants.length },
-              { id: "sa", label: "\uD83C\uDDFF\uD83C\uDDE6 South Africa", count: marketCounts.sa.count },
-              { id: "global", label: "\uD83C\uDF0D Global", count: marketCounts.global.count },
+              { id: "sa", label: "\uD83C\uDDFF\uD83C\uDDE6", count: marketCounts.sa.count },
+              { id: "global", label: "\uD83C\uDF0D", count: marketCounts.global.count },
             ].map(tab => (
               <button key={tab.id} onClick={() => setMarket(tab.id)} style={{
-                padding: "4px 12px", fontSize: 12, fontWeight: 600, fontFamily: FONT,
+                padding: "3px 10px", fontSize: 12, fontWeight: 600, fontFamily: FONT,
                 borderRadius: 6, border: `1px solid ${market === tab.id ? C.primary : C.line}`,
                 background: market === tab.id ? C.primarySoft : C.white,
                 color: market === tab.id ? C.primary : C.t3,
-                cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 6,
+                cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 5,
               }}>
                 {tab.label}
                 <span style={{
-                  fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10,
+                  fontSize: 10, fontWeight: 700, padding: "0px 5px", borderRadius: 10,
                   background: market === tab.id ? C.primary : C.raised,
                   color: market === tab.id ? C.white : C.t4,
                 }}>{tab.count}</span>
@@ -625,70 +621,60 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
           </div>
         </div>
         {grants.length > 0 && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <input value={q} onChange={e => handleSearchChange(e.target.value)} placeholder="Search grants..."
-            style={{ padding: "6px 12px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, width: 180, fontFamily: FONT, outline: "none", transition: "border-color 0.15s" }}
+          <Btn onClick={() => setShowAdd(!showAdd)} v="primary" style={{ fontSize: 12, padding: "6px 14px" }}>+ Add</Btn>
+        )}
+      </div>
+
+      {/* Row 2: Search + Filters + View + Actions */}
+      {grants.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+          <input value={q} onChange={e => handleSearchChange(e.target.value)} placeholder="Search..."
+            style={{ padding: "5px 10px", fontSize: 12, border: `1px solid ${C.line}`, borderRadius: 6, width: 140, fontFamily: FONT, outline: "none", transition: "border-color 0.15s" }}
             onFocus={e => e.target.style.borderColor = C.primary}
             onBlur={e => e.target.style.borderColor = C.line}
           />
           <select value={sf} onChange={e => setSf(e.target.value)}
-            style={{ padding: "6px 10px", fontSize: 11, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, background: C.white }}>
+            style={{ padding: "5px 8px", fontSize: 11, border: `1px solid ${C.line}`, borderRadius: 6, fontFamily: FONT, background: C.white }}>
             <option value="all">All types</option>
             {(funderTypes || []).map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <select value={pSort} onChange={e => setPSort(e.target.value)}
-            style={{ padding: "6px 10px", fontSize: 11, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, background: C.white }}>
+            style={{ padding: "5px 8px", fontSize: 11, border: `1px solid ${C.line}`, borderRadius: 6, fontFamily: FONT, background: C.white }}>
             <option value="default">By deadline</option>
             <option value="ask">By amount</option>
             <option value="priority">By priority</option>
             <option value="fit">By fit score</option>
           </select>
-          <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 6, overflow: "hidden" }}>
             {VIEW_OPTIONS.map(([k,l]) => (
-              <button key={k} onClick={() => setPView(k)} style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: pView === k ? C.primary : C.white, color: pView === k ? C.white : C.t3, border: "none", cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>{l}</button>
+              <button key={k} onClick={() => setPView(k)} style={{ padding: "4px 10px", fontSize: 11, fontWeight: 600, background: pView === k ? C.primary : C.white, color: pView === k ? C.white : C.t3, border: "none", cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>{l}</button>
             ))}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", border: `1px solid ${C.purple}30`, borderRadius: "8px 0 0 8px", overflow: "hidden" }}>
-              {[{ id: "both", l: "All" }, { id: "sa", l: "\uD83C\uDDFF\uD83C\uDDE6" }, { id: "global", l: "\uD83C\uDF0D" }].map(o => (
-                <button key={o.id} onClick={() => setScoutMarket(o.id)} style={{
-                  padding: "5px 8px", fontSize: 11, fontWeight: 600, fontFamily: FONT, border: "none", cursor: "pointer",
-                  background: scoutMarket === o.id ? C.purpleSoft : "transparent",
-                  color: scoutMarket === o.id ? C.purple : C.t4, transition: "all 0.15s",
-                }}>{o.l}</button>
-              ))}
-            </div>
-            <button onClick={aiScout} disabled={scouting} style={{
-              padding: "6px 16px", fontSize: 13, fontWeight: 700, fontFamily: FONT,
-              background: scouting ? C.purpleSoft : `linear-gradient(135deg, ${C.purple}, ${C.purple}DD)`,
-              color: scouting ? C.purple : C.white,
-              border: "none", borderRadius: "0 8px 8px 0", cursor: scouting ? "wait" : "pointer",
-              transition: "all 0.2s", letterSpacing: 0.3,
-              boxShadow: scouting ? "none" : `0 2px 8px ${C.purple}40`,
-            }}
-              onMouseEnter={e => { if (!scouting) e.currentTarget.style.boxShadow = `0 4px 14px ${C.purple}50`; }}
-              onMouseLeave={e => { if (!scouting) e.currentTarget.style.boxShadow = `0 2px 8px ${C.purple}40`; }}
-            >{scouting ? "Scouting..." : "\u2609 Scout"}</button>
-          </div>
-          {onRunAI && <Btn onClick={() => setShowUrlTool(!showUrlTool)} v="ghost" style={{ fontSize: 12, padding: "6px 14px", color: C.blue, borderColor: C.blue + "40" }}>{"\uD83D\uDD17"} URL</Btn>}
+          <div style={{ width: 1, height: 18, background: C.line, margin: "0 2px" }} />
+          <button onClick={aiScout} disabled={scouting} style={{
+            padding: "5px 12px", fontSize: 12, fontWeight: 700, fontFamily: FONT,
+            background: scouting ? C.primarySoft : C.primary,
+            color: scouting ? C.primary : C.white,
+            border: "none", borderRadius: 6, cursor: scouting ? "wait" : "pointer",
+            transition: "all 0.15s",
+          }}>{scouting ? "Scouting..." : "\u2609 Scout"}</button>
+          {onRunAI && <Btn onClick={() => setShowUrlTool(!showUrlTool)} v="ghost" style={{ fontSize: 11, padding: "4px 10px", color: C.blue, borderColor: C.blue + "30" }}>{"\uD83D\uDD17"} URL</Btn>}
           {onRunAI && (
             <Btn onClick={scoreAllGrants} disabled={scoringAll} v="ghost" style={{
-              fontSize: 12, padding: "6px 14px",
-              color: scoringAll ? C.purple : C.amber,
-              borderColor: (scoringAll ? C.purple : C.amber) + "40",
+              fontSize: 11, padding: "4px 10px",
+              color: scoringAll ? C.primary : C.amber,
+              borderColor: (scoringAll ? C.primary : C.amber) + "30",
               animation: scoringAll ? "ge-pulse 1.4s ease-in-out infinite" : "none",
             }}>
-              {scoringAll ? `Scoring ${scoreProgress.done}/${scoreProgress.total}...` : "⚡ Score All"}
+              {scoringAll ? `${scoreProgress.done}/${scoreProgress.total}` : "⚡ Score All"}
             </Btn>
           )}
           <Btn onClick={() => { if (batchAction) { setBatchAction(null); setSelectedIds(new Set()); } else { setBatchAction("select"); } }}
-            v="ghost" style={{ fontSize: 12, padding: "6px 14px", color: batchAction ? C.primary : C.t3, borderColor: batchAction ? C.primary + "40" : undefined }}>
+            v="ghost" style={{ fontSize: 11, padding: "4px 10px", color: batchAction ? C.primary : C.t4, borderColor: batchAction ? C.primary + "30" : undefined }}>
             {batchAction ? "Done" : "Select"}
           </Btn>
-          <Btn onClick={() => setShowAdd(!showAdd)} v="primary" style={{ fontSize: 12, padding: "6px 14px" }}>+ Add</Btn>
         </div>
-        )}
-      </div>
+      )}
 
       {/* Filter chips — only show when there are grants to filter */}
       {grants.length > 0 && (() => {
@@ -1277,7 +1263,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>Scouted opportunities</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: C.purple, background: C.purpleSoft, padding: "2px 10px", borderRadius: 100 }}>{scoutResults.length} found</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.primary, background: C.primarySoft, padding: "2px 10px", borderRadius: 100 }}>{scoutResults.length} found</span>
               {scoutStats.added > 0 && (
                 <span style={{ fontSize: 12, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "2px 10px", borderRadius: 100 }}>
                   {scoutStats.added} added
@@ -1305,9 +1291,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             {[["fit", "Fit Score"], ["deadline", "Deadline"], ["budget", "Budget"]].map(([k, l]) => (
               <button key={k} onClick={() => setScoutSort(k)} style={{
                 padding: "3px 10px", fontSize: 11, fontWeight: 600, fontFamily: FONT,
-                borderRadius: 5, border: `1px solid ${scoutSort === k ? C.purple : C.line}`,
-                background: scoutSort === k ? C.purpleSoft : "transparent",
-                color: scoutSort === k ? C.purple : C.t4, cursor: "pointer",
+                borderRadius: 5, border: `1px solid ${scoutSort === k ? C.primary : C.line}`,
+                background: scoutSort === k ? C.primarySoft : "transparent",
+                color: scoutSort === k ? C.primary : C.t4, cursor: "pointer",
               }}>{l}</button>
             ))}
             <div style={{ width: 1, height: 16, background: C.line, margin: "0 4px" }} />
@@ -1364,7 +1350,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                     <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                       {s.url && (
                         <a href={s.url} target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: 11, color: C.purple, textDecoration: "none", padding: "4px 8px", border: `1px solid ${C.purple}25`, borderRadius: 5, fontFamily: FONT, fontWeight: 500 }}>
+                          style={{ fontSize: 11, color: C.blue, textDecoration: "none", padding: "4px 8px", border: `1px solid ${C.blue}25`, borderRadius: 5, fontFamily: FONT, fontWeight: 500 }}>
                           {"↗"}
                         </a>
                       )}
@@ -1390,9 +1376,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             {/* Hero icon */}
             <div style={{
               width: 72, height: 72, borderRadius: 20, margin: "0 auto 24px",
-              background: `linear-gradient(135deg, ${C.purpleSoft} 0%, ${C.blueSoft} 100%)`,
+              background: `linear-gradient(135deg, ${C.primarySoft} 0%, ${C.blueSoft} 100%)`,
               display: "flex", alignItems: "center", justifyContent: "center",
-              border: `1px solid ${C.purple}15`,
+              border: `1px solid ${C.primary}15`,
             }}>
               <span style={{ fontSize: 32 }}>☉</span>
             </div>
@@ -1410,9 +1396,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
               {[{ id: "both", l: "Both" }, { id: "sa", l: "\uD83C\uDDFF\uD83C\uDDE6 South Africa" }, { id: "global", l: "\uD83C\uDF0D Global" }].map(o => (
                 <button key={o.id} onClick={() => setScoutMarket(o.id)} style={{
                   padding: "6px 14px", fontSize: 13, fontWeight: 600, fontFamily: FONT,
-                  borderRadius: 6, border: `1px solid ${scoutMarket === o.id ? C.purple : C.line}`,
-                  background: scoutMarket === o.id ? C.purpleSoft : C.white,
-                  color: scoutMarket === o.id ? C.purple : C.t3,
+                  borderRadius: 6, border: `1px solid ${scoutMarket === o.id ? C.primary : C.line}`,
+                  background: scoutMarket === o.id ? C.primarySoft : C.white,
+                  color: scoutMarket === o.id ? C.primary : C.t3,
                   cursor: "pointer", transition: "all 0.15s",
                 }}>{o.l}</button>
               ))}
@@ -1421,9 +1407,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             {/* Primary CTA — Scout */}
             <Btn onClick={aiScout} disabled={scouting} v="primary" style={{
               fontSize: 15, padding: "12px 32px", borderRadius: 8,
-              background: `linear-gradient(135deg, ${C.purple} 0%, ${C.blue}DD 100%)`,
-              borderColor: C.purple, color: C.white,
-              boxShadow: `0 4px 14px ${C.purple}30`,
+              background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
+              borderColor: C.primary, color: C.white,
+              boxShadow: `0 4px 14px ${C.primary}30`,
             }}>
               ☉ Scout for opportunities
             </Btn>
