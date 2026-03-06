@@ -237,7 +237,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   const isEarly = ["scouted", "qualifying"].includes(g.stage);
   const isMiddle = ["drafting", "review"].includes(g.stage);
   const isLate = ["submitted", "awaiting"].includes(g.stage);
-  const isClosed = ["won", "lost", "deferred"].includes(g.stage);
+  const isClosed = ["won", "lost", "deferred", "archived"].includes(g.stage);
 
   // ── Lifted AI status (shared by workflow strip + sections) ──
   const fitDone = ai.fitscore && !isAIError(ai.fitscore);
@@ -383,6 +383,29 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                     onMouseLeave={e => e.currentTarget.style.background = "none"}
                   >{"\u21bb"} Refresh Research</button>
                 )}
+                {g.stage !== "archived" && (<>
+                  <div style={{ height: 1, background: C.line }} />
+                  <button onClick={() => {
+                    up("stage", "archived");
+                    up("_archivedFrom", g.stage); // remember previous stage for undo
+                    setOverflow(false);
+                  }}
+                    style={{ width: "100%", padding: "8px 12px", fontSize: 12, fontWeight: 500, color: "#6B7280", background: "none", border: "none", cursor: "pointer", fontFamily: FONT, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#F3F4F6"}
+                    onMouseLeave={e => e.currentTarget.style.background = "none"}
+                  >{"\uD83D\uDCE6"} Not Relevant</button>
+                </>)}
+                {g.stage === "archived" && (<>
+                  <div style={{ height: 1, background: C.line }} />
+                  <button onClick={() => {
+                    up("stage", g._archivedFrom || "scouted");
+                    setOverflow(false);
+                  }}
+                    style={{ width: "100%", padding: "8px 12px", fontSize: 12, fontWeight: 500, color: C.ok, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
+                    onMouseEnter={e => e.currentTarget.style.background = C.okSoft}
+                    onMouseLeave={e => e.currentTarget.style.background = "none"}
+                  >{"\u21A9"} Restore to Pipeline</button>
+                </>)}
                 {currentMember?.role === "director" && (<>
                   <div style={{ height: 1, background: C.line }} />
                   <button onClick={() => { setConfirmDel(true); setOverflow(false); }}
@@ -563,7 +586,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       })()}
 
       {/* Readiness Bar — compact */}
-      {!["won", "lost", "deferred"].includes(g.stage) && (() => {
+      {!["won", "lost", "deferred", "archived"].includes(g.stage) && (() => {
         const r = grantReadiness(g, complianceDocs);
         const barColor = r.score >= 80 ? C.ok : r.score >= 50 ? C.amber : C.red;
         return (

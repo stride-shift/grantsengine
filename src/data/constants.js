@@ -10,6 +10,7 @@ export const STAGES = [
   { id: "won", label: "Won", c: "#16A34A" },
   { id: "lost", label: "Lost", c: "#D03228" },
   { id: "deferred", label: "Deferred", c: "#9CA3AF" },
+  { id: "archived", label: "Not Relevant", c: "#D1D5DB" },
 ];
 
 export const FTYPES = ["Corporate CSI", "Government/SETA", "International", "Foundation", "Tech Company"];

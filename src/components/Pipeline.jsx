@@ -53,7 +53,7 @@ const GateIndicator = ({ stage, ownerRole }) => {
 };
 
 const VIEW_OPTIONS = [["kanban", "Board"], ["list", "List"], ["person", "Person"]];
-const CLOSED_STAGES = ["won", "lost", "deferred"];
+const CLOSED_STAGES = ["won", "lost", "deferred", "archived"];
 const SCOUT_TYPE_MAP = { corporate: "Corporate CSI", csi: "Corporate CSI", government: "Government/SETA", seta: "Government/SETA", international: "International", foundation: "Foundation", tech: "Tech Company" };
 
 /* ── Local fit score for scout results (0-100, calculated client-side before display) ── */
@@ -290,6 +290,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   const [batchAction, setBatchAction] = useState(null); // "stage" | "owner" | "priority"
   const [scoringAll, setScoringAll] = useState(false);
   const [scoreProgress, setScoreProgress] = useState({ done: 0, total: 0, current: "" });
+  const [showArchived, setShowArchived] = useState(false);
 
   const STAGES = stages || [];
 
@@ -321,8 +322,12 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
     };
   }, [grants]);
 
+  const archivedCount = useMemo(() => grants.filter(g => g.stage === "archived").length, [grants]);
+
   const filtered = useMemo(() => {
     let gs = [...grants];
+    // Hide archived unless explicitly toggled on
+    if (!showArchived) gs = gs.filter(g => g.stage !== "archived");
     if (market !== "all") gs = gs.filter(g => (g.market || "sa") === market);
     if (debouncedQ) {
       const lq = debouncedQ.toLowerCase();
@@ -343,7 +348,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
       });
     }
     return gs;
-  }, [grants, debouncedQ, sf, market, activeFilters]);
+  }, [grants, debouncedQ, sf, market, activeFilters, showArchived]);
 
   const sorted = useMemo(() => {
     let gs = [...filtered];
@@ -707,6 +712,14 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
               const m = getMember(oid);
               return <button key={oid} onClick={() => toggleFilter(`owner:${oid}`)} style={chipStyle(`owner:${oid}`)}>{m?.name || oid}</button>;
             })}
+            {archivedCount > 0 && (
+              <button onClick={() => setShowArchived(!showArchived)} style={{
+                ...chipBase,
+                border: `1px solid ${showArchived ? "#9CA3AF" : C.line}`,
+                background: showArchived ? "#F3F4F6" : C.white,
+                color: showArchived ? "#6B7280" : C.t4,
+              }}>📦 {archivedCount} archived</button>
+            )}
             {activeFilters.size > 0 && (
               <button onClick={() => setActiveFilters(new Set())} style={{ ...chipStyle("clear"), color: C.red, borderColor: C.red + "40" }}>Clear all</button>
             )}
