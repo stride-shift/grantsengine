@@ -176,6 +176,23 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
     onUpdate(grantId, updates);
   };
 
+  // Run research from child components (e.g. ProposalWorkspace gate)
+  const runResearch = useCallback(async () => {
+    const g = grant;
+    setBusy(p => ({ ...p, research: true }));
+    try {
+      const r = await onRunAI("research", g);
+      if (!isAIError(r)) {
+        storeResearch(g.id, cleanProposalText(r));
+        const prev = g.log || [];
+        onUpdate(g.id, { log: [...prev, { d: td(), t: `AI Funder Research completed for ${g.funder}` }] });
+      } else setAi(p => ({ ...p, research: r }));
+    } catch (e) {
+      setAi(p => ({ ...p, research: `Error: ${e.message}` }));
+    }
+    setBusy(p => ({ ...p, research: false }));
+  }, [grant, onRunAI, onUpdate]);
+
   // Auto-log AI actions to activity feed
   const aiLog = (action) => {
     const prev = grant?.log || [];
@@ -1039,6 +1056,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               grant={g}
               ai={ai}
               onRunAI={onRunAI}
+              onRunResearch={runResearch}
               onUpdate={onUpdate}
               busy={busy}
               setBusy={setBusy}
@@ -1286,9 +1304,79 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             onUploadsChange={loadUploads}
             label="Grant Attachments"
           />
-          <div style={{ fontSize: 11, color: C.t4, marginTop: 10, lineHeight: 1.5 }}>
-            Upload RFPs, funder guidelines, templates, or reference docs. Extracted text feeds into AI-generated proposals for this grant.
-          </div>
+          {/* AI Context Sources — show what's feeding into AI */}
+          {(() => {
+            const withText = uploads.filter(u => u.has_text);
+            const noText = uploads.filter(u => !u.has_text);
+            return (
+              <div style={{
+                marginTop: 10, padding: "10px 12px", background: C.warm100, borderRadius: 8,
+                fontSize: 11, color: C.t3, lineHeight: 1.6,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: withText.length > 0 ? 6 : 0 }}>
+                  <span style={{ fontSize: 13 }}>{"\u2699"}</span>
+                  <strong style={{ color: C.t2 }}>AI Context Sources</strong>
+                </div>
+                {withText.length > 0 ? (
+                  <>
+                    <div style={{ color: C.ok, fontWeight: 600, marginBottom: 4 }}>
+                      {withText.length} doc{withText.length !== 1 ? "s" : ""} feeding into AI proposals:
+                    </div>
+                    {withText.map(u => (
+                      <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 4 }}>
+                        <span style={{ color: C.ok }}>{"\u2713"}</span>
+                        <span>{u.original_name}</span>
+                      </div>
+                    ))}
+                    {noText.length > 0 && (
+                      <div style={{ color: C.t4, marginTop: 4 }}>
+                        {noText.length} file{noText.length !== 1 ? "s" : ""} without extractable text (images, etc.)
+                      </div>
+                    )}
+                  </>
+                ) : uploads.length > 0 ? (
+                  <div style={{ color: C.amber }}>No documents have extractable text. Upload PDFs, Word docs, or text files for AI context.</div>
+                ) : (
+                  <div>Upload RFPs, funder guidelines, or reference docs. Extracted text feeds into AI proposals for this grant.</div>
+                )}
+              </div>
+            );
+          })()}
+        </SectionWrap>
+      )}
+
+      {/* Funder Feedback — won/lost/resubmit */}
+      {(showAll || isClosedStage || g.stage === "resubmit") && (
+        <SectionWrap title="Funder Feedback" defaultOpen={isClosedStage || g.stage === "resubmit"}>
+          <Card pad="0" style={{ overflow: "hidden" }}>
+            <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}` }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.t2, marginBottom: 4 }}>
+                {g.stage === "won" ? "What did the funder say when they awarded the grant?" :
+                 g.stage === "resubmit" ? "What feedback did the funder give? This feeds into the revised proposal." :
+                 "What feedback did the funder give? This helps improve future proposals to this funder."}
+              </div>
+              <div style={{ fontSize: 11, color: C.t4 }}>
+                Paste rejection letters, call notes, or any feedback received. This is injected into the {g.stage === "won" ? "win" : "loss"} analysis and future proposals to {g.funder || "this funder"}.
+              </div>
+            </div>
+            <textarea
+              value={g.funderFeedback || ""}
+              onChange={e => up("funderFeedback", e.target.value)}
+              placeholder={g.stage === "won"
+                ? "e.g. \"Board was impressed by the AI tools angle. Asked about scaling to other provinces.\""
+                : "e.g. \"Did not meet minimum B-BBEE requirements\" or \"Budget too high for first-time grantee\""}
+              style={{
+                width: "100%", minHeight: 80, padding: 14, fontSize: 13, lineHeight: 1.7,
+                border: "none", fontFamily: FONT, resize: "vertical", outline: "none",
+                boxSizing: "border-box", background: "transparent",
+              }}
+            />
+            {g.funderFeedback && (
+              <div style={{ padding: "8px 14px", background: C.okSoft, borderTop: `1px solid ${C.ok}20`, fontSize: 11, color: C.ok, fontWeight: 600 }}>
+                Feedback saved — will be used in AI analysis
+              </div>
+            )}
+          </Card>
         </SectionWrap>
       )}
 
