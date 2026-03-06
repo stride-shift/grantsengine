@@ -11,15 +11,15 @@ const Header = () => (
   <div style={{
     position: "fixed", top: 0, left: 0, right: 0, height: 56,
     background: C.navy, display: "flex", alignItems: "center", padding: "0 24px", gap: 12,
-    boxShadow: "0 2px 8px rgba(26, 31, 54, 0.15)", zIndex: 10,
+    boxShadow: "0 2px 8px rgba(55, 65, 81, 0.15)", zIndex: 10,
   }}>
     <div style={{
       width: 32, height: 32, borderRadius: 8,
-      background: `linear-gradient(135deg, ${C.primary} 0%, #E04840 100%)`,
+      background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: 14, fontWeight: 800, color: "#fff",
+      fontSize: 14, fontWeight: 800, color: C.white,
     }}>d</div>
-    <span style={{ fontSize: 15, fontWeight: 700, color: "#fff", letterSpacing: -0.3 }}>d-lab Grant Engine</span>
+    <span style={{ fontSize: 15, fontWeight: 700, color: C.white, letterSpacing: -0.3 }}>d-lab Grant Engine</span>
   </div>
 );
 

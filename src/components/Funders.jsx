@@ -7,8 +7,8 @@ import { CAD, FTYPES } from "../data/constants";
 
 /* ── Relationship badge ── */
 const RelBadge = ({ rel, returning }) => {
-  const c = returning ? "#059669" : rel === "Hot" ? C.primary : rel === "Warm" ? C.amber : rel === "Cold" ? C.blue : C.t4;
-  const bg = returning ? "#ECFDF5" : rel === "Hot" ? C.primarySoft : rel === "Warm" ? C.amberSoft : rel === "Cold" ? C.blueSoft : C.warm200;
+  const c = returning ? C.ok : rel === "Hot" ? C.primary : rel === "Warm" ? C.amber : rel === "Cold" ? C.blue : C.t4;
+  const bg = returning ? C.okSoft : rel === "Hot" ? C.primarySoft : rel === "Warm" ? C.amberSoft : rel === "Cold" ? C.blueSoft : C.warm200;
   return (
     <span style={{
       fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 100,
@@ -27,8 +27,8 @@ const CadenceTimeline = ({ type }) => {
         <div key={i} style={{ display: "flex", alignItems: "center" }}>
           <div style={{
             padding: "4px 10px", borderRadius: 8, fontSize: 10, fontWeight: 600,
-            background: step.t === "status" ? C.blueSoft : step.t === "update" ? "#ECFDF5" : C.amberSoft,
-            color: step.t === "status" ? C.blue : step.t === "update" ? "#059669" : C.amber,
+            background: step.t === "status" ? C.blueSoft : step.t === "update" ? C.okSoft : C.amberSoft,
+            color: step.t === "status" ? C.blue : step.t === "update" ? C.ok : C.amber,
             whiteSpace: "nowrap",
           }}>
             <span style={{ fontFamily: MONO, marginRight: 4 }}>D{step.d}</span>
@@ -129,7 +129,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
     return { total, returning, types, totalPipeline, wonCount: won.length, lostCount: lost.length, wonVal: won.reduce((s, g) => s + effectiveAsk(g), 0) };
   }, [funderData, grants]);
 
-  const FTYPE_COLORS = { "Corporate CSI": C.primary, "Government/SETA": C.blue, "International": C.purple, "Foundation": C.amber, "Tech Company": "#0891B2" };
+  const FTYPE_COLORS = { "Corporate CSI": C.primary, "Government/SETA": C.blue, "International": C.purple, "Foundation": C.amber, "Tech Company": "#0891B2", "Partnership": C.purple };
 
   return (
     <div style={{ padding: "28px 32px", height: "100%", overflow: "auto" }}>
@@ -154,9 +154,9 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
       <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
         {[
           { label: "Total Funders", value: stats.total, color: C.dark },
-          { label: "Returning", value: stats.returning, color: "#059669" },
+          { label: "Returning", value: stats.returning, color: C.ok },
           { label: "Active Pipeline", value: fmtK(stats.totalPipeline), color: C.primary },
-          { label: "Won", value: `${stats.wonCount} (${fmtK(stats.wonVal)})`, color: "#059669" },
+          { label: "Won", value: `${stats.wonCount} (${fmtK(stats.wonVal)})`, color: C.ok },
           { label: "Win Rate", value: stats.wonCount + stats.lostCount > 0 ? Math.round(stats.wonCount / (stats.wonCount + stats.lostCount) * 100) + "%" : "--", color: C.blue },
         ].map((s, i) => (
           <div key={i} style={{
@@ -234,7 +234,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                     <div style={{ fontSize: 16, fontWeight: 800, fontFamily: MONO, color: C.dark, letterSpacing: -0.5 }}>{fmtK(totalAsk)}</div>
                     <div style={{ fontSize: 10, color: C.t4, marginTop: 2 }}>
-                      {fd.grants.length} grant{fd.grants.length !== 1 ? "s" : ""}{won.length > 0 && <span style={{ color: "#059669", fontWeight: 600 }}> {"\u2022"} {won.length}W</span>}{lost.length > 0 && <span style={{ color: C.red, fontWeight: 600 }}> {"\u2022"} {lost.length}L</span>}
+                      {fd.grants.length} grant{fd.grants.length !== 1 ? "s" : ""}{won.length > 0 && <span style={{ color: C.ok, fontWeight: 600 }}> {"\u2022"} {won.length}W</span>}{lost.length > 0 && <span style={{ color: C.red, fontWeight: 600 }}> {"\u2022"} {lost.length}L</span>}
                     </div>
                   </div>
                 </div>
@@ -250,7 +250,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
                           background: (stg?.bg || C.bg) + "80", color: stg?.c || C.t3,
                           border: `1px solid ${(stg?.c || C.t4)}20`,
                         }}>
-                          {g.name.slice(0, 20)}{g.name.length > 20 ? "..." : ""} {"\u2022"} {stg?.label || g.stage}
+                          {g.name.slice(0, 30)}{g.name.length > 30 ? "..." : ""} {"\u2022"} {stg?.label || g.stage}
                         </span>
                       );
                     })}

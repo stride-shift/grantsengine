@@ -15,13 +15,13 @@ const ReadinessChips = ({ missing }) => {
       {missing.slice(0, 3).map((m, i) => (
         <span key={i} style={{
           fontSize: 9, fontWeight: 600, padding: "2px 6px", borderRadius: 6,
-          background: m.includes("docs") ? "#FEF3C7" : m.includes("deadline") ? "#FEE2E2" : "#F1F5F9",
-          color: m.includes("docs") ? "#92400E" : m.includes("deadline") ? "#991B1B" : "#475569",
+          background: m.includes("docs") ? C.amberSoft : m.includes("deadline") ? C.redSoft : C.navySoft,
+          color: m.includes("docs") ? C.amber : m.includes("deadline") ? C.red : C.t2,
           letterSpacing: 0.2,
         }}>{m}</span>
       ))}
       {missing.length > 3 && (
-        <span style={{ fontSize: 9, color: "#94A3B8", fontWeight: 500 }}>+{missing.length - 3}</span>
+        <span style={{ fontSize: 9, color: C.t4, fontWeight: 500 }}>+{missing.length - 3}</span>
       )}
     </div>
   );
@@ -43,8 +43,8 @@ const GateIndicator = ({ stage, ownerRole }) => {
     <div style={{
       display: "flex", alignItems: "center", gap: 4, marginTop: 6,
       padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 600,
-      background: canSelf ? "#ECFDF5" : "#FEF3C7",
-      color: canSelf ? "#059669" : "#92400E",
+      background: canSelf ? C.okSoft : C.amberSoft,
+      color: canSelf ? C.ok : C.amber,
     }}>
       <span style={{ fontSize: 10 }}>{canSelf ? "\u2713" : "\u25CB"}</span>
       <span>{canSelf ? "Can advance" : `${ROLES[gate.need]?.label || "Approval"} needed`}</span>
@@ -91,7 +91,7 @@ const calcScoutFitScore = (s) => {
 };
 const COMMON_FOCUS = ["Youth Employment", "Digital Skills", "AI/4IR", "Education", "Women", "Rural Dev", "STEM", "Entrepreneurship", "Work Readiness", "Leadership"];
 const AVATAR_COLORS = [
-  { bg: C.redSoft, accent: C.red },
+  { bg: C.primarySoft, accent: C.primary },
   { bg: C.blueSoft, accent: C.blue },
   { bg: C.amberSoft, accent: C.amber },
   { bg: "#E6F5EE", accent: "#1A7A42" },
@@ -164,7 +164,7 @@ function ScoutLoader() {
             display: "flex", alignItems: "center", justifyContent: "center",
             animation: "ge-pulse 2s ease-in-out infinite",
           }}>
-            <span style={{ fontSize: 15, color: "#fff" }}>{"\u2609"}</span>
+            <span style={{ fontSize: 15, color: C.white }}>{"\u2609"}</span>
           </div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>Scouting new opportunities</div>
@@ -618,7 +618,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                 <span style={{
                   fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10,
                   background: market === tab.id ? C.primary : C.raised,
-                  color: market === tab.id ? "#fff" : C.t4,
+                  color: market === tab.id ? C.white : C.t4,
                 }}>{tab.count}</span>
               </button>
             ))}
@@ -645,7 +645,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
           </select>
           <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
             {VIEW_OPTIONS.map(([k,l]) => (
-              <button key={k} onClick={() => setPView(k)} style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: pView === k ? C.primary : C.white, color: pView === k ? "#fff" : C.t3, border: "none", cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>{l}</button>
+              <button key={k} onClick={() => setPView(k)} style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: pView === k ? C.primary : C.white, color: pView === k ? C.white : C.t3, border: "none", cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>{l}</button>
             ))}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
@@ -660,8 +660,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             </div>
             <button onClick={aiScout} disabled={scouting} style={{
               padding: "6px 16px", fontSize: 13, fontWeight: 700, fontFamily: FONT,
-              background: scouting ? C.purpleSoft : `linear-gradient(135deg, ${C.purple}, #7C3AED)`,
-              color: scouting ? C.purple : "#fff",
+              background: scouting ? C.purpleSoft : `linear-gradient(135deg, ${C.purple}, ${C.purple}DD)`,
+              color: scouting ? C.purple : C.white,
               border: "none", borderRadius: "0 8px 8px 0", cursor: scouting ? "wait" : "pointer",
               transition: "all 0.2s", letterSpacing: 0.3,
               boxShadow: scouting ? "none" : `0 2px 8px ${C.purple}40`,
@@ -715,9 +715,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             {archivedCount > 0 && (
               <button onClick={() => setShowArchived(!showArchived)} style={{
                 ...chipBase,
-                border: `1px solid ${showArchived ? "#9CA3AF" : C.line}`,
-                background: showArchived ? "#F3F4F6" : C.white,
-                color: showArchived ? "#6B7280" : C.t4,
+                border: `1px solid ${showArchived ? C.t4 : C.line}`,
+                background: showArchived ? C.warm200 : C.white,
+                color: showArchived ? C.t3 : C.t4,
               }}>📦 {archivedCount} archived</button>
             )}
             {activeFilters.size > 0 && (
@@ -927,7 +927,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                     {[{ id: "sa", l: "\uD83C\uDDFF\uD83C\uDDE6 SA" }, { id: "global", l: "\uD83C\uDF0D Global" }].map(m => (
                       <button key={m.id} onClick={() => setNewMarket(m.id)} style={{
                         padding: "6px 12px", fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer",
-                        background: newMarket === m.id ? C.primary : C.white, color: newMarket === m.id ? "#fff" : C.t3,
+                        background: newMarket === m.id ? C.primary : C.white, color: newMarket === m.id ? C.white : C.t3,
                       }}>{m.l}</button>
                     ))}
                   </div>
@@ -993,7 +993,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                                 }}
                                 style={{
                                   padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, fontFamily: MONO,
-                                  background: cohorts === n ? C.primary : C.white, color: cohorts === n ? "#fff" : C.t3,
+                                  background: cohorts === n ? C.primary : C.white, color: cohorts === n ? C.white : C.t3,
                                   border: `1px solid ${cohorts === n ? C.primary : C.line}`, cursor: "pointer",
                                 }}>{n}x</button>
                             ))}
@@ -1026,7 +1026,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                       style={{
                         padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: "pointer",
                         background: selectedPTypes.has(cp.id) ? C.primary : C.raised,
-                        color: selectedPTypes.has(cp.id) ? "#fff" : C.t3,
+                        color: selectedPTypes.has(cp.id) ? C.white : C.t3,
                         border: `1px solid ${selectedPTypes.has(cp.id) ? C.primary : C.line}`,
                       }}>{selectedPTypes.has(cp.id) ? "\u2713 Selected" : "Select"}</button>
                     <button onClick={() => {
@@ -1241,7 +1241,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                       width: 18, height: 18, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 11, fontWeight: 800,
                       background: autoAI[action.key] ? C.primary : C.white,
-                      color: autoAI[action.key] ? "#fff" : C.t4,
+                      color: autoAI[action.key] ? C.white : C.t4,
                       border: `1px solid ${autoAI[action.key] ? C.primary : C.line}`,
                     }}>{autoAI[action.key] ? "\u2713" : ""}</span>
                     <div>
@@ -1422,7 +1422,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             <Btn onClick={aiScout} disabled={scouting} v="primary" style={{
               fontSize: 15, padding: "12px 32px", borderRadius: 8,
               background: `linear-gradient(135deg, ${C.purple} 0%, ${C.blue}DD 100%)`,
-              borderColor: C.purple, color: "#fff",
+              borderColor: C.purple, color: C.white,
               boxShadow: `0 4px 14px ${C.purple}30`,
             }}>
               ☉ Scout for opportunities
@@ -1534,7 +1534,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                               background: isSelected ? C.primary : "transparent",
                               display: "flex", alignItems: "center", justifyContent: "center",
                             }}>
-                              {isSelected && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>{"\u2713"}</span>}
+                              {isSelected && <span style={{ color: C.white, fontSize: 10, fontWeight: 700 }}>{"\u2713"}</span>}
                             </div>
                           )}
                           <div style={{ flex: 1, minWidth: 0 }}>

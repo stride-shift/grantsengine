@@ -186,7 +186,7 @@ export default function UploadZone({ uploads = [], grantId, onUploadsChange, lab
             }}>
               {/* Type icon */}
               <span style={{
-                fontSize: 14, color: "#fff", fontWeight: 700,
+                fontSize: 14, color: C.white, fontWeight: 700,
                 width: 28, height: 28, borderRadius: 6,
                 background: typeColor(u.mime_type),
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -214,7 +214,7 @@ export default function UploadZone({ uploads = [], grantId, onUploadsChange, lab
                   </span>
                   {u.size > 0 && <span>{fmtSize(u.size)}</span>}
                   {u.has_text && (
-                    <span style={{ color: "#16a34a", fontWeight: 600 }}>{"\u2713"} Text extracted</span>
+                    <span style={{ color: C.ok, fontWeight: 600 }}>{"\u2713"} Text extracted</span>
                   )}
                   {!u.has_text && u.mime_type?.startsWith("image/") && (
                     <span style={{ color: C.t4 }}>Image (no text)</span>

@@ -343,8 +343,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               <button onClick={() => up("market", (g.market || "sa") === "sa" ? "global" : "sa")} style={{
                 fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, cursor: "pointer",
                 border: `1px solid ${C.line}`, fontFamily: FONT, transition: "all 0.15s",
-                background: (g.market || "sa") === "global" ? "#EFF6FF" : C.raised,
-                color: (g.market || "sa") === "global" ? "#2563EB" : C.t3,
+                background: (g.market || "sa") === "global" ? C.blueSoft : C.raised,
+                color: (g.market || "sa") === "global" ? C.blue : C.t3,
               }} title="Toggle South Africa / Global">
                 {(g.market || "sa") === "global" ? "\uD83C\uDF0D Global" : "\uD83C\uDDFF\uD83C\uDDE6 SA"}
               </button>
@@ -407,8 +407,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                     up("_archivedFrom", g.stage); // remember previous stage for undo
                     setOverflow(false);
                   }}
-                    style={{ width: "100%", padding: "8px 12px", fontSize: 12, fontWeight: 500, color: "#6B7280", background: "none", border: "none", cursor: "pointer", fontFamily: FONT, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
-                    onMouseEnter={e => e.currentTarget.style.background = "#F3F4F6"}
+                    style={{ width: "100%", padding: "8px 12px", fontSize: 12, fontWeight: 500, color: C.t3, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
+                    onMouseEnter={e => e.currentTarget.style.background = C.warm200}
                     onMouseLeave={e => e.currentTarget.style.background = "none"}
                   >{"\uD83D\uDCE6"} Not Relevant</button>
                 </>)}
@@ -1113,7 +1113,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                     background: fup.done ? C.ok : "transparent",
                     cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
-                    {fup.done && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>{"\u2713"}</span>}
+                    {fup.done && <span style={{ color: C.white, fontSize: 10, fontWeight: 700 }}>{"\u2713"}</span>}
                   </button>
                   <span style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, color: c, minWidth: 65 }}>
                     {fup.date ? new Date(fup.date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : "--"}
@@ -1121,8 +1121,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                   <span style={{ fontSize: 12, color: fup.done ? C.t4 : C.t1, textDecoration: fup.done ? "line-through" : "none", flex: 1 }}>{fup.label}</span>
                   <span style={{
                     fontSize: 9, fontWeight: 600, padding: "2px 6px", borderRadius: 4,
-                    background: fup.type === "status" ? C.blueSoft : fup.type === "update" ? "#ECFDF5" : C.amberSoft,
-                    color: fup.type === "status" ? C.blue : fup.type === "update" ? "#059669" : C.amber,
+                    background: fup.type === "status" ? C.blueSoft : fup.type === "update" ? C.okSoft : C.amberSoft,
+                    color: fup.type === "status" ? C.blue : fup.type === "update" ? C.ok : C.amber,
                   }}>{fup.type || "follow-up"}</span>
                   {!fup.done && daysUntil !== null && (
                     <span style={{ fontSize: 10, fontWeight: 600, color: c }}>
@@ -1244,7 +1244,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                         display: "flex", alignItems: "center", justifyContent: "center",
                         transition: "all 0.15s",
                       }}>
-                        {attached && <span style={{ color: "#fff", fontSize: 11, fontWeight: 800 }}>{"\u2713"}</span>}
+                        {attached && <span style={{ color: C.white, fontSize: 11, fontWeight: 800 }}>{"\u2713"}</span>}
                       </div>
                       <span style={{ width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: doc.statusColor, background: doc.statusBg, flexShrink: 0 }}>{doc.statusIcon}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -1281,7 +1281,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                         display: "flex", alignItems: "center", justifyContent: "center",
                         transition: "all 0.15s",
                       }}>
-                        {attached && <span style={{ color: "#fff", fontSize: 11, fontWeight: 800 }}>{"\u2713"}</span>}
+                        {attached && <span style={{ color: C.white, fontSize: 11, fontWeight: 800 }}>{"\u2713"}</span>}
                       </div>
                       <span style={{ width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: C.t4, background: C.hover, flexShrink: 0 }}>○</span>
                       <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: C.dark }}>{docName}</div></div>

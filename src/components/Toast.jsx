@@ -53,10 +53,10 @@ export function ToastProvider({ children }) {
         }}>
           {toasts.map(t => {
             const palette = {
-              success: { bg: C.okSoft, border: C.ok, icon: "✓", color: "#15803D" },
+              success: { bg: C.okSoft, border: C.ok, icon: "✓", color: C.ok },
               error: { bg: C.redSoft, border: C.red, icon: "✕", color: C.red },
               info: { bg: C.blueSoft, border: C.blue, icon: "ℹ", color: C.blue },
-              undo: { bg: C.amberSoft, border: C.amber, icon: "↩", color: "#92400E" },
+              undo: { bg: C.amberSoft, border: C.amber, icon: "↩", color: C.amber },
             }[t.type] || { bg: C.warm200, border: C.t4, icon: "•", color: C.t2 };
 
             return (

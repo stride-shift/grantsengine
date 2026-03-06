@@ -421,7 +421,7 @@ export default function Dashboard({
             <button onClick={() => onNavigate?.("pipeline")} style={{
               fontSize: 14, padding: "10px 28px", borderRadius: 8, border: "none",
               background: `linear-gradient(135deg, ${C.purple} 0%, ${C.blue}DD 100%)`,
-              color: "#fff", fontWeight: 700, cursor: "pointer", fontFamily: FONT,
+              color: C.white, fontWeight: 700, cursor: "pointer", fontFamily: FONT,
               boxShadow: `0 4px 14px ${C.purple}30`,
             }}>
               Go to Pipeline →

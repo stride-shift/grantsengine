@@ -17,8 +17,8 @@ function BudgetTable({ bt }) {
       }}>
         <thead>
           <tr style={{ background: C.navy }}>
-            <th style={{ padding: "9px 14px", textAlign: "left", color: "#fff", fontWeight: 700, fontSize: 11, letterSpacing: 0.3 }}>Line Item</th>
-            <th style={{ padding: "9px 14px", textAlign: "right", color: "#fff", fontWeight: 700, fontSize: 11, fontFamily: MONO, letterSpacing: 0.3 }}>Amount (ZAR)</th>
+            <th style={{ padding: "9px 14px", textAlign: "left", color: C.white, fontWeight: 700, fontSize: 11, letterSpacing: 0.3 }}>Line Item</th>
+            <th style={{ padding: "9px 14px", textAlign: "right", color: C.white, fontWeight: 700, fontSize: 11, fontFamily: MONO, letterSpacing: 0.3 }}>Amount (ZAR)</th>
           </tr>
         </thead>
         <tbody>
@@ -59,11 +59,11 @@ function BudgetTable({ bt }) {
             </tr>
           )}
           <tr style={{ background: C.navy }}>
-            <td style={{ padding: "10px 14px", fontWeight: 800, color: "#fff", fontSize: 13 }}>
+            <td style={{ padding: "10px 14px", fontWeight: 800, color: C.white, fontSize: 13 }}>
               TOTAL
               {totalStudents > 0 && <span style={{ fontWeight: 400, fontSize: 10, opacity: 0.7, marginLeft: 8 }}>{totalStudents} learners</span>}
             </td>
-            <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: MONO, fontWeight: 800, color: "#fff", fontSize: 14 }}>
+            <td style={{ padding: "10px 14px", textAlign: "right", fontFamily: MONO, fontWeight: 800, color: C.white, fontSize: 14 }}>
               {fmtR(bt.total)}
             </td>
           </tr>

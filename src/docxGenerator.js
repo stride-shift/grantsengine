@@ -6,8 +6,8 @@
   Lazy-imported via dynamic import() to avoid bundle bloat.
 */
 
-const RED = "D03228";
-const NAVY = "1A1F36";
+const SAGE = "4A7C59";
+const SLATE = "374151";
 const GREY_800 = "1F2937";
 const GREY_600 = "4B5563";
 const GREY_400 = "9CA3AF";
@@ -112,19 +112,19 @@ function buildRuns(docxModule, text, baseSize = 22, baseColor = GREY_800) {
 
   for (const part of parts) {
     if (part.startsWith("**") && part.endsWith("**")) {
-      runs.push(new TextRun({ text: part.slice(2, -2), bold: true, size: baseSize, color: NAVY, font: "Calibri" }));
+      runs.push(new TextRun({ text: part.slice(2, -2), bold: true, size: baseSize, color: SLATE, font: "Calibri" }));
     } else if (part) {
       // Detect ZAR amounts
       const segments = part.split(/(R\s?[\d,.\s]+(?:million|billion|M|K|m|k)?)/g);
       for (const seg of segments) {
         if (/^R\s?[\d,.\s]+/.test(seg)) {
-          runs.push(new TextRun({ text: seg, size: baseSize, color: NAVY, font: "Consolas", bold: true }));
+          runs.push(new TextRun({ text: seg, size: baseSize, color: SLATE, font: "Consolas", bold: true }));
         } else if (/\d{2,3}%/.test(seg)) {
           // Highlight key percentages
           const pctParts = seg.split(/(\d{2,3}%)/g);
           for (const pp of pctParts) {
             if (/\d{2,3}%/.test(pp)) {
-              runs.push(new TextRun({ text: pp, size: baseSize, color: RED, font: "Calibri", bold: true }));
+              runs.push(new TextRun({ text: pp, size: baseSize, color: SAGE, font: "Calibri", bold: true }));
             } else if (pp) {
               runs.push(new TextRun({ text: pp, size: baseSize, color: baseColor, font: "Calibri" }));
             }
@@ -183,14 +183,14 @@ export async function generateDocx(text, filename, meta = {}) {
   // Red accent bar
   coverChildren.push(new Paragraph({
     children: [new TextRun({ text: " ", size: 2 })],
-    border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: RED } },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: SAGE } },
     spacing: { after: 600 },
   }));
 
   // Org name — spaced-out all-caps
   coverChildren.push(new Paragraph({
     children: [
-      new TextRun({ text: orgName.toUpperCase(), bold: true, size: 24, color: RED, font: "Calibri", characterSpacing: 200 }),
+      new TextRun({ text: orgName.toUpperCase(), bold: true, size: 24, color: SAGE, font: "Calibri", characterSpacing: 200 }),
     ],
     spacing: { after: 80 },
   }));
@@ -198,7 +198,7 @@ export async function generateDocx(text, filename, meta = {}) {
   // Title
   coverChildren.push(new Paragraph({
     children: [
-      new TextRun({ text: grantName, bold: true, size: 52, color: NAVY, font: "Calibri" }),
+      new TextRun({ text: grantName, bold: true, size: 52, color: SLATE, font: "Calibri" }),
     ],
     spacing: { after: 200 },
   }));
@@ -241,7 +241,7 @@ export async function generateDocx(text, filename, meta = {}) {
             children: [new TextRun({
               text: r.value,
               size: 22,
-              color: NAVY,
+              color: SLATE,
               font: r.label === "Funding request" ? "Consolas" : "Calibri",
               bold: r.label === "Funding request" || r.label === "Prepared for",
             })],
@@ -287,13 +287,13 @@ export async function generateDocx(text, filename, meta = {}) {
 
       contentChildren.push(new Paragraph({
         children: [new TextRun({ text: " ", size: 2 })],
-        border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: RED } },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: SAGE } },
         spacing: { after: 120 },
       }));
 
       contentChildren.push(new Paragraph({
         children: [
-          new TextRun({ text: section.title, bold: true, size: 28, color: NAVY, font: "Calibri" }),
+          new TextRun({ text: section.title, bold: true, size: 28, color: SLATE, font: "Calibri" }),
         ],
         spacing: { before: 80, after: 240 },
       }));
@@ -323,7 +323,7 @@ export async function generateDocx(text, filename, meta = {}) {
                 spacing: { before: 80, after: 80 },
               })],
               borders: {
-                left: { style: BorderStyle.SINGLE, size: 6, color: RED },
+                left: { style: BorderStyle.SINGLE, size: 6, color: SAGE },
                 right: { style: BorderStyle.NONE },
               },
             }),
@@ -357,7 +357,7 @@ export async function generateDocx(text, filename, meta = {}) {
       if (p.type === "heading") {
         contentChildren.push(new Paragraph({
           children: [
-            new TextRun({ text: p.text, bold: true, size: 24, color: NAVY, font: "Calibri" }),
+            new TextRun({ text: p.text, bold: true, size: 24, color: SLATE, font: "Calibri" }),
           ],
           spacing: { before: 320, after: 120 },
           border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 } },
@@ -368,7 +368,7 @@ export async function generateDocx(text, filename, meta = {}) {
       if (p.type === "subheading") {
         contentChildren.push(new Paragraph({
           children: [
-            new TextRun({ text: p.text.toUpperCase(), bold: true, size: 18, color: RED, font: "Calibri", characterSpacing: 80 }),
+            new TextRun({ text: p.text.toUpperCase(), bold: true, size: 18, color: SAGE, font: "Calibri", characterSpacing: 80 }),
           ],
           spacing: { before: 240, after: 80 },
         }));
@@ -464,7 +464,7 @@ export async function generateDocx(text, filename, meta = {}) {
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: orgName, size: 16, color: RED, font: "Calibri", bold: true }),
+                  new TextRun({ text: orgName, size: 16, color: SAGE, font: "Calibri", bold: true }),
                   new TextRun({ text: `  \u00b7  ${grantName}`, size: 16, color: GREY_400, font: "Calibri" }),
                 ],
                 alignment: AlignmentType.LEFT,
@@ -538,15 +538,15 @@ export async function generateDocxFromSections(sections, order, filename, meta =
   coverChildren.push(new Paragraph({ spacing: { before: 1200 } }));
   coverChildren.push(new Paragraph({
     children: [new TextRun({ text: " ", size: 2 })],
-    border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: RED } },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: SAGE } },
     spacing: { after: 600 },
   }));
   coverChildren.push(new Paragraph({
-    children: [new TextRun({ text: orgName.toUpperCase(), bold: true, size: 24, color: RED, font: "Calibri", characterSpacing: 200 })],
+    children: [new TextRun({ text: orgName.toUpperCase(), bold: true, size: 24, color: SAGE, font: "Calibri", characterSpacing: 200 })],
     spacing: { after: 80 },
   }));
   coverChildren.push(new Paragraph({
-    children: [new TextRun({ text: grantName, bold: true, size: 52, color: NAVY, font: "Calibri" })],
+    children: [new TextRun({ text: grantName, bold: true, size: 52, color: SLATE, font: "Calibri" })],
     spacing: { after: 200 },
   }));
   coverChildren.push(new Paragraph({
@@ -583,7 +583,7 @@ export async function generateDocxFromSections(sections, order, filename, meta =
           width: { size: 70, type: WidthType.PERCENTAGE },
           children: [new Paragraph({
             children: [new TextRun({
-              text: r.value, size: 22, color: NAVY,
+              text: r.value, size: 22, color: SLATE,
               font: r.label === "Funding request" ? "Consolas" : "Calibri",
               bold: r.label === "Funding request" || r.label === "Prepared for",
             })],
@@ -626,11 +626,11 @@ export async function generateDocxFromSections(sections, order, filename, meta =
     }
     contentChildren.push(new Paragraph({
       children: [new TextRun({ text: " ", size: 2 })],
-      border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: RED } },
+      border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: SAGE } },
       spacing: { after: 120 },
     }));
     contentChildren.push(new Paragraph({
-      children: [new TextRun({ text: sectionName, bold: true, size: 28, color: NAVY, font: "Calibri" })],
+      children: [new TextRun({ text: sectionName, bold: true, size: 28, color: SLATE, font: "Calibri" })],
       spacing: { before: 80, after: 240 },
     }));
 
@@ -658,7 +658,7 @@ export async function generateDocxFromSections(sections, order, filename, meta =
                 children: [new TextRun({ text: kv.key, bold: true, size: 20, color: GREY_600, font: "Calibri" })],
                 spacing: { before: 80, after: 80 },
               })],
-              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED }, right: { style: BorderStyle.NONE } },
+              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: SAGE }, right: { style: BorderStyle.NONE } },
             }),
             new TableCell({
               width: { size: 65, type: WidthType.PERCENTAGE },
@@ -705,7 +705,7 @@ export async function generateDocxFromSections(sections, order, filename, meta =
       // Numbered sub-headings (e.g., "1. Something" under 120 chars)
       if (/^\d+[\.\)]\s/.test(trimmed) && trimmed.length < 120) {
         contentChildren.push(new Paragraph({
-          children: [new TextRun({ text: trimmed, bold: true, size: 24, color: NAVY, font: "Calibri" })],
+          children: [new TextRun({ text: trimmed, bold: true, size: 24, color: SLATE, font: "Calibri" })],
           spacing: { before: 320, after: 120 },
           border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 } },
         }));
@@ -715,7 +715,7 @@ export async function generateDocxFromSections(sections, order, filename, meta =
       // Colon sub-headings (e.g., "Key Deliverables:")
       if (/^[A-Z][A-Za-z\s&/()]+:$/.test(trimmed) && trimmed.length < 80) {
         contentChildren.push(new Paragraph({
-          children: [new TextRun({ text: trimmed.toUpperCase(), bold: true, size: 18, color: RED, font: "Calibri", characterSpacing: 80 })],
+          children: [new TextRun({ text: trimmed.toUpperCase(), bold: true, size: 18, color: SAGE, font: "Calibri", characterSpacing: 80 })],
           spacing: { before: 240, after: 80 },
         }));
         continue;
@@ -739,7 +739,7 @@ export async function generateDocxFromSections(sections, order, filename, meta =
       const bt = meta.budgetTable;
       contentChildren.push(new Paragraph({ spacing: { before: 200 } }));
       contentChildren.push(new Paragraph({
-        children: [new TextRun({ text: "BUDGET SUMMARY", bold: true, size: 18, color: RED, font: "Calibri", characterSpacing: 80 })],
+        children: [new TextRun({ text: "BUDGET SUMMARY", bold: true, size: 18, color: SAGE, font: "Calibri", characterSpacing: 80 })],
         spacing: { before: 120, after: 120 },
       }));
 
@@ -750,16 +750,16 @@ export async function generateDocxFromSections(sections, order, filename, meta =
         children: [
           new TableCell({
             width: { size: 65, type: WidthType.PERCENTAGE },
-            shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+            shading: { type: ShadingType.SOLID, color: SLATE, fill: SLATE },
             children: [new Paragraph({
               children: [new TextRun({ text: `Line Item${bt.cohorts > 1 ? " (per cohort)" : ""}`, bold: true, size: 20, color: "FFFFFF", font: "Calibri" })],
               spacing: { before: 80, after: 80 },
             })],
-            borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED } },
+            borders: { left: { style: BorderStyle.SINGLE, size: 6, color: SAGE } },
           }),
           new TableCell({
             width: { size: 35, type: WidthType.PERCENTAGE },
-            shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+            shading: { type: ShadingType.SOLID, color: SLATE, fill: SLATE },
             children: [new Paragraph({
               children: [new TextRun({ text: "Amount (ZAR)", bold: true, size: 20, color: "FFFFFF", font: "Calibri" })],
               spacing: { before: 80, after: 80 },
@@ -777,7 +777,7 @@ export async function generateDocxFromSections(sections, order, filename, meta =
                 children: [new TextRun({ text: item.label, size: 20, color: GREY_800, font: "Calibri" })],
                 spacing: { before: 60, after: 60 },
               })],
-              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED } },
+              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: SAGE } },
             }),
             new TableCell({
               children: [new Paragraph({
@@ -799,7 +799,7 @@ export async function generateDocxFromSections(sections, order, filename, meta =
                 children: [new TextRun({ text: `Subtotal per cohort`, bold: true, size: 20, color: GREY_600, font: "Calibri" })],
                 spacing: { before: 60, after: 60 },
               })],
-              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED } },
+              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: SAGE } },
             }),
             new TableCell({
               shading: { type: ShadingType.SOLID, color: GREY_50, fill: GREY_50 },
@@ -819,7 +819,7 @@ export async function generateDocxFromSections(sections, order, filename, meta =
                 children: [new TextRun({ text: `\u00d7 ${bt.cohorts} cohorts`, size: 20, color: GREY_600, font: "Calibri" })],
                 spacing: { before: 60, after: 60 },
               })],
-              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED } },
+              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: SAGE } },
             }),
             new TableCell({
               shading: { type: ShadingType.SOLID, color: GREY_50, fill: GREY_50 },
@@ -841,7 +841,7 @@ export async function generateDocxFromSections(sections, order, filename, meta =
                 children: [new TextRun({ text: "30% organisational contribution", size: 20, color: GREY_600, font: "Calibri" })],
                 spacing: { before: 60, after: 60 },
               })],
-              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED } },
+              borders: { left: { style: BorderStyle.SINGLE, size: 6, color: SAGE } },
             }),
             new TableCell({
               children: [new Paragraph({
@@ -857,15 +857,15 @@ export async function generateDocxFromSections(sections, order, filename, meta =
       budgetRows.push(new TableRow({
         children: [
           new TableCell({
-            shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+            shading: { type: ShadingType.SOLID, color: SLATE, fill: SLATE },
             children: [new Paragraph({
               children: [new TextRun({ text: "TOTAL", bold: true, size: 22, color: "FFFFFF", font: "Calibri" })],
               spacing: { before: 80, after: 80 },
             })],
-            borders: { left: { style: BorderStyle.SINGLE, size: 6, color: RED } },
+            borders: { left: { style: BorderStyle.SINGLE, size: 6, color: SAGE } },
           }),
           new TableCell({
-            shading: { type: ShadingType.SOLID, color: NAVY, fill: NAVY },
+            shading: { type: ShadingType.SOLID, color: SLATE, fill: SLATE },
             children: [new Paragraph({
               children: [new TextRun({ text: `R${bt.total.toLocaleString()}`, bold: true, size: 24, color: "FFFFFF", font: "Consolas" })],
               spacing: { before: 80, after: 80 },
@@ -931,7 +931,7 @@ export async function generateDocxFromSections(sections, order, filename, meta =
           default: new Header({
             children: [new Paragraph({
               children: [
-                new TextRun({ text: orgName, size: 16, color: RED, font: "Calibri", bold: true }),
+                new TextRun({ text: orgName, size: 16, color: SAGE, font: "Calibri", bold: true }),
                 new TextRun({ text: `  \u00b7  ${grantName}`, size: 16, color: GREY_400, font: "Calibri" }),
               ],
               alignment: AlignmentType.LEFT,

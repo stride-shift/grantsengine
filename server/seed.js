@@ -121,15 +121,17 @@ for (const m of team) {
 // ── Pipeline Config ──
 upsertPipelineConfig(orgId, {
   stages: [
-    { id: 'scouted', label: 'Scouted', c: '#64748B', bg: '#F1F5F9' },
+    { id: 'scouted', label: 'Scouted', c: '#6B7280', bg: '#F3F4F6' },
     { id: 'qualifying', label: 'Qualifying', c: '#2563EB', bg: '#EFF6FF' },
-    { id: 'drafting', label: 'Drafting', c: '#EA580C', bg: '#FFF7ED' },
-    { id: 'review', label: 'Review', c: '#7C3AED', bg: '#F5F3FF' },
+    { id: 'drafting', label: 'Drafting', c: '#C17817', bg: '#FEF5E7' },
+    { id: 'review', label: 'Review', c: '#6D28D9', bg: '#F3F0FF' },
     { id: 'submitted', label: 'Submitted', c: '#DB2777', bg: '#FDF2F8' },
     { id: 'awaiting', label: 'Awaiting', c: '#0891B2', bg: '#ECFEFF' },
-    { id: 'won', label: 'Won', c: '#059669', bg: '#ECFDF5' },
+    { id: 'won', label: 'Won', c: '#16A34A', bg: '#DCFCE7' },
     { id: 'lost', label: 'Lost', c: '#DC2626', bg: '#FEF2F2' },
-    { id: 'deferred', label: 'Deferred', c: '#94A3B8', bg: '#F8FAFC' },
+    { id: 'resubmit', label: 'Resubmit', c: '#B45309', bg: '#FEF3C7' },
+    { id: 'deferred', label: 'Deferred', c: '#9CA3AF', bg: '#F3F4F6' },
+    { id: 'archived', label: 'Not Relevant', c: '#D1D5DB', bg: '#F9FAFB' },
   ],
   gates: {
     'drafting->review': { need: 'hop', label: 'Head of Programmes must approve draft for review' },
@@ -137,7 +139,7 @@ upsertPipelineConfig(orgId, {
     'awaiting->won': { need: 'director', label: 'Director must confirm award' },
     'awaiting->lost': { need: 'director', label: 'Director must confirm loss' },
   },
-  funder_types: ['Corporate CSI', 'Government/SETA', 'International', 'Foundation', 'Tech Company'],
+  funder_types: ['Corporate CSI', 'Government/SETA', 'International', 'Foundation', 'Tech Company', 'Partnership'],
   win_factors: ['Outcome data', 'Budget fit', 'Geographic match', 'Relationship', 'AI angle', 'Rural focus', 'Gender angle', 'Employment commitment', 'Co-funding', 'SETA alignment', 'Replicable model', 'Tech platform'],
   loss_factors: ['Budget too high', 'Outside focus', 'Track record', 'Geography', 'Missing docs', 'Competitive', 'Timing missed', 'Insufficient detail', 'Org too small', 'Already funded similar'],
   doc_requirements: {
