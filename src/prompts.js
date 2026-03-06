@@ -9,7 +9,7 @@
    TODO: Either migrate App.jsx inline prompts here, or remove unused exports.
    ═══════════════════════════════════════ */
 
-import { CTX, CTX_SLIM } from "./data/context";
+import { CTX, CTX_SLIM } from "./data/context.js";
 
 // ── BRIEF ──
 export const briefPrompt = ({ dateStr, ov, urg, fuDue, dr, ren, act }) => ({
