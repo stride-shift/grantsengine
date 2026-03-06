@@ -1539,7 +1539,15 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                           )}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600, color: C.dark, marginBottom: 4, lineHeight: 1.3 }}>{g.name}</div>
-                            <div style={{ fontSize: 11, color: C.t3, marginBottom: 6 }}>{g.funder}{g.market === "global" ? " \uD83C\uDF0D" : ""}</div>
+                            <div style={{ fontSize: 11, color: C.t3, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                              {g.funder}{g.market === "global" ? " \uD83C\uDF0D" : ""}
+                              {g.applyUrl && (
+                                <a href={g.applyUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                                  style={{ fontSize: 9, fontWeight: 700, color: C.blue, background: C.blue + "12", padding: "1px 6px", borderRadius: 4, textDecoration: "none", whiteSpace: "nowrap" }}
+                                  title={g.applyUrl}
+                                >{"\u2197"} Apply</a>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
@@ -1549,7 +1557,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                           </div>
                           <DeadlineBadge d={d} deadline={g.deadline} stage={g.stage} />
                         </div>
-                        {!["won", "lost", "deferred"].includes(g.stage) && (() => {
+                        {!["won", "lost", "deferred", "archived"].includes(g.stage) && (() => {
                           const r = grantReadiness(g, complianceDocs);
                           return r.missing.length > 0 ? <ReadinessChips missing={r.missing} /> : null;
                         })()}

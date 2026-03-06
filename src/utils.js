@@ -191,6 +191,8 @@ export const grantReadiness = (g, complianceDocs = []) => {
   } else if (stage === "review") {
     const gate = GATES["review->submitted"];
     nextAction = gate ? `${gate.label}` : "Awaiting review approval";
+  } else if (stage === "resubmit") {
+    nextAction = !g.aiResearch ? "Run updated Funder Research" : "Revise draft with funder feedback and resubmit";
   } else if (stage === "submitted" || stage === "awaiting") {
     nextAction = "Track follow-ups with the funder";
   } else if (stage === "won") {
