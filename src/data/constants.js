@@ -1,20 +1,20 @@
 /* Static data constants */
 
 export const STAGES = [
-  { id: "scouted", label: "Scouted", c: "#6B7280" },
-  { id: "qualifying", label: "Qualifying", c: "#1E56A0" },
-  { id: "drafting", label: "Drafting", c: "#D4A017" },
-  { id: "review", label: "Review", c: "#2B6CB0" },
-  { id: "submitted", label: "Submitted", c: "#D03228" },
-  { id: "awaiting", label: "Awaiting", c: "#1A7FAD" },
-  { id: "won", label: "Won", c: "#16A34A" },
-  { id: "lost", label: "Lost", c: "#D03228" },
-  { id: "resubmit", label: "Resubmit", c: "#B45309" },
-  { id: "deferred", label: "Deferred", c: "#9CA3AF" },
-  { id: "archived", label: "Not Relevant", c: "#D1D5DB" },
+  { id: "scouted",    label: "Scouted",       c: "#6B7280", bg: "#F3F4F6" },
+  { id: "qualifying", label: "Qualifying",    c: "#2563EB", bg: "#EFF6FF" },
+  { id: "drafting",   label: "Drafting",      c: "#C17817", bg: "#FEF5E7" },
+  { id: "review",     label: "Review",        c: "#6D28D9", bg: "#F3F0FF" },
+  { id: "submitted",  label: "Submitted",     c: "#DB2777", bg: "#FDF2F8" },
+  { id: "awaiting",   label: "Awaiting",      c: "#0891B2", bg: "#ECFEFF" },
+  { id: "won",        label: "Won",           c: "#16A34A", bg: "#DCFCE7" },
+  { id: "lost",       label: "Lost",          c: "#DC2626", bg: "#FEF2F2" },
+  { id: "resubmit",   label: "Resubmit",      c: "#B45309", bg: "#FEF3C7" },
+  { id: "deferred",   label: "Deferred",      c: "#9CA3AF", bg: "#F3F4F6" },
+  { id: "archived",   label: "Not Relevant",  c: "#D1D5DB", bg: "#F9FAFB" },
 ];
 
-export const FTYPES = ["Corporate CSI", "Government/SETA", "International", "Foundation", "Tech Company"];
+export const FTYPES = ["Corporate CSI", "Government/SETA", "International", "Foundation", "Tech Company", "Partnership"];
 export const WFAC = ["Outcome data", "Budget fit", "Geographic match", "Relationship", "AI angle", "Rural focus", "Gender angle", "Employment commitment", "Co-funding", "SETA alignment", "Replicable model", "Tech platform"];
 export const LFAC = ["Budget too high", "Outside focus", "Track record", "Geography", "Missing docs", "Competitive", "Timing missed", "Insufficient detail", "Org too small", "Already funded similar"];
 export const TOPICS = ["AI in Youth Development", "AI-Native Curricula", "Digital Skills at Scale", "NPO Technology", "Design Thinking for Impact", "JTBD in Education", "Rural Digital Transformation", "AI Governance Africa", "Youth Employment 4IR"];
@@ -25,6 +25,7 @@ export const DOCS = {
   "International": ["NPO Registration", "Audited Financials", "Audited Financials (Prior Year)", "Organisation Profile", "Theory of Change", "M&E Framework", "Programme Description", "Budget (USD)", "Risk Register", "Safeguarding Policy", "Anti-Fraud Policy"],
   "Foundation": ["PBO Certificate", "NPO Registration", "Tax Clearance (SARS)", "Audited Financials", "Organisation Profile", "Programme Description", "Detailed Budget", "Outcomes Framework", "Board Resolution"],
   "Tech Company": ["NPO Registration", "Organisation Profile", "Programme Description", "Detailed Budget", "Impact Metrics", "Tech Platform Overview", "Data Privacy Policy"],
+  "Partnership": ["NPO Registration", "Organisation Profile", "Programme Description", "Partnership Proposition", "Detailed Budget", "Outcomes Framework", "Board Resolution"],
 };
 
 // System-level compliance documents shared across all grants
@@ -69,6 +70,7 @@ export const CAD = {
   "International": [{ d: 14, l: "Confirm receipt", t: "status" }, { d: 30, l: "Programme update", t: "update" }, { d: 60, l: "Offer site visit", t: "offer" }, { d: 90, l: "Check timeline", t: "status" }],
   "Foundation": [{ d: 14, l: "Status check", t: "status" }, { d: 35, l: "Share success story", t: "update" }, { d: 56, l: "Offer to discuss", t: "offer" }],
   "Tech Company": [{ d: 10, l: "Quick check-in", t: "status" }, { d: 21, l: "Share AI angle", t: "update" }, { d: 35, l: "Offer demo", t: "offer" }],
+  "Partnership": [{ d: 14, l: "Confirm interest", t: "status" }, { d: 30, l: "Share collaboration framework", t: "update" }, { d: 45, l: "Proposal refinement", t: "offer" }, { d: 60, l: "Check decision timeline", t: "status" }],
 };
 
 

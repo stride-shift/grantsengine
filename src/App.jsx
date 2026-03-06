@@ -28,15 +28,17 @@ const Admin = lazy(() => import("./components/Admin"));
 injectFonts();
 
 const DEFAULT_STAGES = [
-  { id: "scouted", label: "Scouted", c: "#64748B", bg: "#F1F5F9" },
-  { id: "qualifying", label: "Qualifying", c: "#2563EB", bg: "#EFF6FF" },
-  { id: "drafting", label: "Drafting", c: "#EA580C", bg: "#FFF7ED" },
-  { id: "review", label: "Review", c: "#7C3AED", bg: "#F5F3FF" },
-  { id: "submitted", label: "Submitted", c: "#DB2777", bg: "#FDF2F8" },
-  { id: "awaiting", label: "Awaiting", c: "#0891B2", bg: "#ECFEFF" },
-  { id: "won", label: "Won", c: "#059669", bg: "#ECFDF5" },
-  { id: "lost", label: "Lost", c: "#DC2626", bg: "#FEF2F2" },
-  { id: "deferred", label: "Deferred", c: "#94A3B8", bg: "#F8FAFC" },
+  { id: "scouted",    label: "Scouted",       c: "#6B7280", bg: "#F3F4F6" },
+  { id: "qualifying", label: "Qualifying",    c: "#2563EB", bg: "#EFF6FF" },
+  { id: "drafting",   label: "Drafting",      c: "#C17817", bg: "#FEF5E7" },
+  { id: "review",     label: "Review",        c: "#6D28D9", bg: "#F3F0FF" },
+  { id: "submitted",  label: "Submitted",     c: "#DB2777", bg: "#FDF2F8" },
+  { id: "awaiting",   label: "Awaiting",      c: "#0891B2", bg: "#ECFEFF" },
+  { id: "won",        label: "Won",           c: "#16A34A", bg: "#DCFCE7" },
+  { id: "lost",       label: "Lost",          c: "#DC2626", bg: "#FEF2F2" },
+  { id: "resubmit",   label: "Resubmit",      c: "#B45309", bg: "#FEF3C7" },
+  { id: "deferred",   label: "Deferred",      c: "#9CA3AF", bg: "#F3F4F6" },
+  { id: "archived",   label: "Not Relevant",  c: "#D1D5DB", bg: "#F9FAFB" },
 ];
 
 const DEFAULT_FTYPES = ["Corporate CSI", "Government/SETA", "International", "Foundation", "Tech Company", "Partnership"];
@@ -520,7 +522,7 @@ function AppInner() {
         for (const u of uploads.grant_uploads) {
           if (budget <= 0) break;
           if (!u.extracted_text) continue;
-          const text = u.extracted_text.slice(0, Math.min(2000, budget));
+          const text = u.extracted_text.slice(0, Math.min(4000, budget));
           parts.push(`[${u.original_name}]\n${text}`);
           budget -= text.length;
         }
@@ -554,7 +556,7 @@ function AppInner() {
         for (const u of uploads.org_uploads) {
           if (budget <= 0) break;
           if (!u.extracted_text) continue;
-          const text = u.extracted_text.slice(0, Math.min(2000, budget));
+          const text = u.extracted_text.slice(0, Math.min(4000, budget));
           parts.push(`[${u.original_name}]\n${text}`);
           budget -= text.length;
         }
@@ -610,12 +612,12 @@ Cost: R${(detectedPt.cost||0).toLocaleString()} | Per student: R${detectedPt.per
       // Use structured research if available, fall back to raw text
       const structuredRes = grant.aiResearchStructured || parseStructuredResearch(priorResearch || grant.aiResearch);
       const rawResearch = priorResearch || grant.aiResearch;
-      const researchText = structuredRes ? getResearchForDraft(structuredRes, 2500) : rawResearch ? rawResearch.slice(0, 2000) : "";
+      const researchText = structuredRes ? getResearchForDraft(structuredRes, 2500) : rawResearch ? rawResearch.slice(0, 3000) : "";
       const researchBlock = researchText
         ? `\n\n=== FUNDER INTELLIGENCE (from prior research) ===\n${researchText}`
         : "";
       const fitScoreBlock = (priorFitScore || grant.aiFitscore)
-        ? `\n\n=== FIT SCORE ANALYSIS ===\n${(priorFitScore || grant.aiFitscore).slice(0, 1500)}`
+        ? `\n\n=== FIT SCORE ANALYSIS ===\n${(priorFitScore || grant.aiFitscore).slice(0, 2000)}`
         : "";
       const relNote = fs.returning
         ? `RETURNING FUNDER — this is a partner renewing, not a stranger. Reference the existing relationship with specifics:\n${fs.hook}\nFrame as continuity and deepening, not a new pitch. Show what their previous investment built and what comes next.`
@@ -755,12 +757,12 @@ Use d-lab's programme types as a starting framework, but MATCH THE ASK TO THE FU
       const structuredRes = grant.aiResearchStructured || parseStructuredResearch(rawResearch);
       const researchText = structuredRes
         ? getResearchForSection(structuredRes, sectionName, 2000)
-        : rawResearch ? rawResearch.slice(0, 1500) : "";
+        : rawResearch ? rawResearch.slice(0, 2500) : "";
       const researchBlock = researchText
         ? `\n\n=== FUNDER INTELLIGENCE (tailored for ${sectionName}) ===\n${researchText}`
         : "";
       const fitBlock = (priorFitScore?.fitscore || grant.aiFitscore)
-        ? `\n\n=== FIT SCORE ===\n${(priorFitScore?.fitscore || grant.aiFitscore).slice(0, 1000)}`
+        ? `\n\n=== FIT SCORE ===\n${(priorFitScore?.fitscore || grant.aiFitscore).slice(0, 1500)}`
         : "";
       const fitScoreNote = (priorFitScore?.fitscore || grant.aiFitscore)
         ? "\nIMPORTANT: A fit score analysis is included. Lean into the STRENGTHS it identifies, directly address GAPS or RISKS (turn weaknesses into narrative strengths), match emphasis to the highest-scored alignment areas."
@@ -1532,9 +1534,9 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
         <div style={{ textAlign: "center" }}>
           <div style={{
             width: 52, height: 52, borderRadius: 14, margin: "0 auto 18px",
-            background: `linear-gradient(135deg, ${C.primary} 0%, #E04840 100%)`,
+            background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 22, fontWeight: 800, color: "#fff", fontFamily: MONO,
+            fontSize: 22, fontWeight: 800, color: C.white, fontFamily: MONO,
             boxShadow: `0 4px 20px ${C.primaryGlow}`,
             animation: "ge-pulse 2s ease-in-out infinite",
           }}>{(orgSlug || "G")?.[0]?.toUpperCase()}</div>
@@ -1578,9 +1580,9 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
             ) : null}
             <div style={{
               width: 36, height: 36, borderRadius: 10,
-              background: `linear-gradient(135deg, ${C.primary} 0%, #E04840 100%)`,
+              background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
               display: org?.logo_url ? "none" : "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 15, fontWeight: 800, color: "#fff", fontFamily: MONO,
+              fontSize: 15, fontWeight: 800, color: C.white, fontFamily: MONO,
               boxShadow: `0 2px 10px ${C.primaryGlow}`,
             }}>{(org?.name || orgSlug)?.[0]?.toUpperCase()}</div>
             <div>
@@ -1618,7 +1620,7 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
                 {item.label}
                 {item.id === "dashboard" && notifCount > 0 && (
                   <span style={{
-                    marginLeft: "auto", fontSize: 10, fontWeight: 700, color: "#fff",
+                    marginLeft: "auto", fontSize: 10, fontWeight: 700, color: C.white,
                     background: C.primary, borderRadius: 10, padding: "2px 7px", minWidth: 18,
                     textAlign: "center", boxShadow: `0 1px 6px ${C.primaryGlow}`,
                   }}>{notifCount}</span>

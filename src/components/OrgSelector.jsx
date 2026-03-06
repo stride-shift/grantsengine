@@ -16,9 +16,9 @@ function OrgAvatar({ name, logoUrl, size = 40, radius = 10, fontSize = 16 }) {
   return (
     <div style={{
       width: size, height: size, borderRadius: radius, flexShrink: 0,
-      background: `linear-gradient(135deg, ${C.primary} 0%, #E04840 100%)`,
+      background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize, fontWeight: 800, color: "#fff", fontFamily: MONO,
+      fontSize, fontWeight: 800, color: C.white, fontFamily: MONO,
     }}>{(name || "?")[0]?.toUpperCase()}</div>
   );
 }
@@ -117,15 +117,15 @@ export default function OrgSelector({ onSelect }) {
     <div style={{
       position: "fixed", top: 0, left: 0, right: 0, height: 56,
       background: C.navy, display: "flex", alignItems: "center", padding: "0 24px", gap: 12,
-      boxShadow: "0 2px 8px rgba(26, 31, 54, 0.15)",
+      boxShadow: "0 2px 8px rgba(55, 65, 81, 0.15)",
     }}>
       <div style={{
         width: 32, height: 32, borderRadius: 8,
-        background: `linear-gradient(135deg, ${C.primary} 0%, #E04840 100%)`,
+        background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 14, fontWeight: 800, color: "#fff",
+        fontSize: 14, fontWeight: 800, color: C.white,
       }}>d</div>
-      <span style={{ fontSize: 15, fontWeight: 700, color: "#fff", letterSpacing: -0.3 }}>d-lab Grant Engine</span>
+      <span style={{ fontSize: 15, fontWeight: 700, color: C.white, letterSpacing: -0.3 }}>d-lab Grant Engine</span>
     </div>
   );
 
@@ -199,7 +199,7 @@ export default function OrgSelector({ onSelect }) {
   // ── Delete confirmation modal ──
   const deleteModal = deleteTarget && (
     <div style={{
-      position: "fixed", inset: 0, background: "rgba(26, 31, 54, 0.5)", zIndex: 9999,
+      position: "fixed", inset: 0, background: "rgba(55, 65, 81, 0.5)", zIndex: 9999,
       display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT,
     }} onClick={() => { if (!deleting) { setDeleteTarget(null); setConfirmSlug(""); setDeleteErr(""); } }}>
       <div onClick={e => e.stopPropagation()} style={{
@@ -207,7 +207,7 @@ export default function OrgSelector({ onSelect }) {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <div style={{
-            width: 36, height: 36, borderRadius: 10, background: "#FEE2E2",
+            width: 36, height: 36, borderRadius: 10, background: C.redSoft,
             display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
           }}>🗑</div>
           <div>
@@ -217,8 +217,8 @@ export default function OrgSelector({ onSelect }) {
         </div>
 
         <div style={{
-          background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, padding: "12px 16px",
-          marginBottom: 20, fontSize: 13, color: "#991B1B", lineHeight: 1.5,
+          background: C.redSoft, border: `1px solid ${C.red}30`, borderRadius: 8, padding: "12px 16px",
+          marginBottom: 20, fontSize: 13, color: C.red, lineHeight: 1.5,
         }}>
           This will permanently delete <strong>{deleteTarget.name}</strong> and all its data including grants, proposals, team members, documents, and settings.
         </div>
@@ -244,7 +244,7 @@ export default function OrgSelector({ onSelect }) {
             style={{
               flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600, fontFamily: FONT,
               background: confirmSlug === deleteTarget.slug ? C.primary : C.raised,
-              color: confirmSlug === deleteTarget.slug ? "#fff" : C.t4,
+              color: confirmSlug === deleteTarget.slug ? C.white : C.t4,
               border: "none", borderRadius: 8, cursor: confirmSlug === deleteTarget.slug ? "pointer" : "not-allowed",
               transition: "all 0.2s",
             }}>
@@ -282,21 +282,21 @@ export default function OrgSelector({ onSelect }) {
           <>
             {/* Admin mode: enter key to unlock delete buttons */}
             {adminMode && !adminKey && (
-              <div style={{ marginBottom: 20, padding: 16, background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA" }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#991B1B", marginBottom: 8 }}>Super Admin Mode</div>
+              <div style={{ marginBottom: 20, padding: 16, background: C.redSoft, borderRadius: 8, border: `1px solid ${C.red}30` }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.red, marginBottom: 8 }}>Super Admin Mode</div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <input type="password" placeholder="Enter admin key"
                     onKeyDown={e => { if (e.key === "Enter" && e.target.value) setAdminKey(e.target.value); }}
                     style={{
                       flex: 1, padding: "8px 12px", fontSize: 13, fontFamily: MONO,
-                      border: `1px solid #FECACA`, borderRadius: 8, boxSizing: "border-box",
+                      border: `1px solid ${C.red}30`, borderRadius: 8, boxSizing: "border-box",
                     }} />
                   <button onClick={e => {
                     const input = e.target.parentElement.querySelector("input");
                     if (input.value) setAdminKey(input.value);
                   }} style={{
                     padding: "8px 14px", fontSize: 13, fontWeight: 600, fontFamily: FONT,
-                    background: C.primary, color: "#fff", border: "none", borderRadius: 8, cursor: "pointer",
+                    background: C.primary, color: C.white, border: "none", borderRadius: 8, cursor: "pointer",
                   }}>Unlock</button>
                   <button onClick={() => setAdminMode(false)} style={{
                     padding: "8px 12px", fontSize: 13, fontFamily: FONT,
@@ -308,13 +308,13 @@ export default function OrgSelector({ onSelect }) {
 
             {adminMode && adminKey && (
               <div style={{
-                marginBottom: 16, padding: "8px 14px", background: "#FEF2F2", borderRadius: 10,
+                marginBottom: 16, padding: "8px 14px", background: C.redSoft, borderRadius: 10,
                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                border: "1px solid #FECACA",
+                border: `1px solid ${C.red}30`,
               }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: "#991B1B" }}>🔓 Admin mode — click ✕ to delete orgs</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.red }}>🔓 Admin mode — click ✕ to delete orgs</span>
                 <button onClick={() => { setAdminMode(false); setAdminKey(""); }} style={{
-                  background: "none", border: "none", color: "#991B1B", cursor: "pointer",
+                  background: "none", border: "none", color: C.red, cursor: "pointer",
                   fontSize: 12, fontWeight: 600, fontFamily: FONT, textDecoration: "underline",
                 }}>Exit</button>
               </div>
@@ -346,13 +346,13 @@ export default function OrgSelector({ onSelect }) {
                         title={`Delete ${org.name}`}
                         style={{
                           width: 44, height: "100%", minHeight: 56,
-                          background: "#FEF2F2", border: `1px solid #FECACA`, borderLeft: "none",
+                          background: C.redSoft, border: `1px solid ${C.red}30`, borderLeft: "none",
                           borderRadius: "0 10px 10px 0", cursor: "pointer",
                           display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 16, color: "#DC2626", transition: "all 0.2s",
+                          fontSize: 16, color: C.red, transition: "all 0.2s",
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.background = "#FEE2E2"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = "#FEF2F2"; }}
+                        onMouseEnter={e => { e.currentTarget.style.background = C.redSoft; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = C.redSoft; }}
                       >✕</button>
                     )}
                   </div>

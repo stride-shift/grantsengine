@@ -42,8 +42,8 @@ export const DeadlineBadge = ({ d, deadline, size = "sm", stage }) => {
 };
 
 // Hoisted to module level to avoid re-creation on every render
-const TYPE_COLORS = { "Foundation": C.blue, "Corporate CSI": C.red, "Government/SETA": C.amber, "International": "#1A7A42", "Tech Company": "#0891B2" };
-const TYPE_BGS = { "Foundation": C.blueSoft, "Corporate CSI": C.redSoft, "Government/SETA": C.amberSoft, "International": "#E6F5EE", "Tech Company": "#ECFEFF" };
+const TYPE_COLORS = { "Foundation": C.blue, "Corporate CSI": C.primary, "Government/SETA": C.amber, "International": "#1A7A42", "Tech Company": "#0891B2", "Partnership": C.purple };
+const TYPE_BGS = { "Foundation": C.blueSoft, "Corporate CSI": C.primarySoft, "Government/SETA": C.amberSoft, "International": "#E6F5EE", "Tech Company": "#ECFEFF", "Partnership": C.purpleSoft };
 
 export const TypeBadge = ({ type }) => {
   const col = TYPE_COLORS[type] || C.t3;

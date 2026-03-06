@@ -539,7 +539,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
               padding: "4px 12px", borderRadius: 8, fontSize: 11, fontWeight: 600, fontFamily: FONT,
               cursor: "pointer", border: "none",
               background: !filterMember ? C.navy : C.warm200,
-              color: !filterMember ? "#fff" : C.t2,
+              color: !filterMember ? C.white : C.t2,
               transition: "all 0.15s",
             }}
           >All</button>
@@ -551,7 +551,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
                 padding: "4px 12px", borderRadius: 8, fontSize: 11, fontWeight: 600, fontFamily: FONT,
                 cursor: "pointer", border: "none", display: "flex", alignItems: "center", gap: 5,
                 background: filterMember === m.id ? C.navy : C.warm200,
-                color: filterMember === m.id ? "#fff" : C.t2,
+                color: filterMember === m.id ? C.white : C.t2,
                 transition: "all 0.15s",
               }}
             >
@@ -585,7 +585,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
                   }}>
                     {cfg.icon} {cfg.label}
                   </span>
-                  <span style={{ flex: 1, color: C.t2, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span style={{ flex: 1, color: C.t2, fontSize: 12, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
                     {detail}
                   </span>
                   <span style={{ fontSize: 10, color: C.t4, minWidth: 55, textAlign: "right", whiteSpace: "nowrap" }}>
