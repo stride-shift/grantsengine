@@ -1235,7 +1235,7 @@ SCORING GUIDE:
       for (const g of grants) {
         if (g.stage === "drafting") drafting.push(g);
         if (g.stage === "submitted" || g.stage === "awaiting") submitted.push(g);
-        if (["won","lost","deferred"].includes(g.stage)) continue;
+        if (["won","lost","deferred","archived"].includes(g.stage)) continue;
         const dd = dL(g.deadline);
         if (dd === null) continue;
         if (dd < 0) overdue.push(g);
@@ -1256,7 +1256,7 @@ Overdue (${overdue.length}): ${overdue.map(g => `${g.name} (${Math.abs(dL(g.dead
 Urgent <14d (${urgent.length}): ${urgent.map(g => `${g.name} (${dL(g.deadline)}d left, owner: ${team.find(t=>t.id===g.owner)?.name || "Unassigned"})`).join("; ") || "None"}
 In drafting (${drafting.length}): ${drafting.map(g => `${g.name} for ${g.funder} (R${effectiveAsk(g).toLocaleString()})`).join("; ") || "None"}
 Submitted/Awaiting (${submitted.length}): ${submitted.map(g => `${g.name} from ${g.funder}`).join("; ") || "None"}
-Total pipeline: ${grants.filter(g => !["won","lost","deferred"].includes(g.stage)).length} grants, R${grants.filter(g => !["won","lost","deferred"].includes(g.stage)).reduce((s,g) => s+effectiveAsk(g), 0).toLocaleString()}`,
+Total pipeline: ${grants.filter(g => !["won","lost","deferred","archived"].includes(g.stage)).length} grants, R${grants.filter(g => !["won","lost","deferred","archived"].includes(g.stage)).reduce((s,g) => s+effectiveAsk(g), 0).toLocaleString()}`,
         false, 1000
       );
     }

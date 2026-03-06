@@ -123,7 +123,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
     const returning = funderData.filter(f => f.returning).length;
     const types = {};
     for (const f of funderData) types[f.type] = (types[f.type] || 0) + 1;
-    const totalPipeline = grants.filter(g => !["won", "lost", "deferred"].includes(g.stage)).reduce((s, g) => s + effectiveAsk(g), 0);
+    const totalPipeline = grants.filter(g => !["won", "lost", "deferred", "archived"].includes(g.stage)).reduce((s, g) => s + effectiveAsk(g), 0);
     const won = grants.filter(g => g.stage === "won");
     const lost = grants.filter(g => g.stage === "lost");
     return { total, returning, types, totalPipeline, wonCount: won.length, lostCount: lost.length, wonVal: won.reduce((s, g) => s + effectiveAsk(g), 0) };
@@ -192,7 +192,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
           const totalAsk = fd.grants.reduce((s, g) => s + effectiveAsk(g), 0);
           const won = fd.grants.filter(g => g.stage === "won");
           const lost = fd.grants.filter(g => g.stage === "lost");
-          const active = fd.grants.filter(g => !["won", "lost", "deferred"].includes(g.stage));
+          const active = fd.grants.filter(g => !["won", "lost", "deferred", "archived"].includes(g.stage));
           const bestRel = fd.grants.reduce((best, g) => {
             const relOrder = { "Hot": 3, "Warm": 2, "Cold": 1, "New": 0 };
             return (relOrder[g.rel] || 0) > (relOrder[best] || 0) ? g.rel : best;
