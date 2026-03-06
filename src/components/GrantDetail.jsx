@@ -446,6 +446,102 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         </Card>
       )}
 
+      {/* ── About This Opportunity — always visible, prominent ── */}
+      <Card style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.2, textTransform: "uppercase" }}>About This Opportunity</div>
+          {g.applyUrl && (
+            <a href={g.applyUrl} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: 11, fontWeight: 600, color: C.blue, textDecoration: "none", marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
+              {"\u2197"} Apply
+            </a>
+          )}
+        </div>
+
+        {/* Description — editable, from notes */}
+        <textarea
+          value={g.notes || ""}
+          onChange={e => up("notes", e.target.value)}
+          placeholder="Describe what this opportunity is about — the funder's goals, what they're looking for, and why it's a fit for d-lab..."
+          style={{
+            width: "100%", minHeight: g.notes && g.notes.length > 100 ? 90 : 60, padding: "10px 12px",
+            fontSize: 14, lineHeight: 1.6, color: C.t1,
+            border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT,
+            resize: "vertical", outline: "none", boxSizing: "border-box",
+            background: C.bg, transition: "border-color 0.15s",
+          }}
+          onFocus={e => e.target.style.borderColor = C.primary}
+          onBlur={e => e.target.style.borderColor = C.line}
+        />
+
+        {/* Focus areas + key details inline */}
+        <div style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+          {/* Focus areas */}
+          <div style={{ flex: "1 1 200px" }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>Focus Areas</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {(g.focus || []).map(f => <Tag key={f} text={f} />)}
+              {(!g.focus || !g.focus.length) && <span style={{ fontSize: 12, color: C.t4, fontStyle: "italic" }}>Not set</span>}
+            </div>
+          </div>
+          {/* Funder budget */}
+          {g.funderBudget > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>Funder Budget</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.dark, fontFamily: MONO }}>R{Number(g.funderBudget).toLocaleString()}</div>
+            </div>
+          )}
+          {/* Access */}
+          {g.notes && (() => {
+            const accessMatch = g.notes.match(/Access:\s*(.+)/);
+            if (!accessMatch) return null;
+            const access = accessMatch[1].trim();
+            const isOpen = access.toLowerCase().startsWith("open");
+            return (
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>Access</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: isOpen ? C.ok : C.amber }}>
+                  {isOpen ? "✓" : "→"} {access.split("—")[0].trim()}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* AI Research summary — if research has been run, show the key insight */}
+        {resDone && ai.research && (() => {
+          // Extract first meaningful paragraph from research
+          const lines = ai.research.split("\n").filter(l => l.trim().length > 20);
+          const summary = lines.slice(0, 2).join(" ").substring(0, 300);
+          if (!summary) return null;
+          return (
+            <div style={{
+              marginTop: 14, padding: "10px 14px", borderRadius: 8,
+              background: C.primarySoft, border: `1px solid ${C.primary}15`,
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.primary, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 4 }}>Funder Intelligence</div>
+              <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.5 }}>{summary}{summary.length >= 300 ? "..." : ""}</div>
+            </div>
+          );
+        })()}
+
+        {/* Fit score summary — if scored, show one-line verdict */}
+        {fitDone && fitScoreNum !== null && (
+          <div style={{
+            marginTop: 10, display: "flex", alignItems: "center", gap: 8,
+            padding: "8px 14px", borderRadius: 8,
+            background: fitScoreNum >= 70 ? C.okSoft : fitScoreNum >= 40 ? C.amberSoft : C.redSoft,
+            border: `1px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}15`,
+          }}>
+            <span style={{
+              fontSize: 14, fontWeight: 800, fontFamily: MONO,
+              color: fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red,
+            }}>{fitScoreNum}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: C.t1 }}>{fitVerdict || "Fit assessed"}</span>
+          </div>
+        )}
+      </Card>
+
       {/* Key fields — Ask prominent, controls grouped */}
       {(() => {
         const askIsSet = g.ask > 0;
@@ -1412,20 +1508,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         </SectionWrap>
       )}
 
-      {/* Notes — always visible */}
-      <SectionWrap title="Notes" defaultOpen={isEarly}>
-        <Card pad="0">
-          <textarea value={g.notes || ""} onChange={e => up("notes", e.target.value)}
-            placeholder="Add notes about this grant..."
-            style={{
-              width: "100%", minHeight: 100, padding: 14, fontSize: 14, lineHeight: 1.7,
-              border: "none", borderRadius: 10, fontFamily: FONT,
-              resize: "vertical", outline: "none", boxSizing: "border-box",
-              background: "transparent",
-            }}
-          />
-        </Card>
-      </SectionWrap>
+      {/* Notes — now shown in About section at top; this section is hidden to avoid duplication */}
 
       {/* Activity — always visible, open in LATE/CLOSED */}
       <SectionWrap title="Activity" defaultOpen={isLate || isClosed}>
