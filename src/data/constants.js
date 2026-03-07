@@ -32,7 +32,7 @@ export const DOCS = {
 export const ORG_DOCS = [
   { id: "pbo", name: "PBO Certificate", desc: "Public Benefit Organisation approval letter from SARS", renew: false, cat: "Registration" },
   { id: "npo", name: "NPO Registration Certificate", desc: "Department of Social Development NPO certificate (273-412 NPO)", renew: false, cat: "Registration" },
-  { id: "cipc", name: "Company Registration (CIPC)", desc: "CIPC registration documents for d-lab NPC", renew: false, cat: "Registration" },
+  { id: "cipc", name: "Company Registration (CIPC)", desc: "CIPC registration documents for the organisation", renew: false, cat: "Registration" },
   { id: "bbbee", name: "B-BBEE Certificate / Affidavit", desc: "Broad-Based Black Economic Empowerment verification certificate or EME/QSE affidavit", renew: true, cat: "Compliance" },
   { id: "tax", name: "Tax Clearance (SARS)", desc: "Valid SARS Tax Compliance Status (TCS) pin or certificate", renew: true, cat: "Compliance" },
   { id: "fica", name: "FICA Compliance Pack", desc: "FICA documentation: directors' IDs, proof of address, bank confirmation", renew: true, cat: "Compliance" },
@@ -40,14 +40,14 @@ export const ORG_DOCS = [
   { id: "fin2", name: "Audited Financials (Prior Year)", desc: "Previous year independently audited annual financial statements", renew: true, cat: "Financial" },
   { id: "bank", name: "Banking Confirmation Letter", desc: "Bank-stamped confirmation of account details", renew: true, cat: "Financial" },
   { id: "board", name: "Board Resolution (Current)", desc: "Signed board resolution authorising grant applications", renew: true, cat: "Governance" },
-  { id: "orgpro", name: "Organisation Profile", desc: "d-lab NPC overview, history, mission, team, and track record", renew: false, cat: "Org" },
+  { id: "orgpro", name: "Organisation Profile", desc: "Organisation overview, history, mission, team, and track record", renew: false, cat: "Org" },
   { id: "safeguard", name: "Safeguarding Policy", desc: "Child and vulnerable person safeguarding policy", renew: false, cat: "Governance" },
   { id: "antifraud", name: "Anti-Fraud & Corruption Policy", desc: "Organisational anti-fraud and anti-corruption policy", renew: false, cat: "Governance" },
   { id: "privacy", name: "Data Privacy / POPIA Policy", desc: "POPIA-compliant data privacy and protection policy", renew: false, cat: "Governance" },
   { id: "accred", name: "Accreditation Certificates", desc: "SETA or other accreditation for training delivery", renew: true, cat: "Compliance" },
   { id: "wsp", name: "WSP/ATR", desc: "Workplace Skills Plan and Annual Training Report", renew: true, cat: "Compliance" },
   { id: "sdp", name: "Skills Development Plan", desc: "Organisation-level skills development strategy", renew: false, cat: "Org" },
-  { id: "toc", name: "Theory of Change", desc: "d-lab\'s theory of change document", renew: false, cat: "Org" },
+  { id: "toc", name: "Theory of Change", desc: "Organisation's theory of change document", renew: false, cat: "Org" },
   { id: "mne", name: "M&E Framework", desc: "Monitoring and evaluation framework for programmes", renew: false, cat: "Org" },
   { id: "risk", name: "Risk Register", desc: "Organisational risk register and mitigation plan", renew: true, cat: "Governance" },
 ];
@@ -102,11 +102,11 @@ export const GATES = {
   "awaiting->lost": { need: "director", label: "Director must confirm loss" },
 };
 
-// Agent personas for AI emulation
+// Agent personas for AI emulation — LEGACY fallback
+// Active app uses team data from DB; these are only used if team data is missing
 export const PERSONAS = {
-  alison: "You are Alison Jacobson, Director of d-lab NPC. Strategic thinker focused on programme impact, sustainability, and mission alignment. Direct, analytical. Push for clarity on budgets and measurable impact.",
-  david: "You are David Kramer, Board Member of d-lab NPC (Fundraising & Sustainability). Focus on governance, financial prudence, risk, and compliance. Ask tough questions about budgets, funder relationships, and legal requirements. Thorough and detail-oriented.",
-  barbara: "You are Barbara Dale-Jones, Board Member of d-lab NPC (Governance & Finance). Expertise in partnerships, stakeholder engagement, and programme design. Focus on compelling narratives, genuine partnerships, and appropriate ask amounts.",
-  nolan: "You are Nolan Beudeker, Head of Programmes at d-lab NPC. Oversee programme delivery. Authorised to sign contracts up to R5K. Focus on operational feasibility, realistic timelines, curriculum readiness. Push back on overcommitting resources.",
-  ayanda: "You are Ayanda Orrai, Programme Manager at d-lab NPC. Hands-on with learners and delivery. Focus on practical details: venues, recruitment, facilitator capacity, day-to-day operations. Flag risks early.",
+  director: "You are the Director. Strategic thinker focused on programme impact, sustainability, and mission alignment. Direct, analytical. Push for clarity on budgets and measurable impact.",
+  board: "You are a Board Member (Governance & Finance). Focus on governance, financial prudence, risk, and compliance. Ask tough questions about budgets, funder relationships, and legal requirements.",
+  hop: "You are the Head of Programmes. Oversee programme delivery. Focus on operational feasibility, realistic timelines, curriculum readiness. Push back on overcommitting resources.",
+  pm: "You are the Programme Manager. Hands-on with delivery. Focus on practical details: venues, recruitment, facilitator capacity, day-to-day operations. Flag risks early.",
 };

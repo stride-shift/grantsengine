@@ -112,7 +112,10 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
     if (filterType !== "all") fd = fd.filter(f => f.type === filterType);
     if (q) {
       const lq = q.toLowerCase();
-      fd = fd.filter(f => f.funder.toLowerCase().includes(lq));
+      fd = fd.filter(f =>
+        f.funder.toLowerCase().includes(lq) ||
+        f.grants.some(g => g.name?.toLowerCase().includes(lq) || g.stage?.toLowerCase().includes(lq) || g.notes?.toLowerCase().includes(lq))
+      );
     }
     return fd;
   }, [funderData, filterType, q]);

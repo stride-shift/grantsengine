@@ -44,8 +44,9 @@ function getLogoStorage() {
 }
 
 router.get('/orgs', w(async (req, res) => {
+  // Public listing — return minimal info only (no internal details)
   const orgs = await getAllOrgs();
-  res.json(orgs);
+  res.json(orgs.map(o => ({ id: o.id, name: o.name, slug: o.slug, logo_url: o.logo_url })));
 }));
 
 router.post('/orgs', w(async (req, res) => {
@@ -96,10 +97,11 @@ router.put('/org/:slug', resolveOrg, requireAuth, w(async (req, res) => {
 router.get('/org/:slug/profile', resolveOrg, requireAuth, w(async (req, res) => {
   const profile = await getOrgProfile(req.orgId);
   if (!profile) return res.status(404).json({ error: 'Profile not found' });
+  const safeJSON = (str, fb) => { try { return JSON.parse(str || (typeof fb === 'string' ? fb : JSON.stringify(fb))); } catch { return fb; } };
   res.json({
     ...profile,
-    programmes: JSON.parse(profile.programmes || '[]'),
-    impact_stats: JSON.parse(profile.impact_stats || '{}'),
+    programmes: safeJSON(profile.programmes, []),
+    impact_stats: safeJSON(profile.impact_stats, {}),
   });
 }));
 
@@ -111,10 +113,11 @@ router.put('/org/:slug/profile', resolveOrg, requireAuth, w(async (req, res) => 
 router.get('/org/:slug/config', resolveOrg, requireAuth, w(async (req, res) => {
   const config = await getOrgConfig(req.orgId);
   if (!config) return res.status(404).json({ error: 'Config not found' });
+  const sj2 = (str, fb) => { try { return JSON.parse(str || JSON.stringify(fb)); } catch { return fb; } };
   res.json({
     ...config,
-    email_addresses: JSON.parse(config.email_addresses || '[]'),
-    whatsapp_numbers: JSON.parse(config.whatsapp_numbers || '[]'),
+    email_addresses: sj2(config.email_addresses, []),
+    whatsapp_numbers: sj2(config.whatsapp_numbers, []),
     smtp_pass: config.smtp_pass ? '••••••' : null,
     twilio_token: config.twilio_token ? '••••••' : null,
   });
@@ -159,15 +162,16 @@ router.delete('/org/:slug/team/:id', resolveOrg, requireAuth, requireDirector, w
 router.get('/org/:slug/pipeline-config', resolveOrg, requireAuth, w(async (req, res) => {
   const config = await getPipelineConfig(req.orgId);
   if (!config) return res.json(null);
+  const sj = (str, fb) => { try { return JSON.parse(str || (typeof fb === 'string' ? fb : JSON.stringify(fb))); } catch { return fb; } };
   res.json({
     ...config,
-    stages: JSON.parse(config.stages || '[]'),
-    gates: JSON.parse(config.gates || '{}'),
-    funder_types: JSON.parse(config.funder_types || '[]'),
-    win_factors: JSON.parse(config.win_factors || '[]'),
-    loss_factors: JSON.parse(config.loss_factors || '[]'),
-    doc_requirements: JSON.parse(config.doc_requirements || '{}'),
-    roles: JSON.parse(config.roles || '{}'),
+    stages: sj(config.stages, []),
+    gates: sj(config.gates, {}),
+    funder_types: sj(config.funder_types, []),
+    win_factors: sj(config.win_factors, []),
+    loss_factors: sj(config.loss_factors, []),
+    doc_requirements: sj(config.doc_requirements, {}),
+    roles: sj(config.roles, {}),
   });
 }));
 
@@ -185,8 +189,8 @@ router.put('/org/:slug/logo', resolveOrg, requireAuth, logoUpload.single('logo')
     const storage = getLogoStorage();
     if (!storage) return res.status(500).json({ error: 'Storage not configured' });
 
-    const ext = req.file.originalname.split('.').pop() || 'png';
-    const filename = `${crypto.randomBytes(8).toString('hex')}.${ext}`;
+    const rawExt = (req.file.originalname.match(/\.(png|jpg|jpeg|gif|webp|svg)$/i)?.[1] || 'png').toLowerCase();
+    const filename = `${crypto.randomBytes(8).toString('hex')}.${rawExt}`;
     const storagePath = `${req.orgId}/${filename}`;
 
     const { error: upErr } = await storage.upload(storagePath, req.file.buffer, {
@@ -217,9 +221,14 @@ router.post('/org/:slug/logo/from-website', resolveOrg, requireAuth, async (req,
       return res.status(400).json({ error: 'Invalid website URL' });
     }
 
-    // Fetch favicon from Google's service (128px)
+    // Fetch favicon from Google's service (128px) — with 10s timeout
     const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-    const response = await fetch(faviconUrl);
+    const ac = new AbortController();
+    const faviconTimeout = setTimeout(() => ac.abort(), 10_000);
+    let response;
+    try {
+      response = await fetch(faviconUrl, { signal: ac.signal });
+    } finally { clearTimeout(faviconTimeout); }
     if (!response.ok) return res.status(404).json({ error: 'Could not fetch favicon' });
 
     const buffer = Buffer.from(await response.arrayBuffer());

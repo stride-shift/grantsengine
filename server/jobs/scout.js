@@ -8,7 +8,7 @@
 
 import { scoutPrompt } from '../../src/prompts.js';
 import { callGemini } from '../routes/ai.js';
-import { getAllOrgs, getGrants, upsertGrant, logAgentRun } from '../db.js';
+import { getAllOrgs, getGrants, upsertGrant, logAgentRun, getOrgProfile } from '../db.js';
 import crypto from 'crypto';
 
 const uid = () => crypto.randomBytes(8).toString('hex');
@@ -138,11 +138,17 @@ export async function runAutoScout() {
 async function scoutForOrg(org) {
   const CLOSED = ['won', 'lost', 'deferred', 'archived'];
 
-  // 1. Load existing grants
+  // 1. Load existing grants + org profile for context
   const grants = await getGrants(org.id);
   const existingFunders = [...new Set(
     grants.filter(g => !CLOSED.includes(g.stage)).map(g => (g.funder || '').toLowerCase())
   )].join(', ');
+
+  let orgContext = "";
+  try {
+    const profile = await getOrgProfile(org.id);
+    orgContext = profile?.context_slim || profile?.mission || org.name || "";
+  } catch { /* profile not set — use empty context */ }
 
   // 2. Run scout for both markets
   const markets = ['sa', 'global'];
@@ -152,7 +158,7 @@ async function scoutForOrg(org) {
   for (const market of markets) {
     console.log(`[Scout] ${org.slug}: searching ${market} market...`);
 
-    const prompt = scoutPrompt({ existingFunders, market });
+    const prompt = scoutPrompt({ existingFunders, market, orgContext });
 
     let text;
     try {
