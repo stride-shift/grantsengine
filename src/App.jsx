@@ -1711,6 +1711,7 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
             onAddGrant={addGrant}
             onRunAI={runAI}
             api={api}
+            onToast={toast}
           />
         ) : view === "funders" ? (
           <Funders

@@ -109,7 +109,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
     try {
       const data = await getUploads(); // no grantId = org-level
       setUploads(data);
-    } catch { /* ignore */ }
+    } catch (e) { console.warn("Failed to load uploads:", e.message); }
   };
 
   useEffect(() => {
@@ -337,7 +337,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
         <div style={{ display: "flex", gap: 4, marginBottom: 16, borderRadius: 8, overflow: "hidden" }}>
           <div style={{ flex: 3, height: 32, background: brandPrimary }} />
           <div style={{ flex: 1, height: 32, background: brandAccent }} />
-          <div style={{ flex: 2, height: 32, background: "#374151" }} />
+          <div style={{ flex: 2, height: 32, background: C.navy }} />
         </div>
 
         {/* Actions */}
