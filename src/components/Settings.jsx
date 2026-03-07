@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { C, FONT, MONO } from "../theme";
+import { C, FONT, MONO, applyOrgTheme, resetTheme } from "../theme";
 import { Btn, Label, Avatar, RoleBadge } from "./index";
 import UploadZone from "./UploadZone";
-import { checkHealth, getUploads, uploadFile, memberSetPassword, getAuth } from "../api";
+import { checkHealth, getUploads, uploadFile, uploadOrgLogo, memberSetPassword, getAuth } from "../api";
 import { ORG_DOCS } from "../data/constants";
 
 // ── Compliance doc status helpers ──
@@ -81,7 +81,7 @@ function ChangePassword({ memberId, slug }) {
   );
 }
 
-export default function Settings({ org, profile, team, currentMember, complianceDocs = [], onUpsertCompDoc, onUpdateProfile, onLogout }) {
+export default function Settings({ org, profile, team, currentMember, complianceDocs = [], onUpsertCompDoc, onUpdateProfile, onUpdateOrg, onLogout }) {
   const [serverStatus, setServerStatus] = useState(null);
   const [uploads, setUploads] = useState([]);
   const [expanded, setExpanded] = useState(null); // doc_id of expanded row
@@ -89,6 +89,22 @@ export default function Settings({ org, profile, team, currentMember, compliance
   const [editNotes, setEditNotes] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
+
+  // ── Branding state ──
+  const [brandPrimary, setBrandPrimary] = useState(org?.primary_color || "#4A7C59");
+  const [brandAccent, setBrandAccent] = useState(org?.accent_color || "#C17817");
+  const [brandSaving, setBrandSaving] = useState(false);
+  const [brandMsg, setBrandMsg] = useState("");
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoRef = useRef(null);
+
+  // Sync branding state when org changes
+  useEffect(() => {
+    if (org) {
+      setBrandPrimary(org.primary_color || "#4A7C59");
+      setBrandAccent(org.accent_color || "#C17817");
+    }
+  }, [org?.primary_color, org?.accent_color]);
 
   const loadUploads = async () => {
     try {
@@ -242,6 +258,122 @@ export default function Settings({ org, profile, team, currentMember, compliance
         </div>
       </div>
 
+      {/* ═══ Branding ═══ */}
+      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
+        <Label>Branding</Label>
+        <div style={{ fontSize: 11, color: C.t4, marginBottom: 16, lineHeight: 1.5 }}>
+          Customise your organisation's appearance. Changes apply across the entire app.
+        </div>
+
+        {/* Logo */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: C.t4, fontWeight: 600, marginBottom: 8 }}>Logo</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            {org?.logo_url ? (
+              <img src={org.logo_url} alt="" style={{ width: 64, height: 64, borderRadius: 14, objectFit: "contain", background: C.warm100, border: `1px solid ${C.line}` }} />
+            ) : (
+              <div style={{
+                width: 64, height: 64, borderRadius: 14,
+                background: `linear-gradient(135deg, ${brandPrimary} 0%, ${C.primaryDark} 100%)`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 24, fontWeight: 800, color: C.white, fontFamily: MONO,
+              }}>{(org?.name)?.[0]?.toUpperCase() || "?"}</div>
+            )}
+            <div>
+              <input ref={logoRef} type="file" accept="image/*" style={{ display: "none" }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setLogoUploading(true);
+                  try {
+                    const result = await uploadOrgLogo(file);
+                    if (result?.logo_url && onUpdateOrg) {
+                      await onUpdateOrg({ logo_url: result.logo_url });
+                    }
+                  } catch (err) {
+                    console.error("Logo upload failed:", err);
+                  }
+                  setLogoUploading(false);
+                  e.target.value = "";
+                }}
+              />
+              <Btn onClick={() => logoRef.current?.click()} v="ghost" disabled={logoUploading}
+                style={{ fontSize: 12, padding: "6px 14px" }}>
+                {logoUploading ? "Uploading..." : org?.logo_url ? "Change Logo" : "Upload Logo"}
+              </Btn>
+              <div style={{ fontSize: 10, color: C.t4, marginTop: 4 }}>PNG, JPG or SVG. Max 5MB.</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Colors */}
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 11, color: C.t4, fontWeight: 600, marginBottom: 6 }}>Primary Colour</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input type="color" value={brandPrimary} onChange={e => setBrandPrimary(e.target.value)}
+                style={{ width: 40, height: 40, border: `2px solid ${C.line}`, borderRadius: 10, cursor: "pointer", padding: 2 }} />
+              <input type="text" value={brandPrimary} onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBrandPrimary(e.target.value); }}
+                style={{ width: 80, fontSize: 12, padding: "6px 8px", borderRadius: 8, border: `1px solid ${C.line}`, fontFamily: MONO, textTransform: "uppercase" }} />
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: brandPrimary, border: `1px solid ${C.line}` }} />
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: C.t4, fontWeight: 600, marginBottom: 6 }}>Accent Colour</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input type="color" value={brandAccent} onChange={e => setBrandAccent(e.target.value)}
+                style={{ width: 40, height: 40, border: `2px solid ${C.line}`, borderRadius: 10, cursor: "pointer", padding: 2 }} />
+              <input type="text" value={brandAccent} onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBrandAccent(e.target.value); }}
+                style={{ width: 80, fontSize: 12, padding: "6px 8px", borderRadius: 8, border: `1px solid ${C.line}`, fontFamily: MONO, textTransform: "uppercase" }} />
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: brandAccent, border: `1px solid ${C.line}` }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Preview swatch bar */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 16, borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ flex: 3, height: 32, background: brandPrimary }} />
+          <div style={{ flex: 1, height: 32, background: brandAccent }} />
+          <div style={{ flex: 2, height: 32, background: "#374151" }} />
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <Btn v="primary" disabled={brandSaving} onClick={async () => {
+            if (!onUpdateOrg) return;
+            setBrandSaving(true);
+            setBrandMsg("");
+            try {
+              await onUpdateOrg({
+                primary_color: brandPrimary === "#4A7C59" ? null : brandPrimary,
+                primary_dark: null, // auto-derived
+                accent_color: brandAccent === "#C17817" ? null : brandAccent,
+              });
+              setBrandMsg("✓ Saved");
+              setTimeout(() => setBrandMsg(""), 2000);
+            } catch (err) {
+              setBrandMsg("Failed: " + err.message);
+            }
+            setBrandSaving(false);
+          }} style={{ fontSize: 12, padding: "7px 18px" }}>
+            {brandSaving ? "Saving..." : "Save Colours"}
+          </Btn>
+          <button onClick={async () => {
+            setBrandPrimary("#4A7C59");
+            setBrandAccent("#C17817");
+            if (onUpdateOrg) {
+              await onUpdateOrg({ primary_color: null, primary_dark: null, accent_color: null });
+              resetTheme();
+            }
+            setBrandMsg("✓ Reset to defaults");
+            setTimeout(() => setBrandMsg(""), 2000);
+          }} style={{
+            background: "none", border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 14px",
+            fontSize: 12, color: C.t3, cursor: "pointer", fontFamily: FONT,
+          }}>Reset to Defaults</button>
+          {brandMsg && <span style={{ fontSize: 11, color: brandMsg.startsWith("✓") ? C.ok : C.red, fontWeight: 600 }}>{brandMsg}</span>}
+        </div>
+      </div>
 
       {/* Knowledge Base */}
       <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
