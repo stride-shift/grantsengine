@@ -80,6 +80,123 @@ export const C = {
   yellowSoft: "#FEF5E7",
 };
 
+/* ── Color helpers for org theming ── */
+
+function hexToRgb(hex) {
+  const h = hex.replace("#", "");
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function rgbToHex(r, g, b) {
+  return "#" + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+}
+
+function hexToRgba(hex, alpha) {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/** Mix hex color toward white. amount=0.92 → 92% white, 8% color */
+function tint(hex, amount) {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(
+    r + (255 - r) * amount,
+    g + (255 - g) * amount,
+    b + (255 - b) * amount,
+  );
+}
+
+/** Darken hex color by reducing each channel */
+function darken(hex, percent) {
+  const [r, g, b] = hexToRgb(hex);
+  const f = 1 - percent / 100;
+  return rgbToHex(r * f, g * f, b * f);
+}
+
+/**
+ * Apply org-specific brand colors to the theme.
+ * Mutates C in place — React re-renders after setOrg() pick up new values.
+ * Pass null/undefined or org without primary_color to keep defaults.
+ */
+export function applyOrgTheme(org) {
+  if (!org) return;
+  const p = org.primary_color;
+  const pd = org.primary_dark;
+  const ac = org.accent_color;
+  if (!p) return; // no custom colors → keep sage defaults
+
+  // Primary family
+  C.primary = p;
+  C.primaryDark = pd || darken(p, 15);
+  C.primarySoft = tint(p, 0.92);
+  C.primaryBorder = p + "80";
+  C.primaryGlow = hexToRgba(p, 0.08);
+  C.green = p;
+  C.greenSoft = C.primarySoft;
+  C.greenBorder = C.primaryBorder;
+
+  // Sidebar — derive from primary
+  C.sidebarHover = tint(p, 0.96);
+  C.sidebarActive = C.primarySoft;
+  C.sidebarTextActive = p;
+  C.sidebarAccent = p;
+
+  // Background — barely-tinted
+  C.bg = tint(p, 0.97);
+  C.warm100 = tint(p, 0.96);
+  C.warm200 = tint(p, 0.91);
+  C.warm300 = tint(p, 0.84);
+  C.hover = tint(p, 0.95);
+  C.raised = tint(p, 0.93);
+  C.subtle = tint(p, 0.82);
+  C.line = tint(p, 0.89);
+  C.glow = hexToRgba(p, 0.06);
+  C.glowStrong = hexToRgba(p, 0.12);
+
+  // Accent (if provided)
+  if (ac) {
+    C.accent = ac;
+    C.accentSoft = tint(ac, 0.91);
+    C.amber = ac;
+    C.amberSoft = C.accentSoft;
+    C.yellow = ac;
+    C.yellowSoft = C.accentSoft;
+  }
+}
+
+/** Reset theme to defaults (sage & slate) */
+export function resetTheme() {
+  C.primary = "#4A7C59";
+  C.primarySoft = "#EDF5F0";
+  C.primaryBorder = "#4A7C5980";
+  C.primaryDark = "#3A6347";
+  C.primaryGlow = "rgba(74, 124, 89, 0.08)";
+  C.green = "#4A7C59";
+  C.greenSoft = "#EDF5F0";
+  C.greenBorder = "#4A7C5980";
+  C.bg = "#F8FAF8";
+  C.hover = "#F1F4F1";
+  C.raised = "#EEF1EE";
+  C.subtle = "#D0D5D0";
+  C.line = "#E2E6E2";
+  C.warm100 = "#F5F7F5";
+  C.warm200 = "#E8ECE8";
+  C.warm300 = "#D5DBD5";
+  C.glow = "rgba(74, 124, 89, 0.06)";
+  C.glowStrong = "rgba(74, 124, 89, 0.12)";
+  C.sidebar = "#FFFFFF";
+  C.sidebarHover = "#F3F7F4";
+  C.sidebarActive = "#EDF5F0";
+  C.sidebarTextActive = "#4A7C59";
+  C.sidebarAccent = "#4A7C59";
+  C.accent = "#C17817";
+  C.accentSoft = "#FEF5E7";
+  C.amber = "#C17817";
+  C.amberSoft = "#FEF5E7";
+  C.yellow = "#C17817";
+  C.yellowSoft = "#FEF5E7";
+}
+
 export const FONT = `'Outfit', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif`;
 export const MONO = `'JetBrains Mono', 'SF Mono', 'Fira Code', monospace`;
 

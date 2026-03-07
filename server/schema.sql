@@ -224,3 +224,8 @@ ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS member_id TEXT REFERENCES team_m
 
 -- ═══ Market Classification (SA vs Global) ═══
 ALTER TABLE grants ADD COLUMN IF NOT EXISTS market TEXT DEFAULT 'sa';
+
+-- ═══ Org Branding (per-org theming) ═══
+ALTER TABLE orgs ADD COLUMN IF NOT EXISTS primary_color TEXT;
+ALTER TABLE orgs ADD COLUMN IF NOT EXISTS primary_dark TEXT;
+ALTER TABLE orgs ADD COLUMN IF NOT EXISTS accent_color TEXT;

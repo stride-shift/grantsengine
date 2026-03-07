@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
-import { C, FONT, MONO, injectFonts } from "./theme";
+import { C, FONT, MONO, injectFonts, applyOrgTheme, resetTheme } from "./theme";
 import { uid, td, dL, addD, effectiveAsk, parseStructuredResearch } from "./utils";
 import { CAD } from "./data/constants";
 import { funderStrategy, isFunderReturning, detectType, PTYPES } from "./data/funderStrategy";
@@ -7,7 +7,7 @@ import {
   isLoggedIn, getAuth, setAuth, getCurrentMember, login, logout, setPassword,
   memberLogin, memberSetPassword,
   getGrants, saveGrant, addGrant as apiAddGrant, removeGrant,
-  getTeam, getProfile, getPipelineConfig, getOrg, checkHealth, api,
+  getTeam, getProfile, getPipelineConfig, getOrg, updateOrg as apiUpdateOrg, checkHealth, api,
   getUploadsContext,
   getCompliance, updateComplianceDoc, createComplianceDoc,
 } from "./api";
@@ -121,6 +121,7 @@ function AppInner() {
         getCompliance().catch(() => []),
       ]);
       setOrg(orgData);
+      applyOrgTheme(orgData);
       setComplianceDocs(compData || []);
 
       // Migrate existing grants: backfill funderBudget/askSource for pre-redesign grants
@@ -251,6 +252,7 @@ function AppInner() {
     setSelectingOrg(true);
     setLoggingIn(false);
     uploadsCache.current = {};
+    resetTheme();
     window.history.pushState({}, "", "/");
   };
 
@@ -1571,28 +1573,27 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
         borderRight: `1px solid ${C.line}`,
         boxShadow: "1px 0 8px rgba(0, 0, 0, 0.04)",
       }}>
-        {/* Org header */}
-        <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${C.line}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {org?.logo_url ? (
-              <img src={org.logo_url} alt="" onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
-                style={{ width: 36, height: 36, borderRadius: 10, objectFit: "cover", boxShadow: `0 2px 10px ${C.primaryGlow}` }} />
-            ) : null}
-            <div style={{
-              width: 36, height: 36, borderRadius: 10,
-              background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
-              display: org?.logo_url ? "none" : "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 15, fontWeight: 800, color: C.white, fontFamily: MONO,
-              boxShadow: `0 2px 10px ${C.primaryGlow}`,
-            }}>{(org?.name || orgSlug)?.[0]?.toUpperCase()}</div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.dark, letterSpacing: -0.2 }}>{org?.name || orgSlug}</div>
-              <div style={{ fontSize: 10, color: C.t4, letterSpacing: 0.5, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
-                Grant Engine
-                {saveState === "saving" && <span style={{ fontSize: 9, color: C.amber, fontWeight: 600, animation: "ge-pulse 1.2s ease-in-out infinite" }}>Saving...</span>}
-                {saveState === "saved" && <span style={{ fontSize: 9, color: C.ok, fontWeight: 600 }}>✓ Saved</span>}
-                {saveState === "error" && <span style={{ fontSize: 9, color: C.red, fontWeight: 600 }}>Save failed</span>}
-              </div>
+        {/* Org header — prominent logo + centered name */}
+        <div style={{ padding: "24px 16px 18px", borderBottom: `1px solid ${C.line}`, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+          {org?.logo_url ? (
+            <img src={org.logo_url} alt={org?.name || ""}
+              onError={e => { e.target.style.display = "none"; if (e.target.nextSibling) e.target.nextSibling.style.display = "flex"; }}
+              style={{ width: 56, height: 56, borderRadius: 14, objectFit: "contain", background: C.white, boxShadow: `0 2px 12px ${C.primaryGlow}` }} />
+          ) : null}
+          <div style={{
+            width: 56, height: 56, borderRadius: 14,
+            background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
+            display: org?.logo_url ? "none" : "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 22, fontWeight: 800, color: C.white, fontFamily: MONO,
+            boxShadow: `0 2px 12px ${C.primaryGlow}`,
+          }}>{(org?.name || orgSlug)?.[0]?.toUpperCase()}</div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.dark, letterSpacing: -0.2 }}>{org?.name || orgSlug}</div>
+            <div style={{ fontSize: 10, color: C.t4, letterSpacing: 0.5, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 2 }}>
+              Grant Engine
+              {saveState === "saving" && <span style={{ fontSize: 9, color: C.amber, fontWeight: 600, animation: "ge-pulse 1.2s ease-in-out infinite" }}>Saving...</span>}
+              {saveState === "saved" && <span style={{ fontSize: 9, color: C.ok, fontWeight: 600 }}>✓ Saved</span>}
+              {saveState === "error" && <span style={{ fontSize: 9, color: C.red, fontWeight: 600 }}>Save failed</span>}
             </div>
           </div>
         </div>
@@ -1728,6 +1729,12 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
             complianceDocs={complianceDocs}
             onUpsertCompDoc={upsertCompDoc}
             onUpdateProfile={() => {}}
+            onUpdateOrg={async (updates) => {
+              await apiUpdateOrg(updates);
+              const newOrg = { ...org, ...updates };
+              setOrg(newOrg);
+              applyOrgTheme(newOrg);
+            }}
             onLogout={handleLogout}
           />
         ) : view === "admin" && currentMember?.role === "director" ? (
