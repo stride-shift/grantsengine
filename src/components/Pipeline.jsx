@@ -251,7 +251,7 @@ const parseScoutResults = (text) => {
   return null;
 };
 
-export default function Pipeline({ grants, team, stages, funderTypes, complianceDocs = [], onSelectGrant, onUpdateGrant, onAddGrant, onRunAI, api, onToast }) {
+export default function Pipeline({ grants, team, stages, funderTypes, complianceDocs = [], orgContext = "", onSelectGrant, onUpdateGrant, onAddGrant, onRunAI, api, onToast }) {
   const [pView, setPView] = useState("kanban");
   const [q, setQ] = useState("");
   const [sf, setSf] = useState("all");
@@ -331,7 +331,30 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
     if (market !== "all") gs = gs.filter(g => (g.market || "sa") === market);
     if (debouncedQ) {
       const lq = debouncedQ.toLowerCase();
-      gs = gs.filter(g => g.name?.toLowerCase().includes(lq) || g.funder?.toLowerCase().includes(lq) || g.notes?.toLowerCase().includes(lq));
+      gs = gs.filter(g => {
+        // Search across all text fields — name, funder, notes, stage, type, owner, focus tags, AI content
+        if (g.name?.toLowerCase().includes(lq)) return true;
+        if (g.funder?.toLowerCase().includes(lq)) return true;
+        if (g.notes?.toLowerCase().includes(lq)) return true;
+        if (g.stage?.toLowerCase().includes(lq)) return true;
+        if (g.type?.toLowerCase().includes(lq)) return true;
+        if (g.market?.toLowerCase().includes(lq)) return true;
+        if (g.rel?.toLowerCase().includes(lq)) return true;
+        // Owner name lookup
+        if (g.owner) {
+          const ownerName = getMember(g.owner)?.name?.toLowerCase() || "";
+          if (ownerName.includes(lq)) return true;
+        }
+        // Focus tags
+        if (Array.isArray(g.focus) && g.focus.some(f => f.toLowerCase().includes(lq))) return true;
+        // Geo tags
+        if (Array.isArray(g.geo) && g.geo.some(f => f.toLowerCase().includes(lq))) return true;
+        // AI research summary (first 500 chars — avoid deep search of megabytes)
+        if (g.aiResearch?.slice(0, 500).toLowerCase().includes(lq)) return true;
+        // Ask amount — allow searching by number
+        if (g.ask && String(g.ask).includes(lq)) return true;
+        return false;
+      });
     }
     if (sf !== "all") gs = gs.filter(g => g.type === sf);
     if (activeFilters.size > 0) {
@@ -525,7 +548,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
       .map(g => g.funder.toLowerCase());
     const existingFunders = [...new Set(existing)].join(", ");
 
-    const p = scoutPrompt({ existingFunders, market: scoutMarket });
+    const p = scoutPrompt({ existingFunders, market: scoutMarket, orgContext });
     const r = await api(p.system, p.user, p.search, p.maxTok);
 
     let parsed = parseScoutResults(r);
@@ -1203,7 +1226,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                   Auto-run after creation
                 </div>
                 {[
-                  { key: "fitscore", label: "Fit Score", desc: "Assess alignment with d-lab's strengths" },
+                  { key: "fitscore", label: "Fit Score", desc: "Assess alignment with the organisation's strengths" },
                   { key: "research", label: "Funder Research", desc: "Research funder priorities, history, requirements", locked: autoAI.draft },
                   { key: "draft", label: "Draft Proposal", desc: "Research runs first to tailor the proposal to the funder" },
                 ].map(action => (

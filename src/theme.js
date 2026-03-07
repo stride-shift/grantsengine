@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════
-   d-lab Grant Engine — Design Tokens v6
+   Grant Engine — Design Tokens v6
    Sage & Slate — Calm, Trustworthy, Funder-Ready
    ═══════════════════════════════════════ */
 

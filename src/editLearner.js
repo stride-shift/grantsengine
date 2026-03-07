@@ -147,7 +147,7 @@ GOOD RULES (specific, actionable):
 - Keep paragraphs to 3-4 sentences max
 - Lead budget items with the impact, then the cost
 - Avoid passive voice in impact sections
-- Reference d-lab's AI tools by name (Language Leveller, Assessornator)
+- Reference the organisation's AI tools by name when mentioned in context
 - Don't use semicolons
 - Open with a concrete number, not a general claim
 

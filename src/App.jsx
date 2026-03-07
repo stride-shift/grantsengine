@@ -13,9 +13,33 @@ import {
 } from "./api";
 import { getWritingLearnings } from "./editLearner";
 
+import { Component } from "react";
 import OrgSelector from "./components/OrgSelector";
 import Login from "./components/Login";
 import { ToastProvider, useToast } from "./components/Toast";
+
+// Error boundary — prevents white screen on component crash
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(err, info) { console.error("[ErrorBoundary]", err, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 40, textAlign: "center", fontFamily: "Inter, system-ui, sans-serif" }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1a1a1a", marginBottom: 8 }}>Something went wrong</h2>
+          <p style={{ fontSize: 13, color: "#666", marginBottom: 16 }}>{this.state.error?.message || "An unexpected error occurred"}</p>
+          <button onClick={() => this.setState({ error: null })}
+            style={{ padding: "8px 20px", fontSize: 13, background: "#4A7C59", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 }}>
+            Try Again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Lazy-load major views — each becomes its own chunk
 const Dashboard = lazy(() => import("./components/Dashboard"));
@@ -459,6 +483,9 @@ function AppInner() {
 
   // ── AI handler (enriched with uploads context + optional prior research) ──
   const runAI = async (type, grant, priorResearch, priorFitScore) => {
+    // Dynamic org identity — used throughout all prompts instead of hardcoded org names
+    const orgName = org?.name || "the organisation";
+
     // Build org context — use context_slim to stay within API token limits
     const baseCtx = profile?.context_slim || profile?.mission || org?.name || "";
 
@@ -578,7 +605,7 @@ function AppInner() {
 - If specific information is not provided (e.g. an exact date), write [TO BE CONFIRMED] rather than inventing it.
 - Do NOT name directors individually — refer to "the directors", "programme management and ops team", or "the leadership team".
 - Never fabricate statistics, names, or achievements not present in the provided context.
-- You MAY creatively design programme structures, propose new combinations of d-lab's components, and scale up delivery models — but ground everything in d-lab's real capabilities and cost structures.
+- You MAY creatively design programme structures, propose new combinations of the organisation's components, and scale up delivery models — but ground everything in the organisation's real capabilities and cost structures.
 - Programme costs should be realistic and derived from the provided cost-per-student figures, scaled appropriately for the proposed scope.`;
 
     // ── Budget context builder ── used by ALL prompt types
@@ -606,8 +633,8 @@ Cost: R${(detectedPt.cost||0).toLocaleString()} | Per student: R${detectedPt.per
         : null;
     const perStudentStr = budgetInfo ? `R${budgetInfo.perStudent.toLocaleString()}` : "[per-student cost from budget]";
     const costHook = budgetInfo
-      ? `"It costs R180,000 to keep one young person unemployed for a year. For ${perStudentStr}, d-lab turns them into a working professional in ${budgetInfo.duration || "nine months"}."`
-      : `"It costs R180,000 to keep one young person unemployed for a year. d-lab turns them into working professionals for a fraction of that."`;
+      ? `"For ${perStudentStr} per student, ${orgName} delivers a fully accredited programme lasting ${budgetInfo.duration || "nine months"} — a fraction of the cost of youth unemployment."`
+      : `"${orgName} delivers accredited professional development at a fraction of the cost of youth unemployment."`;
 
     if (type === "draft") {
       const fs = funderStrategy(grant);
@@ -625,60 +652,46 @@ Cost: R${(detectedPt.cost||0).toLocaleString()} | Per student: R${detectedPt.per
         ? `RETURNING FUNDER — this is a partner renewing, not a stranger. Reference the existing relationship with specifics:\n${fs.hook}\nFrame as continuity and deepening, not a new pitch. Show what their previous investment built and what comes next.`
         : `NEW FUNDER — relationship is "${grant.rel || "Cold"}". Make it easy to say yes to a first conversation.`;
       return await api(
-        `You write funding proposals for d-lab NPC — a South African NPO that trains unemployed youth in AI-native digital skills, with a 92% completion rate and 85% employment within 3 months.
+        `You write funding proposals for ${orgName}. The organisation's full context — mission, programmes, outcomes, alumni stories, tools, and delivery model — is provided in the user message below. Use that context as your source of truth.
 
 RULE #1 — NEVER USE THESE WORDS TO OPEN ANY SENTENCE: "Imagine", "Picture", "Consider", "Think of", "Meet", "What if", "Close your eyes". These are BANNED. Start every sentence with something real and concrete — a fact, a name, a number, a direct statement. This rule applies to EVERY section, EVERY paragraph.
 
 VOICE — maintain in EVERY section, not just the opening:
 - Warm, human, confident. A founder who KNOWS this works, offering a funder the chance to back something real.
 - Write like a person, not a grant machine. Emotion comes from specificity, not adjectives.
-- Use d-lab's REAL alumni stories: Siphumezo Adam (pilot → ABSA CIB → d-lab staff), Simanye Mdunyelwa (graduate → ECD Facilitator), Prieska Mofokeng (started own design business), Sci-Bono graduate (→ IT Department). Use each story ONCE — never repeat it across sections.
-- Use the employer testimonial (Michelle Adler, forgood) as proof of graduate quality — once.
+- Use the organisation's REAL alumni stories from the context below. Use each story ONCE — never repeat it across sections.
+- Use any employer testimonials from the context as proof of graduate quality — once.
 - Vary sentence length. Short punchy sentences land harder after longer ones.
 - The tone: "We built something that works. Here's the proof. Here's what your investment makes possible."
 - CRITICAL: Sustain narrative energy through the ENTIRE proposal. Do NOT switch to bureaucratic grant-speak after the opening. Every section should feel alive.
 
-FRAMING: d-lab's story is the SYSTEM — 8 programme types, partner delivery model, in-house AI tools (LMS, Language Leveller, Assessornator, Cyborg Habits), corporate clients, diversified revenue. This isn't a charity asking for help. It's an engine asking for fuel.
+FRAMING: Frame the organisation as a SYSTEM — reference its programme types, delivery model, tools, clients, and revenue streams from the context. This isn't a charity asking for help. It's an engine asking for fuel.
 
-AMBITION — think BIG. Do NOT constrain yourself to d-lab's smallest or cheapest programme type:
-- d-lab's 8 programme types are a GUIDE, not a cage. Use them as building blocks but design the programme around what the FUNDER wants to achieve.
-- If the funder can support R5M, don't propose R232K. Go large — propose multi-cohort, extended duration, wraparound services, employer partnerships, expansion to new sites.
-- Combine programme elements creatively: a 9-month accredited pathway PLUS a Cyborg Habits digital layer, a flagship cohort PLUS a Train-the-Trainer cascade model, an AI bootcamp PLUS a workplace integration programme.
-- Think about what would make the funder PROUD to back this. What's the version of d-lab's work that matches the scale of their ambition?
-- The budget should fill the funder's capacity, not sit timidly below it. If a corporate has R2M for CSI, propose R1.8M — not R500K.
-- Be guided by d-lab's actual costs and delivery model, but don't be limited by them. d-lab can scale up, add components, deepen impact, and design bespoke programmes for the right funder.
+AMBITION — think BIG. Do NOT constrain yourself to the organisation's smallest or cheapest programme type:
+- The organisation's programme types are a GUIDE, not a cage. Use them as building blocks but design the programme around what the FUNDER wants to achieve.
+- If the funder can support a large grant, don't propose the minimum. Go large — propose multi-cohort, extended duration, wraparound services, employer partnerships, expansion to new sites.
+- Combine programme elements creatively. Think about what would make the funder PROUD to back this.
+- The budget should fill the funder's capacity, not sit timidly below it.
+- Be guided by the organisation's actual costs and delivery model, but don't be limited by them.
 
-SCALE THROUGH AI — this is d-lab's secret weapon and a key part of the pitch:
-- d-lab has built proprietary AI tools (Language Leveller, Assessornator, LMS, Cyborg Habits) that radically change the economics of training delivery. These aren't off-the-shelf — they're built in-house, purpose-designed for South African youth.
-- Language Leveller: AI-powered real-time translation and comprehension support, meaning learners can engage with English-language tech content regardless of home language. This removes the biggest barrier to scale.
-- Assessornator: AI assessment and feedback engine that gives every student personalised, instant feedback — the equivalent of a dedicated tutor, at zero marginal cost per student.
-- Cyborg Habits platform: asynchronous AI coaching that extends learning beyond classroom hours, building daily digital habits (R930/learner).
-- The coaching model: AI handles the repetitive, personalised feedback that traditionally requires 1-on-1 human time, freeing coaches to focus on mentorship, motivation, and career guidance. This means d-lab can maintain quality at 2-3x the student numbers of traditional training providers.
-- When proposing large programmes, LEAN INTO THIS: "d-lab's AI infrastructure means we can train 200 learners with the quality traditionally reserved for cohorts of 60" or "Our per-student cost drops significantly at scale because the AI tools absorb the work that would normally require additional coaches."
-- Propose higher student numbers than the funder might expect. If a traditional provider would propose 40 students, d-lab can credibly propose 100-120 at comparable cost. Make this a headline differentiator.
+SCALE THROUGH TECHNOLOGY — if the organisation has proprietary tools or technology described in the context, this is a key differentiator:
+- Reference the specific tools by name from the context. Explain how they change the economics of delivery.
+- If technology enables quality at scale, lean into this as a headline differentiator.
+- Propose higher student numbers than the funder might expect if the technology supports it.
 
-CYBORG HABITS AT SCALE — think beyond the classroom:
-- Cyborg Habits is not just a course add-on. It is a standalone, scalable digital behaviour-change platform that can reach thousands of learners asynchronously, with zero marginal instructor cost per additional user.
-- FOR SCHOOLS: Cyborg Habits can be deployed to entire school districts as a "digital readiness" layer — giving Grade 10-12 learners daily AI-guided micro-challenges that build real digital literacy BEFORE they enter the job market or tertiary education. 5,000 FET learners across 20 schools, each spending 15 minutes a day building the habits that separate digitally fluent workers from digitally illiterate ones. No new teachers required — just devices and connectivity.
-- FOR LARGE FUNDERS: The per-learner cost of Cyborg Habits (R930) means a R5M investment could reach 5,000+ learners for a full cycle of daily AI coaching. That's a cost-per-outcome ratio that no traditional skills programme can match.
-- CASCADING IMPACT: Cyborg Habits learners don't just learn for themselves — they become AI ambassadors in their families and communities. A learner who builds the habit of using AI for problem-solving brings that skill home, to their parents' small business, to their church's admin, to their community WhatsApp group. One learner becomes a multiplier.
-- EMPLOYABILITY PIPELINE: For corporates, Cyborg Habits creates a pre-screened, digitally-ready talent pool. Learners who complete the programme arrive at interviews already fluent in AI-assisted work — a generation ahead of their peers. Propose this as a recruitment funnel, not just a CSI tick-box.
-- HYBRID MODELS: For big programmes, propose Cyborg Habits as the digital spine with periodic in-person bootcamps — e.g., 1,000 learners on Cyborg Habits year-round, with 100-200 selected for intensive face-to-face Type 3-5 programmes. This gives funders massive reach AND deep impact.
-- DON'T BE TIMID about proposing Cyborg Habits for audiences beyond d-lab's traditional unemployed youth — it works for school learners, NEET youth, working adults upskilling, community organisations, even teacher digital literacy programmes. Match the audience to the funder's mandate.
-
-COVER EMAIL: Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." Open with the human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as the director (do NOT name them — just "Director, d-lab NPC").
+COVER EMAIL: Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." Open with the human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as the director (do NOT name them — just "Director, ${orgName}").
 
 VARIED OPENINGS — CRITICAL:
 - Every proposal must have a UNIQUE opening that is specifically crafted for THIS funder, THIS grant, THIS moment. Do NOT recycle the same narrative structure across grants.
 - The opening paragraph is the most important paragraph. It must earn the next paragraph. Vary your technique:
-  * Lead with a single student's story (a day in the life, a transformation moment, a before/after)
+  * Lead with a single student's story from the context (a transformation moment, a before/after)
   * Lead with a striking data point that reframes the problem (${costHook})
-  * Lead with the funder's own stated mission and show how d-lab is already doing what they want to fund
-  * Lead with a provocation or question ("What if the most effective way to close the digital divide isn't a laptop per child — but a habit per day?")
-  * Lead with a very specific, concrete scene (the first morning of a new cohort, the moment a student ships their first project, the WhatsApp message from a graduate's parent)
-  * Lead with the scale of what's possible ("In the time it takes to read this proposal, three more South African graduates will enter a job market that doesn't know what to do with them. d-lab exists to change that equation.")
+  * Lead with the funder's own stated mission and show how ${orgName} is already doing what they want to fund
+  * Lead with a provocation or question relevant to the organisation's mission
+  * Lead with a very specific, concrete scene (the first morning of a new cohort, the moment a student ships their first project)
+  * Lead with the scale of what's possible — use real outcomes data from the context
 - The cover email opening and the proposal executive summary opening should use DIFFERENT hooks — don't repeat yourself.
-- If the grant notes mention a specific programme, theme, or context, use THAT as your opening anchor — not a generic d-lab pitch.
+- If the grant notes mention a specific programme, theme, or context, use THAT as your opening anchor — not a generic pitch.
 
 PROPOSAL STRUCTURE (follow this funder-appropriate order):
 ${fs.structure.map((s, i) => `${i + 1}. ${s}`).join("\n")}
@@ -686,10 +699,10 @@ ${fs.structure.map((s, i) => `${i + 1}. ${s}`).join("\n")}
 DEPTH — this is critical. Write a SUBSTANTIVE proposal, not a skeleton:
 - Each section must be 2-4 rich paragraphs, not bullet lists or single paragraphs.
 - The Executive Summary alone should be 200-300 words — a compelling standalone case.
-- Programme sections should describe the actual week-by-week or phase-by-phase journey: what happens on Day 1, what tools they use, what the coaching looks like, what a Design Thinking sprint involves. Be concrete and factual — the reader should understand exactly what d-lab delivers.
-- Impact sections should weave numbers INTO narrative: "Of the 20 students in our most recent cohort, 17 were employed within 90 days — at companies like..." not just "85% employment rate."
+- Programme sections should describe the actual week-by-week or phase-by-phase journey: what happens on Day 1, what tools they use, what the coaching looks like. Be concrete and factual — the reader should understand exactly what ${orgName} delivers.
+- Impact sections should weave numbers INTO narrative — not just "X% employment rate" but woven into stories and specifics.
 - Budget section MUST include a markdown table: | Line Item | Detail | Amount | with all line items, per-student cost, and total. Wrap the table in 1-2 sentences of value narrative before and after.
-- Include specific d-lab details that bring it to life: the AI tools (Language Leveller, Assessornator, PoE Assessor, LMS), the coaching model, the partner delivery structure, the accreditation pathway.
+- Include specific organisational details from the context that bring it to life: tools, coaching model, delivery structure, accreditation pathway.
 - If the funder type expects compliance sections (SETA alignment, B-BBEE, M&E frameworks), write those with EQUAL depth — but still with narrative warmth.
 - CRITICAL: Every section must open DIFFERENTLY. Do not start two sections with the same narrative device. Vary between: data points, direct statements, outcome proof, funder mission alignment, programme specifics.
 
@@ -705,7 +718,7 @@ UPLOADED DOCUMENTS — if GRANT DOCUMENTS appear in the context below, they are 
 - Use THEIR terminology and framing (mirror their language)
 - Address every requirement they specify — don't skip sections they ask for
 - If they provide word limits, scoring criteria, or specific questions, treat those as the primary framework
-- d-lab's content fills THEIR structure, not the other way around
+- ${orgName}'s content fills THEIR structure, not the other way around
 
 Use EXACT programme costs and impact stats from the context. Do NOT mention directors by name — refer to "directors, programme management and ops team" or "the leadership team". If grant notes mention a programme type, use that type's budget.
 
@@ -726,11 +739,11 @@ ANTI-REPETITION — critical:
 - NEVER open two sections with the same narrative device. If one opens with a story, the next must open with data, a direct statement, or the funder's own mission.
 - NEVER reuse an alumni story, statistic, or proof point that already appeared in another section.
 - NEVER repeat the same adjectives, sentence structures, or transitional phrases across sections.
-- NEVER pad with development-sector jargon. Every sentence must be specific to d-lab.
-- NEVER name staff in the narrative. Do NOT write "Imagine Ayanda welcoming..." or name any team member.
+- NEVER pad with development-sector jargon. Every sentence must be specific to ${orgName}.
+- NEVER name staff in the narrative. Do NOT name any team member.
 
 ADDITIONAL RULES:
-- NEVER include ChatGPT licenses, OpenAI subscriptions, or third-party AI tool costs in budgets — d-lab builds its own proprietary AI tools. The budget line is "AI platform & tools (proprietary)" not "Software licences (ChatGPT, Canva, etc.)"
+- If the organisation builds its own tools (per context), do NOT include third-party AI tool costs in budgets. Use "AI platform & tools (proprietary)" instead.
 - NEVER mention directors or staff by name — refer to "the leadership team" or "programme management and ops team"
 - Do NOT invent budget figures or statistics not in the context
 - Do NOT write thin, skeletal sections — this is a REAL proposal, not an outline
@@ -745,7 +758,7 @@ ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), [years] year(s), R[total amou
 Example (single year): ASK_RECOMMENDATION: Type 3, 2 cohort(s), 1 year(s), R2472000
 Example (multi-year): ASK_RECOMMENDATION: Type 1, 3 cohort(s), 3 year(s), R4644000
 The total R amount is the GRAND TOTAL across all years (annual × years). For multi-year proposals, include a year-by-year breakdown table in the Budget section.
-Use d-lab's programme types as a starting framework, but MATCH THE ASK TO THE FUNDER'S CAPACITY. If the funder budget is R2M, don't propose R500K — propose something that fills their capacity with genuine impact. Go multi-cohort, multi-year, add components, extend duration, propose a flagship programme. The ask should be ambitious but justified — every rand should map to real delivery.${factGuard}`,
+Use the organisation's programme types as a starting framework, but MATCH THE ASK TO THE FUNDER'S CAPACITY. If the funder budget is large, don't propose the minimum — propose something that fills their capacity with genuine impact. Go multi-cohort, multi-year, add components, extend duration, propose a flagship programme. The ask should be ambitious but justified — every unit of currency should map to real delivery.${factGuard}`,
         `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderFeedback ? `\n\n=== FUNDER FEEDBACK (from previous application) ===\n${grant.funderFeedback}\nCRITICAL: This is real feedback from the funder. Address every concern raised. If they said the budget was too high, adjust. If they wanted more evidence, provide it. This feedback is your most important input.` : ""}${researchBlock}${fitScoreBlock}`,
         false, 5000
       );
@@ -819,35 +832,35 @@ Use d-lab's programme types as a starting framework, but MATCH THE ASK TO THE FU
 
       if (isCover) {
         sectionGuide = `COVER EMAIL INSTRUCTIONS:
-Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." and NOT "Imagine..." Open with human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as "Director, d-lab NPC" (do NOT name them).
+Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." and NOT "Imagine..." Open with human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as "Director, ${orgName}" (do NOT name them).
 
 OPENING HOOK: ${fs.hook}
 
 OPENING TECHNIQUE — choose ONE (whichever fits this funder best):
-- A real student outcome: "Last year, Siphumezo Adam walked into our pilot programme unemployed. Today she runs cohort operations at d-lab."
+- A real student/beneficiary outcome from the organisation context
 - A striking cost comparison (${costHook})
-- The funder's own stated mission, connected directly to d-lab's work
-- A provocative question: "What if the most effective way to close the digital divide isn't a laptop per child — but a habit per day?"
-- A concrete result: "Seventeen of twenty graduates employed within 90 days."
+- The funder's own stated mission, connected directly to ${orgName}'s work
+- A provocative question relevant to the organisation's mission
+- A concrete result using real outcomes data from the context
 NEVER open with "Imagine..." or scene-setting invitations. Start with something real.`;
 
       } else if (isExecSummary) {
         sectionGuide = `EXECUTIVE SUMMARY INSTRUCTIONS:
-200-300 words. A compelling standalone case — someone should want to fund d-lab after reading ONLY this section.
+200-300 words. A compelling standalone case — someone should want to fund ${orgName} after reading ONLY this section.
 Use a DIFFERENT hook from the cover letter — check the ALREADY-WRITTEN SECTIONS and do NOT repeat the same opening device or story.
 
 OPENING — choose ONE technique that is DIFFERENT from the cover letter:
 - A striking data point that reframes the problem
-- A bold claim about d-lab's model ("d-lab exists to close the conversion gap between qualification and employability")
-- The funder's own stated priority, connected directly to d-lab's work
-- A concrete outcome ("Last year, 85% of our graduates were employed within three months")
+- A bold claim about the organisation's model from the context
+- The funder's own stated priority, connected directly to ${orgName}'s work
+- A concrete outcome using real impact data from the context
 NEVER open with "Imagine..." or "Picture..." or any invitation to hypothesise.
 
-FRAMING: d-lab's story is the SYSTEM — 8 programme types, partner delivery model, in-house AI tools (LMS, Language Leveller, Assessornator, Cyborg Habits), corporate clients, diversified revenue. This isn't a charity asking for help. It's an engine asking for fuel.
+FRAMING: Frame ${orgName} as a SYSTEM — reference its programme types, delivery model, tools, clients, and revenue streams from the context. This isn't a charity asking for help. It's an engine asking for fuel.
 
 AMBITION — think BIG:
-- If the funder can support R5M, don't propose R232K. Propose multi-cohort, extended duration, wraparound services.
-- Combine elements: a 9-month accredited pathway PLUS Cyborg Habits digital layer, a flagship cohort PLUS Train-the-Trainer cascade.
+- If the funder can support a large amount, don't propose the minimum. Propose multi-cohort, extended duration, wraparound services.
+- Combine programme elements creatively from the context.
 - What would make this funder PROUD to back this?`;
 
       } else if (isBudget) {
@@ -867,14 +880,13 @@ FORMAT — MANDATORY: Present the budget as a clean MARKDOWN TABLE, then wrap it
 4. Close with 1-2 sentences on cost-effectiveness and what the investment buys
 
 ${budgetInfo ? `${budgetInfo.block}\nIMPORTANT: The budget above is the REAL, user-confirmed budget. Use these EXACT figures in the table. Do not hallucinate different amounts.\n` : ""}
-${structuredRes?.budgetRange ? `FUNDER BUDGET INTELLIGENCE (from research): ${structuredRes.budgetRange}\nSize the ask to match their capacity — don't propose R500K when they typically give R2M.\n` : ""}AMBITION: The budget should fill the funder's capacity, not sit timidly below it. If a corporate has R2M for CSI, propose R1.8M — not R500K. Match the ask to the funder's ambition.
-- Use d-lab's programme types as building blocks but design for what the FUNDER wants to achieve.
+${structuredRes?.budgetRange ? `FUNDER BUDGET INTELLIGENCE (from research): ${structuredRes.budgetRange}\nSize the ask to match their capacity — don't propose R500K when they typically give R2M.\n` : ""}AMBITION: The budget should fill the funder's capacity, not sit timidly below it. Match the ask to the funder's ambition.
+- Use the organisation's programme types as building blocks but design for what the FUNDER wants to achieve.
 - Go multi-cohort, add components, extend duration where the budget allows.
 
-SCALE THROUGH AI — the economics argument:
-- d-lab's AI tools change delivery economics. Per-student cost drops at scale because AI absorbs work that would normally require additional coaches.
-- Cyborg Habits at R930/learner means a R5M investment could reach 5,000+ learners.
-- Propose higher student numbers than expected. If a traditional provider proposes 40, d-lab can credibly propose 100-120.
+SCALE THROUGH TECHNOLOGY — if the organisation has proprietary tools (per context):
+- Reference how the tools change delivery economics. Per-student cost drops at scale.
+- Propose higher student numbers than expected if the technology supports it.
 
 After the table, weave the numbers into narrative: "For ${perStudentStr} per student — less than a semester at most private colleges — a young person receives ${budgetInfo?.duration || "9 months"} of daily coaching, enterprise software access, ICITP accreditation, and a career launchpad."
 
@@ -885,74 +897,46 @@ Example (multi-year): ASK_RECOMMENDATION: Type 1, 3 cohort(s), 3 year(s), R46440
 
       } else if (isProgramme) {
         sectionGuide = `PROGRAMME SECTION INSTRUCTIONS:
-Open with a direct, concrete statement about the programme — NOT "imagine" or "picture this". For example: "Each cohort begins with a week of digital onboarding..." or "The programme runs in three distinct phases..." or "Twenty learners arrive on Day 1 with smartphones and ambition. Nine months later, they leave with ICITP accreditation and job offers."
+Open with a direct, concrete statement about the programme — NOT "imagine" or "picture this". For example: "Each cohort begins with a week of digital onboarding..." or "The programme runs in three distinct phases..."
 
-THE 6-PHASE LEARNER JOURNEY (36 weeks — use this structure to describe what d-lab actually delivers):
-1. Induction (2 weeks) — Orientation, baseline assessment, team formation, digital setup. Learners get laptops, accounts, and their first taste of AI tools.
-2. Launch (4 weeks) — Foundational digital & AI skills, first Design Thinking challenge (Remember/Understand on Bloom's), PowerSkills ME module (self-discovery, resilience).
-3. Orbit (8 weeks) — Core skill deepening, second DT challenge (Apply/Analyse), industry exposure visits, PowerSkills WE & WORK module (collaboration, professional conduct).
-4. Landing (10 weeks) — Advanced application, third DT challenge (Evaluate/Create), portfolio building, employer readiness prep, PowerSkills WORLD module (systems thinking).
-5. Internship (12 weeks) — Industry placement with workplace mentoring, employer assessment, real work experience. This is where theory becomes practice.
-6. Certification & Graduation — ICITP accreditation, Portfolio of Evidence submission, ICDL certification.
+Describe the programme using the phases, pillars, and curriculum structure from the organisation context. Be specific and factual — the reader should understand exactly what ${orgName} delivers.
 
-4 COMPETENCY PILLARS woven through every phase: Design Thinking (creative problem-solving), Digital Competency (AI tools, data, project management), Work Readiness (career prep, industry exposure), Power Skills (ME → WE → WORK → WORLD progression).
+Describe what actually happens: what tools learners use, what coaching looks like (1:1 and group), what activities and challenges involve. Be concrete — use programme details from the context.
 
-Describe what actually happens: what tools learners use, what coaching looks like (1:1 and group), what a Design Thinking sprint involves, how the 3 DT challenges progress through Bloom's Taxonomy. Be specific and factual — the reader should understand exactly what d-lab delivers.
-
-SCALE THROUGH AI — d-lab's secret weapon:
-- d-lab has built proprietary AI tools that radically change training economics. NOT off-the-shelf — built in-house for SA youth.
-- Language Leveller: AI real-time translation/comprehension so learners engage with English tech content regardless of home language. Removes the biggest barrier to scale.
-- Assessornator: AI assessment giving every student personalised instant feedback — a dedicated tutor at zero marginal cost per student.
-- Cyborg Habits: asynchronous AI coaching extending learning beyond classroom hours, building daily digital habits (R930/learner).
-- The coaching model: AI handles repetitive personalised feedback, freeing coaches for mentorship and motivation. d-lab maintains quality at 2-3x student numbers of traditional providers.
-
-CYBORG HABITS AT SCALE — think beyond the classroom:
-- For schools: deploy to entire districts as a "digital readiness" layer. 5,000 FET learners across 20 schools, 15 min/day, no new teachers needed.
-- Hybrid models: Cyborg Habits as digital spine + periodic in-person bootcamps (1,000 on platform year-round, 100-200 for intensive face-to-face).
-- Cascading impact: learners become AI ambassadors in families/communities. One learner = a multiplier.
+SCALE THROUGH TECHNOLOGY — if the organisation has proprietary tools (per context), reference them by name:
+- Explain how each tool changes the economics of delivery
+- Show how the coaching model uses technology to maintain quality at scale
 
 AMBITION: Design the programme around what the FUNDER wants to achieve:
-- Combine elements creatively: accredited pathway + Cyborg Habits layer, flagship cohort + Train-the-Trainer cascade, AI bootcamp + workplace integration.
+- Combine programme elements creatively from the context.
 - Think about what makes the funder PROUD. Match the scale of their ambition.`;
 
       } else if (isImpact) {
         sectionGuide = `IMPACT SECTION INSTRUCTIONS:
-Open with a striking outcome statement — a concrete result, not a scene-setting invitation. For example: "Ninety-two percent of d-lab learners complete their programme — nearly double the sector average." or "Seventeen of twenty graduates from our latest cohort were employed within 90 days." Lead with the proof, then unpack the stories behind the numbers.
+Open with a striking outcome statement — a concrete result from the context, not a scene-setting invitation. Use real impact stats from the context. Lead with the proof, then unpack the stories behind the numbers.
 
-Weave numbers INTO narrative: "Of the 20 students in our most recent cohort, 17 were employed within 90 days — at companies like..." not just "85% employment rate."
+Weave numbers INTO narrative — don't just list percentages. Make the impact feel human.
 
-Include specific, vivid outcomes — use REAL alumni stories (but check ALREADY-WRITTEN SECTIONS to avoid repeating one already used):
-- 92% completion (vs 55% sector average) — nearly DOUBLE
-- 85% employment within 3 months
-- Siphumezo Adam: pilot student who overcame imposter syndrome, interned at ABSA CIB, now d-lab staff — beneficiary becomes builder
-- Simanye Mdunyelwa: graduate who became an ECD Facilitator — the multiplier effect
-- Prieska Mofokeng: started her own design business in rural Mpumalanga — entrepreneurship beyond formal employment
-- Michelle Adler (forgood): "They consistently demonstrated professionalism beyond their years"
-- 50 alumni completing microjobbing contracts — the employment pipeline works
-- The AI tools mean quality at scale: multi-cohort delivery reaching 60+ learners simultaneously
+Include specific, vivid outcomes — use REAL alumni stories from the organisation context (but check ALREADY-WRITTEN SECTIONS to avoid repeating one already used). Reference real impact stats, placement data, employer testimonials — all from the context.
 
-SCALE THROUGH AI — the impact multiplier:
-- d-lab's AI infrastructure means per-student cost drops at scale while quality holds. This is the key to going from dozens to hundreds to thousands.
-- Cyborg Habits reaches learners asynchronously with zero marginal instructor cost — the economics of digital impact at scale.
-- Cascading impact: learners become AI ambassadors in families/communities. The WhatsApp group, the parent's small business, the church admin — one learner's habits ripple outward.`;
+SCALE THROUGH TECHNOLOGY — the impact multiplier:
+- If the organisation has proprietary tools (per context), show how they enable quality at scale.
+- Reference any scalable programme elements from the context.`;
 
       } else if (isScale || isChallenge) {
         sectionGuide = `${isChallenge ? "CHALLENGE/PROBLEM" : "SUSTAINABILITY/SCALE"} SECTION INSTRUCTIONS:
 ${isChallenge
-  ? "Open with the specific gap d-lab addresses — not generic unemployment stats. For example: \"South Africa produces 400,000 graduates annually into a market that demands skills they were never taught.\" or \"The gap isn't qualification — it's conversion. The distance between a certificate and a career.\""
-  : "Open with d-lab's business model strength — a statement about sustainability, not a hypothetical. For example: \"d-lab's delivery model is designed to scale without proportional cost increase.\" or \"Seven programme types, four revenue streams, and zero external AI licensing costs.\""}
-Write 2-4 rich paragraphs. Be specific to d-lab's model, not generic development language.
+  ? `Open with the specific gap ${orgName} addresses — not generic stats. Frame the challenge through the organisation's unique lens from the context.`
+  : `Open with ${orgName}'s business model strength — a statement about sustainability, not a hypothetical. Reference programme types, revenue streams, and delivery model from the context.`}
+Write 2-4 rich paragraphs. Be specific to the organisation's model from the context, not generic development language.
 
-${isChallenge ? "Frame the challenge through d-lab's lens — not generic youth unemployment stats. What specific gap does d-lab fill that nobody else does? The answer: AI-native training that works at scale because the tools are built in-house." : ""}
+${isChallenge ? `Frame the challenge through ${orgName}'s lens — what specific gap does it fill? Reference the organisation's unique approach from the context.` : ""}
 
-SUSTAINABILITY MODEL — d-lab's diversified engine:
-- 8 programme types from R232K to R5M create multiple revenue streams
-- Partner delivery model: partners provide infrastructure, d-lab provides the system. This means d-lab can expand to new sites without proportional cost increase.
-- Cyborg Habits is a subscription product (R930/learner) that scales independently of classroom delivery
-- Corporate programmes (CCBA-style) generate revenue that cross-subsidises community programmes
-- In-house AI tools have zero licensing cost — they're proprietary, reducing per-student delivery cost as the organisation grows
-
-DON'T BE TIMID about Cyborg Habits for audiences beyond traditional unemployed youth — school learners, NEET youth, working adults upskilling, community organisations, teacher digital literacy. Match to the funder's mandate.`;
+SUSTAINABILITY MODEL — reference from the context:
+- Programme types and revenue diversification
+- Delivery model and how it enables scale
+- Proprietary tools or technology that reduce per-unit costs
+- Corporate or earned revenue streams that cross-subsidise community programmes`;
 
       } else {
         // Targeted guidance for common section types that would otherwise get generic output
@@ -967,108 +951,86 @@ DON'T BE TIMID about Cyborg Habits for audiences beyond traditional unemployed y
         const isBrand = sn.includes("brand") || sn.includes("visibility");
 
         if (isAppendices) {
-          sectionGuide = `APPENDICES — produce a structured list of supporting documents d-lab can provide:
+          sectionGuide = `APPENDICES — produce a structured list of supporting documents the organisation can provide.
 
-1. Section 18A Tax Exemption Certificate (PBO 930077003)
-2. NPO Registration Certificate (273-412 NPO)
-3. CIPC Registration (2017/382673/08)
-4. ICITP Accreditation Certificate (pivotal skills programme)
-5. Latest Audited Financial Statements (compiled by Orkin Brown and Associates, CA(SA))
-6. Board Resolution authorising this application
-7. Organisational Organogram
-8. B-BBEE Certificate / Sworn Affidavit
-9. Proof of Banking Details
-10. CVs of Key Personnel (Director, Head of Programmes, Programme Manager)
-11. Letters of Support from delivery partners (Inkcubeko, Penreach, Sci-Bono)
-12. Sample Portfolio of Evidence (student work)
+Use the registration numbers, accreditation details, and partner names from the organisation context. Typical documents include: tax exemption certificate, NPO/company registration, accreditation certificates, audited financial statements, board resolution, organogram, B-BBEE certificate, banking confirmation, key personnel CVs, partner letters of support, sample portfolios.
 
-Format as a numbered list with brief descriptions. Add a closing note: "All documents available on request. Contact [Director, d-lab NPC] for additional supporting materials."
-Do NOT fabricate document contents — just list what's available.`;
+Format as a numbered list with brief descriptions using actual details from the context. Add a closing note: "All documents available on request. Contact [Director, ${orgName}] for additional supporting materials."
+Do NOT fabricate document contents or registration numbers — use only what's in the context.`;
         } else if (isBBBEE) {
-          sectionGuide = `B-BBEE / TRANSFORMATION section — write with substance, not checkbox compliance:
-- d-lab is a Level 1 B-BBEE contributor (as an EME NPO with >75% black beneficiaries)
-- 100% of programme beneficiaries are black South African youth
-- Programme directly addresses skills development (SDA element) and socio-economic development (SED element)
-- Corporate funders can claim FULL B-BBEE points for their investment in d-lab
-- Quantify the B-BBEE value: "For every R1M invested, [funder] receives [X] B-BBEE points across skills development and SED"
-- Emphasise the double return: social impact AND regulatory compliance value
-- Reference ICITP accreditation (NQF-aligned) and SETA alignment where relevant
+          sectionGuide = `B-BBEE / TRANSFORMATION section — write with substance, not checkbox compliance.
+
+Reference the organisation's B-BBEE status, beneficiary demographics, and compliance details from the context. Key points:
+- B-BBEE contributor level and basis
+- Beneficiary demographics and how they qualify for skills development and SED elements
+- Corporate funders can claim B-BBEE points for their investment
+- The double return: social impact AND regulatory compliance value
+- Reference accreditation and SETA alignment where relevant (from context)
 Write 2-3 paragraphs that make B-BBEE value tangible, not bureaucratic.`;
         } else if (isME) {
-          sectionGuide = `M&E FRAMEWORK — describe d-lab's actual measurement system:
-- LMS tracks all student data: attendance, assignment completion, assessment scores, portfolio progress
-- 6-phase milestone tracking: each phase has specific assessment gates
-- Key metrics: completion rate (92%), employment rate at 3/6/12 months (85% at 3mo), pre-graduation placement (29%)
-- Quarterly OKR reporting to board
-- Beneficiary tracking: post-graduation employment tracking at 3, 6, and 12 months
-- Partner delivery quality: standardised coaching rubrics, monthly partner reviews
-- AI-powered assessment (Assessornator) ensures consistent marking standards across sites
-- Portfolio of Evidence (PoE) system provides auditable proof of competence
-- Data-informed iteration: programme design updated quarterly based on cohort outcomes
+          sectionGuide = `M&E FRAMEWORK — describe the organisation's actual measurement system from the context.
+
+Reference specific tools, metrics, reporting cadence, and tracking systems described in the organisation context. Include:
+- Data systems and what they track
+- Key outcome metrics (from the context — use exact numbers)
+- Reporting frequency and governance
+- Quality assurance mechanisms
+- Post-programme tracking
 Write 2-3 substantive paragraphs. Make it clear this is a data-driven organisation, not one that measures attendance and calls it M&E.`;
         } else if (isRisk) {
-          sectionGuide = `RISK MANAGEMENT — d-lab's actual risk framework:
-- Financial: diversified revenue (grants + corporate + earned + in-kind), R4.98M reserves, two-director sign-off above R5K
-- Delivery: partner model means site-specific risks don't cascade. If one partner site has issues, others continue independently
-- Student attrition: stipend programmes achieve 92% completion. Programmes without stipends carry higher churn risk (lesson from Penreach 2025)
-- Quality: ICITP accreditation, standardised assessment via Assessornator, coaching rubrics
-- Safeguarding: child safeguarding policy for FET programme (minors), POPIA compliance for all data
-- Technology: in-house AI tools mean zero vendor dependency for core delivery. No licensing risk.
-- Scale: partner model allows geographic expansion without proportional cost increase
+          sectionGuide = `RISK MANAGEMENT — describe the organisation's actual risk framework from the context.
+
+Reference financial position, delivery model, quality assurance, technology, and governance details from the context. Cover:
+- Financial risks and mitigations (reserves, diversification, financial controls)
+- Delivery risks (partner model, site-specific risks, attrition)
+- Quality assurance mechanisms (accreditation, assessment tools, standards)
+- Technology risks (tool dependencies, data privacy)
+- Safeguarding considerations
 Write 2-3 paragraphs that show genuine risk awareness, not generic risk matrices.`;
         } else if (isSafeguarding) {
-          sectionGuide = `SAFEGUARDING — d-lab has a formal Child Safeguarding Policy (required for FET programme with minors):
-- All staff undergo vetting and background checks
-- Clear reporting protocols for safeguarding concerns
-- POPIA-compliant data handling for all beneficiary information
-- FET programme (Type 4) works with Grade 10-12 learners through partnership with Gauteng Department of Education
-- Adult programmes (18+) operate under standard duty-of-care principles
-- Digital safeguarding: AI tools are monitored, learner data stays on d-lab's own LMS, no third-party data sharing
+          sectionGuide = `SAFEGUARDING — describe the organisation's safeguarding framework from the context.
+
+Reference specific policies, vetting procedures, data handling, and programme-specific safeguarding measures from the context. Include:
+- Staff vetting and background checks
+- Reporting protocols
+- Data protection and privacy compliance
+- Programme-specific considerations (e.g., minors in school programmes)
+- Digital safeguarding measures
 Write 1-2 focused paragraphs. Be factual and specific.`;
         } else if (isOrgBackground) {
-          sectionGuide = `ORGANISATIONAL BACKGROUND — tell d-lab's growth story:
-- Founded 2017, programme launched 2022 with 12-student pilot in Johannesburg
-- Trajectory: pilot (2022) → proof of concept (2023, 3 cohorts) → system (2024-25, 4 provinces, 60+ learners, corporate clients)
-- Board of 3 directors: Education/Marketing, Governance/Finance, Fundraising/Sustainability
-- Team: Head of Programmes, Programme Manager, Cohort Coordinator, AI/LMS support
-- Governance: weekly risk monitoring, quarterly OKRs, two-director financial authority above R5K
-- Sister entity: The Field Institute (corporate delivery vehicle for CCBA, EOH, BAT)
-- Accreditation: ICITP (SAQA registered), ICDL, Portfolios of Evidence
-- Financial stewardship: approved budget R11.08M vs actual R8.23M (2025) — deliberate underspend shows discipline
+          sectionGuide = `ORGANISATIONAL BACKGROUND — tell ${orgName}'s growth story from the context.
+
+Reference founding date, growth trajectory, governance structure, team, accreditation, and financial track record from the organisation context. Convey:
+- The organisation's origin and growth journey
+- Team structure and leadership
+- Governance and financial controls
+- Accreditation and quality credentials
+- Financial stewardship (budget discipline, reserves)
 Write 2-3 paragraphs that convey competence and growth trajectory.`;
         } else if (isRegulatory) {
-          sectionGuide = `REGULATORY ALIGNMENT — d-lab's compliance credentials:
-- ICITP-accredited pivotal skills programme (SAQA registered)
-- NQF-aligned curriculum: Portfolios of Evidence + ICDL certification
-- SETA alignment: programme content maps to MICT SETA requirements
-- NPO 273-412 NPO | CIPC 2017/382673/08 | PBO 930077003 | Section 18A tax-exempt
-- Quality assurance: Assessornator AI provides standardised assessment across all delivery sites
-- B-BBEE: Level 1 contributor, 100% black beneficiaries, skills development + SED elements
+          sectionGuide = `REGULATORY ALIGNMENT — reference ${orgName}'s compliance credentials from the context.
+
+Use the organisation's actual registration numbers, accreditation details, SETA alignment, B-BBEE status, and quality assurance systems from the context. Include all relevant regulatory reference numbers.
 Write 2-3 paragraphs with specific reference numbers and compliance details. Funders who ask for this section want proof, not promises.`;
         } else if (isTimeline) {
-          sectionGuide = `IMPLEMENTATION TIMELINE — use d-lab's actual delivery phases:
-- Month 1-2: Partner site setup, student recruitment and selection, facilitator training
-- Month 3: Induction phase (2 weeks), digital onboarding, baseline assessments
-- Month 4: Launch phase — foundational skills, first Design Thinking challenge
-- Month 5-6: Orbit phase — core skill deepening, industry exposure, second DT challenge
-- Month 7-8: Landing phase — advanced application, portfolio building, employer readiness
-- Month 9-11: Internship placement — workplace mentoring, real work experience
-- Month 12: Certification, graduation, employment placement support
+          sectionGuide = `IMPLEMENTATION TIMELINE — use ${orgName}'s actual delivery phases from the context.
+
+Map out the programme timeline using the phases, durations, and milestones described in the organisation context. Include setup, delivery phases, and completion stages.
 Present as a clear timeline or table. Include key milestones and decision points.`;
         } else if (isBrand) {
           sectionGuide = `BRAND ALIGNMENT & VISIBILITY — what the funder gets:
-- Logo placement on all cohort materials, certificates, and digital platforms
-- Acknowledgement in quarterly impact reports and annual review
-- Social media recognition across d-lab channels (LinkedIn, Instagram, website)
-- Invitation to cohort showcase events and graduation ceremonies
+- Logo placement on cohort materials, certificates, and digital platforms
+- Acknowledgement in impact reports and annual review
+- Social media recognition across ${orgName}'s channels
+- Invitation to showcase events and graduation ceremonies
 - Option for branded cohort naming (e.g., "[Funder] Future Leaders Cohort")
-- Student project alignment: Design Thinking challenges can be themed around funder's industry or social goals
+- Student project alignment themed around funder's industry or social goals
 - Employee volunteering: funder staff as guest speakers, mentors, or industry exposure hosts
 Write 1-2 paragraphs focused on GENUINE partnership value, not just logo placement.`;
         } else {
           sectionGuide = `Open with a direct, factual statement relevant to this section's topic — NOT an "imagine" or scene-setting device.
 Write 2-4 rich paragraphs. Do NOT produce bullet-only content — weave data into narrative.
-Be specific about d-lab's actual capabilities. Include specific details where relevant: the AI tools (Language Leveller, Assessornator, LMS, Cyborg Habits), the coaching model, partner delivery structure, accreditation pathway (ICITP, ICDL).`;
+Be specific about the organisation's actual capabilities from the context. Include specific details where relevant: tools, coaching model, delivery structure, accreditation pathway.`;
         }
       }
 
@@ -1082,7 +1044,7 @@ Be specific about d-lab's actual capabilities. Include specific details where re
         : 1500;
 
       return await api(
-        `You write ONE section of a funding proposal for d-lab NPC — a South African NPO training unemployed youth in AI-native digital skills (92% completion, 85% employment within 3 months).
+        `You write ONE section of a funding proposal for ${orgName}. The organisation's full context — mission, programmes, outcomes, alumni stories, tools — is provided in the user message below.
 
 SECTION: "${sectionName}" (Section ${sectionIndex + 1} of ${totalSections})
 
@@ -1090,8 +1052,8 @@ RULE #1 — NEVER USE THESE WORDS TO OPEN ANY SENTENCE: "Imagine", "Picture", "C
 
 VOICE — this is the most important instruction:
 - Warm, human, confident. A founder who KNOWS this works, offering a funder the chance to back something real.
-- Write like a person, not a grant machine. Let the reader feel the energy of what d-lab does.
-- Use d-lab's REAL alumni stories from the context — but use each story ONCE across the full proposal. If a prior section already used Siphumezo's story, pick a different one.
+- Write like a person, not a grant machine. Let the reader feel the energy of what ${orgName} does.
+- Use the organisation's REAL alumni stories from the context — but use each story ONCE across the full proposal. If a prior section already used a story, pick a different one.
 - Be concrete and grounded: real numbers, real programme details. Emotion comes from specificity, not adjectives.
 - Vary sentence length. Short punchy sentences land harder after longer ones.
 - CRITICAL: The emotive, narrative energy must carry through. Do NOT switch to dry, bureaucratic grant-speak.
@@ -1105,7 +1067,7 @@ ${budgetInfo ? `\n${budgetInfo.block}` : ""}
 ${fs.mc ? `MULTI-COHORT: ${fs.mc.count} cohorts requested` : ""}
 ${customInstructions ? `\nUSER INSTRUCTIONS FOR THIS SECTION: ${customInstructions}` : ""}${fitScoreNote}
 
-UPLOADED DOCUMENTS — if GRANT DOCUMENTS appear in the context below, they are the funder's RFP, application form, or guidelines. Address THEIR specific questions, use THEIR terminology, follow THEIR requested structure. Their requirements are the primary framework — d-lab's content fills it.
+UPLOADED DOCUMENTS — if GRANT DOCUMENTS appear in the context below, they are the funder's RFP, application form, or guidelines. Address THEIR specific questions, use THEIR terminology, follow THEIR requested structure. Their requirements are the primary framework — ${orgName}'s content fills it.
 
 BANNED PHRASES — if ANY of these appear in your output, the section fails. Zero tolerance:
 - "Imagine a..." / "Picture a..." / "Consider a..." / "Think of a..." / "Meet [name]..." / "What if you could..." / "Close your eyes..."
@@ -1126,7 +1088,7 @@ ANTI-REPETITION — critical:
 - NEVER name staff in the narrative. Do NOT write "Imagine Ayanda welcoming..." or name any team member.
 
 ADDITIONAL RULES:
-- NEVER include ChatGPT/OpenAI/third-party AI costs in budgets — d-lab builds its own AI tools. Use "AI platform & tools (proprietary)"
+- If the organisation builds its own tools (per context), do NOT include third-party AI tool costs in budgets — use "AI platform & tools (proprietary)"
 - NEVER mention directors or staff by name — refer to "the leadership team" or "programme management and ops team"
 - Do NOT invent figures or statistics not in the context — write with substance, not padding${priorFitScore?.research || grant.aiResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}
 
@@ -1138,7 +1100,7 @@ Write ONLY the "${sectionName}" section content. No section header — just the 
     if (type === "research") {
       const fs = funderStrategy(grant);
       return await api(
-        `You are a funder intelligence analyst for d-lab NPC, a South African NPO training unemployed youth in AI-native digital skills (92% completion, 85% employment, 8 programme types from R232K to R5M).
+        `You are a funder intelligence analyst for ${orgName}. The organisation's full context — mission, programmes, outcomes — is provided below.
 
 RESEARCH THOROUGHLY — search this funder's website, annual report, CSI report, and recent news.
 
@@ -1150,7 +1112,7 @@ Return your findings as a JSON object with these fields. Each field should be a 
   "contacts": "Names and titles of CSI/foundation decision-makers, plus best contact method",
   "priorities": "Their stated funding priorities + what their actual funding pattern reveals they really care about",
   "applicationProcess": "Prescribed form or open proposal? Portal or email? Deadlines? Multi-stage? What documents required?",
-  "strategy": "What angle d-lab should lead with, which programme type (Type 1-8) to offer, what to emphasise, what to avoid",
+  "strategy": "What angle ${orgName} should lead with, which programme type to offer, what to emphasise, what to avoid",
   "${fs.returning ? "relationshipLeverage" : "doorOpener"}": "${fs.returning ? "How to use the existing relationship — what to reference from past grants, who to contact, what continuity angle works" : "How to get a first meeting — who to approach, what hook to use, what intro channel"}",
   "rawText": "A full narrative summary of all the above (4-6 paragraphs) suitable for human reading — include all the detail from the other fields woven into flowing text"
 }
@@ -1158,14 +1120,14 @@ Return your findings as a JSON object with these fields. Each field should be a 
 IMPORTANT: Return ONLY valid JSON. No markdown code fences, no text before or after the JSON object. Every field value must be a string (escape any quotes inside values).
 
 Use uploaded documents for additional context about the organisation. Reference specific programme types and costs from the org profile when discussing fit.${factGuard}`,
-        `Organisation context:\n${orgCtx}\n\nFunder: ${grant.funder}\nType: ${grant.type}\nGrant: ${grant.name}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD — will be set after proposal)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER — d-lab has an existing relationship)" : ""}\nFocus areas: ${(grant.focus || []).join(", ")}${fs.noIntel ? "\n\nNO PRE-EXISTING FUNDER INTELLIGENCE — research from scratch. Build a complete picture." : `\n\n=== EXISTING FUNDER INTELLIGENCE (build on this, don't duplicate) ===\nLead angle: ${fs.lead}\nHook: ${fs.hook}\nRecommended sections: ${(fs.sections || []).join(", ")}\nLanguage register: ${fs.lang}${fs.returning ? "\nStatus: RETURNING FUNDER — look for what d-lab delivered with their previous funding, what outcomes were achieved, and what the continuity angle is." : ""}`}\n\n${grant.notes ? `TEAM INTEL (from grant notes — treat as high-priority context):\n${grant.notes}` : "Notes: None"}${grant.funderFeedback ? `\n\n=== PREVIOUS FUNDER FEEDBACK ===\n${grant.funderFeedback}\nUse this feedback to refine your research — understand what the funder valued or didn't value.` : ""}`,
+        `Organisation context:\n${orgCtx}\n\nFunder: ${grant.funder}\nType: ${grant.type}\nGrant: ${grant.name}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD — will be set after proposal)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER — existing relationship)" : ""}\nFocus areas: ${(grant.focus || []).join(", ")}${fs.noIntel ? "\n\nNO PRE-EXISTING FUNDER INTELLIGENCE — research from scratch. Build a complete picture." : `\n\n=== EXISTING FUNDER INTELLIGENCE (build on this, don't duplicate) ===\nLead angle: ${fs.lead}\nHook: ${fs.hook}\nRecommended sections: ${(fs.sections || []).join(", ")}\nLanguage register: ${fs.lang}${fs.returning ? "\nStatus: RETURNING FUNDER — look for what the organisation delivered with their previous funding, what outcomes were achieved, and what the continuity angle is." : ""}`}\n\n${grant.notes ? `TEAM INTEL (from grant notes — treat as high-priority context):\n${grant.notes}` : "Notes: None"}${grant.funderFeedback ? `\n\n=== PREVIOUS FUNDER FEEDBACK ===\n${grant.funderFeedback}\nUse this feedback to refine your research — understand what the funder valued or didn't value.` : ""}`,
         true, 3000
       );
     }
     if (type === "followup") {
       const fs = funderStrategy(grant);
       return await api(
-        `You write follow-up emails for d-lab NPC, a South African NPO training youth in AI-native digital skills.
+        `You write follow-up emails for ${orgName}. The organisation's context is provided below.
 
 VOICE: Professional but human. A confident founder checking in — not a desperate fundraiser chasing. Write like you would to a colleague you respect. No grovelling. No "just following up." This person's inbox is full — give them a reason to keep reading.
 
@@ -1178,15 +1140,10 @@ Subject: [specific, compelling — NOT "Following up on our application"]
 The email should:
 - Open with context (what was submitted, when) — but make it interesting, not administrative
 - Lead with what this funder cares about: "${fs.lead}"
-- Include one NEW proof point or update since submission — something that shows momentum. Strong options:
-  • CCBA/Coca-Cola awarded d-lab R2.75M (Jan 2026) for an 18-month Graduate Leadership Accelerator across African markets — proves corporate delivery capability at scale
-  • 92% completion rate (vs 55% sector avg), 85% employment within 3 months
-  • 4 cohorts running simultaneously across 3 provinces in 2026
-  • Proprietary AI tools (Language Leveller, Assessornator) enabling quality at 2-3x student numbers
-  • Choose the proof point most relevant to THIS funder's priorities
+- Include one NEW proof point or update since submission — something that shows momentum. Use real achievements, outcomes, or milestones from the organisation context. Choose the proof point most relevant to THIS funder's priorities.
 - Close with a specific, low-friction next step (15-min call, site visit, "happy to send our latest impact data")
 - Under 200 words. Every sentence earns its place.
-- Sign off as the director (do NOT name them — just "Director, d-lab NPC")
+- Sign off as the director (do NOT name them — just "Director, ${orgName}")
 ${fs.returning ? "- RETURNING FUNDER: This is a partner. Reference the relationship warmly — you have shared history." : "- NEW FUNDER: Be respectful and make it easy to say yes to a conversation. Lower the bar: a call, a coffee, not a commitment."}${factGuard}`,
         `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nStage: ${grant.stage}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()}`}\nSubmitted: ${grant.subDate || "Not yet"}\nNotes: ${grant.notes || "None"}`,
         false, 1000
@@ -1229,7 +1186,7 @@ SCORING GUIDE:
 - B-BBEE/compliance alignment = +5
 - Timing (deadline feasible) = +10
 - Deduct for: org too small, outside focus, budget mismatch, missing track record`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER)" : ""}\nFocus: ${(grant.focus || []).join(", ")}\nGeography: ${(grant.geo || []).join(", ") || "National"}\nDeadline: ${grant.deadline || "Rolling"}\nNotes: ${grant.notes || "None"}\n\nFUNDER INTEL: This funder cares about "${fs.lead}". Their language: ${fs.lang}.${fs.returning ? " d-lab is a returning grantee." : ""}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER)" : ""}\nFocus: ${(grant.focus || []).join(", ")}\nGeography: ${(grant.geo || []).join(", ") || "National"}\nDeadline: ${grant.deadline || "Rolling"}\nNotes: ${grant.notes || "None"}\n\nFUNDER INTEL: This funder cares about "${fs.lead}". Their language: ${fs.lang}.${fs.returning ? ` ${orgName} is a returning grantee.` : ""}`,
         false, 800
       );
     }
@@ -1246,7 +1203,7 @@ SCORING GUIDE:
         else if (dd <= 14) urgent.push(g);
       }
       return await api(
-        `You are d-lab's grant operations manager. Produce a daily action list — the 5-8 things that will move the pipeline forward TODAY.
+        `You are the grant operations manager for ${orgName}. Produce a daily action list — the 5-8 things that will move the pipeline forward TODAY.
 
 RULES:
 - Each item: a specific, actionable task for a specific grant
@@ -1316,7 +1273,7 @@ RULES: "ask" = realistic midpoint if range given, convert USD at ~R18/$. "type" 
         .map(s => `${s.label}: ${grants.filter(g => g.stage === s.id).length}`)
         .join(", ");
       return await api(
-        `You write quarterly impact reports for d-lab NPC's funders. Audience: existing funders and board members who want to see progress, outcomes, and pipeline health.
+        `You write quarterly impact reports for ${orgName}'s funders. Audience: existing funders and board members who want to see progress, outcomes, and pipeline health.
 
 VOICE: Confident, factual. Lead with outcomes, not activities. Show momentum.
 
@@ -1401,7 +1358,7 @@ Top grants: ${[...act].sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice(0
         .filter(s => s.count > 0);
 
       return await api(
-        `You are a sharp-eyed pipeline analyst for d-lab NPC, a South African youth skills NPO. You find the things that busy grant managers miss — the hidden risks, the unexploited patterns, the signals in the noise.
+        `You are a sharp-eyed pipeline analyst for ${orgName}. You find the things that busy grant managers miss — the hidden risks, the unexploited patterns, the signals in the noise.
 
 TASK: Produce 5–7 insights from this pipeline data. Each one should make the reader think "I hadn't noticed that."
 
@@ -1420,7 +1377,7 @@ FORMAT — for each insight:
 - "This week:" followed by one concrete action.
 
 Be blunt. If something is going well, say so briefly and move on. Spend more words on problems and opportunities.${factGuard}`,
-        `Organisation: ${org?.name || "d-lab NPC"}
+        `Organisation: ${orgName}
 
 PIPELINE SNAPSHOT:
 - Total grants: ${grants.length} (${act.length} active, ${won.length} won, ${lost.length} lost)
@@ -1465,20 +1422,20 @@ TOP 5 BY ASK: ${[...act].sort((a, b) => effectiveAsk(b) - effectiveAsk(a)).slice
       ).join("\n");
 
       return await api(
-        `You are a funding strategist for d-lab NPC, a South African youth skills NPO with 8 programme types ranging from R232K short courses to R1.6M full-cohort programmes with laptops and stipends.
+        `You are a funding strategist for ${orgName}. The organisation's full context is provided below.
 
-TASK: Produce 5–7 strategic recommendations. Each should be a specific, defensible play that d-lab can execute — not general advice.
+TASK: Produce 5–7 strategic recommendations. Each should be a specific, defensible play that ${orgName} can execute — not general advice.
 
-d-lab's programme portfolio:
+Programme portfolio:
 ${ptypeRef}
 
 THINK ABOUT:
-- Which programme types are being pitched to the wrong funders? A R1.6M Type 2 programme pitched to a R500K corporate CSI budget is a mismatch. Name the mismatches.
-- Cyborg Habits (Type 6, R930/learner, fully online) can scale to thousands — is the pipeline leveraging this for international funders, education departments, or large corporates who want reach?
-- Which funder types actually convert? If Foundations win at 60% but Government/SETA wins at 10%, the team should rebalance prospecting time.
-- Multi-cohort and multi-year packaging: a R516K Type 1 programme becomes a R2.5M proposal when packaged as 5 cohorts across 2 years. Is anyone packaging like this?
-- Returning funders (Telkom, Sage, SAP, Get It Done) are the easiest revenue. Are renewals being actively managed or left to chance?
-- Geographic plays: are there provinces, metros, or rural areas where d-lab has no presence but funders are active?
+- Which programme types are being pitched to the wrong funders? Name mismatches between ask amounts and funder capacity.
+- Are there scalable or low-cost programme types in the portfolio that could be leveraged for large-reach proposals?
+- Which funder types actually convert? If one category wins at 60% but another at 10%, the team should rebalance prospecting time.
+- Multi-cohort and multi-year packaging: is anyone packaging smaller programmes into larger, multi-year proposals?
+- Are returning funders being actively managed for renewals, or left to chance?
+- Geographic plays: are there regions where ${orgName} has no presence but funders are active?
 - Revenue concentration: if one grant represents >25% of the pipeline, that's a strategic risk.
 
 FORMAT — for each recommendation:
@@ -1487,7 +1444,7 @@ FORMAT — for each recommendation:
 - "Next 30 days:" followed by one concrete action
 
 Think like a board advisor, not a consultant. Be direct about what's working, what's not, and where the biggest leverage is.${factGuard}`,
-        `Organisation: ${org?.name || "d-lab NPC"}
+        `Organisation: ${orgName}
 
 PIPELINE DATA:
 - Total: ${grants.length} grants, ${act.length} active (R${totalAsk.toLocaleString()}), ${won.length} won (R${wonVal.toLocaleString()}), ${lost.length} lost
@@ -1666,13 +1623,23 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
 
       {/* Main content */}
       <div style={{ flex: 1, overflow: "auto" }}>
+        <ErrorBoundary>
         <Suspense fallback={
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", gap: 10 }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.primary, animation: "ge-pulse 1.4s ease-in-out infinite" }} />
             <span style={{ fontSize: 13, color: C.t3, fontFamily: FONT }}>Loading...</span>
           </div>
         }>
-        {sel && selectedGrant ? (
+        {sel && !selectedGrant ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12, padding: 40 }}>
+            <span style={{ fontSize: 32 }}>🔍</span>
+            <p style={{ fontSize: 14, color: C.t3, fontFamily: FONT }}>This grant no longer exists or was removed.</p>
+            <button onClick={() => setSel(null)}
+              style={{ padding: "8px 20px", fontSize: 13, background: C.primary, color: C.white, border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontFamily: FONT }}>
+              Back to Pipeline
+            </button>
+          </div>
+        ) : sel && selectedGrant ? (
           <GrantDetail
             grant={selectedGrant}
             team={team}
@@ -1680,6 +1647,7 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
             funderTypes={funderTypes}
             complianceDocs={complianceDocs}
             currentMember={currentMember}
+            orgName={org?.name || "the organisation"}
             onUpdate={updateGrant}
             onDelete={deleteGrant}
             onBack={() => setSel(null)}
@@ -1706,6 +1674,7 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
             stages={stages}
             funderTypes={funderTypes}
             complianceDocs={complianceDocs}
+            orgContext={profile?.context_slim || profile?.mission || org?.name || ""}
             onSelectGrant={(id) => setSel(id)}
             onUpdateGrant={updateGrant}
             onAddGrant={addGrant}
@@ -1729,7 +1698,13 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
             currentMember={currentMember}
             complianceDocs={complianceDocs}
             onUpsertCompDoc={upsertCompDoc}
-            onUpdateProfile={() => {}}
+            onUpdateProfile={async (data) => {
+              const { updateProfile: apiUpdateProfile } = await import("./api");
+              await apiUpdateProfile(data);
+              const newProfile = await getProfile();
+              setProfile(newProfile);
+              toast("Profile updated", { type: "success", duration: 2000 });
+            }}
             onUpdateOrg={async (updates) => {
               await apiUpdateOrg(updates);
               const newOrg = { ...org, ...updates };
@@ -1744,6 +1719,7 @@ LOST GRANTS: ${lost.map(g => `${g.name} from ${g.funder} (${g.type}, R${effectiv
           }} />
         ) : null}
         </Suspense>
+        </ErrorBoundary>
       </div>
 
       {/* animations injected globally via injectFonts() */}

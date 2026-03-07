@@ -73,7 +73,7 @@ const ActivityRow = ({ date, text, isLast }) => (
   </div>
 );
 
-export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], currentMember, onUpdate, onDelete, onBack, onRunAI, onUploadsChanged }) {
+export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], currentMember, orgName = "the organisation", onUpdate, onDelete, onBack, onRunAI, onUploadsChanged }) {
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState({});
   const [ai, setAi] = useState(() => ({
@@ -1121,7 +1121,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: fitError ? C.red : C.dark }}>{fitError ? "Fit Score Failed" : "Fit Score"}</div>
                   <div style={{ fontSize: 11, color: fitError ? C.red : C.t3, marginTop: 2 }}>
-                    {fitError || "AI assesses how well this grant matches d-lab's profile"}
+                    {fitError || "AI assesses how well this grant matches the organisation's profile"}
                   </div>
                 </div>
                 <Btn v="primary" onClick={runFitScore} disabled={busy.fitscore} style={{ fontSize: 12, padding: "7px 16px" }}>{busy.fitscore ? "Scoring..." : fitError ? "Retry" : "Score"}</Btn>
@@ -1259,6 +1259,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             <ProposalWorkspace
               grant={g}
               ai={ai}
+              orgName={orgName}
               onRunAI={onRunAI}
               onRunResearch={runResearch}
               onUpdate={onUpdate}
@@ -1353,7 +1354,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             result={ai.followup}
             generatedAt={g.aiFollowupAt}
             docName={`${g.name}_followup`}
-            docMeta={{ grantName: `${g.name} — Follow-up`, funder: g.funder, orgName: "d-lab NPC", ask: effectiveAsk(g), type: g.type }}
+            docMeta={{ grantName: `${g.name} — Follow-up`, funder: g.funder, orgName, ask: effectiveAsk(g), type: g.type }}
             onRun={async () => {
               setBusy(p => ({ ...p, followup: true }));
               try {

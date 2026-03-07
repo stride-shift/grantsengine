@@ -208,7 +208,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.dark, letterSpacing: -0.2 }}>Budget Builder</div>
           <div style={{ fontSize: 11, color: C.t4, marginTop: 1 }}>
-            {saved ? `Saved: ${fmtR(saved.total)}` : "Build a real budget from d-lab programme costs"}
+            {saved ? `Saved: ${fmtR(saved.total)}` : "Build a budget from programme type costs"}
           </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
@@ -583,7 +583,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
               No budget set yet
             </div>
             <div style={{ fontSize: 11, color: C.t4, lineHeight: 1.5 }}>
-              Select a programme type above to auto-populate line items from d-lab's real costs
+              Select a programme type above to auto-populate line items from programme costs
             </div>
           </div>
         )}

@@ -44,6 +44,11 @@ app.use('/api/org/:slug/ai/messages', rateLimit({
   message: { error: 'AI rate limit reached. Wait a moment before trying again.' },
   standardHeaders: true, legacyHeaders: false,
 }));
+app.use('/api/org/:slug/uploads/youtube', rateLimit({
+  windowMs: 60 * 1000, max: 10,
+  message: { error: 'YouTube extraction rate limit reached. Wait a moment.' },
+  standardHeaders: true, legacyHeaders: false,
+}));
 
 app.use(express.json({ limit: '10mb' }));
 

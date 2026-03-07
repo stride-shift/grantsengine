@@ -1,7 +1,7 @@
 /*
   docxGenerator.js — Generate professional .docx files from AI-generated proposals
   Uses the `docx` package for real Word documents with styled paragraphs,
-  headers, footers, tables, and d-lab branding.
+  headers, footers, tables, and organisation branding.
 
   Lazy-imported via dynamic import() to avoid bundle bloat.
 */
@@ -161,7 +161,7 @@ export async function generateDocx(text, filename, meta = {}) {
   const sections = parseProposalText(text);
   const grantName = meta.grantName || filename || "Proposal";
   const funder = meta.funder || "";
-  const orgName = meta.orgName || "d-lab NPC";
+  const orgName = meta.orgName || "the organisation";
   const date = meta.date || new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
   const ask = meta.ask || null;
   const grantType = meta.type || null;
@@ -523,7 +523,7 @@ export async function generateDocxFromSections(sections, order, filename, meta =
 
   const grantName = meta.grantName || filename || "Proposal";
   const funder = meta.funder || "";
-  const orgName = meta.orgName || "d-lab NPC";
+  const orgName = meta.orgName || "the organisation";
   const date = meta.date || new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" });
   const ask = meta.ask || null;
   const grantType = meta.type || null;

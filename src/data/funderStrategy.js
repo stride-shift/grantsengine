@@ -1,4 +1,8 @@
-/* ── Funder History & Strategy Engine ── */
+/* ── Funder History & Strategy Engine ──
+   NOTE: FUNDER_HISTORY and the `angles` object in funderStrategy() contain
+   d-lab-specific funder intelligence. For other orgs, the generic fallback
+   is used (which references orgCtx). Long-term: store funder hooks per-org in DB.
+── */
 
 const FUNDER_HISTORY = {
   "telkom": "returning", "telkom foundation": "returning",
@@ -39,7 +43,7 @@ export const detectType = g => {
   if (g.ask <= 700000) return PTYPES[5];   // Corporate (R651K)
   if (g.ask <= 1100000) return PTYPES[4];  // FET High School (R1.08M)
   if (g.ask <= 1400000) return PTYPES[3];  // With stipends (R1.24M)
-  return PTYPES[2];                         // Full d-lab funded (R1.6M+)
+  return PTYPES[2];                         // Full-funded with stipends + laptops (R1.6M+)
 };
 
 export const multiCohortInfo = g => {
@@ -159,7 +163,7 @@ export const funderStrategy = g => {
     "ALT Capital": { lead: "alternative investment in human capital with measurable returns", hook: "ALT Capital's focus on alternative investment strategies extends naturally to human capital. d-lab's model delivers a measurable return: R25,800 invested per student produces an employed, AI-fluent professional within 9 months, with 85% employment within 3 months of graduation. The unit economics are proven across 3 provinces.", sections: ["Investment Thesis", "Unit Economics", "Evidence Base", "Scale Model", "Impact Measurement"], lang: "alternative capital, impact investment, human capital, unit economics, measurable returns" },
     "Sawabona Africa": { lead: "seeing and unlocking the potential in South Africa's youth", hook: "Sawabona — 'I see you' — captures exactly what d-lab does: we see potential in young people whom the economy has overlooked, and we convert that potential into employment. 92% completion, 85% employment, 29% placed before graduation. These aren't aspirations — they're audited outcomes from a system that works.", sections: ["Vision & Mission Alignment", "Programme Model", "Evidence of Impact", "Budget", "Sustainability"], lang: "potential, youth, empowerment, seeing, community, impact" },
   };
-  const a = angles[f] || { lead: focus || "youth employment and digital skills", hook: `NO PRE-EXISTING FUNDER INTELLIGENCE for ${f}. Do NOT use generic alignment language like "aligns with our mission." Instead: use the funder research below to identify their SPECIFIC priorities, then open with a concrete connection between what they fund and what d-lab delivers. If no research is available, lead with d-lab's strongest proof point (92% completion, 85% employment) and let the numbers speak.`, sections: ["Impact", "Programme", "Budget", "Sustainability"], lang: "impact, youth, digital skills, employment", noIntel: true };
+  const a = angles[f] || { lead: focus || "youth employment and digital skills", hook: `NO PRE-EXISTING FUNDER INTELLIGENCE for ${f}. Do NOT use generic alignment language like "aligns with our mission." Instead: use the funder research below to identify their SPECIFIC priorities, then open with a concrete connection between what they fund and what the organisation delivers. If no research is available, lead with the organisation's strongest proof points from the context and let the numbers speak.`, sections: ["Impact", "Programme", "Budget", "Sustainability"], lang: "impact, youth, digital skills, employment", noIntel: true };
   const structures = {
     "Corporate CSI": ["Cover Letter", "Executive Summary", "B-BBEE Value Proposition", "Programme Overview", "Impact & Outcomes", "Budget", "Brand Alignment & Visibility", "Sustainability", "Appendices"],
     "Government/SETA": ["Cover Letter", "Executive Summary", "Regulatory Alignment (NQF/SAQA/NSDP)", "Organisational Capacity", "Programme Description", "Accreditation & Quality Assurance", "Budget & Value for Money", "M&E Framework", "Transformation & Equity", "Appendices"],

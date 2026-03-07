@@ -125,7 +125,7 @@ export default function OrgSelector({ onSelect }) {
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: 14, fontWeight: 800, color: C.white,
       }}>d</div>
-      <span style={{ fontSize: 15, fontWeight: 700, color: C.white, letterSpacing: -0.3 }}>d-lab Grant Engine</span>
+      <span style={{ fontSize: 15, fontWeight: 700, color: C.white, letterSpacing: -0.3 }}>Grant Engine</span>
     </div>
   );
 

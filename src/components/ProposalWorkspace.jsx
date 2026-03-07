@@ -26,7 +26,7 @@ const extractAskFromText = (text) => {
   return null;
 };
 
-export default function ProposalWorkspace({ grant, ai, onRunAI, onRunResearch, onUpdate, busy, setBusy, autoGenerate, onAutoGenerateComplete }) {
+export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunResearch, onUpdate, busy, setBusy, autoGenerate, onAutoGenerateComplete }) {
   const g = grant;
   const fs = funderStrategy(g);
   const order = g.aiSectionsOrder || fs.structure;
@@ -301,7 +301,7 @@ export default function ProposalWorkspace({ grant, ai, onRunAI, onRunResearch, o
     if (!assembled.trim()) return;
     try {
       const { generateDocxFromSections, generateDocx } = await import("../docxGenerator.js");
-      const meta = { grantName: g.name, funder: g.funder, orgName: "d-lab NPC", ask: effectiveAsk(g), type: g.type, budgetTable: g.budgetTable || null };
+      const meta = { grantName: g.name, funder: g.funder, orgName: orgName || "the organisation", ask: effectiveAsk(g), type: g.type, budgetTable: g.budgetTable || null };
       if (generateDocxFromSections) {
         await generateDocxFromSections(sections, order, `${g.name}_proposal`, meta);
       } else {
