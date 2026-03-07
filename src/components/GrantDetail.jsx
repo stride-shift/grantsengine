@@ -209,7 +209,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       uploadsLoaded.current = true;
       // Invalidate AI uploads cache so next AI run picks up new docs
       if (onUploadsChanged) onUploadsChanged(grant.id);
-    } catch { /* ignore */ }
+    } catch (e) { console.warn("Failed to load uploads:", e.message); }
   }, [grant?.id, onUploadsChanged]);
 
   // Reset upload state when switching grants

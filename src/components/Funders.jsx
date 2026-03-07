@@ -129,7 +129,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
     return { total, returning, types, totalPipeline, wonCount: won.length, lostCount: lost.length, wonVal: won.reduce((s, g) => s + effectiveAsk(g), 0) };
   }, [funderData, grants]);
 
-  const FTYPE_COLORS = { "Corporate CSI": C.primary, "Government/SETA": C.blue, "International": C.purple, "Foundation": C.amber, "Tech Company": "#0891B2", "Partnership": C.purple };
+  const FTYPE_COLORS = { "Corporate CSI": C.primary, "Government/SETA": C.blue, "International": C.purple, "Foundation": C.amber, "Tech Company": C.teal, "Partnership": C.purple };
 
   return (
     <div style={{ padding: "28px 32px", height: "100%", overflow: "auto" }}>

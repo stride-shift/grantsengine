@@ -42,8 +42,8 @@ export const DeadlineBadge = ({ d, deadline, size = "sm", stage }) => {
 };
 
 // Hoisted to module level to avoid re-creation on every render
-const TYPE_COLORS = { "Foundation": C.blue, "Corporate CSI": C.primary, "Government/SETA": C.amber, "International": "#1A7A42", "Tech Company": "#0891B2", "Partnership": C.purple };
-const TYPE_BGS = { "Foundation": C.blueSoft, "Corporate CSI": C.primarySoft, "Government/SETA": C.amberSoft, "International": "#E6F5EE", "Tech Company": "#ECFEFF", "Partnership": C.purpleSoft };
+const TYPE_COLORS = { "Foundation": C.blue, "Corporate CSI": C.primary, "Government/SETA": C.amber, "International": C.emerald, "Tech Company": C.teal, "Partnership": C.purple };
+const TYPE_BGS = { "Foundation": C.blueSoft, "Corporate CSI": C.primarySoft, "Government/SETA": C.amberSoft, "International": C.emeraldSoft, "Tech Company": C.tealSoft, "Partnership": C.purpleSoft };
 
 export const TypeBadge = ({ type }) => {
   const col = TYPE_COLORS[type] || C.t3;
@@ -216,8 +216,8 @@ const AVATAR_COLORS = [
   { bg: C.redSoft, fg: C.red },
   { bg: C.blueSoft, fg: C.blue },
   { bg: C.amberSoft, fg: C.amber },
-  { bg: "#E6F5EE", fg: "#1A7A42" },
-  { bg: "#ECFEFF", fg: "#0891B2" },
+  { bg: C.emeraldSoft, fg: C.emerald },
+  { bg: C.tealSoft, fg: C.teal },
   { bg: C.purpleSoft, fg: C.purple },
 ];
 const DEFAULT_MEMBER = { name: "Unassigned", initials: "\u2014", role: "none" };

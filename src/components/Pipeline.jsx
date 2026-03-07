@@ -94,8 +94,8 @@ const AVATAR_COLORS = [
   { bg: C.primarySoft, accent: C.primary },
   { bg: C.blueSoft, accent: C.blue },
   { bg: C.amberSoft, accent: C.amber },
-  { bg: "#E6F5EE", accent: "#1A7A42" },
-  { bg: "#ECFEFF", accent: "#0891B2" },
+  { bg: C.emeraldSoft, accent: C.emerald },
+  { bg: C.tealSoft, accent: C.teal },
   { bg: C.purpleSoft, accent: C.purple },
 ];
 
@@ -251,7 +251,7 @@ const parseScoutResults = (text) => {
   return null;
 };
 
-export default function Pipeline({ grants, team, stages, funderTypes, complianceDocs = [], onSelectGrant, onUpdateGrant, onAddGrant, onRunAI, api }) {
+export default function Pipeline({ grants, team, stages, funderTypes, complianceDocs = [], onSelectGrant, onUpdateGrant, onAddGrant, onRunAI, api, onToast }) {
   const [pView, setPView] = useState("kanban");
   const [q, setQ] = useState("");
   const [sf, setSf] = useState("all");
@@ -826,7 +826,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                     setUrlInput("");
                     setShowUrlTool(false);
                   } catch (e) {
-                    alert("Could not parse grant from URL. Try adding manually.");
+                    onToast?.("Could not parse grant from URL. Try adding manually.", { type: "error" });
                   }
                   setUrlBusy(false);
                 })();

@@ -50,6 +50,10 @@ export const C = {
   blueSoft: "#EFF6FF",
   purple: "#6D28D9",
   purpleSoft: "#F3F0FF",
+  teal: "#0891B2",
+  tealSoft: "#ECFEFF",
+  emerald: "#1A7A42",
+  emeraldSoft: "#E6F5EE",
 
   // ── Sidebar ──
   sidebar: "#FFFFFF",
@@ -228,6 +232,9 @@ export const injectFonts = () => {
       .ge-hover-bar:hover { opacity: 1 !important; }
       @keyframes ge-toast-in { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
       @keyframes ge-spin { to { transform: rotate(360deg); } }
+      /* ── Accessible focus rings (visible only for keyboard nav, !important overrides inline outline:none) ── */
+      *:focus-visible { outline: 2px solid #4A7C59 !important; outline-offset: 2px; }
+      input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #4A7C59 !important; outline-offset: 0px; }
     `;
     document.head.appendChild(style);
   }
