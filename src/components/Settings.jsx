@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { C, FONT, MONO, applyOrgTheme, resetTheme } from "../theme";
+import { C, FONT, MONO, resetTheme } from "../theme";
 import { Btn, Label, Avatar, RoleBadge } from "./index";
 import UploadZone from "./UploadZone";
-import { checkHealth, getUploads, uploadFile, uploadOrgLogo, memberSetPassword, getAuth } from "../api";
+import { checkHealth, getUploads, uploadFile, uploadOrgLogo, memberSetPassword } from "../api";
 import { ORG_DOCS } from "../data/constants";
 
 // ── Compliance doc status helpers ──
@@ -85,8 +85,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
   const [serverStatus, setServerStatus] = useState(null);
   const [uploads, setUploads] = useState([]);
   const [expanded, setExpanded] = useState(null); // doc_id of expanded row
-  const [editExpiry, setEditExpiry] = useState("");
-  const [editNotes, setEditNotes] = useState("");
+  const [editFields, setEditFields] = useState({}); // { [docId]: { expiry, notes } }
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
 
@@ -157,11 +156,15 @@ export default function Settings({ org, profile, team, currentMember, compliance
       setExpanded(null);
     } else {
       setExpanded(docId);
-      const c = compMap[docId];
-      setEditExpiry(c?.expiry || "");
-      setEditNotes(c?.notes || "");
+      // Initialize edit fields for this doc if not already set
+      if (!editFields[docId]) {
+        const c = compMap[docId];
+        setEditFields(prev => ({ ...prev, [docId]: { expiry: c?.expiry || "", notes: c?.notes || "" } }));
+      }
     }
   };
+  const getEditField = (docId, field) => editFields[docId]?.[field] || "";
+  const setEditField = (docId, field, value) => setEditFields(prev => ({ ...prev, [docId]: { ...prev[docId], [field]: value } }));
 
   // Handle file upload for a compliance doc
   const handleUpload = async (orgDoc, file) => {
@@ -179,8 +182,8 @@ export default function Settings({ org, profile, team, currentMember, compliance
         file_name: result.original_name || file.name,
         file_size: result.size || file.size,
         uploaded_date: new Date().toISOString(),
-        expiry: editExpiry || null,
-        notes: editNotes || null,
+        expiry: getEditField(orgDoc.id, "expiry") || null,
+        notes: getEditField(orgDoc.id, "notes") || null,
       });
     } catch (err) {
       console.error("Compliance upload failed:", err);
@@ -202,8 +205,8 @@ export default function Settings({ org, profile, team, currentMember, compliance
       file_name: existing.file_name,
       file_size: existing.file_size,
       uploaded_date: existing.uploaded_date,
-      expiry: editExpiry || null,
-      notes: editNotes || null,
+      expiry: getEditField(orgDoc.id, "expiry") || null,
+      notes: getEditField(orgDoc.id, "notes") || null,
     });
   };
 
@@ -632,8 +635,8 @@ export default function Settings({ org, profile, team, currentMember, compliance
                                   <div style={{ fontSize: 11, color: C.t4, fontWeight: 600, marginBottom: 4 }}>Expiry Date</div>
                                   <input
                                     type="date"
-                                    value={editExpiry}
-                                    onChange={e => setEditExpiry(e.target.value)}
+                                    value={getEditField(d.id, "expiry")}
+                                    onChange={e => setEditField(d.id, "expiry", e.target.value)}
                                     style={{
                                       fontSize: 12, padding: "6px 10px", borderRadius: 8, border: `1px solid ${C.line}`,
                                       background: C.white, color: C.dark, outline: "none", fontFamily: FONT,
@@ -645,8 +648,8 @@ export default function Settings({ org, profile, team, currentMember, compliance
                                 <div style={{ fontSize: 11, color: C.t4, fontWeight: 600, marginBottom: 4 }}>Notes</div>
                                 <input
                                   type="text"
-                                  value={editNotes}
-                                  onChange={e => setEditNotes(e.target.value)}
+                                  value={getEditField(d.id, "notes")}
+                                  onChange={e => setEditField(d.id, "notes", e.target.value)}
                                   placeholder="e.g. Renewed via SARS eFiling"
                                   style={{
                                     width: "100%", fontSize: 12, padding: "6px 10px", borderRadius: 8, border: `1px solid ${C.line}`,
