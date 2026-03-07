@@ -85,6 +85,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   }));
   const [confirmDel, setConfirmDel] = useState(false);
   const [overflow, setOverflow] = useState(false);
+  const [showFullResearch, setShowFullResearch] = useState(false);
   const overflowRef = useRef(null);
 
   // Close overflow on outside click
@@ -446,101 +447,208 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         </Card>
       )}
 
-      {/* ── About This Opportunity — always visible, prominent ── */}
-      <Card style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.2, textTransform: "uppercase" }}>About This Opportunity</div>
-          {g.applyUrl && (
-            <a href={g.applyUrl} target="_blank" rel="noopener noreferrer"
-              style={{ fontSize: 11, fontWeight: 600, color: C.blue, textDecoration: "none", marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
-              {"\u2197"} Apply
-            </a>
-          )}
-        </div>
+      {/* ── About This Opportunity — rich funder + opportunity context ── */}
+      {(() => {
+        const fs = funderStrategy(g);
+        const hasHook = fs.hook && !fs.noIntel;
+        const pt = detectType(g);
+        const ptNum = pt ? Object.entries(PTYPES).find(([, v]) => v === pt)?.[0] : null;
+        const accessMatch = g.notes?.match(/Access:\s*(.+)/);
+        const accessText = accessMatch ? accessMatch[1].trim() : null;
+        const isOpen = accessText?.toLowerCase().startsWith("open");
 
-        {/* Description — editable, from notes */}
-        <textarea
-          value={g.notes || ""}
-          onChange={e => up("notes", e.target.value)}
-          placeholder="Describe what this opportunity is about — the funder's goals, what they're looking for, and why it's a fit for d-lab..."
-          style={{
-            width: "100%", minHeight: g.notes && g.notes.length > 100 ? 90 : 60, padding: "10px 12px",
-            fontSize: 14, lineHeight: 1.6, color: C.t1,
-            border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT,
-            resize: "vertical", outline: "none", boxSizing: "border-box",
-            background: C.bg, transition: "border-color 0.15s",
-          }}
-          onFocus={e => e.target.style.borderColor = C.primary}
-          onBlur={e => e.target.style.borderColor = C.line}
-        />
+        return (
+          <Card style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.2, textTransform: "uppercase" }}>About This Opportunity</div>
+              {g.applyUrl && (
+                <a href={g.applyUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: 11, fontWeight: 600, color: C.blue, textDecoration: "none", marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
+                  {"\u2197"} Apply
+                </a>
+              )}
+            </div>
 
-        {/* Focus areas + key details inline */}
-        <div style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-          {/* Focus areas */}
-          <div style={{ flex: "1 1 200px" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>Focus Areas</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {(g.focus || []).map(f => <Tag key={f} text={f} />)}
-              {(!g.focus || !g.focus.length) && <span style={{ fontSize: 12, color: C.t4, fontStyle: "italic" }}>Not set</span>}
-            </div>
-          </div>
-          {/* Funder budget */}
-          {g.funderBudget > 0 && (
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>Funder Budget</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.dark, fontFamily: MONO }}>R{Number(g.funderBudget).toLocaleString()}</div>
-            </div>
-          )}
-          {/* Access */}
-          {g.notes && (() => {
-            const accessMatch = g.notes.match(/Access:\s*(.+)/);
-            if (!accessMatch) return null;
-            const access = accessMatch[1].trim();
-            const isOpen = access.toLowerCase().startsWith("open");
-            return (
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>Access</div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: isOpen ? C.ok : C.amber }}>
-                  {isOpen ? "✓" : "→"} {access.split("—")[0].trim()}
+            {/* ── Strategic angle — from funderStrategy ── */}
+            {hasHook && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: C.dark, lineHeight: 1.4, marginBottom: 8 }}>
+                  {fs.lead.charAt(0).toUpperCase() + fs.lead.slice(1)}
+                </div>
+                <div style={{ fontSize: 13, color: C.t2, lineHeight: 1.65, letterSpacing: -0.1 }}>
+                  {fs.hook}
                 </div>
               </div>
-            );
-          })()}
-        </div>
+            )}
 
-        {/* AI Research summary — if research has been run, show the key insight */}
-        {resDone && ai.research && (() => {
-          // Extract first meaningful paragraph from research
-          const lines = ai.research.split("\n").filter(l => l.trim().length > 20);
-          const summary = lines.slice(0, 2).join(" ").substring(0, 300);
-          if (!summary) return null;
-          return (
+            {/* ── Key details grid ── */}
             <div style={{
-              marginTop: 14, padding: "10px 14px", borderRadius: 8,
-              background: C.primarySoft, border: `1px solid ${C.primary}15`,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+              gap: "12px 20px", marginBottom: 16,
+              padding: "14px 16px", borderRadius: 10,
+              background: C.warm100, border: `1px solid ${C.line}`,
             }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.primary, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 4 }}>Funder Intelligence</div>
-              <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.5 }}>{summary}{summary.length >= 300 ? "..." : ""}</div>
+              {/* Funder type */}
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Type</div>
+                <TypeBadge type={g.type} />
+              </div>
+              {/* Relationship */}
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Relationship</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: fs.returning ? C.ok : g.rel === "Warm" ? C.amber : C.t2 }}>
+                  {fs.returning ? "✓ Returning" : g.rel || "Cold"}
+                </div>
+              </div>
+              {/* Programme type */}
+              {ptNum && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Programme</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.dark }}>Type {ptNum}</div>
+                </div>
+              )}
+              {/* Funder budget */}
+              {g.funderBudget > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Funder Budget</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.dark, fontFamily: MONO }}>R{Number(g.funderBudget).toLocaleString()}</div>
+                </div>
+              )}
+              {/* Access */}
+              {accessText && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Access</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: isOpen ? C.ok : C.amber }}>
+                    {isOpen ? "✓" : "→"} {accessText.split("—")[0].trim()}
+                  </div>
+                </div>
+              )}
+              {/* Focus areas */}
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Focus Areas</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {(g.focus || []).map(f => <Tag key={f} text={f} />)}
+                  {(!g.focus || !g.focus.length) && <span style={{ fontSize: 12, color: C.t4, fontStyle: "italic" }}>Not set</span>}
+                </div>
+              </div>
             </div>
-          );
-        })()}
 
-        {/* Fit score summary — if scored, show one-line verdict */}
-        {fitDone && fitScoreNum !== null && (
-          <div style={{
-            marginTop: 10, display: "flex", alignItems: "center", gap: 8,
-            padding: "8px 14px", borderRadius: 8,
-            background: fitScoreNum >= 70 ? C.okSoft : fitScoreNum >= 40 ? C.amberSoft : C.redSoft,
-            border: `1px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}15`,
-          }}>
-            <span style={{
-              fontSize: 14, fontWeight: 800, fontFamily: MONO,
-              color: fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red,
-            }}>{fitScoreNum}</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: C.t1 }}>{fitVerdict || "Fit assessed"}</span>
-          </div>
-        )}
-      </Card>
+            {/* ── Proposal language keywords ── */}
+            {hasHook && fs.lang && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 6 }}>Funder Language</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {fs.lang.split(",").map((w, i) => (
+                    <span key={i} style={{ padding: "2px 8px", fontSize: 11, background: C.blueSoft, color: C.blue, borderRadius: 4, fontWeight: 500 }}>
+                      {w.trim()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Proposal structure — sections this funder expects ── */}
+            {hasHook && fs.structure && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 6 }}>Proposal Structure</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                  {fs.structure.map((s, i) => (
+                    <span key={i} style={{ padding: "2px 8px", fontSize: 11, background: C.warm200, color: C.t2, borderRadius: 4, fontWeight: 500 }}>
+                      {i + 1}. {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Funder Intelligence — AI research, full or expandable ── */}
+            {resDone && ai.research && (() => {
+              const lines = ai.research.split("\n").filter(l => l.trim().length > 10);
+              const shortText = lines.slice(0, 5).join("\n").substring(0, 600);
+              const fullText = lines.join("\n");
+              const isLong = fullText.length > 600;
+              const displayText = showFullResearch ? fullText : shortText;
+              return (
+                <div style={{
+                  marginBottom: 14, padding: "14px 16px", borderRadius: 10,
+                  background: C.primarySoft, border: `1px solid ${C.primary}20`,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.primary, letterSpacing: 0.8, textTransform: "uppercase" }}>Funder Intelligence</div>
+                    <div style={{ fontSize: 10, color: C.t4 }}>AI-generated research</div>
+                  </div>
+                  <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.6, whiteSpace: "pre-line" }}>
+                    {displayText}{!showFullResearch && isLong ? "..." : ""}
+                  </div>
+                  {isLong && (
+                    <button onClick={() => setShowFullResearch(p => !p)} style={{
+                      marginTop: 8, background: "none", border: "none", color: C.primary,
+                      fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: FONT,
+                    }}>
+                      {showFullResearch ? "Show less" : "Show full research →"}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ── No intelligence — prompt to run research ── */}
+            {!resDone && !hasHook && (
+              <div style={{
+                padding: "14px 16px", borderRadius: 10, marginBottom: 14,
+                background: C.amberSoft, border: `1px solid ${C.amber}20`,
+              }}>
+                <div style={{ fontSize: 12, color: C.amber, fontWeight: 600 }}>
+                  No funder intelligence yet — run Funder Research to generate insights about {g.funder || "this funder"}.
+                </div>
+              </div>
+            )}
+
+            {/* ── Fit score with verdict ── */}
+            {fitDone && fitScoreNum !== null && (
+              <div style={{
+                marginBottom: 14, display: "flex", alignItems: "center", gap: 10,
+                padding: "10px 16px", borderRadius: 10,
+                background: fitScoreNum >= 70 ? C.okSoft : fitScoreNum >= 40 ? C.amberSoft : C.redSoft,
+                border: `1px solid ${fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red}20`,
+              }}>
+                <span style={{
+                  fontSize: 18, fontWeight: 800, fontFamily: MONO,
+                  color: fitScoreNum >= 70 ? C.ok : fitScoreNum >= 40 ? C.amber : C.red,
+                }}>{fitScoreNum}</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.t1 }}>{fitVerdict || "Fit assessed"}</div>
+                  {g.on_factors && (
+                    <div style={{ fontSize: 11, color: C.t3, marginTop: 2 }}>
+                      Strengths: {typeof g.on_factors === "string" ? g.on_factors.split(",").slice(0, 4).join(", ") : ""}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Internal notes — compact, secondary ── */}
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Internal Notes</div>
+              <textarea
+                value={g.notes || ""}
+                onChange={e => up("notes", e.target.value)}
+                placeholder="Internal notes about this opportunity..."
+                style={{
+                  width: "100%", minHeight: 48, padding: "8px 10px",
+                  fontSize: 12, lineHeight: 1.5, color: C.t2,
+                  border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT,
+                  resize: "vertical", outline: "none", boxSizing: "border-box",
+                  background: C.white, transition: "border-color 0.15s",
+                }}
+                onFocus={e => e.target.style.borderColor = C.primary}
+                onBlur={e => e.target.style.borderColor = C.line}
+              />
+            </div>
+          </Card>
+        );
+      })()}
 
       {/* Key fields — Ask prominent, controls grouped */}
       {(() => {
