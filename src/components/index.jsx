@@ -183,7 +183,7 @@ export const Btn = ({ children, onClick, v = "primary", disabled, style: sx }) =
     fontFamily: FONT, borderRadius: 8, transition: "all 0.15s ease", letterSpacing: 0.1,
   };
   const variants = {
-    primary: { background: C.primary, color: "#fff", boxShadow: `0 1px 4px rgba(201, 59, 51, 0.2)` },
+    primary: { background: C.primary, color: "#fff", boxShadow: `0 1px 4px ${C.primary}33` },
     ghost: { background: "transparent", color: C.t2, border: `1px solid ${C.line}` },
     muted: { background: C.raised, color: C.t2 },
     danger: { background: C.redSoft, color: C.red, border: `1px solid ${C.red}25` },

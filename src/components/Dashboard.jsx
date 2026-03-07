@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { C, FONT, MONO } from "../theme";
 import { fmt, fmtK, dL, deadlineCtx, effectiveAsk, grantReadiness } from "../utils";
 import { Num, Timeline, Label, Btn, CopyBtn, stripMd, TypeBadge, DeadlineBadge, Avatar } from "./index";

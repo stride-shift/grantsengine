@@ -32,6 +32,18 @@ const authLimiter = rateLimit({
 });
 app.use('/api/org/:slug/auth/login', authLimiter);
 app.use('/api/org/:slug/auth/set-password', authLimiter);
+app.use('/api/org/:slug/auth/member-login', authLimiter);
+app.use('/api/org/:slug/auth/member-set-password', authLimiter);
+app.use('/api/org/:slug/auth/forgot-password', rateLimit({
+  windowMs: 60 * 60 * 1000, max: 5,
+  message: { error: 'Too many password reset attempts. Try again in 1 hour.' },
+  standardHeaders: true, legacyHeaders: false,
+}));
+app.use('/api/org/:slug/ai/messages', rateLimit({
+  windowMs: 60 * 1000, max: 30,
+  message: { error: 'AI rate limit reached. Wait a moment before trying again.' },
+  standardHeaders: true, legacyHeaders: false,
+}));
 
 app.use(express.json({ limit: '10mb' }));
 

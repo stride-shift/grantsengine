@@ -130,7 +130,6 @@ router.get('/org/:slug/team/public', resolveOrg, w(async (req, res) => {
   const team = await getTeamMembers(req.orgId);
   res.json(team.filter(m => m.id !== 'team').map(m => ({
     id: m.id, name: m.name, initials: m.initials, role: m.role,
-    hasPassword: !!m.password_hash,
   })));
 }));
 

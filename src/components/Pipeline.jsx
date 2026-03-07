@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmt, fmtK, dL, uid, td, effectiveAsk, grantReadiness } from "../utils";
+import { fmtK, dL, uid, td, effectiveAsk, grantReadiness } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "./index";
 import { scoutPrompt } from "../prompts";
 import { detectType, PTYPES } from "../data/funderStrategy";

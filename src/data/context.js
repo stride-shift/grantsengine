@@ -139,7 +139,7 @@ GOVERNANCE: Board of 3 directors:
 Weekly risk monitoring, quarterly OKR reporting, data-informed decision-making. Contracts under R5K authorised by Head of Programmes; above R5K requires two directors.
 
 EXISTING FUNDERS (previously funded/supported d-lab):
-Telkom Foundation, Get It Done Foundation (R2.84M 2023, R4.99M 2024, R4.97M 2025, requesting R4.96M 2026), TK Foundation (R3M over 3 years, R1M/year — signed April 2024), Inkcubeko (R1.22M service fee for 2026 delivery), CCBA/Coca-Cola Beverages Africa (Graduate Leadership Accelerator R2.75M awarded Jan 2026 — running; also Future Leaders R651K), EOH (Graduate Programme 2023 — 25 IT/engineering graduates), Sage Foundation, SAP, C-Track.
+Telkom Foundation, Get It Done Foundation (R2.84M 2023, R4.99M 2024, R4.97M 2025, requesting R4.97M 2026), TK Foundation (R3M over 3 years, R1M/year — signed April 2024), Inkcubeko (R1.22M service fee for 2026 delivery), CCBA/Coca-Cola Beverages Africa (Graduate Leadership Accelerator R2.75M awarded Jan 2026 — running; also Future Leaders R651K), EOH (Graduate Programme 2023 — 25 IT/engineering graduates), Sage Foundation, SAP, C-Track.
 
 ══ ALUMNI STORIES (use these real stories in proposals — do NOT fabricate) ══
 
