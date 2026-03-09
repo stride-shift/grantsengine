@@ -357,7 +357,7 @@ Use the organisation's programme types as a starting framework, but MATCH THE AS
     }
     if (type === "sectionDraft") {
       // Section-by-section proposal generation — full strategic depth per section
-      const { sectionName, sectionIndex, totalSections, completedSections, customInstructions } = priorResearch || {};
+      const { sectionName, sectionIndex, totalSections, allSections, completedSections, customInstructions } = priorResearch || {};
       const fs = funderStrategy(grant);
       // Use structured research for section-specific injection, fall back to raw text
       const rawResearch = priorFitScore?.research || grant.aiResearch;
@@ -414,10 +414,28 @@ Use the organisation's programme types as a starting framework, but MATCH THE AS
       const isCover = sn.includes("cover");
       const isExecSummary = sn.includes("summary") || sn.includes("executive");
       const isBudget = sn.includes("budget");
+      const isAppendix = sn.includes("appendix") || sn.includes("appendices");
       const isImpact = sn.includes("impact") || sn.includes("outcome") || sn.includes("evidence");
       const isProgramme = sn.includes("programme") || sn.includes("program") || sn.includes("approach") || sn.includes("design") || sn.includes("overview") || sn.includes("innovation") || sn.includes("technology") || sn.includes("ai integration");
       const isScale = sn.includes("scale") || sn.includes("sustainability") || sn.includes("exit");
       const isChallenge = sn.includes("challenge") || sn.includes("problem") || sn.includes("theory of change");
+
+      // ── Word budget: scale section length to total page target ──
+      const targetPages = fs.targetPages || 8;
+      const totalWords = targetPages * 500; // ~500 words/page for formatted proposals
+      const coverWords = 200;
+      const execSummaryWords = Math.min(300, Math.round(totalWords * 0.12));
+      const budgetWords = 400;
+      const appendixWords = 150;
+      // Count fixed vs body sections
+      const fixedTypes = s => { const l = s.toLowerCase(); return l.includes("cover") || (l.includes("summary") || l.includes("executive")) || l.includes("budget") || l.includes("appendix") || l.includes("appendices"); };
+      const sectionList = allSections || [];
+      const fixedCount = sectionList.length > 0 ? sectionList.filter(fixedTypes).length : Math.min(4, (totalSections || 6));
+      const bodySectionCount = Math.max((totalSections || 6) - fixedCount, 2);
+      const bodyWords = totalWords - coverWords - execSummaryWords - budgetWords - appendixWords;
+      const perBodySection = Math.max(200, Math.round(bodyWords / Math.max(bodySectionCount, 1)));
+      const wordLimit = isCover ? coverWords : isExecSummary ? execSummaryWords : isBudget ? budgetWords : isAppendix ? appendixWords : perBodySection;
+      const paraGuide = wordLimit < 300 ? "1-2 focused paragraphs" : wordLimit < 500 ? "2-3 tight paragraphs" : wordLimit < 800 ? "3-4 paragraphs" : "4-6 paragraphs";
 
       // Section-specific depth guidance — rich, strategic blocks per section type
       let sectionGuide = "";
@@ -438,7 +456,7 @@ NEVER open with "Imagine..." or scene-setting invitations. Start with something 
 
       } else if (isExecSummary) {
         sectionGuide = `EXECUTIVE SUMMARY INSTRUCTIONS:
-200-300 words. A compelling standalone case — someone should want to fund ${orgName} after reading ONLY this section.
+~${wordLimit} words. A compelling standalone case — someone should want to fund ${orgName} after reading ONLY this section.
 Use a DIFFERENT hook from the cover letter — check the ALREADY-WRITTEN SECTIONS and do NOT repeat the same opening device or story.
 
 OPENING — choose ONE technique that is DIFFERENT from the cover letter:
@@ -520,7 +538,7 @@ SCALE THROUGH TECHNOLOGY — the impact multiplier:
 ${isChallenge
   ? `Open with the specific gap ${orgName} addresses — not generic stats. Frame the challenge through the organisation's unique lens from the context.`
   : `Open with ${orgName}'s business model strength — a statement about sustainability, not a hypothetical. Reference programme types, revenue streams, and delivery model from the context.`}
-Write 2-4 rich paragraphs. Be specific to the organisation's model from the context, not generic development language.
+Write ${paraGuide}. Be specific to the organisation's model from the context, not generic development language.
 
 ${isChallenge ? `Frame the challenge through ${orgName}'s lens — what specific gap does it fill? Reference the organisation's unique approach from the context.` : ""}
 
@@ -558,7 +576,7 @@ Reference the organisation's B-BBEE status, beneficiary demographics, and compli
 - Corporate funders can claim B-BBEE points for their investment
 - The double return: social impact AND regulatory compliance value
 - Reference accreditation and SETA alignment where relevant (from context)
-Write 2-3 paragraphs that make B-BBEE value tangible, not bureaucratic.`;
+Write ${paraGuide} that make B-BBEE value tangible, not bureaucratic.`;
         } else if (isME) {
           sectionGuide = `M&E FRAMEWORK — describe the organisation's actual measurement system from the context.
 
@@ -568,7 +586,7 @@ Reference specific tools, metrics, reporting cadence, and tracking systems descr
 - Reporting frequency and governance
 - Quality assurance mechanisms
 - Post-programme tracking
-Write 2-3 substantive paragraphs. Make it clear this is a data-driven organisation, not one that measures attendance and calls it M&E.`;
+Write ${paraGuide}. Make it clear this is a data-driven organisation, not one that measures attendance and calls it M&E.`;
         } else if (isRisk) {
           sectionGuide = `RISK MANAGEMENT — describe the organisation's actual risk framework from the context.
 
@@ -578,7 +596,7 @@ Reference financial position, delivery model, quality assurance, technology, and
 - Quality assurance mechanisms (accreditation, assessment tools, standards)
 - Technology risks (tool dependencies, data privacy)
 - Safeguarding considerations
-Write 2-3 paragraphs that show genuine risk awareness, not generic risk matrices.`;
+Write ${paraGuide} that show genuine risk awareness, not generic risk matrices.`;
         } else if (isSafeguarding) {
           sectionGuide = `SAFEGUARDING — describe the organisation's safeguarding framework from the context.
 
@@ -598,12 +616,12 @@ Reference founding date, growth trajectory, governance structure, team, accredit
 - Governance and financial controls
 - Accreditation and quality credentials
 - Financial stewardship (budget discipline, reserves)
-Write 2-3 paragraphs that convey competence and growth trajectory.`;
+Write ${paraGuide} that convey competence and growth trajectory.`;
         } else if (isRegulatory) {
           sectionGuide = `REGULATORY ALIGNMENT — reference ${orgName}'s compliance credentials from the context.
 
 Use the organisation's actual registration numbers, accreditation details, SETA alignment, B-BBEE status, and quality assurance systems from the context. Include all relevant regulatory reference numbers.
-Write 2-3 paragraphs with specific reference numbers and compliance details. Funders who ask for this section want proof, not promises.`;
+Write ${paraGuide} with specific reference numbers and compliance details. Funders who ask for this section want proof, not promises.`;
         } else if (isTimeline) {
           sectionGuide = `IMPLEMENTATION TIMELINE — use ${orgName}'s actual delivery phases from the context.
 
@@ -621,19 +639,13 @@ Present as a clear timeline or table. Include key milestones and decision points
 Write 1-2 paragraphs focused on GENUINE partnership value, not just logo placement.`;
         } else {
           sectionGuide = `Open with a direct, factual statement relevant to this section's topic — NOT an "imagine" or scene-setting device.
-Write 2-4 rich paragraphs. Do NOT produce bullet-only content — weave data into narrative.
+Write ${paraGuide}. Do NOT produce bullet-only content — weave data into narrative.
 Be specific about the organisation's actual capabilities from the context. Include specific details where relevant: tools, coaching model, delivery structure, accreditation pathway.`;
         }
       }
 
-      // Token budget per section type — generous to avoid truncated output
-      const tokenBudget = isCover ? 1200
-        : isExecSummary ? 1800
-        : isBudget ? 2500
-        : isProgramme ? 2800
-        : isImpact ? 2000
-        : isScale || isChallenge ? 2000
-        : 1500;
+      // Token budget scaled to word limit (~0.75 words/token + buffer)
+      const tokenBudget = Math.max(600, Math.round(wordLimit / 0.75) + 200);
 
       return await api(
         `You write ONE section of a funding proposal for ${orgName}. The organisation's full context — mission, programmes, outcomes, alumni stories, tools — is provided in the user message below.
@@ -651,6 +663,10 @@ VOICE — this is the most important instruction:
 - CRITICAL: The emotive, narrative energy must carry through. Do NOT switch to dry, bureaucratic grant-speak.
 
 ${sectionGuide}
+
+PROPOSAL LENGTH: This proposal targets ${targetPages} pages total (~${totalWords} words across ${totalSections} sections).
+THIS SECTION: ~${wordLimit} words maximum (${paraGuide}). ${wordLimit < 400 ? "Be surgical — every sentence must earn its place." : wordLimit < 600 ? "Be concise — prioritise evidence over elaboration." : "Be thorough but focused."}${fs.formatNotes ? `\nFUNDER FORMAT: ${fs.formatNotes}` : ""}
+DO NOT pad with filler, repeated context, or unnecessary transitions. Density > length.
 
 FUNDER ANGLE: Lead with "${fs.lead}"
 USE THEIR LANGUAGE: ${fs.lang}

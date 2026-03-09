@@ -213,4 +213,39 @@ describe("funderStrategy", () => {
     expect(result.structure).toContain("The Challenge");
     expect(result.structure).toContain("Our Approach");
   });
+
+  it("returns targetPages from known funder override", () => {
+    const dgmt = funderStrategy({ funder: "DG Murray Trust", type: "Foundation", focus: [] });
+    expect(dgmt.targetPages).toBe(5);
+    expect(dgmt.formatNotes).toContain("5 pages");
+  });
+
+  it("returns targetPages from funder type default", () => {
+    const corp = funderStrategy({ funder: "Unknown Corp", type: "Corporate CSI", focus: [] });
+    expect(corp.targetPages).toBe(8);
+
+    const intl = funderStrategy({ funder: "Unknown Intl", type: "International", focus: [] });
+    expect(intl.targetPages).toBe(12);
+
+    const partner = funderStrategy({ funder: "Unknown Partner", type: "Partnership", focus: [] });
+    expect(partner.targetPages).toBe(5);
+  });
+
+  it("falls back to 8 pages for unknown funder type", () => {
+    const result = funderStrategy({ funder: "Test", type: "Random Type", focus: [] });
+    expect(result.targetPages).toBe(8);
+    expect(result.formatNotes).toBe("");
+  });
+
+  it("returns formatNotes for funders with specific requirements", () => {
+    const tshik = funderStrategy({ funder: "Tshikululu", type: "Foundation", focus: [] });
+    expect(tshik.targetPages).toBe(10);
+    expect(tshik.formatNotes).toContain("two-phase");
+
+    const sab = funderStrategy({ funder: "SAB Foundation", type: "Foundation", focus: [] });
+    expect(sab.targetPages).toBe(6);
+
+    const mc = funderStrategy({ funder: "Mastercard Foundation", type: "International", focus: [] });
+    expect(mc.targetPages).toBe(15);
+  });
 });
