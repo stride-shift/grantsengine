@@ -246,7 +246,9 @@ Cost: R${(detectedPt.cost||0).toLocaleString()} | Per student: R${detectedPt.per
       return await api(
         `You write funding proposals for ${orgName}. The organisation's full context — mission, programmes, outcomes, alumni stories, tools, and delivery model — is provided in the user message below. Use that context as your source of truth.
 
-RULE #1 — NEVER USE THESE WORDS TO OPEN ANY SENTENCE: "Imagine", "Picture", "Consider", "Think of", "Meet", "What if", "Close your eyes". These are BANNED. Start every sentence with something real and concrete — a fact, a name, a number, a direct statement. This rule applies to EVERY section, EVERY paragraph.
+RULE #1 — NEVER FABRICATE NAMES. The ONLY real alumni you may reference by name are: Siphumezo Adam, Simanye Mdunyelwa, Prieska Mofokeng. The ONLY employer testimonial is from Michelle Adler (forgood). Do NOT invent any other names. For additional examples, use unnamed descriptions like "a graduate from the 2024 cohort".
+
+RULE #2 — NEVER USE THESE WORDS TO OPEN ANY SENTENCE: "Imagine", "Picture", "Consider", "Think of", "Meet", "What if", "Close your eyes". These are BANNED. Start every sentence with something real and concrete — a fact, a name, a number, a direct statement. This rule applies to EVERY section, EVERY paragraph.
 
 VOICE — maintain in EVERY section, not just the opening:
 - Warm, human, confident. A founder who KNOWS this works, offering a funder the chance to back something real.
@@ -422,11 +424,11 @@ Use the organisation's programme types as a starting framework, but MATCH THE AS
 
       // ── Word budget: scale section length to total page target ──
       const targetPages = fs.targetPages || 8;
-      const totalWords = targetPages * 500; // ~500 words/page for formatted proposals
-      const coverWords = 200;
-      const execSummaryWords = Math.min(300, Math.round(totalWords * 0.12));
-      const budgetWords = 400;
-      const appendixWords = 150;
+      const totalWords = targetPages * 650; // ~650 words/page for text-heavy proposals (no images, minimal headers)
+      const coverWords = 250;
+      const execSummaryWords = Math.min(400, Math.round(totalWords * 0.12));
+      const budgetWords = 350; // tables are compact
+      const appendixWords = 120; // just a checklist
       // Count fixed vs body sections
       const fixedTypes = s => { const l = s.toLowerCase(); return l.includes("cover") || (l.includes("summary") || l.includes("executive")) || l.includes("budget") || l.includes("appendix") || l.includes("appendices"); };
       const sectionList = allSections || [];
@@ -435,7 +437,9 @@ Use the organisation's programme types as a starting framework, but MATCH THE AS
       const bodyWords = totalWords - coverWords - execSummaryWords - budgetWords - appendixWords;
       const perBodySection = Math.max(200, Math.round(bodyWords / Math.max(bodySectionCount, 1)));
       const wordLimit = isCover ? coverWords : isExecSummary ? execSummaryWords : isBudget ? budgetWords : isAppendix ? appendixWords : perBodySection;
-      const paraGuide = wordLimit < 300 ? "1-2 focused paragraphs" : wordLimit < 500 ? "2-3 tight paragraphs" : wordLimit < 800 ? "3-4 paragraphs" : "4-6 paragraphs";
+      const promptWords = Math.round(wordLimit * 2); // ask for 2x — Gemini severely undershoots word targets
+      const minParas = wordLimit < 250 ? 2 : wordLimit < 400 ? 3 : wordLimit < 600 ? 4 : 5;
+      const paraGuide = `EXACTLY ${minParas} paragraphs, each paragraph MUST be 80-120 words (${minParas * 100} words total). Count your paragraphs before finishing.`;
 
       // Section-specific depth guidance — rich, strategic blocks per section type
       let sectionGuide = "";
@@ -644,29 +648,33 @@ Be specific about the organisation's actual capabilities from the context. Inclu
         }
       }
 
-      // Token budget scaled to word limit (~0.75 words/token + buffer)
-      const tokenBudget = Math.max(600, Math.round(wordLimit / 0.75) + 200);
+      // Token budget: generous to let model fill the space (JSON wrapper ~100 tokens)
+      const tokenBudget = Math.max(1000, Math.round(promptWords / 0.75) + 400);
 
       return await api(
         `You write ONE section of a funding proposal for ${orgName}. The organisation's full context — mission, programmes, outcomes, alumni stories, tools — is provided in the user message below.
 
 SECTION: "${sectionName}" (Section ${sectionIndex + 1} of ${totalSections})
 
-RULE #1 — NEVER USE THESE WORDS TO OPEN ANY SENTENCE: "Imagine", "Picture", "Consider", "Think of", "Meet", "What if", "Close your eyes". These are BANNED. Start every sentence with something real and concrete — a fact, a name, a number, a direct statement.
+RULE #1 — NEVER FABRICATE NAMES. The ONLY real alumni you may reference by name are: Siphumezo Adam, Simanye Mdunyelwa, Prieska Mofokeng. The ONLY employer testimonial is from Michelle Adler (forgood). Do NOT invent any other names. For additional examples, use unnamed descriptions like "a graduate from the 2024 cohort".
+
+RULE #2 — NEVER USE THESE WORDS TO OPEN ANY SENTENCE: "Imagine", "Picture", "Consider", "Think of", "Meet", "What if", "Close your eyes". These are BANNED. Start every sentence with something real and concrete — a fact, a name, a number, a direct statement.
 
 VOICE — this is the most important instruction:
 - Warm, human, confident. A founder who KNOWS this works, offering a funder the chance to back something real.
 - Write like a person, not a grant machine. Let the reader feel the energy of what ${orgName} does.
-- Use the organisation's REAL alumni stories from the context — but use each story ONCE across the full proposal. If a prior section already used a story, pick a different one.
+- ALUMNI STORIES — CRITICAL: ONLY use real alumni named in the organisation context. The ONLY real names you may use are: Siphumezo Adam, Simanye Mdunyelwa, Prieska Mofokeng, and Michelle Adler (employer). NEVER invent, fabricate, or create fictional names (no "Thando", "Zanele", "Lindiwe", "Sipho", "Lebo", etc.). If you need more stories than are available, describe the outcome without a name ("one graduate from the 2024 Inkcubeko cohort..."). Use each real story ONCE across the full proposal — if a prior section already used a story, pick a different one or use an unnamed example.
 - Be concrete and grounded: real numbers, real programme details. Emotion comes from specificity, not adjectives.
 - Vary sentence length. Short punchy sentences land harder after longer ones.
 - CRITICAL: The emotive, narrative energy must carry through. Do NOT switch to dry, bureaucratic grant-speak.
 
 ${sectionGuide}
 
-PROPOSAL LENGTH: This proposal targets ${targetPages} pages total (~${totalWords} words across ${totalSections} sections).
-THIS SECTION: ~${wordLimit} words maximum (${paraGuide}). ${wordLimit < 400 ? "Be surgical — every sentence must earn its place." : wordLimit < 600 ? "Be concise — prioritise evidence over elaboration." : "Be thorough but focused."}${fs.formatNotes ? `\nFUNDER FORMAT: ${fs.formatNotes}` : ""}
-DO NOT pad with filler, repeated context, or unnecessary transitions. Density > length.
+PROPOSAL LENGTH: This proposal targets ${targetPages} pages total across ${totalSections} sections.
+THIS SECTION: ${paraGuide}
+Each paragraph must be a FULL paragraph — not 1-2 sentences. A paragraph is 4-6 sentences minimum.
+${wordLimit < 400 ? "Every sentence must earn its place, but USE the full space with evidence and specifics." : wordLimit < 600 ? "Be substantive — fill each paragraph with evidence, programme details, and real outcomes." : "Be thorough — build a detailed, compelling case with evidence, stories, and specifics."}${fs.formatNotes ? `\nFUNDER FORMAT: ${fs.formatNotes}` : ""}
+Short sections look under-prepared. Funders want substance and detail.
 
 FUNDER ANGLE: Lead with "${fs.lead}"
 USE THEIR LANGUAGE: ${fs.lang}
