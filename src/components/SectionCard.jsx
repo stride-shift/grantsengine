@@ -2,6 +2,100 @@ import { useState, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
 import { Btn, CopyBtn, AILoadingPanel, stripMd, timeAgo } from "./index";
 
+/* ── Render section content with markdown table support ── */
+function RenderContent({ text }) {
+  if (!text || typeof text !== "string") return null;
+
+  // Split text into blocks: detect markdown tables (lines starting with |)
+  const lines = text.split("\n");
+  const blocks = [];
+  let currentText = [];
+  let currentTable = [];
+
+  const flushText = () => {
+    if (currentText.length) {
+      blocks.push({ type: "text", content: currentText.join("\n") });
+      currentText = [];
+    }
+  };
+  const flushTable = () => {
+    if (currentTable.length) {
+      blocks.push({ type: "table", rows: currentTable });
+      currentTable = [];
+    }
+  };
+
+  lines.forEach(line => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+      // Skip separator rows (|:---|:---|)
+      if (/^\|[\s:_-|]+\|$/.test(trimmed)) {
+        if (!currentTable.length) flushText(); // ensure text flushed before table
+        return;
+      }
+      if (!currentTable.length) flushText();
+      const cells = trimmed.split("|").slice(1, -1).map(c => c.trim());
+      currentTable.push(cells);
+    } else {
+      flushTable();
+      currentText.push(line);
+    }
+  });
+  flushText();
+  flushTable();
+
+  const thStyle = {
+    padding: "6px 10px", textAlign: "left", fontSize: 11, fontWeight: 600,
+    color: C.t3, borderBottom: `2px solid ${C.primary}22`, background: C.warm50 || "#faf8f5",
+    fontFamily: FONT, whiteSpace: "nowrap",
+  };
+  const tdStyle = {
+    padding: "6px 10px", fontSize: 12, color: C.t1, borderBottom: `1px solid ${C.primary}08`,
+    fontFamily: FONT, lineHeight: 1.5,
+  };
+  const amtStyle = { ...tdStyle, textAlign: "right", fontFamily: MONO, fontWeight: 500, whiteSpace: "nowrap" };
+  // Detect if a cell looks like a currency amount
+  const isAmt = (s) => /^R[\d,.\s]+$/.test(s.replace(/[*_]/g, "").trim());
+  const isTotalRow = (cells) => cells.some(c => /total|per student|per learner/i.test(c.replace(/[*_]/g, "")));
+
+  return blocks.map((block, i) => {
+    if (block.type === "text") {
+      return <span key={i}>{stripMd(block.content)}</span>;
+    }
+    // Table block
+    const [header, ...bodyRows] = block.rows;
+    return (
+      <table key={i} style={{
+        width: "100%", borderCollapse: "collapse", margin: "10px 0",
+        borderRadius: 6, overflow: "hidden", border: `1px solid ${C.primary}10`,
+      }}>
+        {header && (
+          <thead>
+            <tr>{header.map((h, j) => <th key={j} style={thStyle}>{stripMd(h)}</th>)}</tr>
+          </thead>
+        )}
+        <tbody>
+          {bodyRows.map((row, ri) => {
+            const total = isTotalRow(row);
+            return (
+              <tr key={ri} style={{
+                background: total ? `${C.primary}08` : ri % 2 === 0 ? "transparent" : `${C.primary}03`,
+                fontWeight: total ? 600 : 400,
+              }}>
+                {row.map((cell, ci) => (
+                  <td key={ci} style={isAmt(cell) ? amtStyle : tdStyle}>
+                    {stripMd(cell.replace(/[*_]/g, ""))}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+  });
+}
+
 /* ── Inline budget table ── */
 function BudgetTable({ bt }) {
   if (!bt?.items?.length) return null;
@@ -71,8 +165,8 @@ function BudgetTable({ bt }) {
       </table>
       {bt.perStudent > 0 && (
         <div style={{ fontSize: 11, color: C.t3, marginTop: 6, textAlign: "right", fontFamily: MONO }}>
-          {fmtR(bt.perStudent)} per learner \u00b7 {bt.duration || ""}
-          {bt.typeLabel && <span style={{ marginLeft: 6, color: C.t4 }}>\u00b7 {bt.typeLabel}</span>}
+          {fmtR(bt.perStudent)} per learner · {bt.duration || ""}
+          {bt.typeLabel && <span style={{ marginLeft: 6, color: C.t4 }}>· {bt.typeLabel}</span>}
         </div>
       )}
     </div>
@@ -236,7 +330,7 @@ export default function SectionCard({ name, index, total, section, busy, onGener
             border: `1px solid ${C.primary}12`,
             fontSize: 13, lineHeight: 1.75, color: C.t1, whiteSpace: "pre-wrap",
             maxHeight: 400, overflow: "auto",
-          }}>{stripMd(section.text)}</div>
+          }}><RenderContent text={section.text} /></div>
 
           {/* Custom instructions for regen */}
           <div style={{ marginTop: 8 }}>
