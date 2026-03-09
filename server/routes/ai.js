@@ -114,7 +114,8 @@ router.post('/org/:slug/ai/messages', resolveOrg, requireAuth, async (req, res) 
     const geminiBody = toGeminiRequest(apiBody);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60_000);
+    const hasSearch = apiBody.tools?.some(t => t.type === 'web_search_20250305' || t.name === 'web_search');
+    const timeout = setTimeout(() => controller.abort(), hasSearch ? 90_000 : 60_000); // 90s for web search
     const response = await fetch(geminiUrl(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
