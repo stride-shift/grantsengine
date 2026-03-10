@@ -250,6 +250,8 @@ RULE #1 — NEVER FABRICATE NAMES. The ONLY real alumni you may reference by nam
 
 RULE #2 — NEVER USE THESE WORDS TO OPEN ANY SENTENCE: "Imagine", "Picture", "Consider", "Think of", "Meet", "What if", "Close your eyes". These are BANNED. Start every sentence with something real and concrete — a fact, a name, a number, a direct statement. This rule applies to EVERY section, EVERY paragraph.
 
+RULE #3 — NEVER CHANGE THE ASK AMOUNT. ${budgetInfo ? `The total funding request is R${budgetInfo.total.toLocaleString()}. This is for ${budgetInfo.students} students across ${budgetInfo.cohorts} cohort(s)${budgetInfo.years > 1 ? ` over ${budgetInfo.years} years` : ""}. The per-student cost is ${perStudentStr}. Do NOT propose additional cohorts, extra years, or inflate the total beyond R${budgetInfo.total.toLocaleString()}. Every mention of the ask amount, budget total, and per-student cost in the proposal MUST match these exact figures.` : grant.ask > 0 ? `The total funding request is R${grant.ask.toLocaleString()}. Do NOT propose a different amount. Every mention of the ask amount in the proposal MUST match this figure.` : "Match the ask to the funder's typical grant size and the organisation's programme costs."}
+
 VOICE — maintain in EVERY section, not just the opening:
 - Warm, human, confident. A founder who KNOWS this works, offering a funder the chance to back something real.
 - Write like a person, not a grant machine. Emotion comes from specificity, not adjectives.
@@ -261,17 +263,9 @@ VOICE — maintain in EVERY section, not just the opening:
 
 FRAMING: Frame the organisation as a SYSTEM — reference its programme types, delivery model, tools, clients, and revenue streams from the context. This isn't a charity asking for help. It's an engine asking for fuel.
 
-AMBITION — think BIG. Do NOT constrain yourself to the organisation's smallest or cheapest programme type:
-- The organisation's programme types are a GUIDE, not a cage. Use them as building blocks but design the programme around what the FUNDER wants to achieve.
-- If the funder can support a large grant, don't propose the minimum. Go large — propose multi-cohort, extended duration, wraparound services, employer partnerships, expansion to new sites.
-- Combine programme elements creatively. Think about what would make the funder PROUD to back this.
-- The budget should fill the funder's capacity, not sit timidly below it.
-- Be guided by the organisation's actual costs and delivery model, but don't be limited by them.
-
 SCALE THROUGH TECHNOLOGY — if the organisation has proprietary tools or technology described in the context, this is a key differentiator:
 - Reference the specific tools by name from the context. Explain how they change the economics of delivery.
 - If technology enables quality at scale, lean into this as a headline differentiator.
-- Propose higher student numbers than the funder might expect if the technology supports it.
 
 COVER EMAIL: Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." Open with the human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as the director (do NOT name them — just "Director, ${orgName}").
 
@@ -344,15 +338,12 @@ ADDITIONAL RULES:
 - Do NOT switch to cold, institutional tone after the opening — sustain warmth throughout${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}
 
 BUDGET-ASK CONSISTENCY — THE MOST COMMON ERROR:
-The total amount in your budget table, the amount in the budget narrative, and the ASK_RECOMMENDATION MUST all be the SAME number. If you propose 2 cohorts, the budget table must show 2 cohorts and the total must be 2× the per-cohort cost. If you write about 1 cohort in the narrative but recommend 2 in the ASK_RECOMMENDATION, the proposal is broken. Decide how many cohorts FIRST, then write the ENTIRE proposal around that number.
+The total amount in your budget table, the amount in the budget narrative, and the ASK_RECOMMENDATION MUST all be the SAME number. ${budgetInfo ? `The confirmed total is R${budgetInfo.total.toLocaleString()}. Use this exact figure everywhere.` : grant.ask > 0 ? `The confirmed ask is R${grant.ask.toLocaleString()}. Use this exact figure everywhere.` : ""}
 
 ASK RECOMMENDATION — CRITICAL:
 At the very END of your proposal (after all sections), include this structured line on its own line. The system parses it to set the grant ask:
-ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), [years] year(s), R[total amount as integer with no commas or spaces]
-Example (single year): ASK_RECOMMENDATION: Type 3, 2 cohort(s), 1 year(s), R2472000
-Example (multi-year): ASK_RECOMMENDATION: Type 1, 3 cohort(s), 3 year(s), R4644000
-The total R amount is the GRAND TOTAL across all years (annual × years). For multi-year proposals, include a year-by-year breakdown table in the Budget section.
-Use the organisation's programme types as a starting framework, but MATCH THE ASK TO THE FUNDER'S CAPACITY. If the funder budget is large, don't propose the minimum — propose something that fills their capacity with genuine impact. Go multi-cohort, multi-year, add components, extend duration, propose a flagship programme. The ask should be ambitious but justified — every unit of currency should map to real delivery.${factGuard}`,
+${bt ? `ASK_RECOMMENDATION: Type ${bt.typeNum}, ${bt.cohorts} cohort(s), ${bt.years || 1} year(s), R${bt.total}` : `ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), [years] year(s), R[total amount as integer with no commas or spaces]`}
+${budgetInfo ? `The ask MUST be R${budgetInfo.total.toLocaleString()}. Do NOT change this amount.` : ""}${factGuard}`,
         `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderFeedback ? `\n\n=== FUNDER FEEDBACK (from previous application) ===\n${grant.funderFeedback}\nCRITICAL: This is real feedback from the funder. Address every concern raised. If they said the budget was too high, adjust. If they wanted more evidence, provide it. This feedback is your most important input.` : ""}${researchBlock}${fitScoreBlock}`,
         false, 5000
       );
@@ -470,12 +461,7 @@ OPENING — choose ONE technique that is DIFFERENT from the cover letter:
 - A concrete outcome using real impact data from the context
 NEVER open with "Imagine..." or "Picture..." or any invitation to hypothesise.
 
-FRAMING: Frame ${orgName} as a SYSTEM — reference its programme types, delivery model, tools, clients, and revenue streams from the context. This isn't a charity asking for help. It's an engine asking for fuel.
-
-AMBITION — think BIG:
-- If the funder can support a large amount, don't propose the minimum. Propose multi-cohort, extended duration, wraparound services.
-- Combine programme elements creatively from the context.
-- What would make this funder PROUD to back this?`;
+FRAMING: Frame ${orgName} as a SYSTEM — reference its programme types, delivery model, tools, clients, and revenue streams from the context. This isn't a charity asking for help. It's an engine asking for fuel.`;
 
       } else if (isBudget) {
         sectionGuide = `BUDGET INSTRUCTIONS:
@@ -493,15 +479,8 @@ FORMAT — MANDATORY: Present the budget as a clean MARKDOWN TABLE, then wrap it
 3. If multi-year: add a year-by-year summary table below
 4. Close with 1-2 sentences on cost-effectiveness and what the investment buys
 
-${budgetInfo ? `${budgetInfo.block}\nIMPORTANT: The budget above is the REAL, user-confirmed budget. Use these EXACT figures in the table. Do not hallucinate different amounts.\n` : ""}
-${structuredRes?.budgetRange ? `FUNDER BUDGET INTELLIGENCE (from research): ${structuredRes.budgetRange}\nSize the ask to match their capacity — don't propose R500K when they typically give R2M.\n` : ""}AMBITION: The budget should fill the funder's capacity, not sit timidly below it. Match the ask to the funder's ambition.
-- Use the organisation's programme types as building blocks but design for what the FUNDER wants to achieve.
-- Go multi-cohort, add components, extend duration where the budget allows.
-
-SCALE THROUGH TECHNOLOGY — if the organisation has proprietary tools (per context):
-- Reference how the tools change delivery economics. Per-student cost drops at scale.
-- Propose higher student numbers than expected if the technology supports it.
-
+${budgetInfo ? `${budgetInfo.block}\nCRITICAL: The budget above is the CONFIRMED, FINAL budget. Use these EXACT line items and amounts. Do NOT add cohorts, years, or inflate the total beyond what is shown above. The total ask MUST be R${budgetInfo.total?.toLocaleString()}. Any deviation is an error.\n` : ""}
+${structuredRes?.budgetRange ? `FUNDER BUDGET INTELLIGENCE (from research): ${structuredRes.budgetRange}\n` : ""}
 After the table, weave the numbers into narrative: "For ${perStudentStr} per student — less than a semester at most private colleges — a young person receives ${budgetInfo?.duration || "9 months"} of daily coaching, enterprise software access, ICITP accreditation, and a career launchpad."
 
 ASK RECOMMENDATION — include at the VERY END on its own line:
@@ -519,11 +498,7 @@ Describe what actually happens: what tools learners use, what coaching looks lik
 
 SCALE THROUGH TECHNOLOGY — if the organisation has proprietary tools (per context), reference them by name:
 - Explain how each tool changes the economics of delivery
-- Show how the coaching model uses technology to maintain quality at scale
-
-AMBITION: Design the programme around what the FUNDER wants to achieve:
-- Combine programme elements creatively from the context.
-- Think about what makes the funder PROUD. Match the scale of their ambition.`;
+- Show how the coaching model uses technology to maintain quality at scale`;
 
       } else if (isImpact) {
         sectionGuide = `IMPACT SECTION INSTRUCTIONS:
@@ -659,6 +634,8 @@ SECTION: "${sectionName}" (Section ${sectionIndex + 1} of ${totalSections})
 RULE #1 — NEVER FABRICATE NAMES. The ONLY real alumni you may reference by name are: Siphumezo Adam, Simanye Mdunyelwa, Prieska Mofokeng. The ONLY employer testimonial is from Michelle Adler (forgood). Do NOT invent any other names. For additional examples, use unnamed descriptions like "a graduate from the 2024 cohort".
 
 RULE #2 — NEVER USE THESE WORDS TO OPEN ANY SENTENCE: "Imagine", "Picture", "Consider", "Think of", "Meet", "What if", "Close your eyes". These are BANNED. Start every sentence with something real and concrete — a fact, a name, a number, a direct statement.
+
+RULE #3 — NEVER CHANGE THE ASK AMOUNT. ${budgetInfo ? `The total funding request is R${budgetInfo.total.toLocaleString()}. This is for ${budgetInfo.students} students across ${budgetInfo.cohorts} cohort(s)${budgetInfo.years > 1 ? ` over ${budgetInfo.years} years` : ""}. The per-student cost is ${perStudentStr}. Do NOT propose additional cohorts, extra years, or inflate the total. Every mention of the ask amount, budget total, and per-student cost MUST match these exact figures.` : grant.ask > 0 ? `The total funding request is R${grant.ask.toLocaleString()}. Do NOT propose a different amount.` : ""}
 
 VOICE — this is the most important instruction:
 - Warm, human, confident. A founder who KNOWS this works, offering a funder the chance to back something real.
