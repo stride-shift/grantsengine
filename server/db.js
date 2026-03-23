@@ -430,6 +430,32 @@ export const getSessionHistory = async (orgId, limit = 30) => {
   return rows;
 };
 
+// ── Password reset token helpers ──
+
+export const createResetToken = async (memberId, orgId) => {
+  // Invalidate any existing tokens for this member
+  await pool().query('UPDATE password_reset_tokens SET used = TRUE WHERE member_id = $1 AND used = FALSE', [memberId]);
+  const token = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+  await pool().query(
+    'INSERT INTO password_reset_tokens (token, member_id, org_id, expires_at) VALUES ($1, $2, $3, $4)',
+    [token, memberId, orgId, expires]
+  );
+  return token;
+};
+
+export const validateResetToken = async (token) => {
+  const { rows } = await pool().query(
+    'SELECT * FROM password_reset_tokens WHERE token = $1 AND used = FALSE AND expires_at > NOW()',
+    [token]
+  );
+  return rows[0] || null;
+};
+
+export const markResetTokenUsed = async (token) => {
+  await pool().query('UPDATE password_reset_tokens SET used = TRUE WHERE token = $1', [token]);
+};
+
 // ── Activity log helpers ──
 
 export const logActivity = async (orgId, event, opts = {}) => {

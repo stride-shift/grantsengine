@@ -225,6 +225,17 @@ ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS member_id TEXT REFERENCES team_m
 -- ═══ Market Classification (SA vs Global) ═══
 ALTER TABLE grants ADD COLUMN IF NOT EXISTS market TEXT DEFAULT 'sa';
 
+-- ═══ Password Reset Tokens ═══
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  token TEXT PRIMARY KEY,
+  member_id TEXT NOT NULL REFERENCES team_members(id) ON DELETE CASCADE,
+  org_id TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_prt_member ON password_reset_tokens(member_id);
+
 -- ═══ Org Branding (per-org theming) ═══
 ALTER TABLE orgs ADD COLUMN IF NOT EXISTS primary_color TEXT;
 ALTER TABLE orgs ADD COLUMN IF NOT EXISTS primary_dark TEXT;
