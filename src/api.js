@@ -402,12 +402,10 @@ export const api = async (sys, usr, search = false, maxTok = 1500) => {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const body = {
-        model: 'gemini-2.0-flash',
         max_tokens: maxTok,
         messages: [{ role: 'user', content: usr }],
       };
       if (sys) body.system = sys;
-      if (search) body.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
 
       const res = await f('/ai/messages', {
         method: 'POST',

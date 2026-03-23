@@ -4,139 +4,87 @@ import { resolveOrg } from '../middleware/org.js';
 import { logAgentRun } from '../db.js';
 
 const router = Router();
-export const GEMINI_MODEL = 'gemini-2.0-flash';
+export const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 
-// ── Anthropic → Gemini request translation ──
+// ── Call Claude API ──
 
-function toGeminiRequest(anthropicBody) {
-  const { system, messages, max_tokens, tools } = anthropicBody;
-
-  const geminiBody = {
-    contents: (messages || []).map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: typeof m.content === 'string' ? m.content : (Array.isArray(m.content) ? m.content.map(c => c.text || '').join('\n') : String(m.content)) }],
-    })),
-    generationConfig: {
-      maxOutputTokens: max_tokens || 1500,
-    },
+async function callClaude(apiKey, { system, messages, max_tokens, model }) {
+  const body = {
+    model: model || CLAUDE_MODEL,
+    max_tokens: max_tokens || 1500,
+    messages: messages || [],
   };
-
-  if (system) {
-    const sysText = typeof system === 'string' ? system : (Array.isArray(system) ? system.map(s => (typeof s === 'string' ? s : s.text || '')).join('\n') : String(system));
-    geminiBody.systemInstruction = { parts: [{ text: sysText }] };
-  }
-
-  // Translate web_search tool → Gemini google_search grounding
-  if (tools && tools.some(t => t.type === 'web_search_20250305' || t.name === 'web_search')) {
-    geminiBody.tools = [{ google_search: {} }];
-  }
-
-  return geminiBody;
-}
-
-// ── Gemini → Anthropic response translation ──
-
-function toAnthropicResponse(geminiData) {
-  const candidate = geminiData.candidates?.[0];
-  const text = candidate?.content?.parts
-    ?.filter(p => p.text)
-    .map(p => p.text)
-    .join('\n\n') || '';
-
-  // Map Gemini finishReason → Anthropic stop_reason
-  const finishReason = candidate?.finishReason;
-  const stop_reason = finishReason === 'MAX_TOKENS' ? 'max_tokens' : 'end_turn';
-
-  return {
-    content: [{ type: 'text', text }],
-    usage: {
-      input_tokens: geminiData.usageMetadata?.promptTokenCount || 0,
-      output_tokens: geminiData.usageMetadata?.candidatesTokenCount || 0,
-    },
-    model: GEMINI_MODEL,
-    stop_reason,
-  };
-}
-
-function geminiUrl() {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-}
-
-// ── Standalone Gemini caller for server-side jobs (no Express req/res) ──
-export async function callGemini(system, user, { search = false, maxTokens = 1500 } = {}) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('No GEMINI_API_KEY configured');
-
-  const body = { messages: [{ role: 'user', content: user }], max_tokens: maxTokens };
   if (system) body.system = system;
-  if (search) body.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
 
-  const geminiBody = toGeminiRequest(body);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 90_000); // 90s for scout (web search)
+  const timeout = setTimeout(() => controller.abort(), 120_000);
 
   try {
-    const response = await fetch(geminiUrl(), {
+    const response = await fetch(ANTHROPIC_API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify(geminiBody),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
     clearTimeout(timeout);
-
-    if (!response.ok) {
-      const errText = await response.text();
-      let msg = `Gemini API error (${response.status})`;
-      try { msg = JSON.parse(errText).error?.message || msg; } catch {}
-      throw new Error(msg);
-    }
-
-    const data = await response.json();
-    const result = toAnthropicResponse(data);
-    return result.content?.[0]?.text || '';
+    return response;
   } catch (err) {
     clearTimeout(timeout);
     throw err;
   }
 }
 
-// POST /api/org/:slug/ai/messages — proxied Gemini API call (authenticated)
+// ── Standalone caller for server-side jobs (no Express req/res) ──
+export async function callGemini(system, user, { search = false, maxTokens = 1500 } = {}) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('No ANTHROPIC_API_KEY configured');
+
+  const response = await callClaude(apiKey, {
+    system,
+    messages: [{ role: 'user', content: user }],
+    max_tokens: maxTokens,
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    let msg = `Claude API error (${response.status})`;
+    try { msg = JSON.parse(errText).error?.message || msg; } catch {}
+    throw new Error(msg);
+  }
+
+  const data = await response.json();
+  return data.content?.filter(b => b.type === 'text').map(b => b.text).join('\n\n') || '';
+}
+
+// POST /api/org/:slug/ai/messages — proxied Claude API call (authenticated)
 router.post('/org/:slug/ai/messages', resolveOrg, requireAuth, async (req, res) => {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: { message: 'No GEMINI_API_KEY configured.' } });
+    return res.status(500).json({ error: { message: 'No ANTHROPIC_API_KEY configured. Add ANTHROPIC_API_KEY to your environment variables.' } });
   }
 
   const start = Date.now();
   try {
     // Strip internal metadata fields before forwarding
-    const { _agent_type, _grant_id, ...apiBody } = req.body;
-    const geminiBody = toGeminiRequest(apiBody);
+    const { _agent_type, _grant_id, model: _model, tools: _tools, ...apiBody } = req.body;
 
-    const controller = new AbortController();
-    const hasSearch = apiBody.tools?.some(t => t.type === 'web_search_20250305' || t.name === 'web_search');
-    const timeout = setTimeout(() => controller.abort(), hasSearch ? 90_000 : 60_000); // 90s for web search
-    const response = await fetch(geminiUrl(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify(geminiBody),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
+    const response = await callClaude(apiKey, apiBody);
     const data = await response.text();
     const duration = Date.now() - start;
 
     if (!response.ok) {
-      // Return error in Anthropic-compatible format
-      let errMsg = `Gemini API error (${response.status})`;
+      let errMsg = `Claude API error (${response.status})`;
       try { errMsg = JSON.parse(data).error?.message || errMsg; } catch {}
       res.status(response.status).json({ error: { message: errMsg } });
       return;
     }
 
     const parsed = JSON.parse(data);
-    const anthropicResponse = toAnthropicResponse(parsed);
 
     // Log the agent run for audit
     try {
@@ -144,16 +92,16 @@ router.post('/org/:slug/ai/messages', resolveOrg, requireAuth, async (req, res) 
         agent_type: _agent_type || 'chat',
         grant_id: _grant_id || null,
         prompt_summary: (apiBody.messages?.[0]?.content || '').slice(0, 200),
-        result_summary: anthropicResponse.content?.[0]?.text?.slice(0, 200) || '',
-        tokens_in: anthropicResponse.usage?.input_tokens || 0,
-        tokens_out: anthropicResponse.usage?.output_tokens || 0,
+        result_summary: parsed.content?.[0]?.text?.slice(0, 200) || '',
+        tokens_in: parsed.usage?.input_tokens || 0,
+        tokens_out: parsed.usage?.output_tokens || 0,
         duration_ms: duration,
         status: 'completed',
         member_id: req.memberId || null,
       });
     } catch { /* audit logging is best-effort */ }
 
-    res.status(200).json(anthropicResponse);
+    res.status(200).json(parsed);
   } catch (err) {
     res.status(502).json({ error: { message: `Proxy error: ${err.message}` } });
   }
