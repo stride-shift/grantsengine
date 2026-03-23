@@ -67,7 +67,7 @@ app.get('/api/health', async (req, res) => {
     await pool().query('SELECT 1');
     dbOk = true;
   } catch { /* DB unreachable */ }
-  res.json({ ok: dbOk, apiKeyConfigured: !!process.env.GEMINI_API_KEY, dbConnected: dbOk });
+  res.json({ ok: dbOk, apiKeyConfigured: !!(process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY), dbConnected: dbOk });
 });
 
 // ── Global error handler — catches unhandled errors from all routes ──

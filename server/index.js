@@ -37,8 +37,8 @@ async function ensureBuckets() {
 app.listen(PORT, async () => {
   console.log(`Grant Platform server on http://localhost:${PORT}`);
   console.log(`Mode: ${process.env.NODE_ENV || 'development'}`);
-  if (!process.env.GEMINI_API_KEY) {
-    console.warn('Warning: No GEMINI_API_KEY in .env — AI features will not work');
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.warn('Warning: No ANTHROPIC_API_KEY in .env — AI features will not work');
   }
   // Run schema migrations (adds any new columns/tables)
   await initDb();
