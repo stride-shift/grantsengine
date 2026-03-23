@@ -933,24 +933,27 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
 
         return (
           <>
-            {/* Roll the Dice — big CTA for full auto-generate */}
+            {/* Generate — big CTA for full auto-generate */}
             {!allDone && !isSubmittedPlus && (
               <button
                 onClick={rollTheDice}
                 disabled={rollingDice || anyBusy}
                 style={{
                   width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                  padding: "10px 20px", marginBottom: 10, borderRadius: 10,
+                  padding: "12px 20px", marginBottom: 10, borderRadius: 12,
                   background: rollingDice
-                    ? `linear-gradient(135deg, ${C.purple}, ${C.primary})`
-                    : `linear-gradient(135deg, ${C.primary}, ${C.primary}DD)`,
+                    ? `linear-gradient(135deg, ${C.purple}, ${C.teal})`
+                    : `linear-gradient(135deg, ${C.purple}, ${C.teal}, ${C.primary})`,
+                  backgroundSize: rollingDice ? "100% 100%" : "200% 100%",
                   color: C.white, border: "none",
                   cursor: rollingDice || anyBusy ? "default" : "pointer",
-                  fontFamily: FONT, fontSize: 14, fontWeight: 700, letterSpacing: -0.3,
-                  boxShadow: rollingDice ? "none" : "0 4px 16px rgba(208,50,40,0.25)",
-                  opacity: (rollingDice || anyBusy) ? 0.85 : 1,
-                  transition: "all 0.2s ease",
-                  animation: rollingDice ? "ge-pulse 1.4s ease-in-out infinite" : "none",
+                  fontFamily: FONT, fontSize: 14, fontWeight: 700, letterSpacing: -0.2,
+                  boxShadow: rollingDice ? "0 2px 12px rgba(109,40,217,0.3)" : "0 4px 20px rgba(109,40,217,0.25), 0 2px 8px rgba(8,145,178,0.15)",
+                  opacity: (rollingDice || anyBusy) ? 0.9 : 1,
+                  transition: "all 0.3s ease",
+                  animation: rollingDice
+                    ? "ge-pulse 1.4s ease-in-out infinite"
+                    : "ge-shimmer 3s ease-in-out infinite",
                 }}
               >
                 {rollingDice ? (
@@ -962,16 +965,11 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                   </>
                 ) : (
                   <>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                      <rect x="2" y="2" width="20" height="20" rx="4" stroke="currentColor" strokeWidth="2"/>
-                      <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
-                      <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
-                      <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-                      <circle cx="8" cy="16" r="1.5" fill="currentColor"/>
-                      <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ animation: "ge-bounce-subtle 2s ease-in-out infinite" }}>
+                      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" stroke="currentColor" strokeWidth="1.5" fill="rgba(255,255,255,0.2)"/>
+                      <path d="M20 3v4M22 5h-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                     </svg>
-                    <span>Roll the Dice</span>
-                    <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.8 }}>Auto-generate full proposal</span>
+                    <span>Make the Magic Happen</span>
                   </>
                 )}
               </button>
@@ -1061,7 +1059,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: C.t4, marginBottom: 8 }}>Geography</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                    {(g.geo || []).map(p => <Tag key={p} text={p} color={C.blue} />)}
+                    {(Array.isArray(g.geo) ? g.geo : g.geo ? [g.geo] : []).map(p => <Tag key={p} text={p} color={C.blue} />)}
                     {(!g.geo || !g.geo.length) && <span style={{ fontSize: 12, color: C.t4 }}>No geography set</span>}
                   </div>
                 </div>

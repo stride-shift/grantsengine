@@ -232,6 +232,8 @@ export const injectFonts = () => {
       .ge-hover-bar:hover { opacity: 1 !important; }
       @keyframes ge-toast-in { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
       @keyframes ge-spin { to { transform: rotate(360deg); } }
+      @keyframes ge-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+      @keyframes ge-bounce-subtle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
       /* ── Accessible focus rings (visible only for keyboard nav, !important overrides inline outline:none) ── */
       *:focus-visible { outline: 2px solid #4A7C59 !important; outline-offset: 2px; }
       input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #4A7C59 !important; outline-offset: 0px; }

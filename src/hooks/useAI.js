@@ -252,6 +252,14 @@ RULE #2 — NEVER USE THESE WORDS TO OPEN ANY SENTENCE: "Imagine", "Picture", "C
 
 RULE #3 — NEVER CHANGE THE ASK AMOUNT. ${budgetInfo ? `The total funding request is R${budgetInfo.total.toLocaleString()}. This is for ${budgetInfo.students} students across ${budgetInfo.cohorts} cohort(s)${budgetInfo.years > 1 ? ` over ${budgetInfo.years} years` : ""}. The per-student cost is ${perStudentStr}. Do NOT propose additional cohorts, extra years, or inflate the total beyond R${budgetInfo.total.toLocaleString()}. Every mention of the ask amount, budget total, and per-student cost in the proposal MUST match these exact figures.` : grant.ask > 0 ? `The total funding request is R${grant.ask.toLocaleString()}. Do NOT propose a different amount. Every mention of the ask amount in the proposal MUST match this figure.` : "Match the ask to the funder's typical grant size and the organisation's programme costs."}
 
+RULE #4 — ASK SIZING BY RELATIONSHIP. ${grant.rel === "Cold" || grant.rel === "Networking" ? `This funder relationship is "${grant.rel}". The ask MUST be proportionate to a FIRST engagement — typically 1-2 cohorts, 1 year, under R3M. Do NOT propose multi-year, multi-million rand asks to funders with no relationship history. Frame as a "proof engagement" with the option to scale after demonstrated outcomes. Build trust first, then scale.` : grant.rel === "Previous Funder" || grant.rel === "Warm Intro" ? `This funder relationship is "${grant.rel}". The ask can be more ambitious, but still proportionate to the relationship depth.` : ""}
+
+RULE #5 — BUDGET-ONLY CONTENT. Every programme, initiative, or scale claim in the proposal MUST be covered in the budget. Do NOT describe aspirational scale (e.g., "reaching 5,000 learners across 20 schools" or "deploying to entire school districts") unless it is explicitly budgeted and being proposed. Unbudgeted aspirations undermine credibility with sophisticated funders. If it's not in the budget, it's not in the proposal.
+
+RULE #6 — PER-STUDENT COST CONSISTENCY. The per-student cost must be consistent everywhere in the proposal. Calculate it ONCE as [total ask ÷ total students]. Use that EXACT figure in the cover letter, executive summary, budget section, and any other mention. Inconsistent per-student costs (e.g., R61,800 in one place and R111,800 in another) are a credibility-destroying error.
+
+RULE #7 — PROGRAMME DESCRIPTION ONCE. The full programme structure (6 phases, 4 pillars, curriculum detail) should be described in detail in ONE section only (typically "Programme Details" or "Our Approach"). All other sections may reference specific elements but must NOT repeat the full structure. If "Our Approach" describes the 6 phases, "Evidence of Impact" should reference outcomes FROM those phases, not re-describe them. Similarly, AI tools should be introduced in detail ONCE — other sections reference them by name without re-explaining.
+
 VOICE — maintain in EVERY section, not just the opening:
 - Warm, human, confident. A founder who KNOWS this works, offering a funder the chance to back something real.
 - Write like a person, not a grant machine. Emotion comes from specificity, not adjectives.
@@ -321,7 +329,9 @@ BANNED PHRASES — if ANY of these appear in your output, the proposal fails. Ze
 - "South Africa has X% youth unemployment" or any stat-as-opener that every NPO uses
 - "We look forward to partnering" / "we would welcome the opportunity" / "we trust this proposal"
 - "empowering" as a verb / "stakeholders" / "leverage" (as a verb) / "synergy" / "paradigm shift"
-These phrases are AUTOMATIC FAILURES. Do not use them or any close variation. Use PLAIN, SPECIFIC language instead.
+- "catalytic investment" / "catalytic funding" / "powerful, evidence-based opportunity"
+- "fostering a generation" / "digitally empowered" / "drive systemic change" (when used as filler without specifics)
+These phrases are AUTOMATIC FAILURES. Do not use them or any close variation. Use PLAIN, SPECIFIC language instead. Every sentence must carry a number, a name, or a specific mechanism. If it doesn't, rewrite it.
 
 ANTI-REPETITION — critical:
 - NEVER open two sections with the same narrative device. If one opens with a story, the next must open with data, a direct statement, or the funder's own mission.
@@ -329,11 +339,14 @@ ANTI-REPETITION — critical:
 - NEVER repeat the same adjectives, sentence structures, or transitional phrases across sections.
 - NEVER pad with development-sector jargon. Every sentence must be specific to ${orgName}.
 - NEVER name staff in the narrative. Do NOT name any team member.
+- NEVER describe the full programme structure more than once. If one section describes the 6 phases, other sections reference them without re-describing.
+- NEVER re-explain how AI tools work in multiple sections. Introduce in detail once, reference by name thereafter.
 
 ADDITIONAL RULES:
 - If the organisation builds its own tools (per context), do NOT include third-party AI tool costs in budgets. Use "AI platform & tools (proprietary)" instead.
 - NEVER mention directors or staff by name — refer to "the leadership team" or "programme management and ops team"
 - Do NOT invent budget figures or statistics not in the context
+- LEAD WITH SOLUTION, NOT PROBLEM. Do not open any section with generic problem statements about unemployment, skills gaps, or youth crisis. Open with what ${orgName} does and the evidence it works. The reader already knows the problem.
 - Do NOT write thin, skeletal sections — this is a REAL proposal, not an outline
 - Do NOT switch to cold, institutional tone after the opening — sustain warmth throughout${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}
 
@@ -344,7 +357,7 @@ ASK RECOMMENDATION — CRITICAL:
 At the very END of your proposal (after all sections), include this structured line on its own line. The system parses it to set the grant ask:
 ${bt ? `ASK_RECOMMENDATION: Type ${bt.typeNum}, ${bt.cohorts} cohort(s), ${bt.years || 1} year(s), R${bt.total}` : `ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), [years] year(s), R[total amount as integer with no commas or spaces]`}
 ${budgetInfo ? `The ask MUST be R${budgetInfo.total.toLocaleString()}. Do NOT change this amount.` : ""}${factGuard}`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderFeedback ? `\n\n=== FUNDER FEEDBACK (from previous application) ===\n${grant.funderFeedback}\nCRITICAL: This is real feedback from the funder. Address every concern raised. If they said the budget was too high, adjust. If they wanted more evidence, provide it. This feedback is your most important input.` : ""}${researchBlock}${fitScoreBlock}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(Array.isArray(grant.focus) ? grant.focus : []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderFeedback ? `\n\n=== FUNDER FEEDBACK (from previous application) ===\n${grant.funderFeedback}\nCRITICAL: This is real feedback from the funder. Address every concern raised. If they said the budget was too high, adjust. If they wanted more evidence, provide it. This feedback is your most important input.` : ""}${researchBlock}${fitScoreBlock}`,
         false, 5000
       );
     }
@@ -515,11 +528,11 @@ SCALE THROUGH TECHNOLOGY — the impact multiplier:
       } else if (isScale || isChallenge) {
         sectionGuide = `${isChallenge ? "CHALLENGE/PROBLEM" : "SUSTAINABILITY/SCALE"} SECTION INSTRUCTIONS:
 ${isChallenge
-  ? `Open with the specific gap ${orgName} addresses — not generic stats. Frame the challenge through the organisation's unique lens from the context.`
+  ? `CRITICAL: Lead with the SOLUTION, not the problem. Do NOT open with "South Africa has X% unemployment" or any generic problem statement. Open with what ${orgName} does and the specific gap it fills — then briefly contextualise why that gap exists. The reader already knows the problem; they want to see that you've solved it. Frame the challenge through the organisation's unique lens from the context.`
   : `Open with ${orgName}'s business model strength — a statement about sustainability, not a hypothetical. Reference programme types, revenue streams, and delivery model from the context.`}
 Write ${paraGuide}. Be specific to the organisation's model from the context, not generic development language.
 
-${isChallenge ? `Frame the challenge through ${orgName}'s lens — what specific gap does it fill? Reference the organisation's unique approach from the context.` : ""}
+${isChallenge ? `NEVER lead with the problem. Lead with the solution and the proof. Frame the challenge as "the conversion gap that ${orgName} has already proven it can close."` : ""}
 
 SUSTAINABILITY MODEL — reference from the context:
 - Programme types and revenue diversification
@@ -637,6 +650,14 @@ RULE #2 — NEVER USE THESE WORDS TO OPEN ANY SENTENCE: "Imagine", "Picture", "C
 
 RULE #3 — NEVER CHANGE THE ASK AMOUNT. ${budgetInfo ? `The total funding request is R${budgetInfo.total.toLocaleString()}. This is for ${budgetInfo.students} students across ${budgetInfo.cohorts} cohort(s)${budgetInfo.years > 1 ? ` over ${budgetInfo.years} years` : ""}. The per-student cost is ${perStudentStr}. Do NOT propose additional cohorts, extra years, or inflate the total. Every mention of the ask amount, budget total, and per-student cost MUST match these exact figures.` : grant.ask > 0 ? `The total funding request is R${grant.ask.toLocaleString()}. Do NOT propose a different amount.` : ""}
 
+RULE #4 — ASK SIZING BY RELATIONSHIP. ${grant.rel === "Cold" || grant.rel === "Networking" ? `Relationship is "${grant.rel}" — frame as a proof engagement, not a long-term commitment. Do NOT propose multi-year asks to cold funders.` : ""}
+
+RULE #5 — BUDGET-ONLY CONTENT. Do NOT describe aspirational scale or programmes that are not in the budget. No "reaching 5,000 learners" or "deploying across 20 schools" unless explicitly budgeted. If it's not in the budget, it doesn't belong in the proposal.
+
+RULE #6 — PER-STUDENT COST CONSISTENCY. Per-student cost is calculated ONCE as [total ÷ students]. Use that EXACT figure everywhere. Never state different per-student costs in different sections.
+
+RULE #7 — PROGRAMME DESCRIPTION ONCE. The full programme structure (phases, pillars, curriculum) should be described in detail in ONE section only. Other sections reference specific elements without repeating the full structure. AI tools: introduced in detail ONCE, referenced by name thereafter.
+
 VOICE — this is the most important instruction:
 - Warm, human, confident. A founder who KNOWS this works, offering a funder the chance to back something real.
 - Write like a person, not a grant machine. Let the reader feel the energy of what ${orgName} does.
@@ -671,7 +692,9 @@ BANNED PHRASES — if ANY of these appear in your output, the section fails. Zer
 - "South Africa has X% youth unemployment" or any stat-as-opener that every NPO uses
 - "We look forward to partnering" / "we would welcome the opportunity" / "we trust this proposal"
 - "empowering" as a verb / "stakeholders" / "leverage" (as a verb) / "synergy" / "paradigm shift"
-These phrases are AUTOMATIC FAILURES. Use PLAIN, SPECIFIC language instead.
+- "catalytic investment" / "catalytic funding" / "powerful, evidence-based opportunity"
+- "fostering a generation" / "digitally empowered" / "drive systemic change" (when used as filler without specifics)
+These phrases are AUTOMATIC FAILURES. Use PLAIN, SPECIFIC language instead. Every sentence must carry a number, a name, or a specific mechanism.
 
 ANTI-REPETITION — critical:
 - Read the ALREADY-WRITTEN SECTIONS below carefully. Do NOT reuse their opening devices, alumni stories, statistics, or key phrases.
@@ -679,14 +702,18 @@ ANTI-REPETITION — critical:
 - Do NOT echo the same adjectives, metaphors, or sentence structures used in prior sections.
 - Every section must feel fresh — as if written by the same author but covering genuinely new ground.
 - NEVER name staff in the narrative. Do NOT write "Imagine Ayanda welcoming..." or name any team member.
+- NEVER re-describe the full programme structure if a prior section already covered it. Reference, don't repeat.
+- NEVER re-explain how AI tools work if already introduced in a prior section. Name them, don't re-explain.
 
 ADDITIONAL RULES:
 - If the organisation builds its own tools (per context), do NOT include third-party AI tool costs in budgets — use "AI platform & tools (proprietary)"
 - NEVER mention directors or staff by name — refer to "the leadership team" or "programme management and ops team"
+- LEAD WITH SOLUTION, NOT PROBLEM. Never open any section with generic problem statements. Open with what ${orgName} does and the evidence it works.
+- BUDGET-ONLY CONTENT: Do NOT describe aspirational scale or unbudgeted programmes. If it's not funded by this proposal, don't claim it.
 - Do NOT invent figures or statistics not in the context — write with substance, not padding${priorFitScore?.research || grant.aiResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}
 
 Write ONLY the "${sectionName}" section content. No section header — just the content.${factGuard}`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderFeedback ? `\n\n=== FUNDER FEEDBACK (from previous application) ===\n${grant.funderFeedback}\nAddress every concern raised in this feedback.` : ""}${researchBlock}${fitBlock}${priorSummary ? `\n\nALREADY-WRITTEN SECTIONS (read these carefully — do NOT repeat their openings, stories, or statistics):\n${priorSummary}` : ""}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(Array.isArray(grant.focus) ? grant.focus : []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderFeedback ? `\n\n=== FUNDER FEEDBACK (from previous application) ===\n${grant.funderFeedback}\nAddress every concern raised in this feedback.` : ""}${researchBlock}${fitBlock}${priorSummary ? `\n\nALREADY-WRITTEN SECTIONS (read these carefully — do NOT repeat their openings, stories, or statistics):\n${priorSummary}` : ""}`,
         false, tokenBudget
       );
     }
@@ -713,7 +740,7 @@ Return your findings as a JSON object with these fields. Each field should be a 
 IMPORTANT: Return ONLY valid JSON. No markdown code fences, no text before or after the JSON object. Every field value must be a string (escape any quotes inside values).
 
 Use uploaded documents for additional context about the organisation. Reference specific programme types and costs from the org profile when discussing fit.${factGuard}`,
-        `Organisation context:\n${orgCtx}\n\nFunder: ${grant.funder}\nType: ${grant.type}\nGrant: ${grant.name}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD — will be set after proposal)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER — existing relationship)" : ""}\nFocus areas: ${(grant.focus || []).join(", ")}${fs.noIntel ? "\n\nNO PRE-EXISTING FUNDER INTELLIGENCE — research from scratch. Build a complete picture." : `\n\n=== EXISTING FUNDER INTELLIGENCE (build on this, don't duplicate) ===\nLead angle: ${fs.lead}\nHook: ${fs.hook}\nRecommended sections: ${(fs.sections || []).join(", ")}\nLanguage register: ${fs.lang}${fs.returning ? "\nStatus: RETURNING FUNDER — look for what the organisation delivered with their previous funding, what outcomes were achieved, and what the continuity angle is." : ""}`}\n\n${grant.notes ? `TEAM INTEL (from grant notes — treat as high-priority context):\n${grant.notes}` : "Notes: None"}${grant.funderFeedback ? `\n\n=== PREVIOUS FUNDER FEEDBACK ===\n${grant.funderFeedback}\nUse this feedback to refine your research — understand what the funder valued or didn't value.` : ""}`,
+        `Organisation context:\n${orgCtx}\n\nFunder: ${grant.funder}\nType: ${grant.type}\nGrant: ${grant.name}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD — will be set after proposal)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER — existing relationship)" : ""}\nFocus areas: ${(Array.isArray(grant.focus) ? grant.focus : []).join(", ")}${fs.noIntel ? "\n\nNO PRE-EXISTING FUNDER INTELLIGENCE — research from scratch. Build a complete picture." : `\n\n=== EXISTING FUNDER INTELLIGENCE (build on this, don't duplicate) ===\nLead angle: ${fs.lead}\nHook: ${fs.hook}\nRecommended sections: ${(fs.sections || []).join(", ")}\nLanguage register: ${fs.lang}${fs.returning ? "\nStatus: RETURNING FUNDER — look for what the organisation delivered with their previous funding, what outcomes were achieved, and what the continuity angle is." : ""}`}\n\n${grant.notes ? `TEAM INTEL (from grant notes — treat as high-priority context):\n${grant.notes}` : "Notes: None"}${grant.funderFeedback ? `\n\n=== PREVIOUS FUNDER FEEDBACK ===\n${grant.funderFeedback}\nUse this feedback to refine your research — understand what the funder valued or didn't value.` : ""}`,
         true, 3000
       );
     }
@@ -779,7 +806,7 @@ SCORING GUIDE:
 - B-BBEE/compliance alignment = +5
 - Timing (deadline feasible) = +10
 - Deduct for: org too small, outside focus, budget mismatch, missing track record`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER)" : ""}\nFocus: ${(grant.focus || []).join(", ")}\nGeography: ${(grant.geo || []).join(", ") || "National"}\nDeadline: ${grant.deadline || "Rolling"}\nNotes: ${grant.notes || "None"}\n\nFUNDER INTEL: This funder cares about "${fs.lead}". Their language: ${fs.lang}.${fs.returning ? ` ${orgName} is a returning grantee.` : ""}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()} (ask TBD)`}\nRelationship: ${grant.rel}${fs.returning ? " (RETURNING FUNDER)" : ""}\nFocus: ${(Array.isArray(grant.focus) ? grant.focus : []).join(", ")}\nGeography: ${(Array.isArray(grant.geo) ? grant.geo : grant.geo ? [grant.geo] : []).join(", ") || "National"}\nDeadline: ${grant.deadline || "Rolling"}\nNotes: ${grant.notes || "None"}\n\nFUNDER INTEL: This funder cares about "${fs.lead}". Their language: ${fs.lang}.${fs.returning ? ` ${orgName} is a returning grantee.` : ""}`,
         false, 800
       );
     }
@@ -839,7 +866,7 @@ RECOVERY OPTIONS:
 - [Alternative funders to approach, or whether to reapply next cycle]`}
 
 Keep it concise and specific to this grant. No generic advice.${grant.funderFeedback ? "\n\nACTUAL FUNDER FEEDBACK is provided below. This is the most important input — ground your analysis in what they actually said, not speculation." : ""}`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\nAsk: R${grant.ask?.toLocaleString()}\nRelationship: ${grant.rel}\nFocus: ${(grant.focus || []).join(", ")}\nNotes: ${grant.notes || "None"}\nOutcome: ${outcome}${grant.funderFeedback ? `\n\n=== ACTUAL FUNDER FEEDBACK ===\n${grant.funderFeedback}` : ""}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\nAsk: R${grant.ask?.toLocaleString()}\nRelationship: ${grant.rel}\nFocus: ${(Array.isArray(grant.focus) ? grant.focus : []).join(", ")}\nNotes: ${grant.notes || "None"}\nOutcome: ${outcome}${grant.funderFeedback ? `\n\n=== ACTUAL FUNDER FEEDBACK ===\n${grant.funderFeedback}` : ""}`,
         false, 1000
       );
     }
