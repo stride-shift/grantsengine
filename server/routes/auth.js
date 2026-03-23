@@ -4,8 +4,9 @@ import bcrypt from 'bcryptjs';
 import {
   getOrgBySlug, getOrgAuth, setOrgPassword, createSession, deleteSession, getSession,
   getMemberWithAuth, setMemberPassword, createMemberSession, endSession, logActivity,
-  getTeamMembers,
+  getTeamMembers, createResetToken, validateResetToken, markResetTokenUsed,
 } from '../db.js';
+import { sendResetEmail } from '../email.js';
 import { requireAuth } from '../middleware/auth.js';
 import { resolveOrg } from '../middleware/org.js';
 
@@ -237,6 +238,80 @@ router.post('/org/:slug/auth/forgot-password', w(async (req, res) => {
     memberId: member.id,
     sessionToken: session.token,
     meta: { member_name: member.name, method: 'admin_key' },
+  });
+
+  res.json({
+    token: session.token,
+    expires: session.expires,
+    org: { id: org.id, slug: org.slug, name: org.name },
+    member: { id: member.id, name: member.name, role: member.role, initials: member.initials },
+  });
+}));
+
+// ── Request password reset (sends email link) ──
+router.post('/org/:slug/auth/request-reset', w(async (req, res) => {
+  const { slug } = req.params;
+  const { memberId } = req.body;
+  if (!memberId) return res.status(400).json({ error: 'Member ID required' });
+
+  const org = await getOrgBySlug(slug);
+  if (!org) return res.status(404).json({ error: 'Organisation not found' });
+
+  const member = await getMemberWithAuth(org.id, memberId);
+  // Always return success to avoid leaking whether email exists
+  if (!member || !member.email) {
+    return res.json({ ok: true });
+  }
+
+  const token = await createResetToken(member.id, org.id);
+
+  // Build reset URL — use Origin header or fallback
+  const origin = req.headers.origin || `${req.protocol}://${req.headers.host}`;
+  const resetUrl = `${origin}?reset=${token}&slug=${slug}`;
+
+  try {
+    await sendResetEmail(member.email, resetUrl, member.name);
+  } catch (err) {
+    console.error('[auth] Failed to send reset email:', err.message);
+    // Still return ok — don't reveal email delivery status
+  }
+
+  await logActivity(org.id, 'password_reset_requested', {
+    memberId: member.id,
+    meta: { member_name: member.name, method: 'email' },
+  });
+
+  res.json({ ok: true });
+}));
+
+// ── Reset password with token (from email link) ──
+router.post('/org/:slug/auth/reset-password', w(async (req, res) => {
+  const { slug } = req.params;
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' });
+  if (newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+  const resetToken = await validateResetToken(token);
+  if (!resetToken) return res.status(400).json({ error: 'Invalid or expired reset link. Please request a new one.' });
+
+  const org = await getOrgBySlug(slug);
+  if (!org || org.id !== resetToken.org_id) return res.status(400).json({ error: 'Invalid reset link' });
+
+  const member = await getMemberWithAuth(org.id, resetToken.member_id);
+  if (!member) return res.status(404).json({ error: 'Team member not found' });
+
+  const hash = await bcrypt.hash(newPassword, 10);
+  await setMemberPassword(member.id, hash);
+  await markResetTokenUsed(token);
+
+  // Auto-login
+  const session = await createMemberSession(org.id, member.id);
+
+  await logActivity(org.id, 'password_reset', {
+    memberId: member.id,
+    sessionToken: session.token,
+    meta: { member_name: member.name, method: 'email_link' },
   });
 
   res.json({

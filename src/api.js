@@ -171,6 +171,34 @@ export const forgotPassword = async (slug, memberId, adminKey, newPassword) => {
   return data;
 };
 
+export const requestPasswordReset = async (slug, memberId) => {
+  const res = await fetch(`/api/org/${slug}/auth/request-reset`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ memberId }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to send reset link');
+  }
+  return res.json();
+};
+
+export const resetPasswordWithToken = async (slug, token, newPassword) => {
+  const res = await fetch(`/api/org/${slug}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Password reset failed');
+  }
+  const data = await res.json();
+  setAuth(data.token, slug, data.member);
+  return data;
+};
+
 export const adminResetPassword = async (memberId, password) => {
   const res = await f('/auth/admin-reset-password', {
     method: 'POST', body: JSON.stringify({ memberId, password }),

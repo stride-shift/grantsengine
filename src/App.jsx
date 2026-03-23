@@ -85,11 +85,19 @@ function AppInner() {
   const toast = useToast();
   // ── Auth state ──
   const [authed, setAuthed] = useState(isLoggedIn());
-  const [orgSlug, setOrgSlug] = useState(getAuth().slug);
+  const [orgSlug, setOrgSlug] = useState(getAuth().slug || (() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("reset") && params.get("slug") ? params.get("slug") : null;
+  })());
   const [currentMember, setCurrentMember] = useState(getCurrentMember());
-  const [selectingOrg, setSelectingOrg] = useState(!isLoggedIn());
+  // Check for password reset link — auto-select org and go to login
+  const resetParams = (() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("reset") && params.get("slug") ? { token: params.get("reset"), slug: params.get("slug") } : null;
+  })();
+  const [selectingOrg, setSelectingOrg] = useState(!isLoggedIn() && !resetParams);
   const [needsPassword, setNeedsPassword] = useState(false);
-  const [loggingIn, setLoggingIn] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(!!resetParams);
 
   // ── App state ──
   const [org, setOrg] = useState(null);

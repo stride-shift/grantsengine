@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { C, FONT } from "../theme";
 import { Btn, Avatar, RoleBadge } from "./index";
-import { getTeamPublic, forgotPassword } from "../api";
+import { getTeamPublic, requestPasswordReset, resetPasswordWithToken } from "../api";
 
 const ROLE_ORDER = { director: 0, hop: 1, pm: 2, board: 3, none: 9 };
 
@@ -67,15 +67,28 @@ const Page = ({ children }) => (
 );
 
 export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassword }) {
-  const [step, setStep] = useState("pick"); // pick | password | set-password | forgot
+  const [step, setStep] = useState("pick"); // pick | password | set-password | forgot | sent | reset
   const [members, setMembers] = useState([]);
   const [selected, setSelected] = useState(null);
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
-  const [adminKey, setAdminKey] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [resetToken, setResetToken] = useState(null);
+
+  // Check URL for reset token on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("reset");
+    const tokenSlug = params.get("slug");
+    if (token && tokenSlug) {
+      setResetToken(token);
+      setStep("reset");
+      // Clean up URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   // Load public team list
   useEffect(() => {
@@ -85,6 +98,13 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [slug]);
+
+  const maskEmail = (email) => {
+    if (!email) return null;
+    const [local, domain] = email.split("@");
+    if (!domain) return email;
+    return local[0] + "***" + (local.length > 1 ? local[local.length - 1] : "") + "@" + domain;
+  };
 
   const pickMember = (m) => {
     setSelected(m);
@@ -121,15 +141,26 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
     setBusy(false);
   };
 
-  const submitForgotPassword = async (e) => {
+  const sendResetLink = async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      await requestPasswordReset(slug, selected.id);
+      setStep("sent");
+    } catch (ex) {
+      setErr(ex.message);
+    }
+    setBusy(false);
+  };
+
+  const submitResetPassword = async (e) => {
     e.preventDefault();
-    if (!adminKey) { setErr("Recovery key is required"); return; }
-    if (!pw || pw.length < 6) { setErr("New password must be at least 6 characters"); return; }
+    if (!pw || pw.length < 6) { setErr("Password must be at least 6 characters"); return; }
     if (pw !== pw2) { setErr("Passwords don't match"); return; }
     setBusy(true);
     setErr("");
     try {
-      await forgotPassword(slug, selected.id, adminKey, pw);
+      await resetPasswordWithToken(slug, resetToken, pw);
     } catch (ex) {
       setErr(ex.message);
     }
@@ -139,7 +170,6 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
   const goBack = () => {
     setPw("");
     setPw2("");
-    setAdminKey("");
     setErr("");
     setStep("pick");
   };
@@ -278,11 +308,11 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
           </form>
         </Card>
       )}
-      {/* ── Step 4: Forgot password (admin key recovery) ── */}
+      {/* ── Step 4: Forgot password — send reset link ── */}
       {step === "forgot" && selected && (
         <Card width={400}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-            <button onClick={() => { setPw(""); setPw2(""); setAdminKey(""); setErr(""); setStep("password"); }} style={{
+            <button onClick={() => { setErr(""); setStep("password"); }} style={{
               background: "none", border: "none", cursor: "pointer", fontSize: 18, color: C.t3, padding: 0,
             }}>{"\u2190"}</button>
             <Avatar member={selected} size={38} />
@@ -292,28 +322,44 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
             </div>
           </div>
           <div style={{
-            background: C.warm100, borderRadius: 8, padding: "10px 14px", marginBottom: 18,
-            fontSize: 12, color: C.t3, lineHeight: 1.5,
+            background: C.warm100, borderRadius: 8, padding: "14px 16px", marginBottom: 18,
+            fontSize: 13, color: C.t2, lineHeight: 1.6,
           }}>
-            Enter the admin recovery key to reset your password. Ask your director or check your team's records for the key.
+            We'll send a password reset link to your email{selected.hasEmail ? ": " : "."}
+            {selected.hasEmail && <strong>{maskEmail(selected.maskedEmail || selected.email)}</strong>}
           </div>
-          <form onSubmit={submitForgotPassword}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6, letterSpacing: 0.5 }}>
-              Recovery key
-            </label>
-            <input
-              type="password" value={adminKey} onChange={e => setAdminKey(e.target.value)}
-              placeholder="Admin recovery key" autoFocus
-              style={{ ...inputStyle, marginBottom: 14 }}
-              onFocus={focusBorder}
-              onBlur={blurBorder}
-            />
+          {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
+          <Btn onClick={sendResetLink} disabled={busy} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
+            {busy ? "Sending..." : "Send Reset Link"}
+          </Btn>
+        </Card>
+      )}
+
+      {/* ── Step 4b: Reset link sent ── */}
+      {step === "sent" && (
+        <Card width={400}>
+          <div style={{ textAlign: "center", padding: "12px 0" }}>
+            <div style={{ fontSize: 36, marginBottom: 16 }}>{"\u2709\uFE0F"}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.dark, marginBottom: 10 }}>Check your email</div>
+            <div style={{ fontSize: 13, color: C.t3, lineHeight: 1.6, marginBottom: 24 }}>
+              If an email is on file, we've sent a reset link. Check your inbox and click the link to set a new password.
+            </div>
+            <BackLink onClick={goBack} label="Back to sign in" />
+          </div>
+        </Card>
+      )}
+
+      {/* ── Step 5: Reset password from email link ── */}
+      {step === "reset" && (
+        <Card width={380}>
+          <Title slug={slug || "Grant Engine"} sub="Choose a new password" />
+          <form onSubmit={submitResetPassword}>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6, letterSpacing: 0.5 }}>
               New password
             </label>
             <input
               type="password" value={pw} onChange={e => setPw(e.target.value)}
-              placeholder="At least 6 characters"
+              placeholder="At least 6 characters" autoFocus
               style={{ ...inputStyle, marginBottom: 14 }}
               onFocus={focusBorder}
               onBlur={blurBorder}
@@ -329,7 +375,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
               onBlur={blurBorder}
             />
             {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
-            <Btn onClick={submitForgotPassword} disabled={busy || !adminKey || !pw || !pw2} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
+            <Btn onClick={submitResetPassword} disabled={busy || !pw || !pw2} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
               {busy ? "Resetting..." : "Reset Password & Sign In"}
             </Btn>
           </form>
