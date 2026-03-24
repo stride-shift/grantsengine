@@ -5,7 +5,7 @@ import { Num, Timeline, Label, Btn, CopyBtn, stripMd, TypeBadge, DeadlineBadge, 
 import { isFunderReturning } from "../data/funderStrategy";
 
 const CLOSED = ["won", "lost", "deferred", "archived"];
-const PRE_SUB = ["scouted", "qualifying", "drafting", "review"];
+const PRE_SUB = ["scouted", "vetting", "qualifying", "drafting", "review"];
 const FTYPE_COLORS = [C.primary, C.blue, C.purple, C.amber, C.ok];
 const REL_COLORS = { Hot: C.primary, Warm: C.amber, Cold: C.blue, New: C.purple };
 
@@ -545,7 +545,7 @@ export default function Dashboard({
       {/* ═══════════ IN PLAY — active grants grouped by workflow phase ═══════════ */}
       {pipe.act.length > 0 && (() => {
         const groups = [
-          { label: "Qualifying", stages: ["scouted", "qualifying"], color: C.blue, icon: "◇" },
+          { label: "Qualifying", stages: ["scouted", "vetting", "qualifying"], color: C.blue, icon: "◇" },
           { label: "In Progress", stages: ["drafting", "review", "resubmit"], color: C.amber, icon: "▶" },
           { label: "Submitted", stages: ["submitted", "awaiting"], color: C.purple, icon: "◈" },
         ];

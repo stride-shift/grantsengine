@@ -225,6 +225,9 @@ ALTER TABLE agent_runs ADD COLUMN IF NOT EXISTS member_id TEXT REFERENCES team_m
 -- ═══ Market Classification (SA vs Global) ═══
 ALTER TABLE grants ADD COLUMN IF NOT EXISTS market TEXT DEFAULT 'sa';
 
+-- ═══ Grant Source (how the opportunity was found) ═══
+ALTER TABLE grants ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'scout';
+
 -- ═══ Password Reset Tokens ═══
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
   token TEXT PRIMARY KEY,

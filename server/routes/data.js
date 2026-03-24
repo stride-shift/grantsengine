@@ -5,10 +5,11 @@ import {
   getComplianceDocs, upsertComplianceDoc,
   getAgentRuns,
   kvGet, kvSet,
-  logActivity, getGrantById,
+  logActivity, getGrantById, getTeamMembers,
 } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { resolveOrg } from '../middleware/org.js';
+import { sendStageChangeEmail } from '../email.js';
 
 const router = Router();
 
@@ -45,6 +46,24 @@ router.put('/org/:slug/grants/:id', ...orgAuth, w(async (req, res) => {
       memberId: req.memberId, sessionToken: req.session?.token, grantId: id,
       meta: { grant_name: grant.name, from_stage: existing.stage, to_stage: grant.stage },
     }).catch(() => {});
+
+    // Send email notification to grant owner (best-effort, non-blocking)
+    (async () => {
+      try {
+        const owner = grant.owner || existing.owner;
+        if (!owner || owner === 'team') return;
+        const members = await getTeamMembers(req.orgId);
+        const ownerMember = members.find(m => m.id === owner);
+        if (!ownerMember?.email) return;
+        const movedBy = members.find(m => m.id === req.memberId);
+        await sendStageChangeEmail(
+          ownerMember.email, ownerMember.name,
+          grant.name || existing.name, grant.funder || existing.funder,
+          existing.stage, grant.stage,
+          movedBy?.name || null
+        );
+      } catch (e) { console.error('[email] Stage notification failed:', e.message); }
+    })();
   } else {
     logActivity(req.orgId, 'grant_update', {
       memberId: req.memberId, sessionToken: req.session?.token, grantId: id,

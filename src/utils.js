@@ -83,7 +83,7 @@ export const urgLabel = d => d === null ? null : d < 0 ? `${Math.abs(d)}d overdu
 // Post-submission stages (submitted, awaiting, won) have ALREADY met the deadline — it's not overdue.
 // Pre-submission stages with past deadlines = missed the window, need attention but not panic.
 const POST_SUBMISSION = ["submitted", "awaiting", "won", "lost", "deferred", "archived"];
-const PRE_DRAFT = ["scouted", "qualifying"];
+const PRE_DRAFT = ["scouted", "vetting", "qualifying"];
 
 export const deadlineCtx = (daysLeft, stage) => {
   if (daysLeft === null) return { label: null, color: C.t3, bg: C.warm200, severity: "none", icon: "" };
