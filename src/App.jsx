@@ -15,6 +15,9 @@ import { Component } from "react";
 import OrgSelector from "./components/OrgSelector";
 import Login from "./components/Login";
 import { ToastProvider, useToast } from "./components/Toast";
+import geLogo from "./grants-engine-logo.png";
+import dlabLogo from "./dlab.png";
+import NorthernLights from "./components/NorthernLights";
 
 // Error boundary — prevents white screen on component crash
 class ErrorBoundary extends Component {
@@ -154,7 +157,7 @@ function AppInner() {
       setComplianceDocs(compData || []);
 
       // Migrate existing grants: backfill funderBudget/askSource for pre-redesign grants
-      const PRE_SUB = ["scouted", "qualifying", "drafting", "review"];
+      const PRE_SUB = ["scouted", "vetting", "qualifying", "drafting", "review"];
       const raw = grantsData || [];
       const migrated = raw.map(g => {
         // Phase 1: backfill funderBudget for grants that don't have it yet
@@ -461,7 +464,6 @@ function AppInner() {
               animation: "app-load-bar 2.5s ease-in-out infinite",
             }} />
           </div>
-          {/* animations injected globally via injectFonts() */}
         </div>
       </div>
     );
@@ -476,40 +478,25 @@ function AppInner() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", fontFamily: FONT, background: C.bg }}>
-      {/* Sidebar — Clean White */}
+      {/* Sidebar */}
       <div style={{
-        width: 240, background: C.sidebar,
-        display: "flex", flexDirection: "column", flexShrink: 0,
-        borderRight: `1px solid ${C.line}`,
-        boxShadow: "1px 0 8px rgba(0, 0, 0, 0.04)",
+        width: 240, position: "fixed", top: 0, left: 0, bottom: 0, overflow: "hidden",
+        display: "flex", flexDirection: "column",
+        borderRight: "1px solid rgba(255,255,255,0.1)",
+        boxShadow: "1px 0 20px rgba(0, 0, 0, 0.2)",
+        zIndex: 10,
       }}>
-        {/* Org header — prominent logo + centered name */}
-        <div style={{ padding: "24px 16px 18px", borderBottom: `1px solid ${C.line}`, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-          {org?.logo_url ? (
-            <img src={org.logo_url} alt={org?.name || ""}
-              onError={e => { e.target.style.display = "none"; if (e.target.nextSibling) e.target.nextSibling.style.display = "flex"; }}
-              style={{ width: 56, height: 56, borderRadius: 14, objectFit: "contain", background: C.white, boxShadow: `0 2px 12px ${C.primaryGlow}` }} />
-          ) : null}
-          <div style={{
-            width: 56, height: 56, borderRadius: 14,
-            background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
-            display: org?.logo_url ? "none" : "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 22, fontWeight: 800, color: C.white, fontFamily: MONO,
-            boxShadow: `0 2px 12px ${C.primaryGlow}`,
-          }}>{(org?.name || orgSlug)?.[0]?.toUpperCase()}</div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: C.dark, letterSpacing: -0.2 }}>{org?.name || orgSlug}</div>
-            <div style={{ fontSize: 10, color: C.t4, letterSpacing: 0.5, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 2 }}>
-              Grant Engine
-              {saveState === "saving" && <span style={{ fontSize: 9, color: C.amber, fontWeight: 600, animation: "ge-pulse 1.2s ease-in-out infinite" }}>Saving...</span>}
-              {saveState === "saved" && <span style={{ fontSize: 9, color: C.ok, fontWeight: 600 }}>✓ Saved</span>}
-              {saveState === "error" && <span style={{ fontSize: 9, color: C.red, fontWeight: 600 }}>Save failed</span>}
-            </div>
-          </div>
+        {/* Sidebar background animation */}
+        <div style={{ position: "absolute", inset: 0, zIndex: 0 }}><NorthernLights /></div>
+        {/* Sidebar glass overlay */}
+        <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "rgba(0,0,0,0.15)", backdropFilter: "blur(2px)" }} />
+        {/* Grants Engine logo — top, big */}
+        <div style={{ padding: "20px 16px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 2 }}>
+          <img src={geLogo} alt="Grants Engine" style={{ height: 80, objectFit: "contain" }} />
         </div>
 
         {/* Nav items */}
-        <div style={{ flex: 1, padding: "14px 10px" }}>
+        <div style={{ flex: 1, padding: "14px 10px", position: "relative", zIndex: 2 }}>
           {[...SIDEBAR_ITEMS, ...(currentMember?.role === "director" ? [{ id: "admin", label: "Admin", icon: "\u25CA" }] : [])].map(item => {
             const active = !sel && view === item.id;
             return (
@@ -518,22 +505,22 @@ function AppInner() {
                 style={{
                   display: "flex", alignItems: "center", gap: 8, width: "100%",
                   padding: "8px 12px", marginBottom: 2, border: "none",
-                  background: active ? C.sidebarActive : "transparent",
-                  color: active ? C.sidebarTextActive : C.sidebarText,
+                  background: active ? "rgba(74, 222, 128, 0.12)" : "transparent",
+                  color: active ? "#4ADE80" : "rgba(255,255,255,0.5)",
                   fontSize: 12, fontWeight: active ? 600 : 500, cursor: "pointer",
                   borderRadius: 8, fontFamily: FONT, textAlign: "left",
-                  transition: "all 0.15s ease",
-                  borderLeft: active ? `2px solid ${C.sidebarAccent}` : "2px solid transparent",
+                  transition: "all 0.2s ease",
+                  borderLeft: active ? "2px solid #4ADE80" : "2px solid transparent",
                 }}
-                onMouseEnter={e => { if (!active) { e.currentTarget.style.background = C.sidebarHover; e.currentTarget.style.color = C.sidebarTextActive; } }}
-                onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.sidebarText; } }}>
+                onMouseEnter={e => { if (!active) { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "#E2E8F0"; } }}
+                onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; } }}>
                 <span style={{ fontSize: 13, opacity: active ? 1 : 0.6 }}>{item.icon}</span>
                 {item.label}
                 {item.id === "dashboard" && notifCount > 0 && (
                   <span style={{
-                    marginLeft: "auto", fontSize: 10, fontWeight: 700, color: C.white,
-                    background: C.primary, borderRadius: 10, padding: "2px 7px", minWidth: 18,
-                    textAlign: "center", boxShadow: `0 1px 6px ${C.primaryGlow}`,
+                    marginLeft: "auto", fontSize: 10, fontWeight: 700, color: "#0B1120",
+                    background: "#4ADE80", borderRadius: 10, padding: "2px 7px", minWidth: 18,
+                    textAlign: "center", boxShadow: "0 1px 8px rgba(74, 222, 128, 0.3)",
                   }}>{notifCount}</span>
                 )}
               </button>
@@ -541,41 +528,57 @@ function AppInner() {
           })}
         </div>
 
-        {/* Logout / Switch Org */}
-        <div style={{ padding: "10px 10px", borderTop: `1px solid ${C.line}`, display: "flex", flexDirection: "column", gap: 1 }}>
-          <button onClick={handleSwitchOrg}
-            style={{
-              display: "flex", alignItems: "center", gap: 8, width: "100%",
-              padding: "7px 12px", border: "none",
-              background: "transparent", color: C.sidebarText,
-              fontSize: 12, fontWeight: 500, cursor: "pointer",
-              borderRadius: 8, fontFamily: FONT, textAlign: "left",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = C.sidebarHover; e.currentTarget.style.color = C.sidebarTextActive; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.sidebarText; }}>
-            <span style={{ fontSize: 13 }}>{"\u21C4"}</span>
-            Switch Organisation
-          </button>
-          <button onClick={handleLogout}
-            style={{
-              display: "flex", alignItems: "center", gap: 8, width: "100%",
-              padding: "7px 12px", border: "none",
-              background: "transparent", color: C.sidebarText,
-              fontSize: 12, fontWeight: 500, cursor: "pointer",
-              borderRadius: 8, fontFamily: FONT, textAlign: "left",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = C.sidebarHover; e.currentTarget.style.color = C.sidebarTextActive; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.sidebarText; }}>
-            <span style={{ fontSize: 13 }}>{"\u21AA"}</span>
-            Sign Out
-          </button>
+        {/* Bottom: d-lab logo + actions */}
+        <div style={{ position: "relative", zIndex: 2, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+          {/* d-lab logo + org info */}
+          <div style={{ padding: "12px 16px 8px", display: "flex", alignItems: "center", gap: 10 }}>
+            <img src={dlabLogo} alt="d-lab" style={{ height: 36, objectFit: "contain", filter: "brightness(1.15)", flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0", lineHeight: 1.2 }}>{org?.name || orgSlug}</div>
+              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", fontWeight: 500, marginTop: 2 }}>
+                {saveState === "saving" && <span style={{ color: "#FBBF24", animation: "ge-pulse 1.2s ease-in-out infinite" }}>Saving...</span>}
+                {saveState === "saved" && <span style={{ color: "#4ADE80" }}>✓ Saved</span>}
+                {saveState === "error" && <span style={{ color: "#F87171" }}>Save failed</span>}
+                {saveState === "idle" && "Grant Engine"}
+              </div>
+            </div>
+          </div>
+          {/* Switch / Sign Out */}
+          <div style={{ padding: "4px 10px 10px", display: "flex", flexDirection: "column", gap: 1 }}>
+            <button onClick={handleSwitchOrg}
+              style={{
+                display: "flex", alignItems: "center", gap: 8, width: "100%",
+                padding: "7px 12px", border: "none",
+                background: "transparent", color: "rgba(255,255,255,0.4)",
+                fontSize: 12, fontWeight: 500, cursor: "pointer",
+                borderRadius: 8, fontFamily: FONT, textAlign: "left",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "#E2E8F0"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}>
+              <span style={{ fontSize: 13 }}>{"\u21C4"}</span>
+              Switch Organisation
+            </button>
+            <button onClick={handleLogout}
+              style={{
+                display: "flex", alignItems: "center", gap: 8, width: "100%",
+                padding: "7px 12px", border: "none",
+                background: "transparent", color: "rgba(255,255,255,0.4)",
+                fontSize: 12, fontWeight: 500, cursor: "pointer",
+                borderRadius: 8, fontFamily: FONT, textAlign: "left",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "#E2E8F0"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}>
+              <span style={{ fontSize: 13 }}>{"\u21AA"}</span>
+              Sign Out
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Main content */}
-      <div style={{ flex: 1, overflow: "auto" }}>
+      <div style={{ flex: 1, overflow: "auto", background: C.bg, marginLeft: 240 }}>
         <ErrorBoundary>
         <Suspense fallback={
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", gap: 10 }}>

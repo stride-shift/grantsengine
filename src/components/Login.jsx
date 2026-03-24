@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { C, FONT } from "../theme";
 import { Btn, Avatar, RoleBadge } from "./index";
 import { getTeamPublic, requestPasswordReset, resetPasswordWithToken } from "../api";
+import NorthernLights from "./NorthernLights";
+import geLogo from "../grants-engine-logo.png";
+import dlabLogo from "../dlab.png";
 
 const ROLE_ORDER = { director: 0, hop: 1, pm: 2, board: 3, none: 9 };
 
@@ -9,60 +12,59 @@ const ROLE_ORDER = { director: 0, hop: 1, pm: 2, board: 3, none: 9 };
 
 const Header = () => (
   <div style={{
-    position: "fixed", top: 0, left: 0, right: 0, height: 56,
-    background: C.navy, display: "flex", alignItems: "center", padding: "0 24px", gap: 12,
-    boxShadow: "0 2px 8px rgba(55, 65, 81, 0.15)", zIndex: 10,
+    position: "fixed", top: 0, left: 0, right: 0, height: 100, zIndex: 10,
+    background: "rgba(0,0,0,0.5)", backdropFilter: "blur(16px)",
+    display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px",
+    boxShadow: "0 2px 12px rgba(0, 0, 0, 0.3)",
   }}>
-    <div style={{
-      width: 32, height: 32, borderRadius: 8,
-      background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: 14, fontWeight: 800, color: C.white,
-    }}>d</div>
-    <span style={{ fontSize: 15, fontWeight: 700, color: C.white, letterSpacing: -0.3 }}>Grant Engine</span>
+    <img src={geLogo} alt="Grants Engine" style={{ height: 110, objectFit: "contain" }} />
+    <img src={dlabLogo} alt="d-lab" style={{ height: 44, objectFit: "contain", filter: "brightness(1.15)" }} />
   </div>
 );
 
 const Card = ({ children, width = 420 }) => (
-  <div style={{ width, background: C.white, borderRadius: 14, padding: "28px 32px", boxShadow: C.cardShadowLg, marginTop: 40 }}>
+  <div style={{ width, background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: "28px 32px", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", marginTop: 40, backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.12)" }}>
     {children}
   </div>
 );
 
 const Title = ({ slug, sub }) => (
   <div style={{ textAlign: "center", marginBottom: 24 }}>
-    <div style={{ fontSize: 11, fontWeight: 700, color: C.t4, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Grant Engine</div>
-    <div style={{ fontSize: 20, fontWeight: 700, color: C.dark }}>{slug}</div>
-    <div style={{ width: 28, height: 3, background: C.primary, borderRadius: 2, margin: "10px auto 0" }} />
-    {sub && <div style={{ fontSize: 13, color: C.t3, marginTop: 10 }}>{sub}</div>}
+    <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Grant Engine</div>
+    <div style={{ fontSize: 20, fontWeight: 700, color: "#fff" }}>{slug}</div>
+    <div style={{ width: 28, height: 3, background: "#4ADE80", borderRadius: 2, margin: "10px auto 0" }} />
+    {sub && <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 10 }}>{sub}</div>}
   </div>
 );
 
 const BackLink = ({ onClick, label }) => (
   <div style={{ textAlign: "center", marginTop: 18 }}>
     <button onClick={onClick} style={{
-      background: "none", border: "none", color: C.t3, fontSize: 13, cursor: "pointer", fontFamily: FONT,
+      background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 13, cursor: "pointer", fontFamily: FONT,
       transition: "color 0.15s",
     }}
-      onMouseEnter={e => e.currentTarget.style.color = C.primary}
-      onMouseLeave={e => e.currentTarget.style.color = C.t3}
+      onMouseEnter={e => e.currentTarget.style.color = "#4ADE80"}
+      onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.4)"}
     >{label}</button>
   </div>
 );
 
 const inputStyle = {
-  width: "100%", padding: "10px 14px", fontSize: 15, border: `1px solid ${C.line}`,
+  width: "100%", padding: "10px 14px", fontSize: 15, border: "1px solid rgba(255,255,255,0.15)",
   borderRadius: 8, outline: "none", fontFamily: FONT, boxSizing: "border-box",
-  transition: "border-color 0.15s",
+  transition: "border-color 0.15s", background: "rgba(255,255,255,0.06)", color: "#fff",
 };
 
-const focusBorder = (e) => e.target.style.borderColor = C.primary;
-const blurBorder = (e) => e.target.style.borderColor = C.line;
+const focusBorder = (e) => e.target.style.borderColor = "#4ADE80";
+const blurBorder = (e) => e.target.style.borderColor = "rgba(255,255,255,0.15)";
 
 const Page = ({ children }) => (
-  <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.bg, fontFamily: FONT }}>
-    <Header />
-    {children}
+  <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#030712", fontFamily: FONT, position: "relative", overflow: "hidden" }}>
+    <div style={{ position: "absolute", inset: 0, zIndex: 0 }}><NorthernLights /></div>
+    <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+      <Header />
+      {children}
+    </div>
   </div>
 );
 
@@ -181,11 +183,11 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
         <Card width={420}>
           <Title slug={slug} sub="Who's signing in?" />
           {loading ? (
-            <div style={{ textAlign: "center", padding: 20, color: C.t3, fontSize: 13 }}>Loading team...</div>
+            <div style={{ textAlign: "center", padding: 20, color: "rgba(255,255,255,0.4)", fontSize: 13 }}>Loading team...</div>
           ) : members.length === 0 ? (
             <div style={{ textAlign: "center", padding: 20 }}>
-              <div style={{ color: C.t3, fontSize: 13, marginBottom: 12 }}>No team members found.</div>
-              <div style={{ color: C.t4, fontSize: 12 }}>Contact your admin to be added to the team.</div>
+              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginBottom: 12 }}>No team members found.</div>
+              <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12 }}>Contact your admin to be added to the team.</div>
             </div>
           ) : (
             <>
@@ -196,24 +198,24 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
                     onClick={() => pickMember(m)}
                     style={{
                       display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
-                      borderRadius: 8, border: `1px solid ${C.line}`, background: C.white,
+                      borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)",
                       cursor: "pointer", fontFamily: FONT, width: "100%", textAlign: "left",
-                      transition: "all 0.15s",
+                      transition: "all 0.25s",
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.background = C.primarySoft; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.background = C.white; }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(74,222,128,0.4)"; e.currentTarget.style.background = "rgba(255,255,255,0.12)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.transform = "none"; }}
                   >
                     <Avatar member={m} size={36} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: C.dark }}>{m.name}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{m.name}</div>
                       <RoleBadge role={m.role} />
                     </div>
                     {!m.hasPassword && (
-                      <span style={{ fontSize: 11, color: C.t4, background: C.warm200, padding: "2px 8px", borderRadius: 6 }}>
+                      <span style={{ fontSize: 11, color: "#4ADE80", background: "rgba(74,222,128,0.1)", padding: "2px 8px", borderRadius: 6 }}>
                         New
                       </span>
                     )}
-                    <span style={{ fontSize: 14, color: C.t4 }}>{"\u2192"}</span>
+                    <span style={{ fontSize: 14, color: "rgba(255,255,255,0.35)" }}>{"\u2192"}</span>
                   </button>
                 ))}
               </div>
@@ -230,16 +232,16 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
         <Card width={380}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
             <button onClick={() => goBack()} style={{
-              background: "none", border: "none", cursor: "pointer", fontSize: 18, color: C.t3, padding: 0,
+              background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.5)", padding: 0,
             }}>{"\u2190"}</button>
             <Avatar member={selected} size={38} />
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: C.dark }}>{selected.name}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{selected.name}</div>
               <RoleBadge role={selected.role} />
             </div>
           </div>
           <form onSubmit={submitPassword}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6, letterSpacing: 0.5 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 6, letterSpacing: 0.5 }}>
               Your password
             </label>
             <input
@@ -256,12 +258,12 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
           </form>
           <div style={{ textAlign: "center", marginTop: 16 }}>
             <button onClick={() => { setPw(""); setErr(""); setStep("forgot"); }} style={{
-              background: "none", border: `1px solid ${C.line}`, borderRadius: 8,
-              color: C.t3, fontSize: 13, fontWeight: 500, padding: "8px 20px",
+              background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8,
+              color: "rgba(255,255,255,0.4)", fontSize: 13, fontWeight: 500, padding: "8px 20px",
               cursor: "pointer", fontFamily: FONT, transition: "all 0.15s",
             }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.color = C.t3; }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "#4ADE80"; e.currentTarget.style.color = "#4ADE80"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
             >Forgot password?</button>
           </div>
         </Card>
@@ -272,16 +274,16 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
         <Card width={380}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
             <button onClick={() => goBack()} style={{
-              background: "none", border: "none", cursor: "pointer", fontSize: 18, color: C.t3, padding: 0,
+              background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.5)", padding: 0,
             }}>{"\u2190"}</button>
             <Avatar member={selected} size={38} />
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: C.dark }}>{selected.name}</div>
-              <div style={{ fontSize: 11, color: C.primary, fontWeight: 600 }}>Set up your login</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{selected.name}</div>
+              <div style={{ fontSize: 11, color: "#4ADE80", fontWeight: 600 }}>Set up your login</div>
             </div>
           </div>
           <form onSubmit={submitSetPassword}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 6 }}>
               Choose a password
             </label>
             <input
@@ -291,7 +293,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
               onFocus={focusBorder}
               onBlur={blurBorder}
             />
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 6 }}>
               Confirm password
             </label>
             <input
@@ -313,17 +315,17 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
         <Card width={400}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
             <button onClick={() => { setErr(""); setStep("password"); }} style={{
-              background: "none", border: "none", cursor: "pointer", fontSize: 18, color: C.t3, padding: 0,
+              background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.5)", padding: 0,
             }}>{"\u2190"}</button>
             <Avatar member={selected} size={38} />
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: C.dark }}>{selected.name}</div>
-              <div style={{ fontSize: 11, color: C.amber, fontWeight: 600 }}>Reset password</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{selected.name}</div>
+              <div style={{ fontSize: 11, color: "#FBBF24", fontWeight: 600 }}>Reset password</div>
             </div>
           </div>
           <div style={{
-            background: C.warm100, borderRadius: 8, padding: "14px 16px", marginBottom: 18,
-            fontSize: 13, color: C.t2, lineHeight: 1.6,
+            background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "14px 16px", marginBottom: 18,
+            fontSize: 13, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, border: "1px solid rgba(255,255,255,0.08)",
           }}>
             We'll send a password reset link to your email{selected.hasEmail ? ": " : "."}
             {selected.hasEmail && <strong>{maskEmail(selected.maskedEmail || selected.email)}</strong>}
@@ -340,8 +342,8 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
         <Card width={400}>
           <div style={{ textAlign: "center", padding: "12px 0" }}>
             <div style={{ fontSize: 36, marginBottom: 16 }}>{"\u2709\uFE0F"}</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: C.dark, marginBottom: 10 }}>Check your email</div>
-            <div style={{ fontSize: 13, color: C.t3, lineHeight: 1.6, marginBottom: 24 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 10 }}>Check your email</div>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: 24 }}>
               If an email is on file, we've sent a reset link. Check your inbox and click the link to set a new password.
             </div>
             <BackLink onClick={goBack} label="Back to sign in" />
@@ -354,7 +356,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
         <Card width={380}>
           <Title slug={slug || "Grant Engine"} sub="Choose a new password" />
           <form onSubmit={submitResetPassword}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6, letterSpacing: 0.5 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 6, letterSpacing: 0.5 }}>
               New password
             </label>
             <input
@@ -364,7 +366,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
               onFocus={focusBorder}
               onBlur={blurBorder}
             />
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6, letterSpacing: 0.5 }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 6, letterSpacing: 0.5 }}>
               Confirm new password
             </label>
             <input

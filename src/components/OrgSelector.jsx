@@ -2,15 +2,20 @@ import { useState, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
 import { Btn } from "./index";
 import { getOrgs, createNewOrg, deleteOrg } from "../api";
+import NorthernLights from "./NorthernLights";
+import dlabLogo from "../dlab.png";
+import geLogo from "../grants-engine-logo.png";
 
 /* ── Shared avatar ── */
-function OrgAvatar({ name, logoUrl, size = 40, radius = 10, fontSize = 16 }) {
+function OrgAvatar({ name, logoUrl, slug, size = 40, radius = 10, fontSize = 16 }) {
   const [imgErr, setImgErr] = useState(false);
-  if (logoUrl && !imgErr) {
+  // Use dlab.png for d-lab org when no logo_url is set
+  const effectiveLogo = logoUrl || (slug === "dlab" ? dlabLogo : null);
+  if (effectiveLogo && !imgErr) {
     return (
-      <img src={logoUrl} alt=""
+      <img src={effectiveLogo} alt=""
         onError={() => setImgErr(true)}
-        style={{ width: size, height: size, borderRadius: radius, objectFit: "cover", flexShrink: 0 }} />
+        style={{ width: size, height: size, borderRadius: radius, objectFit: "contain", flexShrink: 0, background: "rgba(255,255,255,0.05)" }} />
     );
   }
   return (
@@ -48,6 +53,7 @@ export default function OrgSelector({ onSelect }) {
   const [logoStep, setLogoStep] = useState(false);
   const [faviconLoaded, setFaviconLoaded] = useState(false);
   const [faviconFailed, setFaviconFailed] = useState(false);
+  const [logoPreview, setLogoPreview] = useState(null); // data URL from file upload
 
   // Super-admin mode
   const [adminMode, setAdminMode] = useState(false);
@@ -68,18 +74,13 @@ export default function OrgSelector({ onSelect }) {
     }
   };
 
-  // Step 1: validate form → show logo step if website provided, otherwise create immediately
+  // Step 1: validate form → always show logo step
   const handleCreateClick = (e) => {
     e.preventDefault();
     if (!name || !slug) return;
-    const fav = faviconUrl(website);
-    if (fav) {
-      setLogoStep(true);
-      setFaviconLoaded(false);
-      setFaviconFailed(false);
-    } else {
-      doCreate(null);
-    }
+    setLogoStep(true);
+    setFaviconLoaded(false);
+    setFaviconFailed(false);
   };
 
   // Step 2: actually create the org (with or without logo_url)
@@ -115,82 +116,83 @@ export default function OrgSelector({ onSelect }) {
   // ── Header (shared across views) ──
   const header = (
     <div style={{
-      position: "fixed", top: 0, left: 0, right: 0, height: 56,
-      background: C.navy, display: "flex", alignItems: "center", padding: "0 24px", gap: 12,
-      boxShadow: "0 2px 8px rgba(55, 65, 81, 0.15)",
+      position: "fixed", top: 0, left: 0, right: 0, height: 100, zIndex: 10,
+      background: "rgba(0,0,0,0.5)", backdropFilter: "blur(16px)",
+      display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px",
+      boxShadow: "0 2px 12px rgba(0, 0, 0, 0.3)",
     }}>
-      <div style={{
-        width: 32, height: 32, borderRadius: 8,
-        background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 14, fontWeight: 800, color: C.white,
-      }}>d</div>
-      <span style={{ fontSize: 15, fontWeight: 700, color: C.white, letterSpacing: -0.3 }}>Grant Engine</span>
+      {/* Grants Engine logo — left, bigger */}
+      <img src={geLogo} alt="Grants Engine" style={{ height: 110, objectFit: "contain" }} />
+      {/* d-lab logo — right */}
+      <img src={dlabLogo} alt="d-lab" style={{ height: 44, objectFit: "contain", filter: "brightness(1.15)" }} />
     </div>
   );
 
   // ── Logo step UI ──
   if (logoStep) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.bg, fontFamily: FONT }}>
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#000", fontFamily: FONT, position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, zIndex: 0 }}><NorthernLights /></div>
+        <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
         {header}
-        <div style={{ width: 420, background: C.white, borderRadius: 14, padding: 32, boxShadow: C.cardShadowLg, marginTop: 40, textAlign: "center" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.t4, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Almost Done</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: C.dark, marginBottom: 6 }}>Add a Logo</div>
-          <div style={{ fontSize: 13, color: C.t3, marginBottom: 28 }}>Give <strong>{name}</strong> a visual identity</div>
+        <div style={{ width: 420, background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 32, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", marginTop: 40, textAlign: "center", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.12)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Almost Done</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Add Company Logo</div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginBottom: 28 }}>Upload a logo for <strong>{name}</strong></div>
 
-          {/* Logo preview */}
+          {/* Logo preview / upload area */}
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
-            <div style={{
-              width: 88, height: 88, borderRadius: 14, overflow: "hidden",
-              border: `2px dashed ${C.line}`, display: "flex", alignItems: "center", justifyContent: "center",
-              background: C.warm100,
+            <label style={{
+              width: 100, height: 100, borderRadius: 16, overflow: "hidden",
+              border: "2px dashed rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center",
+              background: "rgba(255,255,255,0.05)", cursor: "pointer", transition: "all 0.2s",
+              flexDirection: "column", gap: 4,
             }}>
-              {fav && !faviconFailed ? (
+              {logoPreview ? (
+                <img src={logoPreview} alt="Logo" style={{ width: 92, height: 92, objectFit: "contain", borderRadius: 14 }} />
+              ) : fav && !faviconFailed ? (
                 <img src={fav} alt="Logo"
                   onLoad={() => setFaviconLoaded(true)}
                   onError={() => setFaviconFailed(true)}
-                  style={{ width: 80, height: 80, objectFit: "contain", borderRadius: 14 }} />
+                  style={{ width: 92, height: 92, objectFit: "contain", borderRadius: 14 }} />
               ) : (
-                <OrgAvatar name={name} size={80} radius={14} fontSize={28} />
+                <>
+                  <span style={{ fontSize: 28, color: "rgba(255,255,255,0.3)" }}>+</span>
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>Upload</span>
+                </>
               )}
-            </div>
+              <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => setLogoPreview(reader.result);
+                reader.readAsDataURL(file);
+              }} />
+            </label>
           </div>
 
-          {fav && faviconLoaded && !faviconFailed && (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 12, color: C.ok, fontWeight: 600, marginBottom: 12 }}>Found logo from website</div>
-              <Btn onClick={() => doCreate(fav)} disabled={creating} style={{ width: "100%", marginBottom: 8 }}>
-                {creating ? "Creating..." : "Use This Logo"}
-              </Btn>
-            </div>
+          {fav && faviconLoaded && !faviconFailed && !logoPreview && (
+            <div style={{ fontSize: 12, color: "#4ADE80", fontWeight: 600, marginBottom: 12 }}>Found logo from website</div>
           )}
 
-          {fav && !faviconLoaded && !faviconFailed && (
-            <div style={{ fontSize: 12, color: C.t4, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <span style={{ display: "inline-block", width: 12, height: 12, border: `2px solid ${C.t4}`, borderTopColor: "transparent", borderRadius: "50%", animation: "ge-spin 0.8s linear infinite" }} />
+          {fav && !faviconLoaded && !faviconFailed && !logoPreview && (
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <span style={{ display: "inline-block", width: 12, height: 12, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "transparent", borderRadius: "50%", animation: "ge-spin 0.8s linear infinite" }} />
               Checking website for a logo...
             </div>
           )}
 
-          {faviconFailed && (
-            <div style={{ fontSize: 12, color: C.t4, marginBottom: 16 }}>No logo found on website</div>
-          )}
-
           {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-            <button onClick={() => doCreate(null)} disabled={creating}
-              style={{
-                fontSize: 13, fontWeight: 600, color: C.t3, background: "none",
-                border: "none", cursor: "pointer", padding: "8px 16px", fontFamily: FONT,
-              }}>{creating ? "Creating..." : "Skip for now"}</button>
-            <button onClick={() => { setLogoStep(false); setErr(""); }}
-              style={{
-                fontSize: 13, fontWeight: 600, color: C.t4, background: "none",
-                border: "none", cursor: "pointer", padding: "8px 16px", fontFamily: FONT,
-              }}>Back</button>
-          </div>
+          <Btn onClick={() => doCreate(logoPreview || (faviconLoaded && !faviconFailed ? fav : null))} disabled={creating} style={{ width: "100%", marginBottom: 10 }}>
+            {creating ? "Creating..." : "Create Organisation"}
+          </Btn>
+          <button onClick={() => { setLogoStep(false); setLogoPreview(null); setErr(""); }}
+            style={{
+              fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.4)", background: "none",
+              border: "none", cursor: "pointer", padding: "8px 16px", fontFamily: FONT,
+            }}>Back</button>
+        </div>
         </div>
       </div>
     );
@@ -264,16 +266,18 @@ export default function OrgSelector({ onSelect }) {
 
   // ── Main selector UI ──
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.bg, fontFamily: FONT }}>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#000", fontFamily: FONT, position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", inset: 0, zIndex: 0 }}><NorthernLights /></div>
+      <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
       {header}
       {deleteModal}
 
-      <div style={{ width: 500, background: C.white, borderRadius: 14, padding: 32, boxShadow: C.cardShadowLg, marginTop: 40 }}>
+      <div style={{ width: 500, background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 32, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", marginTop: 40, backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.12)" }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.t4, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Grant Engine</div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: C.dark, marginBottom: 4 }}>Select Organisation</div>
-          <div style={{ width: 28, height: 3, background: C.primary, borderRadius: 2, margin: "8px auto 0" }} />
-          <div style={{ fontSize: 14, color: C.t3, marginTop: 10 }}>Choose an org to manage or create a new one</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Grant Engine</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Select Organisation</div>
+          <div style={{ width: 28, height: 3, background: "#4ADE80", borderRadius: 2, margin: "8px auto 0" }} />
+          <div style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", marginTop: 10 }}>Choose an org to manage or create a new one</div>
         </div>
 
         {loading ? (
@@ -327,18 +331,18 @@ export default function OrgSelector({ onSelect }) {
                     <button onClick={() => onSelect(org.slug, false)}
                       style={{
                         display: "flex", alignItems: "center", gap: 14, padding: "14px 18px",
-                        background: C.white, border: `1px solid ${C.line}`, borderRadius: adminMode && adminKey ? "10px 0 0 10px" : 10,
-                        boxShadow: C.cardShadow, flex: 1,
+                        background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: adminMode && adminKey ? "10px 0 0 10px" : 10,
+                        boxShadow: "none", flex: 1,
                         cursor: "pointer", textAlign: "left", fontFamily: FONT,
-                        transition: "all 0.2s ease",
+                        transition: "all 0.25s ease",
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.boxShadow = C.cardShadowHover; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = C.primary + "40"; }}
-                      onMouseLeave={e => { e.currentTarget.style.boxShadow = C.cardShadow; e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = C.line; }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = "rgba(74,222,128,0.4)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.3)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.boxShadow = "none"; }}
                     >
-                      <OrgAvatar name={org.name} logoUrl={org.logo_url} />
+                      <OrgAvatar name={org.name} logoUrl={org.logo_url} slug={org.slug} />
                       <div>
-                        <div style={{ fontSize: 15, fontWeight: 600, color: C.dark }}>{org.name}</div>
-                        <div style={{ fontSize: 12, color: C.t3 }}>/{org.slug} {org.industry && `\u00b7 ${org.industry}`}</div>
+                        <div style={{ fontSize: 15, fontWeight: 600, color: "#fff" }}>{org.name}</div>
+                        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}>/{org.slug} {org.industry && `\u00b7 ${org.industry}`}</div>
                       </div>
                     </button>
                     {adminMode && adminKey && (
@@ -381,23 +385,23 @@ export default function OrgSelector({ onSelect }) {
                   )}
                 </>
               ) : (
-                <form onSubmit={handleCreateClick} style={{ borderTop: `1px solid ${C.line}`, paddingTop: 20, width: "100%" }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: C.dark, marginBottom: 16 }}>New Organisation</div>
+                <form onSubmit={handleCreateClick} style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 20, width: "100%" }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#fff", marginBottom: 16 }}>New Organisation</div>
                   <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 4 }}>Name</label>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>Name</label>
                     <input value={name} onChange={e => autoSlug(e.target.value)} placeholder="e.g. StrideShift" autoFocus
-                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, boxSizing: "border-box" }} />
+                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontFamily: FONT, boxSizing: "border-box", background: "rgba(255,255,255,0.06)", color: "#fff" }} />
                   </div>
                   <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 4 }}>URL slug</label>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>URL slug</label>
                     <input value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="strideshift"
-                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: MONO, boxSizing: "border-box" }} />
-                    <div style={{ fontSize: 11, color: C.t4, marginTop: 3 }}>URL will be: /org/{slug || "..."}</div>
+                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontFamily: MONO, boxSizing: "border-box", background: "rgba(255,255,255,0.06)", color: "#fff" }} />
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 3 }}>URL will be: /org/{slug || "..."}</div>
                   </div>
                   <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 4 }}>Website (optional)</label>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>Website (optional)</label>
                     <input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..."
-                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, boxSizing: "border-box" }} />
+                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontFamily: FONT, boxSizing: "border-box", background: "rgba(255,255,255,0.06)", color: "#fff" }} />
                   </div>
                   {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
                   <div style={{ display: "flex", gap: 8 }}>
@@ -411,6 +415,7 @@ export default function OrgSelector({ onSelect }) {
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   );

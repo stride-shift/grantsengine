@@ -2,6 +2,7 @@
 
 export const STAGES = [
   { id: "scouted",    label: "Scouted",       c: "#6B7280", bg: "#F3F4F6" },
+  { id: "vetting",    label: "Vetting",       c: "#0EA5E9", bg: "#F0F9FF" },
   { id: "qualifying", label: "Qualifying",    c: "#2563EB", bg: "#EFF6FF" },
   { id: "drafting",   label: "Drafting",      c: "#C17817", bg: "#FEF5E7" },
   { id: "review",     label: "Review",        c: "#6D28D9", bg: "#F3F0FF" },
@@ -86,16 +87,17 @@ export const TEAM = [
 ];
 
 export const ROLES = {
-  director: { label: "Director", level: 3, can: ["scouted","qualifying","drafting","review","submitted","awaiting","won","lost","deferred"] },
-  board: { label: "Board Member", level: 3, can: ["scouted","qualifying","drafting","review","submitted","awaiting","won","lost","deferred"] },
-  hop: { label: "Head of Programmes", level: 2, can: ["scouted","qualifying","drafting","review"] },
-  pm: { label: "Programme Manager", level: 1, can: ["scouted","qualifying","drafting"] },
-  coord: { label: "Coordinator", level: 1, can: ["scouted","qualifying","drafting"] },
-  comms: { label: "Communications", level: 0, can: ["scouted"] },
+  director: { label: "Director", level: 3, can: ["scouted","vetting","qualifying","drafting","review","submitted","awaiting","won","lost","deferred"] },
+  board: { label: "Board Member", level: 3, can: ["scouted","vetting","qualifying","drafting","review","submitted","awaiting","won","lost","deferred"] },
+  hop: { label: "Head of Programmes", level: 2, can: ["scouted","vetting","qualifying","drafting","review"] },
+  pm: { label: "Programme Manager", level: 1, can: ["scouted","vetting","qualifying","drafting"] },
+  coord: { label: "Coordinator", level: 1, can: ["scouted","vetting","qualifying","drafting"] },
+  comms: { label: "Communications", level: 0, can: ["scouted","vetting"] },
 };
 
 // Approval gates: stage transitions requiring sign-off from a specific role
 export const GATES = {
+  "vetting->qualifying": { need: "board", label: "Board member must confirm grant is worth pursuing" },
   "drafting->review": { need: "hop", label: "Head of Programmes must approve draft for review" },
   "review->submitted": { need: "director", label: "Director must approve before submission" },
   "awaiting->won": { need: "director", label: "Director must confirm award" },

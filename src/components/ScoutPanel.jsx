@@ -374,7 +374,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
       stage: "scouted", ask: 0, funderBudget, askSource: null, aiRecommendedAsk: null,
       deadline: s.deadline || null,
       focus: s.focus || ["Youth Employment", "Digital Skills"], geo: [], rel: "Cold", pri: 3, hrs: 0,
-      notes, market: scoutedMarket,
+      notes, market: scoutedMarket, source: "scout",
       log: [{ d: td(), t: `Scouted by AI · funder budget R${funderBudget.toLocaleString()}${s.access ? ` · ${s.access}` : ""} · ask TBD` }],
       on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null, applyUrl: s.url || "",
     };

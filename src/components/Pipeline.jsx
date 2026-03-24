@@ -28,7 +28,7 @@ const ReadinessChips = ({ missing }) => {
 };
 
 /* ── Gate Indicator — shows approval requirement for next stage ── */
-const STAGE_ORDER = ["scouted", "qualifying", "drafting", "review", "submitted", "awaiting"];
+const STAGE_ORDER = ["scouted", "vetting", "qualifying", "drafting", "review", "submitted", "awaiting"];
 const GateIndicator = ({ stage, ownerRole }) => {
   const idx = STAGE_ORDER.indexOf(stage);
   if (idx < 0 || idx >= STAGE_ORDER.length - 1) return null;
@@ -55,6 +55,7 @@ const GateIndicator = ({ stage, ownerRole }) => {
 const VIEW_OPTIONS = [["kanban", "Board"], ["list", "List"], ["person", "Person"]];
 const CLOSED_STAGES = ["won", "lost", "deferred", "archived"];
 const COMMON_FOCUS = ["Youth Employment", "Digital Skills", "AI/4IR", "Education", "Women", "Rural Dev", "STEM", "Entrepreneurship", "Work Readiness", "Leadership"];
+const GRANT_SOURCES = ["scout", "email", "relationship", "website", "referral", "other"];
 const AVATAR_COLORS = [
   { bg: C.primarySoft, accent: C.primary },
   { bg: C.blueSoft, accent: C.blue },
@@ -83,6 +84,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   const [newRel, setNewRel] = useState("Cold");
   const [newMarket, setNewMarket] = useState("sa");
   const [newApplyUrl, setNewApplyUrl] = useState("");
+  const [newSource, setNewSource] = useState("scout");
   // Step 2: multi-programme selection — Map<ptypeKey, { cohorts }> where key is "1"-"8" or "custom-N"
   const [selectedPTypes, setSelectedPTypes] = useState(new Map());
   const [customProgrammes, setCustomProgrammes] = useState([]); // [{ id, name, cost }]
@@ -170,7 +172,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
     if (activeFilters.size > 0) {
       gs = gs.filter(g => {
         for (const f of activeFilters) {
-          if (f === "due-week") { const d = dL(g.deadline); if (d === null || d > 7 || d < 0) return false; }
+          if (f === "new-week") { const created = g.log?.[0]?.d; if (!created || (Date.now() - new Date(created).getTime()) > 7 * 86400000) return false; }
+          else if (f === "due-week") { const d = dL(g.deadline); if (d === null || d > 7 || d < 0) return false; }
           else if (f === "due-month") { const d = dL(g.deadline); if (d === null || d > 30 || d < 0) return false; }
           else if (f === "no-deadline") { if (g.deadline) return false; }
           else if (f === "no-draft") { if (g.aiDraft) return false; }
@@ -270,7 +273,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
     setShowAdd(false); setAddError(""); setWizStep(1);
     setSelectedPTypes(new Map()); setCustomProgrammes([]);
     setNewAsk(""); setNewDeadline(""); setNewRel("Cold");
-    setNewMarket("sa"); setNewApplyUrl(""); setNewFocusTags([]);
+    setNewMarket("sa"); setNewApplyUrl(""); setNewSource("scout"); setNewFocusTags([]);
     setNewNotes(""); setCustomFocusInput(""); setPendingFiles([]);
     setAutoAI({ fitscore: true, research: false, draft: false });
   };
@@ -304,6 +307,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
       log: [{ d: td(), t: `Grant created · R${finalAsk.toLocaleString()}${ptypeSummary ? ` · ${ptypeSummary}` : ""}` }],
       on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null,
       applyUrl: newApplyUrl,
+      source: newSource,
       _pendingAI: pendingAI,
     };
 
@@ -321,6 +325,28 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
         }
       })();
     }
+  };
+
+  /* ── CSV Export ── */
+  const exportCSV = () => {
+    const escCSV = (v) => {
+      const s = String(v ?? "");
+      return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const headers = ["Name", "Funder", "Type", "Stage", "Ask (R)", "Deadline", "Owner", "Relationship", "Priority", "Source", "Market", "Apply URL", "Created"];
+    const ownerName = (id) => team.find(t => t.id === id)?.name || id;
+    const stageLabel = (id) => stages.find(s => s.id === id)?.label || id;
+    const rows = filtered.map(g => [
+      g.name, g.funder, g.type, stageLabel(g.stage), g.ask || 0, g.deadline || "",
+      ownerName(g.owner), g.rel, g.pri, g.source || "scout", g.market || "sa", g.applyUrl || "",
+      g.log?.[0]?.d || "",
+    ].map(escCSV).join(","));
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `grants-pipeline-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
   };
 
   /* ── Score All: batch AI fit score for every active grant ── */
@@ -434,6 +460,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
               {scoringAll ? `${scoreProgress.done}/${scoreProgress.total}` : "⚡ Score All"}
             </Btn>
           )}
+          <Btn onClick={exportCSV} v="ghost" style={{ fontSize: 11, padding: "4px 10px", color: C.t4 }}>
+            CSV
+          </Btn>
           <Btn onClick={() => { if (batchAction) { setBatchAction(null); setSelectedIds(new Set()); } else { setBatchAction("select"); } }}
             v="ghost" style={{ fontSize: 11, padding: "4px 10px", color: batchAction ? C.primary : C.t4, borderColor: batchAction ? C.primary + "30" : undefined }}>
             {batchAction ? "Done" : "Select"}
@@ -454,6 +483,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
           : { ...chipBase, border: `1px solid ${C.line}`, background: C.white, color: C.t3 };
         return (
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
+            <button onClick={() => toggleFilter("new-week")} style={chipStyle("new-week")}>New this week</button>
             <button onClick={() => toggleFilter("due-week")} style={chipStyle("due-week")}>Due this week</button>
             <button onClick={() => toggleFilter("due-month")} style={chipStyle("due-month")}>Due this month</button>
             <button onClick={() => toggleFilter("no-deadline")} style={chipStyle("no-deadline")}>No deadline</button>
@@ -585,6 +615,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                       notes: parsed.notes || "", applyUrl: parsed.applyUrl || urlInput.trim(),
                       log: [{ d: td(), t: `Created from URL · funder budget R${fBudget.toLocaleString()} · ask TBD` }],
                       market: parsed.type === "International" ? "global" : "sa",
+                      source: "website",
                       on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null,
                     };
                     onAddGrant(g);
@@ -615,6 +646,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                   notes: parsed.notes || "", applyUrl: parsed.applyUrl || urlInput.trim(),
                   log: [{ d: td(), t: `Created from URL · funder budget R${fBudget.toLocaleString()} · ask TBD` }],
                   market: parsed.type === "International" ? "global" : "sa",
+                  source: "website",
                   on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null,
                 };
                 onAddGrant(g);
@@ -684,6 +716,10 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <select value={newSource} onChange={e => setNewSource(e.target.value)}
+                    style={{ padding: "8px 12px", fontSize: 12, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, color: C.t2, background: "white" }}>
+                    {GRANT_SOURCES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                  </select>
                   <input value={newApplyUrl} onChange={e => setNewApplyUrl(e.target.value)} placeholder="Application URL (optional)"
                     style={{ flex: 1, padding: "8px 12px", fontSize: 12, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, color: C.t2 }} />
                   <Btn onClick={() => { if (newName?.trim() && newFunder?.trim()) setWizStep(2); else setAddError("Name and funder required"); }}
@@ -1103,9 +1139,19 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                             </div>
                           )}
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: C.dark, marginBottom: 4, lineHeight: 1.3 }}>{g.name}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: C.dark, marginBottom: 4, lineHeight: 1.3, display: "flex", alignItems: "center", gap: 6 }}>
+                              {g.name}
+                              {g.stage === "scouted" && g.log?.[0]?.d && ((Date.now() - new Date(g.log[0].d).getTime()) < 7 * 86400000) && (
+                                <span style={{ fontSize: 8, fontWeight: 800, padding: "1px 5px", borderRadius: 4, background: C.primary, color: C.white, letterSpacing: 0.8, lineHeight: "14px", flexShrink: 0 }}>NEW</span>
+                              )}
+                            </div>
                             <div style={{ fontSize: 11, color: C.t3, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                               {g.funder}{g.market === "global" ? " \uD83C\uDF0D" : ""}
+                              {g.source && g.source !== "scout" && (
+                                <span style={{ fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 4, background: C.warm200, color: C.t3 }}>
+                                  {g.source}
+                                </span>
+                              )}
                               {g.applyUrl && (
                                 <a href={g.applyUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
                                   style={{ fontSize: 9, fontWeight: 700, color: C.blue, background: C.blue + "12", padding: "1px 6px", borderRadius: 4, textDecoration: "none", whiteSpace: "nowrap" }}

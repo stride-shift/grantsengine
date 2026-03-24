@@ -220,7 +220,7 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
     }
 
     // Auto-advance stage
-    if (["scouted", "qualifying"].includes(g.stage)) {
+    if (["scouted", "vetting", "qualifying"].includes(g.stage)) {
       updates.stage = "drafting";
     }
 

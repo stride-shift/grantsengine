@@ -252,7 +252,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   }, [g.type, compMap]);
 
   // ── Stage classification ──
-  const isEarly = ["scouted", "qualifying"].includes(g.stage);
+  const isEarly = ["scouted", "vetting", "qualifying"].includes(g.stage);
   const isMiddle = ["drafting", "review"].includes(g.stage);
   const isLate = ["submitted", "awaiting"].includes(g.stage);
   const isClosed = ["won", "lost", "deferred", "archived"].includes(g.stage);
@@ -501,6 +501,13 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                   {fs.returning ? "✓ Returning" : g.rel || "Cold"}
                 </div>
               </div>
+              {/* Source */}
+              {g.source && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Source</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.t2 }}>{g.source.charAt(0).toUpperCase() + g.source.slice(1)}</div>
+                </div>
+              )}
               {/* Programme type */}
               {ptNum && (
                 <div>
@@ -906,7 +913,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
 
             // Step 4: Advance stage to drafting (so Proposal Workspace section renders) and trigger auto-generate
             setDiceStep("Writing proposal...");
-            if (["scouted", "qualifying"].includes(g.stage)) up("stage", "drafting");
+            if (["scouted", "vetting", "qualifying"].includes(g.stage)) up("stage", "drafting");
             // Scroll to proposal section after a tick
             setTimeout(() => proposalRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
             // rollingDice stays true — ProposalWorkspace picks it up via autoGenerate prop

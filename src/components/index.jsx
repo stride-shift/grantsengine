@@ -69,7 +69,7 @@ export const Sparkline = ({ data, color = C.primary, w = 80, h = 24 }) => {
 export const Timeline = ({ grants, stages, team, onClickGrant }) => {
   const [showClosed, setShowClosed] = useState(false);
   const [showAllComing, setShowAllComing] = useState(false);
-  const PRE_SUB = ["scouted", "qualifying", "drafting", "review"];
+  const PRE_SUB = ["scouted", "vetting", "qualifying", "drafting", "review"];
 
   const items = grants.filter(g => g.deadline && PRE_SUB.includes(g.stage)).map(g => {
     const days = dL(g.deadline);
