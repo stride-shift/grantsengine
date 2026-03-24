@@ -310,7 +310,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   );
 
   return (
-    <div style={{ padding: "24px 28px", maxWidth: 920 }}>
+    <div style={{ padding: "16px 16px", maxWidth: 920 }}>
       {/* Breadcrumb trail */}
       <div style={{
         display: "flex", alignItems: "center", gap: 6, marginBottom: 20,

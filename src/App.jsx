@@ -17,6 +17,7 @@ import Login from "./components/Login";
 import { ToastProvider, useToast } from "./components/Toast";
 import geLogo from "./grants-engine-logo.png";
 import dlabLogo from "./dlab.png";
+import geIcon from "./ge-icon.png";
 import NorthernLights from "./components/NorthernLights";
 
 // Error boundary — prevents white screen on component crash
@@ -49,6 +50,7 @@ const GrantDetail = lazy(() => import("./components/GrantDetail"));
 const Settings = lazy(() => import("./components/Settings"));
 const Funders = lazy(() => import("./components/Funders"));
 const Admin = lazy(() => import("./components/Admin"));
+const Calendar = lazy(() => import("./components/Calendar"));
 
 injectFonts();
 
@@ -72,6 +74,7 @@ const EMPTY_GRANT = Object.freeze({ name: "", funder: "", type: "", ask: 0, focu
 const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "\u25a6" },
   { id: "pipeline", label: "Pipeline", icon: "\u25b6" },
+  { id: "calendar", label: "Calendar", icon: "\u25C8" },
   { id: "funders", label: "Funders", icon: "\u25c7" },
   { id: "settings", label: "Settings", icon: "\u2699" },
 ];
@@ -111,6 +114,7 @@ function AppInner() {
   const [funderTypes, setFunderTypes] = useState(DEFAULT_FTYPES);
   const [view, setView] = useState("dashboard");
   const [sel, setSel] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [complianceDocs, setComplianceDocs] = useState([]);
   const saveTimers = useRef({});
@@ -445,23 +449,18 @@ function AppInner() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.bg, fontFamily: FONT }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{
-            width: 52, height: 52, borderRadius: 14, margin: "0 auto 18px",
-            background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 22, fontWeight: 800, color: C.white, fontFamily: MONO,
-            boxShadow: `0 4px 20px ${C.primaryGlow}`,
-            animation: "ge-pulse 2s ease-in-out infinite",
-          }}>{(orgSlug || "G")?.[0]?.toUpperCase()}</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: C.dark, marginBottom: 6, letterSpacing: -0.3 }}>Loading your workspace</div>
-          <div style={{ fontSize: 12, color: C.t4 }}>Fetching grants, team, and settings...</div>
-          <div style={{ marginTop: 16, width: 140, height: 3, background: C.line, borderRadius: 2, overflow: "hidden", margin: "16px auto 0" }}>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#030712", fontFamily: FONT, position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, zIndex: 0 }}><NorthernLights /></div>
+        <div style={{ textAlign: "center", position: "relative", zIndex: 1 }}>
+          <img src={geLogo} alt="Grants Engine" style={{ height: 80, objectFit: "contain", marginBottom: 24, animation: "ge-pulse 2.5s ease-in-out infinite" }} />
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 8, letterSpacing: -0.3 }}>Loading your workspace</div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)" }}>Fetching grants, team, and settings...</div>
+          <div style={{ marginTop: 20, width: 180, height: 3, background: "rgba(255,255,255,0.1)", borderRadius: 2, overflow: "hidden", margin: "20px auto 0" }}>
             <div style={{
               height: "100%", borderRadius: 2,
-              background: `linear-gradient(90deg, ${C.primary}, ${C.navy})`,
-              animation: "app-load-bar 2.5s ease-in-out infinite",
+              background: "linear-gradient(90deg, #4ADE80, #22D3EE, #4ADE80)",
+              backgroundSize: "200% 100%",
+              animation: "app-load-bar 2s ease-in-out infinite",
             }} />
           </div>
         </div>
@@ -478,30 +477,52 @@ function AppInner() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", fontFamily: FONT, background: C.bg }}>
-      {/* Sidebar */}
-      <div style={{
+      {/* Mobile top header */}
+      <div className="ge-mobile-header" style={{
+        display: "none", position: "fixed", top: 0, left: 0, right: 0, height: 56, zIndex: 20,
+        background: "#0a1628", alignItems: "center", justifyContent: "space-between", padding: "0 16px",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+      }}>
+        <button onClick={() => setMobileMenuOpen(true)} style={{
+          background: "none", border: "none", cursor: "pointer", padding: 6, color: "#fff", fontSize: 22,
+        }}>{"\u2630"}</button>
+        <img src={geLogo} alt="Grants Engine" style={{ height: 32, objectFit: "contain" }} />
+        <div style={{ width: 34 }} />
+      </div>
+
+      {/* Mobile overlay */}
+      <div className={`ge-sidebar-overlay${mobileMenuOpen ? " ge-sidebar-open" : ""}`} onClick={() => setMobileMenuOpen(false)} />
+
+      {/* Sidebar background animation */}
+      <div className={`ge-sidebar-bg${mobileMenuOpen ? " ge-sidebar-open" : ""}`} style={{ position: "fixed", top: 0, left: 0, width: 240, bottom: 0, zIndex: 9 }}>
+        <NorthernLights />
+      </div>
+      {/* Sidebar — dark glass on aurora */}
+      <div className={`ge-sidebar${mobileMenuOpen ? " ge-sidebar-open" : ""}`} style={{
         width: 240, position: "fixed", top: 0, left: 0, bottom: 0, overflow: "hidden",
         display: "flex", flexDirection: "column",
+        background: "rgba(0,0,0,0.15)",
         borderRight: "1px solid rgba(255,255,255,0.1)",
         boxShadow: "1px 0 20px rgba(0, 0, 0, 0.2)",
         zIndex: 10,
       }}>
-        {/* Sidebar background animation */}
-        <div style={{ position: "absolute", inset: 0, zIndex: 0 }}><NorthernLights /></div>
-        {/* Sidebar glass overlay */}
-        <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "rgba(0,0,0,0.15)", backdropFilter: "blur(2px)" }} />
-        {/* Grants Engine logo — top, big */}
-        <div style={{ padding: "20px 16px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 2 }}>
-          <img src={geLogo} alt="Grants Engine" style={{ height: 80, objectFit: "contain" }} />
+        {/* Grants Engine logo — top */}
+        <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <img src={geLogo} alt="Grants Engine" style={{ height: 40, objectFit: "contain" }} />
+          {/* Close button — visible only on mobile via CSS (ge-mobile-header controls) */}
+          <button onClick={() => setMobileMenuOpen(false)} style={{
+            background: "none", border: "none", color: "rgba(255,255,255,0.5)",
+            fontSize: 20, cursor: "pointer", padding: 4, display: "none",
+          }} className="ge-mobile-header">{"\u2715"}</button>
         </div>
 
         {/* Nav items */}
-        <div style={{ flex: 1, padding: "14px 10px", position: "relative", zIndex: 2 }}>
+        <div style={{ flex: 1, padding: "14px 10px" }}>
           {[...SIDEBAR_ITEMS, ...(currentMember?.role === "director" ? [{ id: "admin", label: "Admin", icon: "\u25CA" }] : [])].map(item => {
             const active = !sel && view === item.id;
             return (
               <button key={item.id}
-                onClick={() => { setView(item.id); setSel(null); }}
+                onClick={() => { setView(item.id); setSel(null); setMobileMenuOpen(false); }}
                 style={{
                   display: "flex", alignItems: "center", gap: 8, width: "100%",
                   padding: "8px 12px", marginBottom: 2, border: "none",
@@ -528,22 +549,26 @@ function AppInner() {
           })}
         </div>
 
-        {/* Bottom: d-lab logo + actions */}
-        <div style={{ position: "relative", zIndex: 2, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-          {/* d-lab logo + org info */}
+        {/* Bottom: org info + actions */}
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}>
           <div style={{ padding: "12px 16px 8px", display: "flex", alignItems: "center", gap: 10 }}>
-            <img src={dlabLogo} alt="d-lab" style={{ height: 36, objectFit: "contain", filter: "brightness(1.15)", flexShrink: 0 }} />
+            {org?.logo_url ? (
+              <img src={org.logo_url} alt={org?.name || ""} style={{ height: 32, width: 32, objectFit: "contain", borderRadius: 6, flexShrink: 0 }} />
+            ) : (
+              <div style={{ width: 32, height: 32, borderRadius: 6, background: "rgba(74,222,128,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#4ADE80", flexShrink: 0 }}>
+                {(org?.name || orgSlug || "?").charAt(0).toUpperCase()}
+              </div>
+            )}
             <div>
               <div style={{ fontSize: 12, fontWeight: 600, color: "#E2E8F0", lineHeight: 1.2 }}>{org?.name || orgSlug}</div>
               <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", fontWeight: 500, marginTop: 2 }}>
                 {saveState === "saving" && <span style={{ color: "#FBBF24", animation: "ge-pulse 1.2s ease-in-out infinite" }}>Saving...</span>}
                 {saveState === "saved" && <span style={{ color: "#4ADE80" }}>✓ Saved</span>}
                 {saveState === "error" && <span style={{ color: "#F87171" }}>Save failed</span>}
-                {saveState === "idle" && "Grant Engine"}
+                {saveState === "idle" && "Grants Engine"}
               </div>
             </div>
           </div>
-          {/* Switch / Sign Out */}
           <div style={{ padding: "4px 10px 10px", display: "flex", flexDirection: "column", gap: 1 }}>
             <button onClick={handleSwitchOrg}
               style={{
@@ -578,7 +603,7 @@ function AppInner() {
       </div>
 
       {/* Main content */}
-      <div style={{ flex: 1, overflow: "auto", background: C.bg, marginLeft: 240 }}>
+      <div className="ge-main" style={{ flex: 1, overflow: "auto", background: C.bg, marginLeft: 240 }}>
         <ErrorBoundary>
         <Suspense fallback={
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", gap: 10 }}>
@@ -637,6 +662,13 @@ function AppInner() {
             onRunAI={runAI}
             api={api}
             onToast={toast}
+          />
+        ) : view === "calendar" ? (
+          <Calendar
+            grants={grants}
+            team={team}
+            stages={stages}
+            onSelectGrant={(id) => setSel(id)}
           />
         ) : view === "funders" ? (
           <Funders

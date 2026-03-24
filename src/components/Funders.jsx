@@ -135,7 +135,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
   const FTYPE_COLORS = { "Corporate CSI": C.primary, "Government/SETA": C.blue, "International": C.purple, "Foundation": C.amber, "Tech Company": C.teal, "Partnership": C.purple };
 
   return (
-    <div style={{ padding: "28px 32px", height: "100%", overflow: "auto" }}>
+    <div style={{ padding: "16px 16px", height: "100%", overflow: "auto" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>

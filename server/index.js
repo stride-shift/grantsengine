@@ -6,6 +6,7 @@ import cron from 'node-cron';
 import app from './app.js';
 import { initDb, cleanExpiredSessions, getOrgBySlug } from './db.js';
 import { runAutoScout } from './jobs/scout.js';
+import { runDeadlineReminders } from './jobs/deadlineReminders.js';
 
 const PORT = process.env.PORT || 3001;
 
@@ -70,4 +71,12 @@ app.listen(PORT, async () => {
     }
   }, { timezone: 'Africa/Johannesburg' });
   console.log('Nightly auto-scout scheduled for 00:00 SAST');
+
+  // ── Deadline reminders: every 30 minutes ──
+  cron.schedule('*/30 * * * *', async () => {
+    console.log('[Cron] Deadline reminder check');
+    try { await runDeadlineReminders(); }
+    catch (e) { console.error('[Cron] Deadline reminders failed:', e.message); }
+  }, { timezone: 'Africa/Johannesburg' });
+  console.log('Deadline reminders scheduled (every 30 min)');
 });

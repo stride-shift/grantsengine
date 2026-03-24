@@ -9,7 +9,7 @@ import {
 } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { resolveOrg } from '../middleware/org.js';
-import { sendStageChangeEmail } from '../email.js';
+import { sendStageChangeEmail, sendAssignmentEmail, sendGrantCreatedEmail, sendGrantDeletedEmail, sendCalendarCancellation, sendOwnershipRemovedEmail } from '../email.js';
 
 const router = Router();
 
@@ -32,43 +32,133 @@ router.put('/org/:slug/grants', ...orgAuth, w(async (req, res) => {
   res.json({ ok: true });
 }));
 
+const CLOSED_STAGES = ['won', 'lost', 'deferred', 'archived'];
+
 router.put('/org/:slug/grants/:id', ...orgAuth, w(async (req, res) => {
   const grant = req.body;
   if (!grant) return res.status(400).json({ error: 'Grant data required' });
 
-  // Detect stage changes before upserting
   const existing = await getGrantById(req.params.id, req.orgId);
   const id = await upsertGrant(req.orgId, { ...grant, id: req.params.id });
 
-  // Log activity (best-effort)
-  if (existing && existing.stage !== grant.stage && grant.stage) {
+  const stageChanged = existing && grant.stage && existing.stage !== grant.stage;
+  const ownerChanged = existing && grant.owner && grant.owner !== existing.owner && grant.owner !== 'team';
+  const grantName = grant.name || existing?.name || '';
+  const grantFunder = grant.funder || existing?.funder || '';
+  const deadline = grant.deadline || existing?.deadline || null;
+  const isActive = !CLOSED_STAGES.includes(grant.stage || existing?.stage);
+
+  // Log activity
+  if (stageChanged) {
     logActivity(req.orgId, 'stage_change', {
       memberId: req.memberId, sessionToken: req.session?.token, grantId: id,
-      meta: { grant_name: grant.name, from_stage: existing.stage, to_stage: grant.stage },
+      meta: { grant_name: grantName, from_stage: existing.stage, to_stage: grant.stage },
     }).catch(() => {});
-
-    // Send email notification to grant owner (best-effort, non-blocking)
-    (async () => {
-      try {
-        const owner = grant.owner || existing.owner;
-        if (!owner || owner === 'team') return;
-        const members = await getTeamMembers(req.orgId);
-        const ownerMember = members.find(m => m.id === owner);
-        if (!ownerMember?.email) return;
-        const movedBy = members.find(m => m.id === req.memberId);
-        await sendStageChangeEmail(
-          ownerMember.email, ownerMember.name,
-          grant.name || existing.name, grant.funder || existing.funder,
-          existing.stage, grant.stage,
-          movedBy?.name || null
-        );
-      } catch (e) { console.error('[email] Stage notification failed:', e.message); }
-    })();
   } else {
     logActivity(req.orgId, 'grant_update', {
       memberId: req.memberId, sessionToken: req.session?.token, grantId: id,
-      meta: { grant_name: grant.name },
+      meta: { grant_name: grantName },
     }).catch(() => {});
+  }
+
+  const newStage = grant.stage || existing?.stage;
+  const wasActive = !CLOSED_STAGES.includes(existing?.stage);
+  const justClosed = stageChanged && !isActive && wasActive;
+  const justSubmitted = stageChanged && grant.stage === 'submitted';
+
+  // ── Meaningful stage change notification ──
+  // Only if: stage actually changed, grant has owner, grant is still active, not submitted/closed
+  if (stageChanged && isActive && !justSubmitted) {
+    const owner = grant.owner || existing.owner;
+    if (owner && owner !== 'team') {
+      (async () => {
+        try {
+          const members = await getTeamMembers(req.orgId);
+          const ownerMember = members.find(m => m.id === owner);
+          if (!ownerMember?.email) return;
+          const movedBy = members.find(m => m.id === req.memberId);
+          await sendStageChangeEmail(
+            ownerMember.email, ownerMember.name,
+            grantName, grantFunder,
+            existing.stage, grant.stage,
+            movedBy?.name || null, id, deadline
+          );
+        } catch (e) { console.error('[email] Stage notification failed:', e.message); }
+      })();
+    }
+  }
+
+  // ── Grant submitted or closed: cancel calendar task ──
+  if (justSubmitted || justClosed) {
+    const owner = grant.owner || existing.owner;
+    if (owner && owner !== 'team') {
+      (async () => {
+        try {
+          const members = await getTeamMembers(req.orgId);
+          const ownerMember = members.find(m => m.id === owner);
+          if (!ownerMember?.email) return;
+          sendCalendarCancellation(ownerMember.email, id).catch(() => {});
+          // Optional confirmation email for submitted
+          if (justSubmitted) {
+            const movedBy = members.find(m => m.id === req.memberId);
+            await sendStageChangeEmail(
+              ownerMember.email, ownerMember.name,
+              grantName, grantFunder,
+              existing.stage, grant.stage,
+              movedBy?.name || null, id, null // no calendar for submitted
+            );
+          }
+        } catch (e) { console.error('[email] Submit/close notification failed:', e.message); }
+      })();
+    }
+  }
+
+  // ── Owner changed ──
+  if (ownerChanged) {
+    (async () => {
+      try {
+        const members = await getTeamMembers(req.orgId);
+        const newOwner = members.find(m => m.id === grant.owner);
+
+        // Old owner: ownership removed email + cancel calendar
+        if (existing.owner && existing.owner !== 'team') {
+          const oldOwner = members.find(m => m.id === existing.owner);
+          if (oldOwner?.email) {
+            sendOwnershipRemovedEmail(oldOwner.email, oldOwner.name, grantName, grantFunder, newOwner?.name || null).catch(() => {});
+            sendCalendarCancellation(oldOwner.email, id).catch(() => {});
+          }
+        }
+
+        // New owner: assignment email + calendar (if deadline exists)
+        if (!newOwner?.email) return;
+        const assignedBy = members.find(m => m.id === req.memberId);
+        await sendAssignmentEmail(
+          newOwner.email, newOwner.name,
+          grantName, grantFunder,
+          assignedBy?.name || null, id, deadline, newStage
+        );
+      } catch (e) { console.error('[email] Assignment notification failed:', e.message); }
+    })();
+  }
+
+  // ── Deadline changed (without owner change): update calendar for current owner ──
+  const deadlineChanged = existing && grant.deadline && grant.deadline !== existing.deadline;
+  if (deadlineChanged && !ownerChanged && isActive) {
+    const currentOwner = grant.owner || existing.owner;
+    if (currentOwner && currentOwner !== 'team') {
+      (async () => {
+        try {
+          const members = await getTeamMembers(req.orgId);
+          const ownerMember = members.find(m => m.id === currentOwner);
+          if (!ownerMember?.email) return;
+          await sendAssignmentEmail(
+            ownerMember.email, ownerMember.name,
+            grantName, grantFunder,
+            null, id, grant.deadline, newStage
+          );
+        } catch (e) { console.error('[email] Deadline update notification failed:', e.message); }
+      })();
+    }
   }
 
   res.json({ ok: true, id });
@@ -84,6 +174,18 @@ router.post('/org/:slug/grants', ...orgAuth, w(async (req, res) => {
     meta: { grant_name: grant.name },
   }).catch(() => {});
 
+  // ── New grant: email everyone except creator, no calendar task ──
+  (async () => {
+    try {
+      const members = await getTeamMembers(req.orgId);
+      const createdBy = members.find(m => m.id === req.memberId);
+      for (const m of members) {
+        if (!m.email || m.id === 'team' || m.id === req.memberId) continue;
+        sendGrantCreatedEmail(m.email, m.name, grant.name, grant.funder || '', createdBy?.name || null, id).catch(() => {});
+      }
+    } catch (e) { console.error('[email] Grant created notification failed:', e.message); }
+  })();
+
   res.status(201).json({ ok: true, id });
 }));
 
@@ -95,6 +197,20 @@ router.delete('/org/:slug/grants/:id', ...orgAuth, w(async (req, res) => {
     memberId: req.memberId, sessionToken: req.session?.token, grantId: req.params.id,
     meta: { grant_name: existing?.name || '' },
   }).catch(() => {});
+
+  // ── Delete: notify owner + cancel calendar ──
+  if (existing?.owner && existing.owner !== 'team') {
+    (async () => {
+      try {
+        const members = await getTeamMembers(req.orgId);
+        const ownerMember = members.find(m => m.id === existing.owner);
+        if (!ownerMember?.email) return;
+        const deletedBy = members.find(m => m.id === req.memberId);
+        await sendGrantDeletedEmail(ownerMember.email, ownerMember.name, existing.name, existing.funder || '', deletedBy?.name || null);
+        sendCalendarCancellation(ownerMember.email, req.params.id).catch(() => {});
+      } catch (e) { console.error('[email] Grant deleted notification failed:', e.message); }
+    })();
+  }
 
   res.json({ ok: true });
 }));

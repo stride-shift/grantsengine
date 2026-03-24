@@ -5,32 +5,37 @@ import { getTeamPublic, requestPasswordReset, resetPasswordWithToken } from "../
 import NorthernLights from "./NorthernLights";
 import geLogo from "../grants-engine-logo.png";
 import dlabLogo from "../dlab.png";
+import geIcon from "../ge-icon.png";
 
 const ROLE_ORDER = { director: 0, hop: 1, pm: 2, board: 3, none: 9 };
 
 // ── Shared layout components (defined outside to prevent remounting) ──
 
-const Header = () => (
+const Header = ({ onLogoClick }) => (
   <div style={{
-    position: "fixed", top: 0, left: 0, right: 0, height: 100, zIndex: 10,
+    position: "fixed", top: 0, left: 0, right: 0, height: 80, zIndex: 10,
     background: "rgba(0,0,0,0.5)", backdropFilter: "blur(16px)",
-    display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px",
-    boxShadow: "0 2px 12px rgba(0, 0, 0, 0.3)",
+    display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px",
+    boxShadow: "0 2px 12px rgba(0, 0, 0, 0.3)", pointerEvents: "auto",
   }}>
-    <img src={geLogo} alt="Grants Engine" style={{ height: 110, objectFit: "contain" }} />
-    <img src={dlabLogo} alt="d-lab" style={{ height: 44, objectFit: "contain", filter: "brightness(1.15)" }} />
+    <div onClick={onLogoClick} style={{ display: "flex", alignItems: "center", gap: 10, cursor: onLogoClick ? "pointer" : "default", transition: "opacity 0.2s" }}
+      onMouseEnter={e => { if (onLogoClick) e.currentTarget.style.opacity = "0.8"; }}
+      onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
+    >
+            <img src={geLogo} alt="Grants Engine" style={{ height: 50, objectFit: "contain" }} />
+    </div>
   </div>
 );
 
 const Card = ({ children, width = 420 }) => (
-  <div style={{ width, background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: "28px 32px", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", marginTop: 40, backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.12)" }}>
+  <div style={{ width: "90%", maxWidth: width, background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: "24px 20px", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", marginTop: 24, backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.12)", pointerEvents: "auto" }}>
     {children}
   </div>
 );
 
 const Title = ({ slug, sub }) => (
   <div style={{ textAlign: "center", marginBottom: 24 }}>
-    <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Grant Engine</div>
+    <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Grants Engine</div>
     <div style={{ fontSize: 20, fontWeight: 700, color: "#fff" }}>{slug}</div>
     <div style={{ width: 28, height: 3, background: "#4ADE80", borderRadius: 2, margin: "10px auto 0" }} />
     {sub && <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 10 }}>{sub}</div>}
@@ -52,17 +57,18 @@ const BackLink = ({ onClick, label }) => (
 const inputStyle = {
   width: "100%", padding: "10px 14px", fontSize: 15, border: "1px solid rgba(255,255,255,0.15)",
   borderRadius: 8, outline: "none", fontFamily: FONT, boxSizing: "border-box",
-  transition: "border-color 0.15s", background: "rgba(255,255,255,0.06)", color: "#fff",
+  transition: "border-color 0.15s", background: "rgba(255,255,255,0.1)", color: "#fff", caretColor: "#fff",
 };
+const inputClassName = "ge-dark-input";
 
 const focusBorder = (e) => e.target.style.borderColor = "#4ADE80";
 const blurBorder = (e) => e.target.style.borderColor = "rgba(255,255,255,0.15)";
 
-const Page = ({ children }) => (
-  <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#030712", fontFamily: FONT, position: "relative", overflow: "hidden" }}>
-    <div style={{ position: "absolute", inset: 0, zIndex: 0 }}><NorthernLights /></div>
-    <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-      <Header />
+const Page = ({ children, onLogoClick }) => (
+  <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", background: "#030712", fontFamily: FONT, position: "relative" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 0 }}><NorthernLights /></div>
+    <Header onLogoClick={onLogoClick} />
+    <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, pointerEvents: "none", padding: "100px 0 40px" }}>
       {children}
     </div>
   </div>
@@ -162,7 +168,10 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
     setBusy(true);
     setErr("");
     try {
-      await resetPasswordWithToken(slug, resetToken, pw);
+      const data = await resetPasswordWithToken(slug, resetToken, pw);
+      // Auto-login: reload the app since auth is now set in localStorage
+      window.location.href = window.location.pathname;
+      return;
     } catch (ex) {
       setErr(ex.message);
     }
@@ -177,7 +186,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
   };
 
   return (
-    <Page>
+    <Page onLogoClick={onBack}>
       {/* ── Step 1: Pick your name ── */}
       {step === "pick" && (
         <Card width={420}>
@@ -191,13 +200,13 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
             </div>
           ) : (
             <>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: "calc(100vh - 320px)", overflowY: "auto", scrollbarWidth: "none", msOverflowStyle: "none" }}>
                 {members.map(m => (
                   <button
                     key={m.id}
                     onClick={() => pickMember(m)}
                     style={{
-                      display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
+                      display: "flex", alignItems: "center", gap: 12, padding: "8px 12px",
                       borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)",
                       cursor: "pointer", fontFamily: FONT, width: "100%", textAlign: "left",
                       transition: "all 0.25s",
@@ -247,6 +256,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
             <input
               type="password" value={pw} onChange={e => setPw(e.target.value)}
               placeholder="Enter your password" autoFocus
+              className={inputClassName}
               style={{ ...inputStyle, marginBottom: 16 }}
               onFocus={focusBorder}
               onBlur={blurBorder}
@@ -289,6 +299,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
             <input
               type="password" value={pw} onChange={e => setPw(e.target.value)}
               placeholder="At least 6 characters" autoFocus
+              className={inputClassName}
               style={{ ...inputStyle, marginBottom: 12 }}
               onFocus={focusBorder}
               onBlur={blurBorder}
@@ -299,6 +310,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
             <input
               type="password" value={pw2} onChange={e => setPw2(e.target.value)}
               placeholder="Type it again"
+              className={inputClassName}
               style={{ ...inputStyle, marginBottom: 16 }}
               onFocus={focusBorder}
               onBlur={blurBorder}
@@ -354,7 +366,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
       {/* ── Step 5: Reset password from email link ── */}
       {step === "reset" && (
         <Card width={380}>
-          <Title slug={slug || "Grant Engine"} sub="Choose a new password" />
+          <Title slug={slug || "Grants Engine"} sub="Choose a new password" />
           <form onSubmit={submitResetPassword}>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 6, letterSpacing: 0.5 }}>
               New password
@@ -362,6 +374,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
             <input
               type="password" value={pw} onChange={e => setPw(e.target.value)}
               placeholder="At least 6 characters" autoFocus
+              className={inputClassName}
               style={{ ...inputStyle, marginBottom: 14 }}
               onFocus={focusBorder}
               onBlur={blurBorder}
@@ -372,6 +385,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
             <input
               type="password" value={pw2} onChange={e => setPw2(e.target.value)}
               placeholder="Type it again"
+              className={inputClassName}
               style={{ ...inputStyle, marginBottom: 16 }}
               onFocus={focusBorder}
               onBlur={blurBorder}
