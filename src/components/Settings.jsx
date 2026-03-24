@@ -211,7 +211,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
   };
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 800 }}>
+    <div style={{ padding: "16px 16px", maxWidth: 800 }}>
       <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, color: C.dark, marginBottom: 6 }}>Settings</div>
       <div style={{ width: 32, height: 3, background: C.primary, borderRadius: 2, marginBottom: 20 }} />
 

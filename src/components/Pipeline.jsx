@@ -170,15 +170,25 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
     }
     if (sf !== "all") gs = gs.filter(g => g.type === sf);
     if (activeFilters.size > 0) {
+      // Separate owner filters (OR logic) from other filters (AND logic)
+      const ownerFilters = [...activeFilters].filter(f => f.startsWith("owner:") || f === "unassigned");
+      const otherFilters = [...activeFilters].filter(f => !f.startsWith("owner:") && f !== "unassigned");
       gs = gs.filter(g => {
-        for (const f of activeFilters) {
+        // AND logic for non-owner filters
+        for (const f of otherFilters) {
           if (f === "new-week") { const created = g.log?.[0]?.d; if (!created || (Date.now() - new Date(created).getTime()) > 7 * 86400000) return false; }
           else if (f === "due-week") { const d = dL(g.deadline); if (d === null || d > 7 || d < 0) return false; }
           else if (f === "due-month") { const d = dL(g.deadline); if (d === null || d > 30 || d < 0) return false; }
           else if (f === "no-deadline") { if (g.deadline) return false; }
           else if (f === "no-draft") { if (g.aiDraft) return false; }
-          else if (f === "unassigned") { if (g.owner && g.owner !== "team") return false; }
-          else if (f.startsWith("owner:")) { if (g.owner !== f.slice(6)) return false; }
+        }
+        // OR logic for owner/unassigned filters — grant matches if it belongs to ANY selected person
+        if (ownerFilters.length > 0) {
+          const matchesAny = ownerFilters.some(f => {
+            if (f === "unassigned") return !g.owner || g.owner === "team";
+            return g.owner === f.slice(6);
+          });
+          if (!matchesAny) return false;
         }
         return true;
       });
@@ -375,9 +385,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   const closedStages = STAGES.filter(s => CLOSED_STAGES.includes(s.id));
 
   return (
-    <div style={{ padding: "20px 24px", height: "100%", display: "flex", flexDirection: "column" }}>
+    <div style={{ padding: "16px 16px", height: "100%", display: "flex", flexDirection: "column" }}>
       {/* Row 1: Title + Market tabs + Add */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Pipeline</div>
           <div style={{ display: "flex", gap: 3 }}>

@@ -4,9 +4,19 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 30
+    },
+    "api/cron/reminders.js": {
+      "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "*/30 * * * *"
+    }
+  ],
   "rewrites": [
+    { "source": "/api/cron/(.*)", "destination": "/api/cron/$1" },
     { "source": "/api/(.*)", "destination": "/api/index.js" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]

@@ -204,7 +204,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
   }
 
   return (
-    <div style={{ padding: "24px 32px", fontFamily: FONT, maxWidth: 900 }}>
+    <div style={{ padding: "16px 16px", fontFamily: FONT, maxWidth: 900 }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Admin</div>

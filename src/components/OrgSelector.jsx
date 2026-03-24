@@ -5,6 +5,7 @@ import { getOrgs, createNewOrg, deleteOrg } from "../api";
 import NorthernLights from "./NorthernLights";
 import dlabLogo from "../dlab.png";
 import geLogo from "../grants-engine-logo.png";
+import geIcon from "../ge-icon.png";
 
 /* ── Shared avatar ── */
 function OrgAvatar({ name, logoUrl, slug, size = 40, radius = 10, fontSize = 16 }) {
@@ -116,26 +117,24 @@ export default function OrgSelector({ onSelect }) {
   // ── Header (shared across views) ──
   const header = (
     <div style={{
-      position: "fixed", top: 0, left: 0, right: 0, height: 100, zIndex: 10,
+      position: "fixed", top: 0, left: 0, right: 0, height: 80, zIndex: 10,
       background: "rgba(0,0,0,0.5)", backdropFilter: "blur(16px)",
-      display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px",
-      boxShadow: "0 2px 12px rgba(0, 0, 0, 0.3)",
+      display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px",
+      boxShadow: "0 2px 12px rgba(0, 0, 0, 0.3)", pointerEvents: "auto",
     }}>
-      {/* Grants Engine logo — left, bigger */}
-      <img src={geLogo} alt="Grants Engine" style={{ height: 110, objectFit: "contain" }} />
-      {/* d-lab logo — right */}
-      <img src={dlabLogo} alt="d-lab" style={{ height: 44, objectFit: "contain", filter: "brightness(1.15)" }} />
+      {/* Grants Engine logo — left */}
+            <img src={geLogo} alt="Grants Engine" style={{ height: 50, objectFit: "contain" }} />
     </div>
   );
 
   // ── Logo step UI ──
   if (logoStep) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#000", fontFamily: FONT, position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, zIndex: 0 }}><NorthernLights /></div>
-        <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", background: "#000", fontFamily: FONT, position: "relative" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 0 }}><NorthernLights /></div>
+        <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, pointerEvents: "none", padding: "100px 0 40px" }}>
         {header}
-        <div style={{ width: 420, background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 32, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", marginTop: 40, textAlign: "center", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.12)" }}>
+        <div style={{ width: "90%", maxWidth: 420, background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: "28px 24px", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", textAlign: "center", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.12)", pointerEvents: "auto" }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Almost Done</div>
           <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Add Company Logo</div>
           <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginBottom: 28 }}>Upload a logo for <strong>{name}</strong></div>
@@ -201,7 +200,7 @@ export default function OrgSelector({ onSelect }) {
   // ── Delete confirmation modal ──
   const deleteModal = deleteTarget && (
     <div style={{
-      position: "fixed", inset: 0, background: "rgba(55, 65, 81, 0.5)", zIndex: 9999,
+      position: "fixed", inset: 0, background: "rgba(55, 65, 81, 0.5)", zIndex: 9999, pointerEvents: "auto",
       display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT,
     }} onClick={() => { if (!deleting) { setDeleteTarget(null); setConfirmSlug(""); setDeleteErr(""); } }}>
       <div onClick={e => e.stopPropagation()} style={{
@@ -266,15 +265,15 @@ export default function OrgSelector({ onSelect }) {
 
   // ── Main selector UI ──
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#000", fontFamily: FONT, position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", inset: 0, zIndex: 0 }}><NorthernLights /></div>
-      <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", background: "#000", fontFamily: FONT, position: "relative" }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 0 }}><NorthernLights /></div>
       {header}
       {deleteModal}
+      <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, pointerEvents: "none", padding: "100px 0 40px" }}>
 
-      <div style={{ width: 500, background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 32, boxShadow: "0 8px 32px rgba(0,0,0,0.4)", marginTop: 40, backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.12)" }}>
+      <div style={{ width: "90%", maxWidth: 500, background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: "28px 24px", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.12)", pointerEvents: "auto" }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Grant Engine</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Grants Engine</div>
           <div style={{ fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Select Organisation</div>
           <div style={{ width: 28, height: 3, background: "#4ADE80", borderRadius: 2, margin: "8px auto 0" }} />
           <div style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", marginTop: 10 }}>Choose an org to manage or create a new one</div>
@@ -367,9 +366,16 @@ export default function OrgSelector({ onSelect }) {
             <div style={{ display: "flex", gap: 8 }}>
               {!showCreate ? (
                 <>
-                  <Btn onClick={() => setShowCreate(true)} v="ghost" style={{ flex: 1 }}>
+                  <button onClick={() => setShowCreate(true)} style={{
+                    flex: 1, padding: "12px 16px", fontSize: 13, fontWeight: 600, fontFamily: FONT,
+                    borderRadius: 8, border: "1px solid rgba(255,255,255,0.25)", background: "rgba(255,255,255,0.08)",
+                    color: "#fff", cursor: "pointer", transition: "all 0.2s",
+                  }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.15)"; e.currentTarget.style.borderColor = "rgba(74,222,128,0.5)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; }}
+                  >
                     + Create New Organisation
-                  </Btn>
+                  </button>
                   {!adminMode && (
                     <button onClick={() => setAdminMode(true)}
                       title="Super Admin"
@@ -386,22 +392,22 @@ export default function OrgSelector({ onSelect }) {
                 </>
               ) : (
                 <form onSubmit={handleCreateClick} style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 20, width: "100%" }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "#fff", marginBottom: 16 }}>New Organisation</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 16 }}>New Organisation</div>
                   <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>Name</label>
-                    <input value={name} onChange={e => autoSlug(e.target.value)} placeholder="e.g. StrideShift" autoFocus
-                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontFamily: FONT, boxSizing: "border-box", background: "rgba(255,255,255,0.06)", color: "#fff" }} />
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>Name</label>
+                    <input value={name} onChange={e => autoSlug(e.target.value)} placeholder="e.g. StrideShift" autoFocus className="ge-dark-input"
+                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontFamily: FONT, boxSizing: "border-box", background: "rgba(255,255,255,0.1)", color: "#fff", caretColor: "#fff" }} />
                   </div>
                   <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>URL slug</label>
-                    <input value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="strideshift"
-                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontFamily: MONO, boxSizing: "border-box", background: "rgba(255,255,255,0.06)", color: "#fff" }} />
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>URL slug</label>
+                    <input value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="strideshift" className="ge-dark-input"
+                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontFamily: MONO, boxSizing: "border-box", background: "rgba(255,255,255,0.1)", color: "#fff", caretColor: "#fff" }} />
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 3 }}>URL will be: /org/{slug || "..."}</div>
                   </div>
                   <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>Website (optional)</label>
-                    <input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..."
-                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontFamily: FONT, boxSizing: "border-box", background: "rgba(255,255,255,0.06)", color: "#fff" }} />
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>Website (optional)</label>
+                    <input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..." className="ge-dark-input"
+                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontFamily: FONT, boxSizing: "border-box", background: "rgba(255,255,255,0.1)", color: "#fff", caretColor: "#fff" }} />
                   </div>
                   {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
                   <div style={{ display: "flex", gap: 8 }}>

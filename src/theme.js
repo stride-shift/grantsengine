@@ -216,6 +216,8 @@ export const injectFonts = () => {
     const style = document.createElement("style");
     style.id = "ge-global-anims";
     style.textContent = `
+      /* ── Dark-themed input placeholders (for glass cards) ── */
+      .ge-dark-input::placeholder { color: rgba(255,255,255,0.35) !important; }
       @keyframes ge-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
       @keyframes app-load-bar { 0% { width: 5%; margin-left: 0; } 50% { width: 60%; margin-left: 20%; } 100% { width: 5%; margin-left: 95%; } }
       @keyframes scout-progress { 0% { width: 5%; } 30% { width: 35%; } 60% { width: 65%; } 80% { width: 85%; } 95% { width: 95%; } 100% { width: 98%; } }
@@ -234,9 +236,40 @@ export const injectFonts = () => {
       @keyframes ge-spin { to { transform: rotate(360deg); } }
       @keyframes ge-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
       @keyframes ge-bounce-subtle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
-      /* ── Accessible focus rings (visible only for keyboard nav, !important overrides inline outline:none) ── */
+      /* ── Accessible focus rings ── */
       *:focus-visible { outline: 2px solid #4A7C59 !important; outline-offset: 2px; }
       input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #4A7C59 !important; outline-offset: 0px; }
+
+      /* ── Responsive: Mobile ── */
+      @media (max-width: 768px) {
+        .ge-sidebar { transform: translateX(-100%); transition: transform 0.3s ease; }
+        .ge-sidebar.ge-sidebar-open { transform: translateX(0); }
+        .ge-sidebar-bg { transform: translateX(-100%); transition: transform 0.3s ease; }
+        .ge-sidebar-bg.ge-sidebar-open { transform: translateX(0); }
+        .ge-sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 8; }
+        .ge-sidebar-overlay.ge-sidebar-open { display: block; }
+        .ge-main { margin-left: 0 !important; padding-top: 56px; }
+        .ge-mobile-header { display: flex !important; }
+        .ge-hide-mobile { display: none !important; }
+        .ge-desktop-only { display: none !important; }
+      }
+      @media (min-width: 769px) {
+        .ge-mobile-header { display: none !important; }
+        .ge-sidebar-overlay { display: none !important; }
+      }
+      /* ── Responsive: Tablet ── */
+      @media (max-width: 1024px) {
+        .ge-tablet-stack { flex-direction: column !important; }
+        .ge-tablet-full { width: 100% !important; max-width: 100% !important; }
+      }
+      /* ── Scrollbar hide utility ── */
+      .ge-no-scrollbar::-webkit-scrollbar { display: none; }
+      .ge-no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+      /* ── Custom scrollbar ── */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(4, 57, 39, 0.35); border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(4, 57, 39, 0.55); }
     `;
     document.head.appendChild(style);
   }

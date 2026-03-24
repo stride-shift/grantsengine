@@ -32,6 +32,56 @@ const Hd = ({ children, right, mb = 20 }) => (
   </div>
 );
 
+/* Section accent colors — alternating green / blue */
+const SECTION_THEMES = {
+  "Pipeline":              { accent: "#10B981", bg: "#ECFDF5", border: "#10B98130", icon: "◈" },
+  "In Play":               { accent: "#0EA5E9", bg: "#F0F9FF", border: "#0EA5E930", icon: "▶" },
+  "Timeline":              { accent: "#059669", bg: "#ECFDF5", border: "#05966930", icon: "◷" },
+  "Upcoming Follow-ups":   { accent: "#0284C7", bg: "#F0F9FF", border: "#0284C730", icon: "◉" },
+  "AI Tools":              { accent: "#14B8A6", bg: "#F0FDFA", border: "#14B8A630", icon: "✦" },
+  "Pipeline Intelligence": { accent: "#3B82F6", bg: "#EFF6FF", border: "#3B82F630", icon: "◆" },
+};
+const DEFAULT_THEME = { accent: "#10B981", bg: "#F9FAFB", border: "#E5E7EB", icon: "▸" };
+
+/* Collapsible section — click header to toggle */
+const Section = ({ title, right, children, defaultOpen = false }) => {
+  const [open, setOpen] = useState(defaultOpen);
+  const theme = SECTION_THEMES[title] || DEFAULT_THEME;
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div onClick={() => setOpen(!open)}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          cursor: "pointer", marginBottom: open ? 16 : 0, userSelect: "none",
+          padding: "10px 14px", borderRadius: 10,
+          background: open ? theme.bg : C.white,
+          border: `1px solid ${open ? theme.border : C.line}`,
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={e => { if (!open) { e.currentTarget.style.background = theme.bg; e.currentTarget.style.borderColor = theme.border; } }}
+        onMouseLeave={e => { if (!open) { e.currentTarget.style.background = C.white; e.currentTarget.style.borderColor = C.line; } }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 24, height: 24, borderRadius: 6,
+            background: `${theme.accent}15`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 12, color: theme.accent, flexShrink: 0,
+          }}>{theme.icon}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: open ? theme.accent : C.t2, letterSpacing: 0.5, textTransform: "uppercase", transition: "color 0.2s" }}>{title}</div>
+          <span style={{
+            fontSize: 9, color: theme.accent, fontWeight: 600,
+            transform: open ? "rotate(90deg)" : "rotate(0deg)",
+            transition: "transform 0.2s", display: "inline-block",
+          }}>{"\u25B6"}</span>
+        </div>
+        <div onClick={e => e.stopPropagation()}>{right}</div>
+      </div>
+      {open && children}
+    </div>
+  );
+};
+
 /* Card with optional accent stripe */
 const Card = ({ children, accent, pad = "14px 16px", style: sx, className }) => (
   <div className={className} style={{
@@ -388,7 +438,7 @@ export default function Dashboard({
   }, [pipe]);
 
   return (
-    <div style={{ padding: "24px 28px", maxWidth: 1200 }}>
+    <div style={{ padding: "16px 16px", maxWidth: 1200 }}>
 
       {/* ── Header ── */}
       <div style={{ marginBottom: 8 }}>
@@ -413,7 +463,7 @@ export default function Dashboard({
               <span style={{ fontSize: 32 }}>☉</span>
             </div>
             <div style={{ fontSize: 20, fontWeight: 800, color: C.dark, marginBottom: 8, letterSpacing: -0.3 }}>
-              Welcome to Grant Engine
+              Welcome to Grants Engine
             </div>
             <div style={{ fontSize: 13, color: C.t3, lineHeight: 1.6, maxWidth: 400, margin: "0 auto 24px" }}>
               Start by scouting for grant opportunities. AI will find funders matched to your organisation profile.
@@ -478,12 +528,12 @@ export default function Dashboard({
 
       {grants.length > 0 && (<>
       {/* ═══════════ 2. COMPACT PIPELINE SUMMARY ═══════════ */}
-      <Hd right={
-        <button onClick={() => onNavigate?.("pipeline")} style={{
+      <Section title="Pipeline" defaultOpen right={
+        <button onClick={(e) => { e.stopPropagation(); onNavigate?.("pipeline"); }} style={{
           background: "none", border: "none", fontSize: 11, color: C.primary, fontWeight: 600,
           cursor: "pointer", fontFamily: FONT,
         }}>View Pipeline {"\u2192"}</button>
-      }>Pipeline</Hd>
+      }>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
         <Card accent={C.primary} className="ge-hover-lift" style={{ flex: "1.4 1 200px", display: "flex", alignItems: "center", gap: 12 }}>
           <div>
@@ -541,6 +591,7 @@ export default function Dashboard({
           )}
         </div>
       </Card>
+      </Section>
 
       {/* ═══════════ IN PLAY — active grants grouped by workflow phase ═══════════ */}
       {pipe.act.length > 0 && (() => {
@@ -564,12 +615,11 @@ export default function Dashboard({
         if (grouped.length === 0) return null;
 
         return (
-          <>
-            <Hd right={
-              <span style={{ fontSize: 11, color: C.t4, fontWeight: 500 }}>
-                {pipe.act.length} active · {fmt(pipe.ask)} total
-              </span>
-            }>In Play</Hd>
+          <Section title="In Play" right={
+            <span style={{ fontSize: 11, color: C.t4, fontWeight: 500 }}>
+              {pipe.act.length} active · {fmt(pipe.ask)} total
+            </span>
+          }>
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(grouped.length, 3)}, 1fr)`, gap: 10, marginBottom: 8 }}>
               {grouped.map(grp => (
                 <Card key={grp.label} accent={grp.color} style={{ padding: "10px 12px" }}>
@@ -627,12 +677,14 @@ export default function Dashboard({
                 </Card>
               ))}
             </div>
-          </>
+          </Section>
         );
       })()}
 
       {/* ── Submission Timeline ── */}
-      <Timeline grants={grants} stages={stages} team={team} onClickGrant={onSelectGrant} />
+      <Section title="Timeline">
+        <Timeline grants={grants} stages={stages} team={team} onClickGrant={onSelectGrant} />
+      </Section>
 
       {/* ═══════════ 3b. UPCOMING FOLLOW-UPS ═══════════ */}
       {(() => {
@@ -651,8 +703,7 @@ export default function Dashboard({
         upcoming.sort((a, b) => a.daysUntil - b.daysUntil);
         if (upcoming.length === 0) return null;
         return (
-          <>
-            <Hd>Upcoming Follow-ups</Hd>
+          <Section title="Upcoming Follow-ups">
             <Card style={{ marginBottom: 8, padding: "12px 14px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {upcoming.slice(0, 6).map((item, i) => {
@@ -697,12 +748,12 @@ export default function Dashboard({
                 )}
               </div>
             </Card>
-          </>
+          </Section>
         );
       })()}
 
       {/* ═══════════ 4. AI TOOLS (Report, Insights, Strategy) ═══════════ */}
-      <Hd>AI Tools</Hd>
+      <Section title="AI Tools">
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
         {onRunReport && (
           <AIBlock
@@ -715,11 +766,11 @@ export default function Dashboard({
           />
         )}
       </div>
+      </Section>
 
       {/* ═══════════ 3. PIPELINE INTELLIGENCE ═══════════ */}
       {ana && (
-        <>
-          <Hd>Pipeline Intelligence</Hd>
+        <Section title="Pipeline Intelligence">
 
           {/* Row A: Secondary KPIs */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
@@ -1127,7 +1178,7 @@ export default function Dashboard({
               )}
             </div>
           )}
-        </>
+        </Section>
       )}
       </>)}
 
