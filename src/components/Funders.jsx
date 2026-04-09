@@ -1,9 +1,27 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { C, FONT, MONO } from "../theme";
 import { fmtK, effectiveAsk } from "../utils";
 import { Btn, TypeBadge } from "./index";
 import { funderStrategy, isFunderReturning, PTYPES } from "../data/funderStrategy";
-import { CAD, FTYPES } from "../data/constants";
+import { CAD, FTYPES, TEAM } from "../data/constants";
+import { kvGet, kvSet } from "../api";
+
+/* ── Relationship owners (from CLAUDE.md Key People) ── */
+const REL_OWNERS = {
+  "correlation": "alison", "pragma": "alison", "sybrin": "alison", "nedbank": "alison", "dgmt": "alison", "dg murray": "alison",
+  "rmb": "barbara", "bii": "barbara", "old mutual": "barbara", "modo": "barbara", "kavod": "barbara", "kagiso": "barbara", "sab foundation": "barbara", "optima": "barbara", "mtm": "barbara",
+  "gde": "david", "penreach": "david", "frf": "david", "sap": "david", "scibono": "david", "sci-bono": "david", "mict seta": "david", "idc": "david",
+  "act foundation": "nolan", "act ": "nolan", "alt capital": "nolan", "sawabona": "nolan", "mastercard": "nolan", "iq": "nolan", "chartall": "nolan", "harambee": "nolan",
+  "get it done": "nolan", "gidf": "nolan", "inkcubeko": "nolan", "ccba": "nolan", "coca-cola": "nolan", "telkom": "nolan", "sage": "nolan", "tk foundation": "nolan",
+};
+
+function getRelOwner(funderName) {
+  const n = (funderName || "").toLowerCase();
+  for (const [key, ownerId] of Object.entries(REL_OWNERS)) {
+    if (n.includes(key)) return TEAM.find(t => t.id === ownerId) || null;
+  }
+  return null;
+}
 
 /* ── Relationship badge ── */
 const RelBadge = ({ rel, returning }) => {
@@ -78,6 +96,37 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
   const [expandedFunder, setExpandedFunder] = useState(null);
   const [filterType, setFilterType] = useState("all");
   const [q, setQ] = useState("");
+  const [funderOwners, setFunderOwners] = useState({}); // { "Funder Name": "ownerId" }
+
+  // Load funder owners from KV store
+  useEffect(() => {
+    kvGet("funder_owners").then(data => {
+      if (data && typeof data === "object") {
+        setFunderOwners(data.value || data);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const assignFunderOwner = (funderName, ownerId) => {
+    const updated = { ...funderOwners, [funderName]: ownerId || null };
+    if (!ownerId) delete updated[funderName];
+    setFunderOwners(updated);
+    kvSet("funder_owners", updated).catch(() => {});
+  };
+
+  // Close owner dropdown when clicking outside or scrolling
+  const isAssignDropdownOpen = typeof expandedFunder === "string" && expandedFunder.startsWith("assign-");
+  useEffect(() => {
+    if (!isAssignDropdownOpen) return;
+    const close = () => setExpandedFunder(null);
+    window.addEventListener("scroll", close, true);
+    const timer = setTimeout(() => document.addEventListener("click", close), 0);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      clearTimeout(timer);
+      document.removeEventListener("click", close);
+    };
+  }, [isAssignDropdownOpen]);
 
   // Group grants by funder
   const funderData = useMemo(() => {
@@ -189,7 +238,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
       </div>
 
       {/* Funder cards grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, overflow: "visible" }}>
         {filtered.map(fd => {
           const isExpanded = expandedFunder === fd.funder;
           const totalAsk = fd.grants.reduce((s, g) => s + effectiveAsk(g), 0);
@@ -203,11 +252,52 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
           // Use first active grant for strategy preview
           const stratGrant = active[0] || fd.grants[0];
 
+          // Relationship owner: user-assigned takes priority, then hardcoded defaults
+          const assignedOwnerId = funderOwners[fd.funder];
+          const relOwner = assignedOwnerId
+            ? TEAM.find(t => t.id === assignedOwnerId) || null
+            : getRelOwner(fd.funder);
+
+          // Last interaction: most recent log entry or submission date across all grants
+          const lastDates = fd.grants.flatMap(g => [
+            g.subDate,
+            ...(g.log || []).map(l => l.d),
+          ]).filter(Boolean).sort().reverse();
+          const lastInteraction = lastDates[0] || null;
+          const daysSinceLast = lastInteraction ? Math.floor((Date.now() - new Date(lastInteraction).getTime()) / 86400000) : null;
+
+          // Next action: nearest deadline or follow-up in active grants
+          const now = new Date();
+          const upcoming = active.flatMap(g => {
+            const items = [];
+            if (g.deadline) {
+              const dl = new Date(g.deadline);
+              if (dl > now) items.push({ date: g.deadline, label: "Deadline", grant: g.name });
+            }
+            if (Array.isArray(g.fups)) {
+              for (const fup of g.fups) {
+                if (!fup.done && fup.date && new Date(fup.date) > now) {
+                  items.push({ date: fup.date, label: fup.label || "Follow-up", grant: g.name });
+                }
+              }
+            }
+            return items;
+          }).sort((a, b) => a.date.localeCompare(b.date));
+          const nextAction = upcoming[0] || null;
+          const nextDaysLeft = nextAction ? Math.ceil((new Date(nextAction.date) - now) / 86400000) : null;
+
+          // Win/loss record
+          const winRate = won.length + lost.length > 0 ? Math.round(won.length / (won.length + lost.length) * 100) : null;
+
+          // AI research summary (from most recent grant with research)
+          const researchGrant = fd.grants.find(g => g.aiResearchStructured || g.aiResearch);
+          const researchSnippet = researchGrant?.aiResearchStructured?.strategy || researchGrant?.aiResearchStructured?.rawText?.slice(0, 150) || null;
+
           return (
             <div key={fd.funder} style={{
               background: C.white, borderRadius: 10, boxShadow: C.cardShadow,
               border: `1px solid ${C.line}`, overflow: "hidden",
-              transition: "box-shadow 0.15s",
+              transition: "box-shadow 0.15s", position: "relative",
             }}
               onMouseEnter={e => e.currentTarget.style.boxShadow = C.cardShadowHover}
               onMouseLeave={e => e.currentTarget.style.boxShadow = C.cardShadow}>
@@ -226,11 +316,82 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
                       fontSize: 13, fontWeight: 800, color: FTYPE_COLORS[fd.type] || C.t4, fontFamily: MONO,
                       flexShrink: 0,
                     }}>{fd.funder[0]?.toUpperCase()}</div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: C.dark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fd.funder}</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.dark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{fd.funder}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2, flexWrap: "wrap" }}>
                         <TypeBadge type={fd.type} />
                         <RelBadge rel={bestRel} returning={fd.returning} />
+                        <span style={{ position: "relative", display: "inline-block" }}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setExpandedFunder(expandedFunder === `assign-${fd.funder}` ? null : `assign-${fd.funder}`); }}
+                            style={{
+                              display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 600,
+                              color: relOwner ? C.t3 : C.t4, background: relOwner ? C.raised : "transparent",
+                              padding: "2px 7px", borderRadius: 100, border: relOwner ? "none" : `1px dashed ${C.t4}`,
+                              cursor: "pointer", fontFamily: FONT,
+                            }}
+                            title="Assign relationship owner"
+                          >
+                            {relOwner ? (
+                              <>
+                                <span style={{ width: 12, height: 12, borderRadius: "50%", background: relOwner.c, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 700, color: "#fff" }}>{relOwner.ini}</span>
+                                {relOwner.name}
+                              </>
+                            ) : "+ Owner"}
+                          </button>
+                          {expandedFunder === `assign-${fd.funder}` && (
+                            <div style={{
+                              position: "fixed", zIndex: 100, marginTop: 4,
+                              background: C.white, borderRadius: 8, padding: 6,
+                              border: `1px solid ${C.line}`, boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+                              width: 180,
+                            }} ref={el => {
+                              if (el) {
+                                const btn = el.parentElement?.querySelector("button");
+                                if (btn) {
+                                  const r = btn.getBoundingClientRect();
+                                  el.style.top = `${r.bottom + 4}px`;
+                                  el.style.left = `${r.left}px`;
+                                }
+                              }
+                            }} onClick={e => e.stopPropagation()}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, padding: "2px 6px", marginBottom: 4 }}>Assign owner</div>
+                              {TEAM.filter(t => t.id !== "team").map(t => (
+                                <button key={t.id} onClick={() => { assignFunderOwner(fd.funder, t.id); setExpandedFunder(null); }}
+                                  style={{
+                                    display: "flex", alignItems: "center", gap: 6, width: "100%",
+                                    padding: "5px 6px", fontSize: 11, fontFamily: FONT,
+                                    background: (assignedOwnerId || relOwner?.id) === t.id ? C.primarySoft : "none",
+                                    border: "none", cursor: "pointer", borderRadius: 4, textAlign: "left",
+                                    color: C.t1,
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.background = C.hover}
+                                  onMouseLeave={e => e.currentTarget.style.background = (assignedOwnerId || relOwner?.id) === t.id ? C.primarySoft : "transparent"}
+                                >
+                                  <span style={{ width: 16, height: 16, borderRadius: "50%", background: t.c, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>{t.ini}</span>
+                                  {t.name}
+                                  {t.title && <span style={{ fontSize: 9, color: C.t4, marginLeft: "auto" }}>{t.title.split(" ")[0]}</span>}
+                                </button>
+                              ))}
+                              {(assignedOwnerId || relOwner) && (
+                                <button onClick={() => { assignFunderOwner(fd.funder, null); setExpandedFunder(null); }}
+                                  style={{
+                                    display: "block", width: "100%", padding: "5px 6px", fontSize: 10,
+                                    fontFamily: FONT, background: "none", border: "none", cursor: "pointer",
+                                    color: C.red, textAlign: "left", borderRadius: 4, marginTop: 2,
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.background = C.redSoft}
+                                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                                >Remove owner</button>
+                              )}
+                            </div>
+                          )}
+                        </span>
+                        {winRate !== null && (
+                          <span style={{ fontSize: 10, fontWeight: 600, color: winRate >= 50 ? C.ok : C.amber, background: (winRate >= 50 ? C.ok : C.amber) + "12", padding: "2px 7px", borderRadius: 100 }}>
+                            {won.length}W/{lost.length}L ({winRate}%)
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -239,6 +400,16 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
                     <div style={{ fontSize: 10, color: C.t4, marginTop: 2 }}>
                       {fd.grants.length} grant{fd.grants.length !== 1 ? "s" : ""}{won.length > 0 && <span style={{ color: C.ok, fontWeight: 600 }}> {"\u2022"} {won.length}W</span>}{lost.length > 0 && <span style={{ color: C.red, fontWeight: 600 }}> {"\u2022"} {lost.length}L</span>}
                     </div>
+                    {lastInteraction && (
+                      <div style={{ fontSize: 9, color: daysSinceLast > 60 ? C.red : daysSinceLast > 30 ? C.amber : C.t4, marginTop: 2 }}>
+                        Last: {daysSinceLast === 0 ? "today" : daysSinceLast === 1 ? "yesterday" : `${daysSinceLast}d ago`}
+                      </div>
+                    )}
+                    {nextAction && (
+                      <div style={{ fontSize: 9, color: nextDaysLeft <= 7 ? C.red : C.primary, marginTop: 1, fontWeight: 600 }}>
+                        Next: {nextAction.label} in {nextDaysLeft}d
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -267,6 +438,17 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
                 <div style={{ padding: "0 14px 12px", borderTop: `1px solid ${C.line}` }}>
                   {/* Strategy panel */}
                   {stratGrant && <StrategyPanel grant={stratGrant} />}
+
+                  {/* Funder intelligence summary */}
+                  {researchSnippet && (
+                    <div style={{
+                      marginTop: 10, padding: "10px 14px", background: C.blueSoft || C.primarySoft,
+                      borderRadius: 8, border: `1px solid ${C.blue}15`,
+                    }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: C.blue, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 4 }}>AI Research Summary</div>
+                      <div style={{ fontSize: 11, color: C.t2, lineHeight: 1.5 }}>{researchSnippet.slice(0, 200)}{researchSnippet.length > 200 ? "..." : ""}</div>
+                    </div>
+                  )}
 
                   {/* Follow-up cadence */}
                   <div style={{ marginTop: 12 }}>

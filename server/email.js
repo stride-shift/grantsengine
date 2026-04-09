@@ -8,7 +8,6 @@ function getTransport() {
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS;
     if (!user || !pass) {
-      console.warn('[email] SMTP_USER / SMTP_PASS not set — emails will be logged to console only');
       return null;
     }
     _transport = nodemailer.createTransport({
@@ -17,6 +16,15 @@ function getTransport() {
     });
   }
   return _transport;
+}
+
+// No-op transport when SMTP is not configured — silently drops all emails
+const _noop = { sendMail: async () => ({ messageId: 'noop-smtp-disabled' }) };
+
+// Safe transport getter — always returns something callable, never null
+function safeTransport() {
+  const t = getTransport();
+  return t || _noop;
 }
 
 const STAGE_LABELS = {
@@ -109,7 +117,7 @@ function generateCancelICS({ grantId, sequence = 1 }) {
 }
 
 export const sendStageChangeEmail = async (toEmail, memberName, grantName, funder, fromStage, toStage, movedByName, grantId, deadline) => {
-  const transport = getTransport();
+  const transport = safeTransport();
   const fromLabel = STAGE_LABELS[fromStage] || fromStage;
   const toLabel = STAGE_LABELS[toStage] || toStage;
   const fromColor = STAGE_COLORS[fromStage] || "#6B7280";
@@ -245,8 +253,7 @@ export const sendStageChangeEmail = async (toEmail, memberName, grantName, funde
   if (deadline) {
     const ics = generateGrantICS({
       grantName, funder, stage: toLabel, deadline,
-      ownerName: memberName, grantUrl, grantId, suffix: toStage,
-    });
+      ownerName: memberName, grantUrl, grantId,     });
     mailOpts.icalEvent = { filename: 'invite.ics', method: 'PUBLISH', content: Buffer.from(ics) };
   }
 
@@ -304,9 +311,13 @@ function simpleEmailHtml({ memberName, headline, body, ctaLabel, ctaUrl, footerM
 }
 
 async function sendEmail(toEmail, subject, html, tag, icsContent) {
-  const transport = getTransport();
+  if (!toEmail || !subject) {
+    console.warn(`[email] Skipping ${tag}: missing toEmail or subject`);
+    return;
+  }
+  const transport = safeTransport();
   if (!transport) { console.log(`[email] Would send ${tag} to:`, toEmail, '|', subject); return; }
-  const opts = { from: `Grants Engine <${process.env.SMTP_USER}>`, to: toEmail, subject, html };
+  const opts = { from: `Grants Engine <${process.env.SMTP_USER}>`, to: toEmail, subject, html: html || '<p>Calendar update</p>' };
   if (icsContent) {
     opts.icalEvent = { filename: 'invite.ics', method: 'PUBLISH', content: Buffer.from(icsContent) };
   }
@@ -341,8 +352,7 @@ export const sendAssignmentEmail = async (toEmail, memberName, grantName, funder
   if (deadline) {
     ics = generateGrantICS({
       grantName, funder, stage: stageLabel, deadline,
-      ownerName: memberName, grantUrl, grantId, suffix: 'assign',
-    });
+      ownerName: memberName, grantUrl, grantId,     });
   }
 
   await sendEmail(toEmail, `Assigned to you: ${grantName}`, html, 'Assignment notification', ics);
@@ -487,11 +497,12 @@ export const sendDeadlineMissingEmail = async (toEmail, memberName, grantName, f
 /* ── Send calendar cancellation to old owner ── */
 export const sendCalendarCancellation = async (toEmail, grantId) => {
   const ics = generateCancelICS({ grantId, sequence: 99 });
-  await sendEmail(toEmail, 'Calendar update: grant reassigned', '', 'Calendar cancellation', ics);
+  const html = '<p style="font-size:14px;color:#6b7280;">This grant has been reassigned or closed. The calendar reminder has been cancelled.</p>';
+  await sendEmail(toEmail, 'Calendar update: grant reassigned', html, 'Calendar cancellation', ics);
 };
 
 export const sendResetEmail = async (toEmail, resetUrl, memberName) => {
-  const transport = getTransport();
+  const transport = safeTransport();
 
   const subject = 'Reset your Grants Engine password';
   const html = `

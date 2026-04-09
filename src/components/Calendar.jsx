@@ -1,7 +1,47 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { C, FONT, MONO } from "../theme";
 import { dL, effectiveAsk, fmtK, deadlineCtx } from "../utils";
 import { Avatar } from "./index";
+import { getAuth } from "../api";
+
+/* ── ICS helpers ── */
+function generateICSEvent(grant, type = "deadline") {
+  const dateStr = type === "deadline" ? grant.deadline : grant.subDate;
+  if (!dateStr) return null;
+  const d = new Date(dateStr.slice(0, 10) + "T09:00:00");
+  if (isNaN(d.getTime())) return null;
+  const dtStart = d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const askStr = grant.ask ? ` | Ask: R${Number(grant.ask).toLocaleString()}` : "";
+  const prefix = type === "deadline" ? "DEADLINE" : "SUBMITTED";
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//GrantEngine//Calendar//EN",
+    "BEGIN:VEVENT",
+    `UID:grant-${type}-${grant.id}@grantsengine`,
+    `DTSTART:${dtStart}`,
+    `SUMMARY:${prefix}: ${(grant.name || "").replace(/[,;\\]/g, " ")} (${(grant.funder || "").replace(/[,;\\]/g, " ")})`,
+    `DESCRIPTION:Stage: ${grant.stage}${askStr}`,
+    grant.applyUrl ? `URL:${grant.applyUrl}` : null,
+    type === "deadline" ? "BEGIN:VALARM\r\nTRIGGER:-P1D\r\nACTION:DISPLAY\r\nDESCRIPTION:Grant deadline tomorrow\r\nEND:VALARM" : null,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].filter(Boolean).join("\r\n");
+}
+
+function downloadICS(grant, type = "deadline") {
+  const ics = generateICSEvent(grant, type);
+  if (!ics) return;
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${(grant.name || "grant").replace(/\s+/g, "-").toLowerCase()}-${type}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -44,6 +84,7 @@ export default function Calendar({ grants, team, stages, onSelectGrant }) {
   const [viewMode, setViewMode] = useState("month");
   const [current, setCurrent] = useState(new Date());
   const [activeTypes, setActiveTypes] = useState(new Set(["deadline", "followup", "submitted"]));
+  const [showOverdue, setShowOverdue] = useState(false);
   const today = new Date();
 
   const teamById = useMemo(() => {
@@ -334,6 +375,20 @@ export default function Calendar({ grants, team, stages, onSelectGrant }) {
                         <div style={{ fontSize: 9, fontWeight: 600, color: dlCtx.color }}>{dlCtx.label}</div>
                       )}
                     </div>
+                    {/* Add to calendar */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); downloadICS(evt.grant, evt.type); }}
+                      title="Download .ics file"
+                      style={{
+                        flexShrink: 0, width: 26, height: 26, borderRadius: 6,
+                        border: `1px solid ${C.line}`, background: "#fff",
+                        cursor: "pointer", fontSize: 12, display: "flex",
+                        alignItems: "center", justifyContent: "center",
+                        color: C.t4, transition: "all 0.15s",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.color = C.t4; }}
+                    >📅</button>
                   </div>
                 );
               })}
@@ -354,7 +409,8 @@ export default function Calendar({ grants, team, stages, onSelectGrant }) {
   thisWeekEnd.setDate(thisWeekEnd.getDate() + 6);
   const deadlinesThisWeek = filteredEvents.filter(e => { const d = parseLocalDate(e.date); return d && d >= thisWeekStart && d <= thisWeekEnd && e.type === "deadline"; }).length;
   const deadlinesThisMonth = filteredEvents.filter(e => { const d = parseLocalDate(e.date); return d && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear() && e.type === "deadline"; }).length;
-  const overdueCount = filteredEvents.filter(e => e.type === "deadline" && e.date < todayStr).length;
+  const overdueEvents = filteredEvents.filter(e => e.type === "deadline" && e.date < todayStr).sort((a, b) => b.date.localeCompare(a.date));
+  const overdueCount = overdueEvents.length;
 
   return (
     <div style={{ padding: "16px 12px", height: "100%", display: "flex", flexDirection: "column", fontFamily: FONT }}>
@@ -399,6 +455,29 @@ export default function Calendar({ grants, team, stages, onSelectGrant }) {
           </div>
         </div>
 
+        {/* Calendar export */}
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button
+            onClick={() => {
+              const { slug } = getAuth();
+              const feedUrl = `${window.location.origin}/api/org/${slug}/calendar.ics`;
+              navigator.clipboard.writeText(feedUrl).then(() => {
+                alert("Calendar feed URL copied! Paste it in your calendar app (Google Calendar → Other calendars → From URL)");
+              }).catch(() => {
+                prompt("Copy this URL and subscribe in your calendar app:", feedUrl);
+              });
+            }}
+            style={{
+              padding: "5px 12px", fontSize: 11, fontWeight: 600, fontFamily: FONT,
+              borderRadius: 6, border: `1px solid ${C.line}`, background: "#fff",
+              color: C.primary, cursor: "pointer",
+            }}
+            title="Copy ICS feed URL for subscribing in Google/Outlook calendar"
+          >
+            📅 Subscribe
+          </button>
+        </div>
+
         {/* Navigation */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={() => setCurrent(new Date())} style={{
@@ -436,11 +515,63 @@ export default function Calendar({ grants, team, stages, onSelectGrant }) {
         </div>
         {overdueCount > 0 && <>
           <div style={{ width: 1, height: 14, background: "#dadce0" }} />
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#D50000" }}>
+          <button onClick={() => setShowOverdue(!showOverdue)} style={{
+            display: "flex", alignItems: "center", gap: 6, fontSize: 12,
+            color: showOverdue ? "#fff" : "#D50000",
+            background: showOverdue ? "#D50000" : "transparent",
+            border: showOverdue ? "1px solid #D50000" : "1px solid transparent",
+            borderRadius: 14, padding: showOverdue ? "2px 10px" : "2px 4px",
+            cursor: "pointer", fontFamily: FONT, fontWeight: 600,
+            transition: "all 0.15s",
+          }}>
             <span style={{ fontWeight: 700, fontFamily: MONO }}>{overdueCount}</span> overdue
-          </div>
+          </button>
         </>}
       </div>
+
+      {/* Overdue panel */}
+      {showOverdue && overdueEvents.length > 0 && (
+        <div style={{ marginBottom: 12, borderRadius: 8, border: "1px solid #D5000030", background: "#FEF2F2", padding: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#D50000" }}>Missed Deadlines ({overdueEvents.length})</div>
+            <button onClick={() => setShowOverdue(false)} style={{
+              background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", fontSize: 16, fontFamily: FONT,
+            }}>{"\u2715"}</button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {overdueEvents.map((evt, i) => {
+              const d = parseLocalDate(evt.date);
+              const daysAgo = d ? Math.floor((today - d) / 86400000) : 0;
+              return (
+                <div key={`${evt.grant.id}-${i}`}
+                  onClick={() => onSelectGrant?.(evt.grant.id)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10, padding: "6px 10px",
+                    borderRadius: 6, background: "#fff", border: "1px solid #D5000020",
+                    cursor: "pointer", transition: "background 0.1s",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#FEE2E2"}
+                  onMouseLeave={e => e.currentTarget.style.background = "#fff"}
+                >
+                  <div style={{ width: 6, height: 6, borderRadius: 3, background: "#D50000", flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {evt.grant.name}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#70757a" }}>{evt.grant.funder}</div>
+                  </div>
+                  <div style={{ fontSize: 10, color: "#D50000", fontWeight: 600, flexShrink: 0 }}>
+                    {daysAgo}d ago
+                  </div>
+                  <div style={{ fontSize: 10, color: "#70757a", flexShrink: 0 }}>
+                    {d ? `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}` : ""}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Calendar body */}
       <div style={{

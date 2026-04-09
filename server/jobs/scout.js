@@ -111,8 +111,8 @@ export async function runAutoScout() {
   const start = Date.now();
   console.log(`[Scout] Starting automated scout at ${new Date().toISOString()}`);
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('[Scout] No ANTHROPIC_API_KEY — skipping');
+  if (!process.env.GEMINI_API_KEY) {
+    console.warn('[Scout] No GEMINI_API_KEY — skipping');
     return;
   }
 

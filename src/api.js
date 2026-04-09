@@ -406,6 +406,7 @@ export const api = async (sys, usr, search = false, maxTok = 1500) => {
         messages: [{ role: 'user', content: usr }],
       };
       if (sys) body.system = sys;
+      if (search) body.search = true; // Enable Google Search grounding on Gemini
 
       const res = await f('/ai/messages', {
         method: 'POST',
@@ -464,6 +465,16 @@ export const api = async (sys, usr, search = false, maxTok = 1500) => {
   return 'Request failed after multiple retries — please try again.';
 };
 
+// ── URL Verification ──
+export const verifyUrls = async (urls) => {
+  const res = await f('/ai/verify-urls', {
+    method: 'POST',
+    body: JSON.stringify({ urls }),
+  });
+  const data = await res.json();
+  return data.results || [];
+};
+
 // ── Uploads ──
 
 export const getUploads = async (grantId) => {
@@ -499,6 +510,21 @@ export const addYouTubeUrl = async (url, grantId, category) => {
 
 export const deleteUpload = async (id) => {
   const res = await f(`/uploads/${id}`, { method: 'DELETE' });
+  return res.json();
+};
+
+export const getUploadsByCategory = async (category) => {
+  const res = await f(`/uploads?category=${encodeURIComponent(category)}`);
+  return res.json();
+};
+
+export const getUploadFull = async (id) => {
+  const res = await f(`/uploads/${id}`);
+  return res.json();
+};
+
+export const getUploadDownloadUrl = async (id) => {
+  const res = await f(`/uploads/${id}/download`);
   return res.json();
 };
 

@@ -506,10 +506,11 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             {archivedCount > 0 && (
               <button onClick={() => setShowArchived(!showArchived)} style={{
                 ...chipBase,
-                border: `1px solid ${showArchived ? C.t4 : C.line}`,
-                background: showArchived ? C.warm200 : C.white,
-                color: showArchived ? C.t3 : C.t4,
-              }}>📦 {archivedCount} archived</button>
+                border: `1px solid ${showArchived ? "#9CA3AF" : C.line}`,
+                background: showArchived ? "#F3F4F6" : C.white,
+                color: showArchived ? "#6B7280" : C.t4,
+                fontWeight: showArchived ? 600 : 500,
+              }}>🚫 {archivedCount} not relevant</button>
             )}
             {activeFilters.size > 0 && (
               <button onClick={() => setActiveFilters(new Set())} style={{ ...chipStyle("clear"), color: C.red, borderColor: C.red + "40" }}>Clear all</button>
@@ -1093,7 +1094,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
       {/* Kanban view — stage-colored columns and cards */}
       {pView === "kanban" && filtered.length > 0 && (
         <div style={{ display: "flex", gap: 10, flex: 1, overflowX: "auto", paddingBottom: 10 }}>
-          {activeStages.map(stage => {
+          {[...activeStages, ...(showArchived ? [{ id: "archived", label: "Not Relevant", c: "#9CA3AF", bg: "#F3F4F6" }] : [])].map(stage => {
             const stageGrants = sorted.filter(g => g.stage === stage.id);
             const stageTotal = stageGrants.reduce((s, g) => s + effectiveAsk(g), 0);
             return (

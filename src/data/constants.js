@@ -97,6 +97,7 @@ export const ROLES = {
 
 // Approval gates: stage transitions requiring sign-off from a specific role
 export const GATES = {
+  "scouted->vetting": { need: "comms", label: "Vetting checklist must be completed before advancing" },
   "vetting->qualifying": { need: "board", label: "Board member must confirm grant is worth pursuing" },
   "drafting->review": { need: "hop", label: "Head of Programmes must approve draft for review" },
   "review->submitted": { need: "director", label: "Director must approve before submission" },

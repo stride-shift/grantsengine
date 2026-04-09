@@ -167,18 +167,44 @@ router.get('/org/:slug/uploads/context', ...orgAuth, w(async (req, res) => {
   res.json({ org_uploads: orgUploads, grant_uploads: grantUploads });
 }));
 
-// GET /api/org/:slug/uploads — list uploads
+// GET /api/org/:slug/uploads — list uploads (with optional category/grant_id filters)
 router.get('/org/:slug/uploads', ...orgAuth, w(async (req, res) => {
   const grantId = req.query.grant_id;
-  const uploads = grantId
+  const category = req.query.category;
+  let uploads = grantId
     ? await getUploadsByGrant(req.orgId, grantId)
     : await getUploadsByOrg(req.orgId);
+  // Filter by category if provided
+  if (category) {
+    uploads = uploads.filter(u => u.category === category);
+  }
   // Return metadata with truncated text preview
   res.json(uploads.map(u => ({
     ...u,
     extracted_text: u.extracted_text ? u.extracted_text.slice(0, 200) + '...' : null,
     has_text: !!u.extracted_text,
   })));
+}));
+
+// GET /api/org/:slug/uploads/:id/download — signed download URL
+// MUST be before /:id route so "download" isn't treated as a sub-resource miss
+router.get('/org/:slug/uploads/:id/download', ...orgAuth, w(async (req, res) => {
+  const up = await getUploadById(req.params.id, req.orgId);
+  if (!up) return res.status(404).json({ error: 'Upload not found' });
+
+  if (up.mime_type === 'video/youtube') {
+    return res.redirect(up.filename); // filename is the YouTube URL
+  }
+
+  const storage = getStorage();
+  if (!storage) return res.status(500).json({ error: 'Storage not configured' });
+
+  const storagePath = `${req.orgId}/${up.filename}`;
+  const { data, error } = await storage.createSignedUrl(storagePath, 3600); // 1 hour
+  if (error || !data?.signedUrl) {
+    return res.status(500).json({ error: 'Could not generate download URL' });
+  }
+  res.json({ url: data.signedUrl, name: up.original_name, mime_type: up.mime_type });
 }));
 
 // GET /api/org/:slug/uploads/:id — single upload with full text
