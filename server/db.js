@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { Pool } = pg;
 
 // AI fields stored in the ai_data JSON column
-const AI_KEYS = ['aiDraft','aiDraftAt','draftHistory','aiResearch','aiResearchAt','aiResearchStructured','researchHistory','aiFitscore','aiFitscoreAt','fitscoreHistory','aiFollowup','aiFollowupAt','followupHistory','aiWinloss','aiWinlossAt','askSource','aiRecommendedAsk','funderBudget','askYears','budgetTable','aiSections','aiSectionsOrder','aiSectionsAt','funderFeedback','attachedDocs','_archivedFrom'];
+const AI_KEYS = ['aiDraft','aiDraftAt','draftHistory','aiResearch','aiResearchAt','aiResearchStructured','researchHistory','aiFitscore','aiFitscoreAt','fitscoreHistory','aiFollowup','aiFollowupAt','followupHistory','aiWinloss','aiWinlossAt','askSource','aiRecommendedAsk','funderBudget','askYears','budgetTable','aiSections','aiSectionsOrder','aiSectionsAt','funderFeedback','attachedDocs','_archivedFrom','vetting'];
 
 const extractAiData = (grant) => {
   const aiData = {};
@@ -491,7 +491,7 @@ export const getActivityLog = async (orgId, { limit = 100, memberId = null } = {
 // ── Grant lookup (for stage change detection) ──
 
 export const getGrantById = async (id, orgId) => {
-  const { rows } = await pool().query('SELECT id, stage, name FROM grants WHERE id = $1 AND org_id = $2', [id, orgId]);
+  const { rows } = await pool().query('SELECT id, stage, name, funder, owner, deadline FROM grants WHERE id = $1 AND org_id = $2', [id, orgId]);
   return rows[0] || null;
 };
 

@@ -3,16 +3,19 @@ import { C, FONT, MONO } from "../theme";
 import { uid, td } from "../utils";
 import { Btn } from "./index";
 import { scoutPrompt, scoutBriefPrompt } from "../prompts";
-import { kvGet, kvSet } from "../api";
+import { kvGet, kvSet, verifyUrls } from "../api";
 
 /* ── Constants ── */
-const SCOUT_TYPE_MAP = { corporate: "Corporate CSI", csi: "Corporate CSI", government: "Government/SETA", seta: "Government/SETA", international: "International", foundation: "Foundation", tech: "Tech Company" };
+const SCOUT_TYPE_MAP = { corporate: "Corporate CSI", csi: "Corporate CSI", government: "Government/SETA", seta: "Government/SETA", international: "International", foundation: "Foundation", tech: "Tech Company", credit: "Tech Credit", "in-kind": "In-Kind", partnership: "Partnership", development: "Development Agency", impact: "Impact Investor" };
 const REJECT_REASONS = [
   { key: "wrong_sector", label: "Wrong sector" },
   { key: "wrong_geo", label: "Wrong geography" },
   { key: "wrong_size", label: "Too small / Too large" },
   { key: "not_relevant", label: "Not relevant to us" },
   { key: "already_applied", label: "Already applied" },
+  { key: "fake_grant", label: "Grant doesn't exist" },
+  { key: "dead_link", label: "Dead / broken link" },
+  { key: "wrong_deadline", label: "Wrong deadline" },
 ];
 
 /* ── Local fit score for scout results (0-100, calculated client-side before display) ── */
@@ -211,6 +214,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
   const [scoutResults, setScoutResults] = useState([]);
   const [scoutSort, setScoutSort] = useState("fit"); // "fit" | "deadline" | "budget"
   const [scoutFitFilter, setScoutFitFilter] = useState("all"); // "all" | "high" | "medium"
+  const [searchKeywords, setSearchKeywords] = useState(""); // Free-text keyword search
   // Scout brief + rejection feedback
   const [scoutBrief, setScoutBrief] = useState("");
   const [scoutBriefLoading, setScoutBriefLoading] = useState(false);
@@ -233,7 +237,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
 
   // Single-pass scout stats (replaces 5 separate .filter() calls)
   const scoutStats = useMemo(() => {
-    let added = 0, expired = 0, open = 0, rel = 0, inv = 0, rejected = 0;
+    let added = 0, expired = 0, open = 0, rel = 0, inv = 0, rejected = 0, urlOk = 0, urlDead = 0, highConf = 0, lowConf = 0;
     const now = new Date();
     for (const s of scoutResults) {
       if (s.rejected) rejected++;
@@ -243,8 +247,12 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
       if (acc === "open") open++;
       else if (acc.includes("relationship")) rel++;
       else if (acc.includes("invitation")) inv++;
+      if (s.urlStatus === "verified") urlOk++;
+      else if (s.urlStatus === "dead") urlDead++;
+      if (s.confidence === "high") highConf++;
+      else if (s.confidence === "low") lowConf++;
     }
-    return { added, expired, open, rel, inv, rejected };
+    return { added, expired, open, rel, inv, rejected, urlOk, urlDead, highConf, lowConf };
   }, [scoutResults]);
 
   // Memoized sorted/filtered scout results — rejected cards sort to bottom
@@ -315,7 +323,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
       brief = await generateScoutBrief();
     }
 
-    const promptArgs = { existingFunders, orgContext, scoutBrief: brief, rejections: scoutRejections };
+    const promptArgs = { existingFunders, orgContext, scoutBrief: brief, rejections: scoutRejections, keywords: searchKeywords.trim() };
     let allParsed = [];
 
     if (scoutMarket === "both") {
@@ -346,20 +354,49 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
     // Pre-mark results if funder was previously rejected
     const rejectedFunders = new Set(scoutRejections.map(r => (r.funder || "").toLowerCase()));
 
-    setScoutResults(
-      allParsed.map(s => {
-        const fitScore = calcScoutFitScore(s);
-        return {
-          ...s,
-          fitScore,
-          inPipeline: existing.includes((s.funder || "").toLowerCase()),
-          rejected: rejectedFunders.has((s.funder || "").toLowerCase()),
-          added: false,
-        };
-      }).sort((a, b) => b.fitScore - a.fitScore)
-    );
+    // Tag confidence based on what we know
+    const scored = allParsed.map(s => {
+      const fitScore = calcScoutFitScore(s);
+      const acc = (s.access || "").toLowerCase();
+      // Confidence: combine AI self-rating with heuristics
+      const aiConf = (s.sourceConfidence || "").toLowerCase();
+      let confidence = "medium";
+      if (aiConf === "verified" && acc === "open" && s.url && s.deadline) confidence = "high";
+      else if (aiConf === "verified" && s.url) confidence = "high";
+      else if (aiConf === "uncertain" || !s.url || acc === "unknown") confidence = "low";
+      else if (aiConf === "likely") confidence = "medium";
+      return {
+        ...s,
+        fitScore,
+        confidence,
+        urlStatus: null, // will be filled by async verification
+        inPipeline: existing.includes((s.funder || "").toLowerCase()),
+        rejected: rejectedFunders.has((s.funder || "").toLowerCase()),
+        added: false,
+      };
+    }).sort((a, b) => b.fitScore - a.fitScore);
+
+    setScoutResults(scored);
     setScoutSort("fit");
     setScouting(false);
+
+    // Async URL verification — runs after results are displayed
+    const urlsToCheck = scored.filter(s => s.url && !s.rejected).map(s => s.url);
+    if (urlsToCheck.length > 0) {
+      try {
+        const urlResults = await verifyUrls(urlsToCheck);
+        const urlMap = {};
+        for (const r of urlResults) urlMap[r.url] = r;
+        setScoutResults(prev => prev.map(s => {
+          if (!s.url || !urlMap[s.url]) return s;
+          const check = urlMap[s.url];
+          const urlStatus = check.ok ? "verified" : check.status === 0 ? "dead" : "warning";
+          // Downgrade confidence if URL is dead
+          const confidence = urlStatus === "dead" ? "low" : s.confidence;
+          return { ...s, urlStatus, confidence };
+        }));
+      } catch { /* URL verification is best-effort */ }
+    }
   };
 
   const addScoutToPipeline = (s) => {
@@ -389,6 +426,8 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
     setScoutMarket,
     aiScout,
     scoutResults,
+    searchKeywords,
+    setSearchKeywords,
   }));
 
   return (
@@ -422,6 +461,10 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                 {scoutStats.open > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "2px 8px", borderRadius: 100 }}>✓ {scoutStats.open} open</span>}
                 {scoutStats.rel > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.amber, background: C.amberSoft, padding: "2px 8px", borderRadius: 100 }}>→ {scoutStats.rel} relationship</span>}
                 {scoutStats.inv > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.red, background: C.redSoft, padding: "2px 8px", borderRadius: 100 }}>✕ {scoutStats.inv} invite-only</span>}
+              </>}
+              {(scoutStats.urlOk > 0 || scoutStats.urlDead > 0) && <>
+                {scoutStats.urlOk > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "2px 8px", borderRadius: 100 }}>🔗 {scoutStats.urlOk} verified</span>}
+                {scoutStats.urlDead > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: C.red, background: C.redSoft, padding: "2px 8px", borderRadius: 100 }}>⚠ {scoutStats.urlDead} dead links</span>}
               </>}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -542,9 +585,13 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                         {expired && <span style={{ fontSize: 10, fontWeight: 600, color: C.red, background: C.redSoft, padding: "1px 7px", borderRadius: 100 }}>Expired</span>}
                         {s.added && <span style={{ fontSize: 10, fontWeight: 600, color: C.ok }}>{"\u2713"}</span>}
                         {isRejected && <span style={{ fontSize: 10, fontWeight: 600, color: C.t4, background: C.raised, padding: "1px 7px", borderRadius: 100 }}>Rejected</span>}
+                        {s.urlStatus === "verified" && <span style={{ fontSize: 9, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "1px 6px", borderRadius: 100 }} title="URL verified — link is live">{"\u2713"} Link OK</span>}
+                        {s.urlStatus === "dead" && <span style={{ fontSize: 9, fontWeight: 600, color: C.red, background: C.redSoft, padding: "1px 6px", borderRadius: 100 }} title="URL is dead or unreachable">{"\u2715"} Dead link</span>}
+                        {s.urlStatus === "warning" && <span style={{ fontSize: 9, fontWeight: 600, color: C.amber, background: C.amberSoft, padding: "1px 6px", borderRadius: 100 }} title="URL returned an error or redirect">? Link issue</span>}
+                        {s.confidence && <span style={{ fontSize: 9, fontWeight: 600, color: s.confidence === "high" ? C.ok : s.confidence === "low" ? C.red : C.amber, background: (s.confidence === "high" ? C.ok : s.confidence === "low" ? C.red : C.amber) + "12", padding: "1px 6px", borderRadius: 100 }} title={`Confidence: ${s.confidence} — ${s.confidence === "high" ? "open access, URL + deadline present" : s.confidence === "low" ? "missing URL or unknown access" : "partial info available"}`}>{s.confidence === "high" ? "\u25CF" : s.confidence === "low" ? "\u25CB" : "\u25D1"} {s.confidence}</span>}
                       </div>
                       <div style={{ fontSize: 12, color: C.t3 }}>
-                        {s.funder}{(s.funderBudget || s.ask) ? ` \u00B7 ~R${Number(s.funderBudget || s.ask).toLocaleString()}` : ""}{s.deadline ? ` \u00B7 ${new Date(s.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
+                        {s.funder}{(s.funderBudget || s.ask) ? ` \u00B7 ~R${Number(s.funderBudget || s.ask).toLocaleString()}` : ""}{s.valueType && s.valueType !== "cash" && s.valueType !== "unknown" ? ` \u00B7 ${s.valueType}` : ""}{s.deadline ? ` \u00B7 ${new Date(s.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
                       </div>
                       <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.4, marginTop: 3 }}>{s.reason}</div>
                       {s.accessNote && (
@@ -645,9 +692,34 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
               Scout uses AI to find grant opportunities matched to your organisation profile, or add grants you already know about.
             </div>
 
+            {/* Search keywords input */}
+            <div style={{ maxWidth: 420, margin: "0 auto 16px", position: "relative" }}>
+              <input
+                type="text"
+                value={searchKeywords}
+                onChange={e => setSearchKeywords(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !scouting) aiScout(); }}
+                placeholder="Search for anything... e.g. 'food security grants', 'free LLM credits', 'youth employment'"
+                style={{
+                  width: "100%", padding: "10px 14px", fontSize: 13, fontFamily: FONT,
+                  border: `1px solid ${C.line}`, borderRadius: 8, outline: "none",
+                  boxSizing: "border-box",
+                  transition: "border-color 0.15s",
+                }}
+                onFocus={e => e.target.style.borderColor = C.primary}
+                onBlur={e => e.target.style.borderColor = C.line}
+              />
+              {searchKeywords && (
+                <button onClick={() => setSearchKeywords("")} style={{
+                  position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+                  background: "none", border: "none", color: C.t4, cursor: "pointer", fontSize: 14, fontFamily: FONT,
+                }}>✕</button>
+              )}
+            </div>
+
             {/* Scout market selector */}
             <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 16 }}>
-              {[{ id: "both", l: "Both" }, { id: "sa", l: "\uD83C\uDDFF\uD83C\uDDE6 South Africa" }, { id: "global", l: "\uD83C\uDF0D Global" }].map(o => (
+              {[{ id: "both", l: "Both" }, { id: "sa", l: "\uD83C\uDDFF\uD83C\uDDE6 Local" }, { id: "global", l: "\uD83C\uDF0D Global" }].map(o => (
                 <button key={o.id} onClick={() => setScoutMarket(o.id)} style={{
                   padding: "6px 14px", fontSize: 13, fontWeight: 600, fontFamily: FONT,
                   borderRadius: 6, border: `1px solid ${scoutMarket === o.id ? C.primary : C.line}`,

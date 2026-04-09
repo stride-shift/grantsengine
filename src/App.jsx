@@ -51,6 +51,8 @@ const Settings = lazy(() => import("./components/Settings"));
 const Funders = lazy(() => import("./components/Funders"));
 const Admin = lazy(() => import("./components/Admin"));
 const Calendar = lazy(() => import("./components/Calendar"));
+const Vetting = lazy(() => import("./components/Vetting"));
+const DocVault = lazy(() => import("./components/DocVault"));
 
 injectFonts();
 
@@ -74,7 +76,9 @@ const EMPTY_GRANT = Object.freeze({ name: "", funder: "", type: "", ask: 0, focu
 const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "\u25a6" },
   { id: "pipeline", label: "Pipeline", icon: "\u25b6" },
+  { id: "vetting", label: "Vetting", icon: "\u2611" },
   { id: "calendar", label: "Calendar", icon: "\u25C8" },
+  { id: "docs", label: "Documents", icon: "\u25B3" },
   { id: "funders", label: "Funders", icon: "\u25c7" },
   { id: "settings", label: "Settings", icon: "\u2699" },
 ];
@@ -474,6 +478,7 @@ function AppInner() {
     const d = dL(g.deadline);
     return d !== null && d <= 14;
   }).length;
+  const vettingCount = grants.filter(g => g.stage === "scouted" || g.stage === "vetting").length;
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", fontFamily: FONT, background: C.bg }}>
@@ -543,6 +548,13 @@ function AppInner() {
                     background: "#4ADE80", borderRadius: 10, padding: "2px 7px", minWidth: 18,
                     textAlign: "center", boxShadow: "0 1px 8px rgba(74, 222, 128, 0.3)",
                   }}>{notifCount}</span>
+                )}
+                {item.id === "vetting" && vettingCount > 0 && (
+                  <span style={{
+                    marginLeft: "auto", fontSize: 10, fontWeight: 700, color: "#0B1120",
+                    background: "#FBBF24", borderRadius: 10, padding: "2px 7px", minWidth: 18,
+                    textAlign: "center", boxShadow: "0 1px 8px rgba(251, 191, 36, 0.3)",
+                  }}>{vettingCount}</span>
                 )}
               </button>
             );
@@ -663,12 +675,26 @@ function AppInner() {
             api={api}
             onToast={toast}
           />
+        ) : view === "vetting" ? (
+          <Vetting
+            grants={grants}
+            team={team}
+            stages={stages}
+            onSelectGrant={(id) => setSel(id)}
+            onUpdateGrant={updateGrant}
+            onNavigate={(v) => { setSel(null); setView(v); }}
+          />
         ) : view === "calendar" ? (
           <Calendar
             grants={grants}
             team={team}
             stages={stages}
             onSelectGrant={(id) => setSel(id)}
+          />
+        ) : view === "docs" ? (
+          <DocVault
+            grants={grants}
+            complianceDocs={complianceDocs}
           />
         ) : view === "funders" ? (
           <Funders

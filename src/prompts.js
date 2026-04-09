@@ -34,16 +34,23 @@ export const buildRejectionBlock = (rejections) => {
   const rejectedFocusAreas = [...new Set(recent.flatMap(r => r.focus || []))];
   const customReasons = recent.filter(r => r.reasonText).map(r => `${r.name}: ${r.reasonText}`);
 
+  // Track accuracy-related rejections — these indicate hallucinated or stale results
+  const accuracyIssues = recent.filter(r => ["fake_grant", "dead_link", "wrong_deadline"].includes(r.reason));
+  const fakeGrants = accuracyIssues.filter(r => r.reason === "fake_grant").map(r => r.name);
+  const deadLinks = accuracyIssues.filter(r => r.reason === "dead_link").map(r => r.funder);
+
   let block = `\nPREVIOUSLY REJECTED — the user marked these as NOT relevant. DO NOT recommend these funders or similar opportunities:\n`;
   if (rejectedFunders.length) block += `Rejected funders: ${rejectedFunders.join(", ")}\n`;
   if (rejectedFocusAreas.length) block += `Rejected focus areas (AVOID these sectors): ${rejectedFocusAreas.join(", ")}\n`;
   if (customReasons.length) block += `Rejection notes: ${customReasons.join("; ")}\n`;
+  if (fakeGrants.length) block += `\nACCURACY WARNING: These grants were flagged as NON-EXISTENT by the user: ${fakeGrants.join(", ")}. You MUST verify every result via web search. Do NOT fabricate or guess grant opportunities.\n`;
+  if (deadLinks.length) block += `DEAD LINKS: These funders had broken/dead URLs: ${deadLinks.join(", ")}. Double-check all URLs are real and accessible.\n`;
   block += `DO NOT return opportunities in the rejected sectors above. Prioritise opportunities that match the Scout Brief.\n`;
   return block;
 };
 
 // ── SCOUT ──
-export const scoutPrompt = ({ existingFunders, market = "both", orgContext = "", scoutBrief = "", rejections = [] }) => {
+export const scoutPrompt = ({ existingFunders, market = "both", orgContext = "", scoutBrief = "", rejections = [], keywords = "" }) => {
 
   // ── System prompt changes entirely based on market ──
   const systemByMarket = {
@@ -78,17 +85,27 @@ export const scoutPrompt = ({ existingFunders, market = "both", orgContext = "",
     : "";
   const rejectionBlock = buildRejectionBlock(rejections);
 
-  const searchScope = market === "sa"
-    ? "Search for open grants in South Africa for NPOs matching the organisation profile below, March 2026. Focus on SETA windows, corporate CSI open calls, SA foundation rounds, and government funding."
+  // When keywords are provided, they drive the search; org context becomes background for fit scoring
+  const keywordBlock = keywords
+    ? `\nPRIMARY SEARCH DIRECTIVE: The user is specifically searching for: "${keywords}". This takes priority over the org profile. Find opportunities matching these keywords. The org context below is for fit scoring only — do NOT restrict results to the org's usual focus areas unless the keywords overlap.`
+    : "";
+
+  const searchScope = keywords
+    ? `Search for opportunities matching: "${keywords}". ${market === "sa" ? "Focus on South African sources." : market === "global" ? "Focus on international/global sources. Do NOT return South African domestic funders." : "Search both South African and international sources."} Include all opportunity types: grants, corporate programmes, tech credits (Google Ad Grants, AWS credits, Microsoft Nonprofit), SaaS nonprofit tiers, in-kind support, partnerships, and government programmes.`
+    : market === "sa"
+    ? "Search for open grants in South Africa for NPOs matching the organisation profile below, 2026. Focus on SETA windows, corporate CSI open calls, SA foundation rounds, and government funding."
     : market === "global"
-    ? "Search for international and global grant opportunities for the organisation described below, March 2026. Search across: global foundations, bilateral development agencies (USAID, DFID, GIZ, etc.), multilateral programmes (World Bank, UNDP, ILO), global tech companies (Google.org, Microsoft, Cisco), impact investors, and international NGO grant-makers that fund skills development, youth employment, or digital inclusion in Africa. Do NOT return any South African domestic funders."
-    : "Search for open grants for the organisation described below, March 2026. Include both SA domestic funders (SETAs, corporate CSI, foundations) AND international funders (global foundations, tech companies, development agencies).";
+    ? "Search for international and global grant opportunities for the organisation described below, 2026. Search across: global foundations, bilateral development agencies (USAID, DFID, GIZ, etc.), multilateral programmes (World Bank, UNDP, ILO), global tech companies (Google.org, Microsoft, Cisco), impact investors, and international NGO grant-makers that fund skills development, youth employment, or digital inclusion in Africa. Do NOT return any South African domestic funders."
+    : "Search for open grants for the organisation described below, 2026. Include both SA domestic funders (SETAs, corporate CSI, foundations) AND international funders (global foundations, tech companies, development agencies). Also include nonprofit tech credits, SaaS nonprofit tiers, and in-kind opportunities.";
 
   return {
     system: `${m.role}
-${orgContext ? `\nORGANISATION CONTEXT:\n${orgContext}\n` : ""}${briefBlock}${rejectionBlock}
+${orgContext ? `\nORGANISATION CONTEXT:\n${orgContext}\n` : ""}${briefBlock}${rejectionBlock}${keywordBlock}
 ${m.searchFocus}
 ${m.marketRule}
+
+CRITICAL — SEARCH-GROUNDED RESULTS ONLY:
+You have access to Google Search. You MUST use it to find REAL, CURRENTLY ACTIVE grant opportunities. Do NOT return opportunities from your training data or memory alone — every result must be something you found or verified via web search in this session. If you cannot find evidence that a grant opportunity exists and is currently open, DO NOT include it.
 
 CRITICAL — VERIFY APPLICATION ACCESS:
 For EVERY opportunity, check whether the funder accepts unsolicited proposals/applications from external organisations. Search their website for application portals, open calls, RFPs, or submission guidelines.
@@ -101,11 +118,12 @@ DO NOT include opportunities marked "By invitation" unless there is a realistic 
 PRIORITISE "Open" opportunities. Include "Relationship first" only if the funder has a clear contact channel.
 
 RESPOND WITH ONLY A JSON ARRAY — no markdown, no backticks, no explanation. Each object:
-{"name":"[grant name]","funder":"[organisation]","type":"[Corporate CSI|Government/SETA|International|Foundation|Tech Company|Development Agency|Impact Investor]","funderBudget":[amount in ZAR integer — convert from USD/EUR/GBP if needed],"deadline":"[YYYY-MM-DD or null]","fit":"[High|Medium|Low]","reason":"[1-2 sentences: specific alignment — name which org focus areas match, what the funder prioritises, and any caveats with detail (e.g. 'Geographic focus is Limpopo only — d-lab would need a local delivery partner' NOT 'geographic area may be limiting')]","url":"[application URL or funder contact page]","focus":["tag1","tag2"],"access":"[Open|Relationship first|By invitation|Unknown]","accessNote":"[1 sentence: how to apply or how to get in the door]","market":"[sa|global]"}
+{"name":"[opportunity name]","funder":"[organisation]","type":"[Corporate CSI|Government/SETA|International|Foundation|Tech Company|Development Agency|Impact Investor|Tech Credit|In-Kind|Partnership]","funderBudget":[amount in ZAR integer — convert from USD/EUR/GBP if needed, 0 if non-monetary],"valueType":"[cash|credit|in-kind|subscription|unknown]","deadline":"[YYYY-MM-DD or null]","fit":"[High|Medium|Low]","reason":"[1-2 sentences: specific alignment — name which org focus areas match, what the funder prioritises, and any caveats with detail (e.g. 'Geographic focus is Limpopo only — d-lab would need a local delivery partner' NOT 'geographic area may be limiting')]","url":"[application URL or funder contact page — must be a REAL URL you found via search, not a guessed/constructed URL]","focus":["tag1","tag2"],"access":"[Open|Relationship first|By invitation|Unknown]","accessNote":"[1 sentence: how to apply or how to get in the door]","market":"[sa|global]","sourceConfidence":"[verified|likely|uncertain — verified = found active listing on funder website, likely = funder exists and has funded similar before but no current listing found, uncertain = limited evidence]"}
 
 FIT = HIGH only if 3+ of the organisation's key focus areas match, budget is in range, and it accepts unsolicited applications.
 NEVER use vague caveats like "may be limiting", "could be challenging", "might not align". If there's a caveat, spell out exactly what it is and what d-lab would need to do about it.
 EXCLUDE: university-only, pure research, sectors with no relevance, invitation-only with no realistic path in.
+EXCLUDE: any opportunity you cannot find evidence for via web search. Quality over quantity.
 Return 10-15 real, current opportunities. Cast a wide net across different funder types.`,
     user: `${searchScope} The organisation already has applications with: ${existingFunders}. Find NEW opportunities not already in the pipeline. For each one, VERIFY whether they accept unsolicited applications — check their website for open calls, portals, or application guidelines.`,
     maxTok: 4000,
