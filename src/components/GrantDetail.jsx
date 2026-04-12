@@ -927,7 +927,17 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               </div>
             </Field>
             <Field label="Owner">
-              <select value={g.owner} onChange={e => up("owner", e.target.value)}
+              <select value={g.owner} onChange={e => {
+                  const newOwner = e.target.value;
+                  const oldOwner = g.owner;
+                  up("owner", newOwner);
+                  // Sync calendar: move event from old owner to new owner
+                  if (newOwner !== oldOwner && g.deadline) {
+                    import("../api").then(({ reassignGcal }) => {
+                      reassignGcal(g.id, oldOwner, newOwner, g).catch(() => {});
+                    });
+                  }
+                }}
                 style={{ fontSize: 14, fontWeight: 600, color: C.dark, border: "none", background: "transparent", fontFamily: FONT, cursor: "pointer", width: "100%" }}>
                 {team.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>

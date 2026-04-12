@@ -598,6 +598,21 @@ export const updateUploadText = async (id, orgId, text) => {
   await pool().query('UPDATE uploads SET extracted_text = $1 WHERE id = $2 AND org_id = $3', [text, id, orgId]);
 };
 
+// Google Calendar tokens per member
+export const getMemberGcalTokens = async (memberId) => {
+  const { rows } = await pool().query('SELECT gcal_tokens FROM team_members WHERE id = $1', [memberId]);
+  return rows[0]?.gcal_tokens || null;
+};
+
+export const setMemberGcalTokens = async (memberId, tokens) => {
+  await pool().query('UPDATE team_members SET gcal_tokens = $1 WHERE id = $2', [JSON.stringify(tokens), memberId]);
+};
+
+export const getMemberById = async (memberId) => {
+  const { rows } = await pool().query('SELECT * FROM team_members WHERE id = $1', [memberId]);
+  return rows[0] || null;
+};
+
 export const getOrgUploadsText = async (orgId) => {
   const { rows } = await pool().query(
     `SELECT id, original_name, category, extracted_text FROM uploads

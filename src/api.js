@@ -544,7 +544,9 @@ export const getGcalStatus = async () => {
 
 export const getGcalAuthUrl = async () => {
   const { slug } = getAuth();
-  const res = await fetch(`/api/auth/google/url?slug=${slug}`);
+  const member = getCurrentMember();
+  const memberId = member?.id || '';
+  const res = await fetch(`/api/auth/google/url?slug=${slug}&memberId=${memberId}`);
   return res.json();
 };
 
@@ -567,6 +569,19 @@ export const syncGrantToGcal = async (grant) => {
 
 export const syncAllToGcal = async () => {
   const res = await f('/gcal/sync-all', { method: 'POST' });
+  return res.json();
+};
+
+export const reassignGcal = async (grantId, oldOwner, newOwner, grant) => {
+  const res = await f('/gcal/reassign', {
+    method: 'POST',
+    body: JSON.stringify({
+      grantId, oldOwner, newOwner,
+      grantName: grant.name, funder: grant.funder,
+      deadline: grant.deadline, ask: grant.ask,
+      stage: grant.stage, applyUrl: grant.applyUrl,
+    }),
+  });
   return res.json();
 };
 

@@ -60,6 +60,9 @@ CREATE TABLE IF NOT EXISTS team_members (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Google Calendar tokens per team member
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS gcal_tokens JSONB;
+
 CREATE TABLE IF NOT EXISTS org_auth (
   org_id TEXT PRIMARY KEY REFERENCES orgs(id) ON DELETE CASCADE,
   password_hash TEXT NOT NULL
