@@ -596,7 +596,10 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                       <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.4, marginTop: 3 }}>{s.reason}</div>
                       {s.accessNote && (
                         <div style={{ fontSize: 11, color: accessC, lineHeight: 1.4, marginTop: 3, fontStyle: "italic" }}>
-                          {acc === "open" ? "\uD83D\uDCCB" : acc.includes("relationship") ? "\uD83E\uDD1D" : acc.includes("invitation") ? "\uD83D\uDEAB" : "\u2753"} {s.accessNote}
+                          {acc === "open" ? "\uD83D\uDCCB" : acc.includes("relationship") ? "\uD83E\uDD1D" : acc.includes("invitation") ? "\uD83D\uDEAB" : "\u2753"}{" "}
+                          {s.url ? (
+                            <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: accessC, textDecoration: "underline" }}>{s.accessNote}</a>
+                          ) : s.accessNote}
                         </div>
                       )}
                     </div>
@@ -617,7 +620,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                         <button onClick={() => setRejectingIdx(rejectingIdx === i ? null : i)}
                           style={{ fontSize: 13, color: C.t4, padding: "3px 7px", border: `1px solid ${C.line}`, borderRadius: 5, background: rejectingIdx === i ? C.redSoft : "none", cursor: "pointer", fontFamily: FONT, lineHeight: 1 }}
                           title="Not for us">
-                          \u2715
+                          {"\u2715"}
                         </button>
                       )}
                     </div>

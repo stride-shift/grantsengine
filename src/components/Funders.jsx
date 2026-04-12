@@ -388,7 +388,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
                           )}
                         </span>
                         {winRate !== null && (
-                          <span style={{ fontSize: 10, fontWeight: 600, color: winRate >= 50 ? C.ok : C.amber, background: (winRate >= 50 ? C.ok : C.amber) + "12", padding: "2px 7px", borderRadius: 100 }}>
+                          <span title={`${won.length} won, ${lost.length} lost out of ${won.length + lost.length} resolved grants with this funder`} style={{ fontSize: 10, fontWeight: 600, color: winRate >= 50 ? C.ok : C.amber, background: (winRate >= 50 ? C.ok : C.amber) + "12", padding: "2px 7px", borderRadius: 100 }}>
                             {won.length}W/{lost.length}L ({winRate}%)
                           </span>
                         )}
@@ -400,13 +400,15 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
                     <div style={{ fontSize: 10, color: C.t4, marginTop: 2 }}>
                       {fd.grants.length} grant{fd.grants.length !== 1 ? "s" : ""}{won.length > 0 && <span style={{ color: C.ok, fontWeight: 600 }}> {"\u2022"} {won.length}W</span>}{lost.length > 0 && <span style={{ color: C.red, fontWeight: 600 }}> {"\u2022"} {lost.length}L</span>}
                     </div>
-                    {lastInteraction && (
-                      <div style={{ fontSize: 9, color: daysSinceLast > 60 ? C.red : daysSinceLast > 30 ? C.amber : C.t4, marginTop: 2 }}>
+                    {lastInteraction ? (
+                      <div style={{ fontSize: 9, color: daysSinceLast > 60 ? C.red : daysSinceLast > 30 ? C.amber : C.t4, marginTop: 2 }} title={`Last activity: ${lastInteraction}`}>
                         Last: {daysSinceLast === 0 ? "today" : daysSinceLast === 1 ? "yesterday" : `${daysSinceLast}d ago`}
                       </div>
+                    ) : (
+                      <div style={{ fontSize: 9, color: C.t4, marginTop: 2 }}>No activity yet</div>
                     )}
                     {nextAction && (
-                      <div style={{ fontSize: 9, color: nextDaysLeft <= 7 ? C.red : C.primary, marginTop: 1, fontWeight: 600 }}>
+                      <div style={{ fontSize: 9, color: nextDaysLeft <= 7 ? C.red : C.primary, marginTop: 1, fontWeight: 600 }} title={`${nextAction.grant}: ${nextAction.label}`}>
                         Next: {nextAction.label} in {nextDaysLeft}d
                       </div>
                     )}

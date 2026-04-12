@@ -74,12 +74,12 @@ const DEFAULT_FTYPES = ["Corporate CSI", "Government/SETA", "International", "Fo
 const EMPTY_GRANT = Object.freeze({ name: "", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "", notes: "", deadline: null, stage: "", market: "sa" });
 
 const SIDEBAR_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: "\u25a6" },
-  { id: "pipeline", label: "Pipeline", icon: "\u25b6" },
-  { id: "vetting", label: "Vetting", icon: "\u2611" },
-  { id: "calendar", label: "Calendar", icon: "\u25C8" },
-  { id: "docs", label: "Documents", icon: "\u25B3" },
-  { id: "funders", label: "Funders", icon: "\u25c7" },
+  { id: "dashboard", label: "Dashboard", icon: "\u25A6" },
+  { id: "pipeline", label: "Pipeline", icon: "\u25B7" },
+  { id: "vetting", label: "Vetting", icon: "\u2714" },
+  { id: "calendar", label: "Calendar", icon: "\u25CB" },
+  { id: "docs", label: "Documents", icon: "\u25A1" },
+  { id: "funders", label: "Funders", icon: "\u2661" },
   { id: "settings", label: "Settings", icon: "\u2699" },
 ];
 
@@ -695,6 +695,7 @@ function AppInner() {
           <DocVault
             grants={grants}
             complianceDocs={complianceDocs}
+            currentMember={currentMember}
           />
         ) : view === "funders" ? (
           <Funders

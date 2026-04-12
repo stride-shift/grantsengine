@@ -66,7 +66,7 @@ const AVATAR_COLORS = [
 ];
 
 export default function Pipeline({ grants, team, stages, funderTypes, complianceDocs = [], orgContext = "", onSelectGrant, onUpdateGrant, onAddGrant, onRunAI, api, onToast }) {
-  const [pView, setPView] = useState("kanban");
+  const [pView, setPView] = useState("list");
   const [q, setQ] = useState("");
   const [sf, setSf] = useState("all");
   const [pSort, setPSort] = useState("default");
@@ -181,6 +181,9 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
           else if (f === "due-month") { const d = dL(g.deadline); if (d === null || d > 30 || d < 0) return false; }
           else if (f === "no-deadline") { if (g.deadline) return false; }
           else if (f === "no-draft") { if (g.aiDraft) return false; }
+          else if (f === "open-only") { if (g.deadline && new Date(g.deadline) < new Date() && !["submitted","awaiting","won","lost","deferred","archived"].includes(g.stage)) return false; }
+          else if (f === "awaiting") { if (g.stage !== "submitted" && g.stage !== "awaiting") return false; }
+          else if (f === "missed") { const dl = dL(g.deadline); if (dl === null || dl >= 0 || ["submitted","awaiting","won","lost","deferred","archived"].includes(g.stage)) return false; }
         }
         // OR logic for owner/unassigned filters — grant matches if it belongs to ANY selected person
         if (ownerFilters.length > 0) {
@@ -418,51 +421,56 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
         )}
       </div>
 
-      {/* Row 2: Search + Filters + View + Actions */}
+      {/* Row 2: Search + Filters + View */}
       {grants.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
           <input value={q} onChange={e => handleSearchChange(e.target.value)} placeholder="Search..."
-            style={{ padding: "5px 10px", fontSize: 12, border: `1px solid ${C.line}`, borderRadius: 6, width: 140, fontFamily: FONT, outline: "none", transition: "border-color 0.15s" }}
+            style={{ padding: "7px 12px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, width: 160, fontFamily: FONT, outline: "none", transition: "border-color 0.15s" }}
             onFocus={e => e.target.style.borderColor = C.primary}
             onBlur={e => e.target.style.borderColor = C.line}
           />
           <select value={sf} onChange={e => setSf(e.target.value)}
-            style={{ padding: "5px 8px", fontSize: 11, border: `1px solid ${C.line}`, borderRadius: 6, fontFamily: FONT, background: C.white }}>
-            <option value="all">All types</option>
+            style={{ padding: "7px 10px", fontSize: 12, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, background: C.white, cursor: "pointer" }}>
+            <option value="all">🔽 Filters</option>
             {(funderTypes || []).map(t => <option key={t} value={t}>{t}</option>)}
           </select>
-          <select value={pSort} onChange={e => setPSort(e.target.value)}
-            style={{ padding: "5px 8px", fontSize: 11, border: `1px solid ${C.line}`, borderRadius: 6, fontFamily: FONT, background: C.white }}>
-            <option value="default">By deadline</option>
-            <option value="ask">By amount</option>
-            <option value="priority">By priority</option>
-            <option value="fit">By fit score</option>
+          <select value={pView} onChange={e => setPView(e.target.value)}
+            style={{ padding: "7px 10px", fontSize: 12, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, background: C.white, cursor: "pointer" }}>
+            <option value="list">View: List</option>
+            <option value="kanban">View: Board</option>
+            <option value="person">View: Person</option>
           </select>
-          <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 6, overflow: "hidden" }}>
-            {VIEW_OPTIONS.map(([k,l]) => (
-              <button key={k} onClick={() => setPView(k)} style={{ padding: "4px 10px", fontSize: 11, fontWeight: 600, background: pView === k ? C.primary : C.white, color: pView === k ? C.white : C.t3, border: "none", cursor: "pointer", fontFamily: FONT, transition: "all 0.15s" }}>{l}</button>
-            ))}
-          </div>
-          <div style={{ width: 1, height: 18, background: C.line, margin: "0 2px" }} />
-          <div style={{ display: "flex", alignItems: "center", gap: 0, borderRadius: 6, overflow: "hidden", border: `1px solid ${C.primary}40` }}>
+
+          <div style={{ flex: 1 }} />
+
+          {/* Right side: Sort + actions */}
+          <span style={{ fontSize: 12, color: C.t3 }}>Sort by:</span>
+          <select value={pSort} onChange={e => setPSort(e.target.value)}
+            style={{ padding: "7px 10px", fontSize: 12, border: `1px solid ${C.line}`, borderRadius: 8, fontFamily: FONT, background: C.white, fontWeight: 600, cursor: "pointer" }}>
+            <option value="default">Deadline</option>
+            <option value="ask">Amount</option>
+            <option value="priority">Priority</option>
+            <option value="fit">Fit score</option>
+          </select>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 0, borderRadius: 8, overflow: "hidden", border: `1px solid ${C.primary}40` }}>
             <button onClick={() => scoutRef.current?.aiScout()} disabled={isScouting} style={{
-              padding: "5px 12px", fontSize: 12, fontWeight: 700, fontFamily: FONT,
+              padding: "7px 14px", fontSize: 12, fontWeight: 700, fontFamily: FONT,
               background: isScouting ? C.primarySoft : C.primary,
               color: isScouting ? C.primary : C.white,
               border: "none", cursor: isScouting ? "wait" : "pointer",
-              transition: "all 0.15s",
-            }}>{isScouting ? "Scouting..." : "\u2609 Scout"}</button>
+            }}>{isScouting ? "Scouting..." : "☀ Scout"}</button>
             <select value={scoutRef.current?.scoutMarket || "both"} onChange={e => scoutRef.current?.setScoutMarket(e.target.value)}
-              style={{ padding: "5px 6px", fontSize: 11, fontWeight: 600, fontFamily: FONT, border: "none", borderLeft: `1px solid ${C.primary}30`, background: C.primarySoft, color: C.primary, cursor: "pointer", outline: "none" }}>
+              style={{ padding: "7px 6px", fontSize: 11, fontWeight: 600, fontFamily: FONT, border: "none", borderLeft: `1px solid ${C.primary}30`, background: C.primarySoft, color: C.primary, cursor: "pointer", outline: "none" }}>
               <option value="both">🌐 All</option>
               <option value="sa">🇿🇦 SA</option>
               <option value="global">🌍 Global</option>
             </select>
           </div>
-          {onRunAI && <Btn onClick={() => setShowUrlTool(!showUrlTool)} v="ghost" style={{ fontSize: 11, padding: "4px 10px", color: C.blue, borderColor: C.blue + "30" }}>{"\uD83D\uDD17"} URL</Btn>}
+          {onRunAI && <Btn onClick={() => setShowUrlTool(!showUrlTool)} v="ghost" style={{ fontSize: 12, padding: "6px 12px", color: C.blue, borderColor: C.blue + "30" }}>🔗 URL</Btn>}
           {onRunAI && (
             <Btn onClick={scoreAllGrants} disabled={scoringAll} v="ghost" style={{
-              fontSize: 11, padding: "4px 10px",
+              fontSize: 12, padding: "6px 12px",
               color: scoringAll ? C.primary : C.amber,
               borderColor: (scoringAll ? C.primary : C.amber) + "30",
               animation: scoringAll ? "ge-pulse 1.4s ease-in-out infinite" : "none",
@@ -470,50 +478,102 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
               {scoringAll ? `${scoreProgress.done}/${scoreProgress.total}` : "⚡ Score All"}
             </Btn>
           )}
-          <Btn onClick={exportCSV} v="ghost" style={{ fontSize: 11, padding: "4px 10px", color: C.t4 }}>
-            CSV
-          </Btn>
+          <Btn onClick={exportCSV} v="ghost" style={{ fontSize: 12, padding: "6px 12px", color: C.t4 }}>CSV</Btn>
           <Btn onClick={() => { if (batchAction) { setBatchAction(null); setSelectedIds(new Set()); } else { setBatchAction("select"); } }}
-            v="ghost" style={{ fontSize: 11, padding: "4px 10px", color: batchAction ? C.primary : C.t4, borderColor: batchAction ? C.primary + "30" : undefined }}>
+            v="ghost" style={{ fontSize: 12, padding: "6px 12px", color: batchAction ? C.primary : C.t4, borderColor: batchAction ? C.primary + "30" : undefined }}>
             {batchAction ? "Done" : "Select"}
           </Btn>
+
+          {/* Status pills — inline with actions */}
         </div>
       )}
 
-      {/* Filter chips — only show when there are grants to filter */}
+      {/* Unified filter bar */}
       {grants.length > 0 && (() => {
-        const toggleFilter = (f) => setActiveFilters(prev => {
-          const next = new Set(prev);
-          next.has(f) ? next.delete(f) : next.add(f);
-          return next;
+        const now = new Date();
+        const openCount = grants.filter(g => !CLOSED_STAGES.includes(g.stage) && (!g.deadline || new Date(g.deadline) >= now)).length;
+        const dueSoonCount = grants.filter(g => { const d = dL(g.deadline); return d !== null && d >= 0 && d <= 7 && !CLOSED_STAGES.includes(g.stage); }).length;
+        const awaitingCount = grants.filter(g => g.stage === "submitted" || g.stage === "awaiting").length;
+        const missedCount = grants.filter(g => { const d = dL(g.deadline); return d !== null && d < 0 && !CLOSED_STAGES.includes(g.stage) && g.stage !== "submitted" && g.stage !== "awaiting"; }).length;
+        const toggleFilter = (f) => setActiveFilters(prev => { const n = new Set(prev); n.has(f) ? n.delete(f) : n.add(f); return n; });
+        const pillStyle = (f, color, bg) => ({
+          padding: "5px 12px", borderRadius: 100, fontSize: 11, fontWeight: 600,
+          cursor: "pointer", fontFamily: FONT, transition: "all 0.15s ease", border: "none",
+          background: activeFilters.has(f) ? color : bg,
+          color: activeFilters.has(f) ? "#fff" : color,
         });
-        const chipBase = { padding: "3px 8px", borderRadius: 100, fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: FONT, transition: "all 0.15s ease" };
-        const chipStyle = (f) => activeFilters.has(f)
-          ? { ...chipBase, border: `1px solid ${C.primary}`, background: C.primarySoft, color: C.primary }
-          : { ...chipBase, border: `1px solid ${C.line}`, background: C.white, color: C.t3 };
+        const chipStyle = (f) => ({
+          padding: "4px 10px", borderRadius: 100, fontSize: 11, fontWeight: 600,
+          cursor: "pointer", fontFamily: FONT, transition: "all 0.15s ease",
+          border: `1px solid ${activeFilters.has(f) ? C.primary : C.line}`,
+          background: activeFilters.has(f) ? C.primarySoft : C.white,
+          color: activeFilters.has(f) ? C.primary : C.t3,
+        });
         return (
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6, marginBottom: 10,
+            padding: "8px 14px", background: C.white, borderRadius: 10,
+            border: `1px solid ${C.line}`, flexWrap: "wrap",
+          }}>
+            {/* Status pills */}
+            <button onClick={() => toggleFilter("open-only")} style={pillStyle("open-only", C.ok, C.okSoft)}>● Open {openCount}</button>
+            <button onClick={() => toggleFilter("due-week")} style={pillStyle("due-week", C.amber, C.amberSoft)}>● Due soon {dueSoonCount}</button>
+            {awaitingCount > 0 && <button onClick={() => toggleFilter("awaiting")} style={pillStyle("awaiting", "#0891B2", "#ECFEFF")}>● Awaiting {awaitingCount}</button>}
+            {missedCount > 0 && <button onClick={() => toggleFilter("missed")} style={pillStyle("missed", C.red, C.redSoft)}>● Missed {missedCount}</button>}
+
+            <div style={{ width: 1, height: 20, background: C.line, margin: "0 4px", flexShrink: 0 }} />
+
+            {/* Quick filters */}
             <button onClick={() => toggleFilter("new-week")} style={chipStyle("new-week")}>New this week</button>
-            <button onClick={() => toggleFilter("due-week")} style={chipStyle("due-week")}>Due this week</button>
             <button onClick={() => toggleFilter("due-month")} style={chipStyle("due-month")}>Due this month</button>
             <button onClick={() => toggleFilter("no-deadline")} style={chipStyle("no-deadline")}>No deadline</button>
             <button onClick={() => toggleFilter("no-draft")} style={chipStyle("no-draft")}>No draft</button>
             <button onClick={() => toggleFilter("unassigned")} style={chipStyle("unassigned")}>Unassigned</button>
-            {ownerNames.map(oid => {
-              const m = getMember(oid);
-              return <button key={oid} onClick={() => toggleFilter(`owner:${oid}`)} style={chipStyle(`owner:${oid}`)}>{m?.name || oid}</button>;
-            })}
+
             {archivedCount > 0 && (
               <button onClick={() => setShowArchived(!showArchived)} style={{
-                ...chipBase,
+                padding: "4px 10px", borderRadius: 100, fontSize: 11, fontWeight: 600,
+                cursor: "pointer", fontFamily: FONT,
                 border: `1px solid ${showArchived ? "#9CA3AF" : C.line}`,
                 background: showArchived ? "#F3F4F6" : C.white,
                 color: showArchived ? "#6B7280" : C.t4,
-                fontWeight: showArchived ? 600 : 500,
               }}>🚫 {archivedCount} not relevant</button>
             )}
+
+            <div style={{ flex: 1 }} />
+
+            {/* Team avatars — pushed to the right, never wrap */}
+            <div style={{ display: "flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
+            {ownerNames.map(oid => {
+              const m = getMember(oid);
+              const active = activeFilters.has(`owner:${oid}`);
+              return (
+                <button key={oid} onClick={() => toggleFilter(`owner:${oid}`)} title={m?.name || oid}
+                  style={{
+                    width: 28, height: 28, borderRadius: "50%", padding: 0,
+                    border: active ? `2px solid ${C.dark}` : `2px solid transparent`,
+                    background: m?.c || C.t4,
+                    color: "#fff",
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 10, fontWeight: 700, fontFamily: FONT, transition: "all 0.15s",
+                    opacity: active ? 1 : 0.5,
+                    boxShadow: active ? `0 0 0 2px ${C.white}, 0 0 0 4px ${m?.c || C.primary}` : "none",
+                  }}>
+                  {m?.ini || oid.slice(0, 2).toUpperCase()}
+                </button>
+              );
+            })}
+            </div>
+
             {activeFilters.size > 0 && (
-              <button onClick={() => setActiveFilters(new Set())} style={{ ...chipStyle("clear"), color: C.red, borderColor: C.red + "40" }}>Clear all</button>
+              <>
+                <div style={{ flex: 1 }} />
+                <button onClick={() => setActiveFilters(new Set())} style={{
+                  padding: "4px 10px", borderRadius: 100, fontSize: 11, fontWeight: 600,
+                  cursor: "pointer", fontFamily: FONT, border: `1px solid ${C.red}30`,
+                  background: C.redSoft, color: C.red,
+                }}>Clear all</button>
+              </>
             )}
           </div>
         );
@@ -1084,10 +1144,11 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
           <div style={{ fontSize: 28, marginBottom: 8 }}>🔍</div>
           <div style={{ fontSize: 15, fontWeight: 600, color: C.t2, marginBottom: 4 }}>No matching grants</div>
           <div style={{ fontSize: 13, color: C.t4 }}>
-            {q ? `No results for "${q}"` : `No ${sf} grants found`}
+            {q ? `No results for "${q}"` : activeFilters.size > 0 ? "No grants match your active filters" : `No ${sf} grants found`}
             {" · "}
-            <button onClick={() => { setQ(""); setSf("all"); }} style={{ color: C.primary, background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontFamily: FONT, fontSize: 13 }}>Clear filters</button>
+            <button onClick={() => { setQ(""); setSf("all"); setActiveFilters(new Set()); setMarket("all"); }} style={{ color: C.primary, background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontFamily: FONT, fontSize: 13 }}>Clear all filters</button>
           </div>
+          <div style={{ fontSize: 11, color: C.t4, marginTop: 4 }}>Try removing filters or broadening your search</div>
         </div>
       )}
 
@@ -1194,42 +1255,112 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
         </div>
       )}
 
-      {/* List view — navy header */}
+      {/* List view — clean rows with status badges */}
       {pView === "list" && filtered.length > 0 && (
-        <div style={{ background: C.white, borderRadius: 10, border: "none", overflow: "hidden", boxShadow: C.cardShadow }}>
+        <div style={{ background: C.white, borderRadius: 12, overflow: "hidden", boxShadow: C.cardShadow, border: `1px solid ${C.line}` }}>
+          {/* Sort bar */}
           <div style={{
-            display: "grid", gridTemplateColumns: "2fr 1.5fr 140px 100px 90px 70px",
-            padding: "10px 16px", background: C.navy, borderRadius: "10px 10px 0 0",
-            fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", letterSpacing: 0.5, textTransform: "uppercase",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "8px 16px", borderBottom: `1px solid ${C.line}`, background: C.bg,
           }}>
-            <span>Grant</span><span>Funder</span><span>Type</span><span>Ask</span><span>Deadline</span><span>Stage</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: C.t3 }}>
+              <span style={{ fontWeight: 600 }}>Sort by:</span>
+              <select value={pSort} onChange={e => setPSort(e.target.value)}
+                style={{ fontSize: 12, fontWeight: 600, fontFamily: FONT, border: "none", background: "transparent", color: C.dark, cursor: "pointer", outline: "none" }}>
+                <option value="default">Deadline</option>
+                <option value="ask">Amount</option>
+                <option value="priority">Priority</option>
+                <option value="fit">Fit score</option>
+              </select>
+            </div>
           </div>
           {sorted.map((g, idx) => {
             const d = dL(g.deadline);
             const m = getMember(g.owner);
             const stg = STAGES.find(s => s.id === g.stage);
+            const ask = effectiveAsk(g);
+            const isOverdue = d !== null && d < 0;
+            const isDueSoon = d !== null && d >= 0 && d <= 7;
+            const isClosed = CLOSED_STAGES.includes(g.stage);
+            // Status badge
+            let statusText = null, statusColor = C.t4, statusBg = C.raised;
+            if (g.stage === "submitted" || g.stage === "awaiting") { statusText = g.stage === "submitted" ? "Submitted" : "Awaiting"; statusColor = "#0891B2"; statusBg = "#ECFEFF"; }
+            else if (isOverdue) { statusText = `Missed by ${Math.abs(d)}d`; statusColor = C.red; statusBg = C.redSoft; }
+            else if (isDueSoon) { statusText = d === 0 ? "Due today" : `Due in ${d} day${d !== 1 ? "s" : ""}`; statusColor = C.amber; statusBg = C.amberSoft; }
+            else if (g.deadline && d !== null) { statusText = `${d}d left`; statusColor = C.t3; statusBg = C.raised; }
+            else if (isClosed) { statusText = stg?.label || g.stage; statusColor = stg?.c || C.t4; statusBg = stg?.bg || C.raised; }
+            // Closed date display
+            const closedDaysAgo = g.log?.slice().reverse().find(l => l.t?.toLowerCase().includes("closed") || l.t?.toLowerCase().includes("archived"));
+
             return (
               <div key={g.id} onClick={() => onSelectGrant(g.id)}
                 style={{
-                  display: "grid", gridTemplateColumns: "2fr 1.5fr 140px 100px 90px 70px",
-                  padding: "10px 16px", borderBottom: `1px solid ${C.line}`,
-                  cursor: "pointer", alignItems: "center", transition: "background 0.1s",
-                  background: idx % 2 === 1 ? C.warm100 : "transparent",
+                  display: "flex", alignItems: "center", gap: 14,
+                  padding: "12px 16px", borderBottom: `1px solid ${C.line}`,
+                  cursor: "pointer", transition: "background 0.15s",
                 }}
                 onMouseEnter={e => e.currentTarget.style.background = C.hover}
-                onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 1 ? C.warm100 : "transparent"}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Avatar member={m} size={22} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: C.dark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</span>
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+
+                {/* Select checkbox (batch mode) */}
+                {batchAction && (
+                  <input type="checkbox" checked={selectedIds.has(g.id)}
+                    onChange={e => { e.stopPropagation(); setSelectedIds(prev => { const n = new Set(prev); n.has(g.id) ? n.delete(g.id) : n.add(g.id); return n; }); }}
+                    style={{ cursor: "pointer", flexShrink: 0 }} />
+                )}
+
+                {/* Owner avatar */}
+                <Avatar member={m} size={32} />
+
+                {/* Grant name + funder (stacked) */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.dark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {g.name}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.t3, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {g.funder}
+                  </div>
                 </div>
-                <span style={{ fontSize: 12, color: C.t3 }}>{g.funder}</span>
-                <TypeBadge type={g.type} />
-                <span style={{ fontSize: 13, fontWeight: 600, fontFamily: MONO, color: g.ask > 0 ? C.t1 : C.t4 }}>{g.ask > 0 ? fmtK(g.ask) : g.funderBudget ? `~${fmtK(g.funderBudget)}` : "TBD"}</span>
-                <DeadlineBadge d={d} deadline={g.deadline} stage={g.stage} />
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: stg?.c || C.t4 }} />
-                  <span style={{ fontSize: 11, fontWeight: 600, color: stg?.c || C.t3 }}>{stg?.label || g.stage}</span>
+
+                {/* Ask amount */}
+                <div style={{ flexShrink: 0, textAlign: "right", minWidth: 80 }}>
+                  <span style={{
+                    fontSize: 13, fontWeight: 700, fontFamily: MONO,
+                    color: ask > 0 ? C.dark : C.t4,
+                    background: ask > 0 ? C.raised : "transparent",
+                    padding: ask > 0 ? "2px 8px" : 0, borderRadius: 6,
+                  }}>
+                    {ask > 0 ? fmtK(ask) : g.funderBudget ? `~${fmtK(g.funderBudget)}` : "TBD"}
+                  </span>
                 </div>
+
+                {/* Status badge */}
+                <div style={{ flexShrink: 0, minWidth: 110, textAlign: "right" }}>
+                  {statusText && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100,
+                      color: statusColor, background: statusBg,
+                      whiteSpace: "nowrap",
+                    }}>
+                      {isOverdue ? "● " : isDueSoon ? "● " : ""}{statusText}
+                    </span>
+                  )}
+                </div>
+
+                {/* Assigned to */}
+                <div style={{ flexShrink: 0, minWidth: 130, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
+                  {m.id !== "team" && m.name !== "Unassigned" ? (
+                    <>
+                      <span style={{ fontSize: 12, color: C.t3 }}>Assigned to <b style={{ color: C.t1 }}>{m.name}</b></span>
+                      <Avatar member={m} size={24} />
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 12, color: C.t4, fontStyle: "italic" }}>Unassigned</span>
+                  )}
+                </div>
+
+                {/* Arrow */}
+                <span style={{ fontSize: 14, color: C.t4, flexShrink: 0 }}>›</span>
               </div>
             );
           })}

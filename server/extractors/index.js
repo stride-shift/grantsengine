@@ -11,12 +11,65 @@ function getXLSX() { return _XLSX || (_XLSX = require('xlsx')); }
  * Extract text from a file buffer based on MIME type.
  * Returns { text, error } — text is null on failure.
  */
+// Gemini vision fallback for scanned PDFs and images
+async function extractWithGemini(buffer, mimeType) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const base64 = buffer.toString('base64');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType, data: base64 } },
+            { text: 'Extract ALL text from this document. Return the full text content exactly as it appears — every heading, paragraph, bullet point, table, and number. Do not summarize. Do not add commentary. Just return the raw text.' },
+          ],
+        }],
+        generationConfig: { maxOutputTokens: 8000 },
+      }),
+    });
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.filter(p => p.text).map(p => p.text).join('\n\n');
+    return text?.trim() || null;
+  } catch (err) {
+    console.error('[Gemini extraction] Failed:', err.message);
+    return null;
+  }
+}
+
 export async function extractText(buffer, mimeType, originalName) {
   try {
     // PDF
     if (mimeType === 'application/pdf') {
-      const data = await getPdfParse()(buffer);
-      return { text: data.text?.trim() || null, error: null };
+      let text = null;
+      try {
+        const pdfParse = getPdfParse();
+        const data = await pdfParse(buffer);
+        text = data.text?.trim() || null;
+      } catch (pdfErr) {
+        console.log('[Extraction] pdf-parse failed:', pdfErr.message);
+      }
+      // If pdf-parse got nothing or failed, try Gemini vision
+      if (!text || text.length < 50) {
+        console.log('[Extraction] PDF text empty/short, trying Gemini vision...');
+        const geminiText = await extractWithGemini(buffer, mimeType);
+        if (geminiText && geminiText.length > 50) {
+          console.log(`[Extraction] Gemini extracted ${geminiText.length} chars from PDF`);
+          return { text: geminiText, error: null };
+        }
+      }
+      return { text, error: text ? null : 'Could not extract text from PDF' };
+    }
+
+    // Images — use Gemini vision for OCR
+    if (mimeType?.startsWith('image/')) {
+      const geminiText = await extractWithGemini(buffer, mimeType);
+      return { text: geminiText || null, error: geminiText ? null : 'Image OCR failed' };
     }
 
     // DOCX
@@ -59,10 +112,7 @@ export async function extractText(buffer, mimeType, originalName) {
       return { text: buffer.toString('utf-8').trim(), error: null };
     }
 
-    // Images — no extraction (would need Tesseract/OCR)
-    if (mimeType?.startsWith('image/')) {
-      return { text: null, error: null }; // silently skip
-    }
+    // Images already handled above via Gemini vision
 
     // Unknown type
     return { text: null, error: `Unsupported file type: ${mimeType}` };

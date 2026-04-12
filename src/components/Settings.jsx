@@ -97,6 +97,32 @@ export default function Settings({ org, profile, team, currentMember, compliance
   const [logoUploading, setLogoUploading] = useState(false);
   const logoRef = useRef(null);
 
+  // ── Google Calendar state ──
+  const [gcalConnected, setGcalConnected] = useState(false);
+  const [gcalLoading, setGcalLoading] = useState(false);
+  const [gcalSyncing, setGcalSyncing] = useState(false);
+  const [gcalMsg, setGcalMsg] = useState("");
+
+  useEffect(() => {
+    import("../api").then(({ getGcalStatus }) => {
+      getGcalStatus().then(d => setGcalConnected(d.connected)).catch(() => {});
+    });
+    // Listen for OAuth callback
+    const handler = async (e) => {
+      if (e.data === "gcal-connected") {
+        setGcalConnected(true);
+        setGcalMsg("Connected! Syncing deadlines...");
+        try {
+          const { syncAllToGcal } = await import("../api");
+          const r = await syncAllToGcal();
+          setGcalMsg(`Connected — ${r.synced} deadline${r.synced !== 1 ? "s" : ""} synced to your calendar`);
+        } catch { setGcalMsg("Connected — auto-sync failed, try again later"); }
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
   // Sync branding state when org changes
   useEffect(() => {
     if (org) {
@@ -488,6 +514,38 @@ export default function Settings({ org, profile, team, currentMember, compliance
         <div style={{ fontSize: 11, color: C.t4, marginTop: 8, lineHeight: 1.5 }}>
           Upload annual reports, strategy docs, budgets, impact reports, and YouTube URLs.
           Extracted text is combined with the org context above for AI prompts.
+        </div>
+      </div>
+
+      {/* ═══ Google Calendar ═══ */}
+      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
+        <Label>Google Calendar Integration</Label>
+        <div style={{ fontSize: 12, color: C.t3, marginBottom: 12, lineHeight: 1.5 }}>
+          Connect your Google Calendar to automatically sync grant deadlines. Events are created with reminders (1 day and 2 hours before).
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {gcalConnected ? (
+            <>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "4px 12px", borderRadius: 100 }}>✓ Connected</span>
+              <span style={{ fontSize: 12, color: C.t3 }}>Deadlines sync automatically when set or changed.</span>
+              <Btn v="ghost" style={{ fontSize: 11, padding: "5px 12px", color: C.red, borderColor: C.red + "30" }} onClick={async () => {
+                const { disconnectGcal } = await import("../api");
+                await disconnectGcal();
+                setGcalConnected(false); setGcalMsg("Disconnected");
+              }}>Disconnect</Btn>
+            </>
+          ) : (
+            <Btn v="primary" style={{ fontSize: 12, padding: "8px 16px" }} disabled={gcalLoading} onClick={async () => {
+              setGcalLoading(true);
+              try {
+                const { getGcalAuthUrl } = await import("../api");
+                const { url } = await getGcalAuthUrl();
+                window.open(url, "gcal-auth", "width=500,height=600");
+              } catch (e) { setGcalMsg("Failed: " + e.message); }
+              setGcalLoading(false);
+            }}>{gcalLoading ? "Loading..." : "Connect Google Calendar"}</Btn>
+          )}
+          {gcalMsg && <span style={{ fontSize: 11, color: C.t3 }}>{gcalMsg}</span>}
         </div>
       </div>
 
