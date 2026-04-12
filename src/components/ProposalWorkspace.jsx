@@ -26,13 +26,14 @@ const extractAskFromText = (text) => {
   return null;
 };
 
-export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunResearch, onUpdate, busy, setBusy, autoGenerate, onAutoGenerateComplete }) {
+export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunResearch, onUpdate, busy, setBusy, autoGenerate, onAutoGenerateComplete, isLocked = false }) {
   const g = grant;
   const fs = funderStrategy(g);
   const order = g.aiSectionsOrder || fs.structure;
   const sections = g.aiSections || {};
   const generatingAllRef = useRef(false);
   const [showLegacy, setShowLegacy] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Research must be done before drafting
   const researchDone = !!(g.aiResearch && !isAIError(g.aiResearch)) || !!(ai?.research && !isAIError(ai.research));
@@ -403,6 +404,17 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
           {completedCount > 0 && (
             <>
+              {/* View toggle: Sections / Full Document */}
+              <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 6, overflow: "hidden" }}>
+                <button onClick={() => setShowPreview(false)} style={{
+                  padding: "5px 12px", fontSize: 11, fontWeight: 600, fontFamily: FONT, border: "none", cursor: "pointer",
+                  background: !showPreview ? C.primary : C.white, color: !showPreview ? "#fff" : C.t3,
+                }}>Sections</button>
+                <button onClick={() => setShowPreview(true)} style={{
+                  padding: "5px 12px", fontSize: 11, fontWeight: 600, fontFamily: FONT, border: "none", cursor: "pointer",
+                  background: showPreview ? C.primary : C.white, color: showPreview ? "#fff" : C.t3,
+                }}>Full Document</button>
+              </div>
               <CopyBtn text={assembledText} />
               <DownloadBtn
                 text={assembledText}
@@ -418,12 +430,12 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
           ) : (
             <Btn
               onClick={generateAll}
-              disabled={anySectionBusy || !researchDone}
+              disabled={anySectionBusy || !researchDone || isLocked}
               v={allDone ? "ghost" : "primary"}
-              style={{ fontSize: 12, padding: "7px 16px", opacity: researchDone ? 1 : 0.5 }}
-              title={researchDone ? undefined : "Run Funder Research first"}
+              style={{ fontSize: 12, padding: "7px 16px", opacity: (researchDone && !isLocked) ? 1 : 0.5 }}
+              title={isLocked ? "Proposal is locked" : researchDone ? undefined : "Run Funder Research first"}
             >
-              {anySectionBusy ? "Generating..." : !researchDone ? "Research Required" : allDone ? "\u21bb Regenerate All" : `Generate All (${pendingCount})`}
+              {isLocked ? "Locked" : anySectionBusy ? "Generating..." : !researchDone ? "Research Required" : allDone ? "\u21bb Regenerate All" : `Generate All (${pendingCount})`}
             </Btn>
           )}
         </div>
@@ -475,8 +487,98 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
         </div>
       )}
 
-      {/* ── Section Cards ── */}
-      <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+      {/* ── Document Preview ── */}
+      {showPreview && assembledText.trim() && (
+        <div style={{ padding: "0 14px 14px" }}>
+          <div style={{
+            background: "#fff", borderRadius: 8, border: `1px solid ${C.line}`,
+            boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+            maxHeight: "70vh", overflow: "auto",
+          }}>
+            {/* Page-like container */}
+            <div style={{
+              maxWidth: 700, margin: "0 auto", padding: "48px 56px",
+              fontFamily: "'Georgia', 'Times New Roman', serif",
+              fontSize: 13, lineHeight: 1.7, color: "#1a1a1a",
+            }}>
+              {/* Header */}
+              <div style={{ textAlign: "center", marginBottom: 32, borderBottom: `2px solid ${C.primary}`, paddingBottom: 16 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: C.t3, textTransform: "uppercase", letterSpacing: 2, marginBottom: 8, fontFamily: FONT }}>
+                  Funding Proposal
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: C.dark, fontFamily: FONT, marginBottom: 4 }}>
+                  {g.name}
+                </div>
+                <div style={{ fontSize: 14, color: C.t2, fontFamily: FONT }}>
+                  {g.funder}{g.ask > 0 ? ` · R${g.ask.toLocaleString()}` : ""}
+                </div>
+                {g.deadline && (
+                  <div style={{ fontSize: 11, color: C.t3, marginTop: 4, fontFamily: FONT }}>
+                    Deadline: {new Date(g.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}
+                  </div>
+                )}
+              </div>
+
+              {/* Sections */}
+              {order.map((name, i) => {
+                const section = sections[name];
+                if (!section?.text || isAIError(section.text)) return null;
+                return (
+                  <div key={name} style={{ marginBottom: 28 }}>
+                    <div style={{
+                      fontSize: 15, fontWeight: 700, color: C.dark, fontFamily: FONT,
+                      marginBottom: 8, paddingBottom: 4,
+                      borderBottom: `1px solid ${C.line}`,
+                    }}>
+                      {i + 1}. {name}
+                    </div>
+                    {section.text.split("\n").map((para, j) => {
+                      const trimmed = para.trim();
+                      if (!trimmed) return <div key={j} style={{ height: 8 }} />;
+                      // Bullet points
+                      if (trimmed.startsWith("- ") || trimmed.startsWith("• ") || trimmed.startsWith("* ")) {
+                        return (
+                          <div key={j} style={{ display: "flex", gap: 8, marginBottom: 4, paddingLeft: 12 }}>
+                            <span style={{ color: C.primary, flexShrink: 0 }}>•</span>
+                            <span>{trimmed.slice(2)}</span>
+                          </div>
+                        );
+                      }
+                      // Bold lines (likely sub-headings)
+                      if (trimmed.startsWith("**") && trimmed.endsWith("**")) {
+                        return <div key={j} style={{ fontWeight: 700, marginTop: 12, marginBottom: 4, fontFamily: FONT }}>{trimmed.replace(/\*\*/g, "")}</div>;
+                      }
+                      // Table rows (pipe-separated)
+                      if (trimmed.includes("|") && trimmed.split("|").length >= 3) {
+                        const cells = trimmed.split("|").map(c => c.trim()).filter(Boolean);
+                        return (
+                          <div key={j} style={{ display: "flex", borderBottom: `1px solid ${C.line}`, padding: "4px 0" }}>
+                            {cells.map((cell, k) => (
+                              <span key={k} style={{ flex: k === 0 ? 2 : 1, fontSize: 12, fontFamily: FONT, color: k === 0 ? C.dark : C.t2 }}>{cell}</span>
+                            ))}
+                          </div>
+                        );
+                      }
+                      // Regular paragraph
+                      return <p key={j} style={{ margin: "0 0 8px 0" }}>{trimmed}</p>;
+                    })}
+                  </div>
+                );
+              })}
+
+              {/* Footer */}
+              <div style={{ marginTop: 40, paddingTop: 16, borderTop: `1px solid ${C.line}`, textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: C.t4, fontFamily: FONT }}>
+                  Prepared by {orgName || "the organisation"} · {new Date().toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Section Cards (hidden in Full Document view) ── */}
+      {!showPreview && <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
         {order.map((name, i) => (
           <SectionCard
             key={name}
@@ -485,13 +587,14 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
             total={totalCount}
             section={sections[name] || null}
             busy={!!busySections[name]}
-            onGenerate={(customInstructions) => generateSection(name, customInstructions)}
-            onSave={(newText) => saveSectionEdit(name, newText)}
-            onRestore={(historyIdx) => restoreSection(name, historyIdx)}
+            onGenerate={isLocked ? undefined : (customInstructions) => generateSection(name, customInstructions)}
+            onSave={isLocked ? undefined : (newText) => saveSectionEdit(name, newText)}
+            onRestore={isLocked ? undefined : (historyIdx) => restoreSection(name, historyIdx)}
             budgetTable={name.toLowerCase().includes("budget") ? g.budgetTable : undefined}
+            isLocked={isLocked}
           />
         ))}
-      </div>
+      </div>}
 
       {/* ── Legacy draft viewer (toggle) ── */}
       {hasLegacyDraft && (

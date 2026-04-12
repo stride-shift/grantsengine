@@ -1,12 +1,13 @@
 import { useRef } from "react";
 import { parseStructuredResearch, dL, effectiveAsk } from "../utils";
 import { funderStrategy, isFunderReturning, detectType, PTYPES } from "../data/funderStrategy";
-import { api, getUploadsContext } from "../api";
+import { api, getUploadsContext, getUploadsByCategory, getUploadFull, kvGet } from "../api";
 import { getWritingLearnings } from "../editLearner";
 
 export default function useAI({ org, profile, team, grants, stages }) {
   const uploadsCache = useRef({});
   const learningsCache = useRef({ text: null, fetchedAt: 0 });
+  const proposalLibraryCache = useRef({ proposals: null, fetchedAt: 0 });
 
   // ── Select research fields relevant to a specific proposal section ──
   const getResearchForSection = (structured, sectionName, budget) => {
@@ -167,6 +168,54 @@ export default function useAI({ org, profile, team, grants, stages }) {
             remaining -= block.length;
           }
         } catch { /* Non-blocking */ }
+      }
+
+      // Proposal library — inject starred reference proposals for tone and structure
+      if (isDraftType && remaining > 500) {
+        try {
+          const now = Date.now();
+          if (!proposalLibraryCache.current.proposals || now - proposalLibraryCache.current.fetchedAt > 120000) {
+            // Get starred reference IDs from KV store
+            let refIdList = [];
+            try {
+              const refData = await kvGet("proposal_references");
+              refIdList = Array.isArray(refData) ? refData : (refData?.value || []);
+            } catch { /* no references set */ }
+
+            const withText = [];
+            if (refIdList.length > 0) {
+              // Fetch full text for starred proposals only (up to 3)
+              for (const id of refIdList) {
+                try {
+                  const full = await getUploadFull(id);
+                  if (full?.extracted_text) {
+                    withText.push({ name: full.original_name, text: full.extracted_text });
+                  }
+                } catch { /* skip failed fetches */ }
+                if (withText.length >= 50) break;
+              }
+            }
+            proposalLibraryCache.current = { proposals: withText, fetchedAt: now };
+          }
+          const refProposals = proposalLibraryCache.current.proposals || [];
+          if (refProposals.length > 0) {
+            const proposalBudget = Math.min(6000, remaining - 200);
+            const parts = ["=== REFERENCE PROPOSALS (starred by the team as examples of good proposals — match their quality) ===",
+              "Study these proposals carefully. Match their tone, specificity, structure, and voice when writing the new proposal. Pay attention to how they open, how they frame budgets, how they tell the org story, and how they close."];
+            let budget = proposalBudget;
+            for (const p of refProposals) {
+              if (budget <= 0) break;
+              const excerpt = p.text.slice(0, Math.min(2500, budget));
+              parts.push(`[Reference: ${p.name}]\n${excerpt}`);
+              budget -= excerpt.length;
+            }
+            if (parts.length > 2) {
+              const block = "\n\n" + parts.join("\n\n");
+              orgCtx += block;
+              remaining -= block.length;
+            }
+          }
+        } catch { /* Proposal library fetch is non-blocking */ }
       }
 
       // Org-level knowledge base (fills remaining space)

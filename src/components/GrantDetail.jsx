@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmtK, dL, td, effectiveAsk, grantReadiness, isAIError, parseStructuredResearch, cleanProposalText } from "../utils";
+import { fmtK, dL, td, uid, effectiveAsk, grantReadiness, isAIError, parseStructuredResearch, cleanProposalText } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, AICard, stripMd, timeAgo } from "./index";
 import UploadZone from "./UploadZone";
 import { getUploads } from "../api";
@@ -8,6 +8,7 @@ import { detectType, PTYPES, multiCohortInfo, funderStrategy, selectOptimalBudge
 import { DOCS, DOC_MAP, ORG_DOCS } from "../data/constants";
 import ProposalWorkspace from "./ProposalWorkspace";
 import BudgetBuilder from "./BudgetBuilder";
+import { downloadICS } from "./Calendar";
 
 const fmtTs = (iso) => iso ? new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
 
@@ -73,6 +74,114 @@ const ActivityRow = ({ date, text, isLast }) => (
   </div>
 );
 
+/* ── Outstanding Actions Checklist ── */
+function OutstandingActions({ grant, onUpdate, complianceDocs = [], missingDocs = [] }) {
+  const [newText, setNewText] = useState("");
+  const actions = grant.outstandingActions || [];
+  const g = grant;
+
+  // Auto-detected items based on grant state
+  const autoItems = useMemo(() => {
+    const items = [];
+    if (!g.deadline) items.push({ id: "_no-deadline", text: "Set a deadline", auto: true, priority: "high" });
+    else {
+      const days = Math.ceil((new Date(g.deadline) - new Date()) / 86400000);
+      if (days < 0) items.push({ id: "_overdue", text: `Deadline missed by ${Math.abs(days)} days — resubmit or archive`, auto: true, priority: "high" });
+    }
+    if (!g.owner || g.owner === "team") items.push({ id: "_no-owner", text: "Assign an owner", auto: true, priority: "high" });
+    if (!g.aiResearch && !["scouted", "vetting"].includes(g.stage)) items.push({ id: "_no-research", text: "Run funder research", auto: true, priority: "medium" });
+    if (!g.aiFitscore) items.push({ id: "_no-fitscore", text: "Run fit score", auto: true, priority: "low" });
+    if (!g.aiDraft && !g.aiSections && ["drafting", "review"].includes(g.stage)) items.push({ id: "_no-draft", text: "Generate proposal draft", auto: true, priority: "high" });
+    if (g.ask === 0 && !["scouted", "vetting"].includes(g.stage)) items.push({ id: "_no-ask", text: "Set ask amount / build budget", auto: true, priority: "medium" });
+    // Missing compliance docs
+    for (const doc of missingDocs) {
+      items.push({ id: `_doc-${doc}`, text: `Upload: ${doc}`, auto: true, priority: "medium" });
+    }
+    return items;
+  }, [g.deadline, g.owner, g.aiResearch, g.aiFitscore, g.aiDraft, g.aiSections, g.ask, g.stage, missingDocs]);
+
+  const add = () => {
+    if (!newText.trim()) return;
+    onUpdate([...actions, { id: uid(), text: newText.trim(), done: false, createdAt: td() }]);
+    setNewText("");
+  };
+
+  const toggle = (id) => {
+    onUpdate(actions.map(a => a.id === id ? { ...a, done: !a.done } : a));
+  };
+
+  const remove = (id) => {
+    onUpdate(actions.filter(a => a.id !== id));
+  };
+
+  const manualSorted = [...actions].sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
+  const priorityColor = { high: C.red, medium: C.amber, low: C.t3 };
+
+  return (
+    <div>
+      {/* Auto-detected items */}
+      {autoItems.length > 0 && (
+        <>
+          {autoItems.map(a => (
+            <div key={a.id} style={{
+              display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+              borderBottom: `1px solid ${C.line}`, borderRadius: 4,
+              background: a.priority === "high" ? C.redSoft + "40" : a.priority === "medium" ? C.amberSoft + "40" : "transparent",
+            }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: priorityColor[a.priority] || C.t4, flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: 13, color: C.dark }}>{a.text}</span>
+              <span style={{ fontSize: 9, color: priorityColor[a.priority], fontWeight: 600, flexShrink: 0 }}>{a.priority}</span>
+            </div>
+          ))}
+          {manualSorted.length > 0 && <div style={{ height: 1, background: C.line, margin: "6px 0" }} />}
+        </>
+      )}
+
+      {/* Manual items */}
+      {manualSorted.map(a => (
+        <div key={a.id} style={{
+          display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+          borderBottom: `1px solid ${C.line}`,
+          background: a.done ? C.okSoft + "40" : "transparent",
+          borderRadius: 4,
+        }}>
+          <input type="checkbox" checked={a.done} onChange={() => toggle(a.id)}
+            style={{ cursor: "pointer", flexShrink: 0, width: 16, height: 16 }} />
+          <span style={{
+            flex: 1, fontSize: 13, color: a.done ? C.t4 : C.dark,
+            textDecoration: a.done ? "line-through" : "none",
+          }}>{a.text}</span>
+          {a.createdAt && <span style={{ fontSize: 9, color: C.t4, flexShrink: 0 }}>{a.createdAt}</span>}
+          <button onClick={() => remove(a.id)} style={{
+            fontSize: 14, color: C.t4, background: "none", border: "none",
+            cursor: "pointer", fontFamily: FONT, padding: "4px 8px", lineHeight: 1,
+          }} title="Remove action">✕</button>
+        </div>
+      ))}
+
+      {/* Add manual item */}
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <input
+          value={newText}
+          onChange={e => setNewText(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") add(); }}
+          placeholder="Add a custom action..."
+          style={{
+            flex: 1, padding: "7px 10px", fontSize: 12, fontFamily: FONT,
+            border: `1px solid ${C.line}`, borderRadius: 6, outline: "none",
+          }}
+        />
+        <Btn v="ghost" style={{ fontSize: 11, padding: "6px 14px" }} onClick={add} disabled={!newText.trim()}>Add</Btn>
+      </div>
+      {autoItems.length === 0 && actions.length === 0 && (
+        <div style={{ fontSize: 12, color: C.ok, padding: "8px 0", textAlign: "center" }}>
+          ✓ All clear — nothing outstanding.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], currentMember, orgName = "the organisation", onUpdate, onDelete, onBack, onRunAI, onUploadsChanged }) {
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState({});
@@ -99,6 +208,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   const [askInput, setAskInput] = useState("");
   const [uploads, setUploads] = useState([]);
   const [rollingDice, setRollingDice] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [diceStep, setDiceStep] = useState("");
 
   // Sync AI state when switching between grants
@@ -249,6 +359,20 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       // Grant-specific docs (no DOC_MAP entry) are not counted in readiness
     }
     return { ready, total: required.length };
+  }, [g.type, compMap]);
+
+  const missingDocNames = useMemo(() => {
+    const required = DOCS[g.type];
+    if (!required) return [];
+    const missing = [];
+    for (const docName of required) {
+      const orgDocId = DOC_MAP[docName];
+      if (orgDocId) {
+        const cd = compMap[orgDocId];
+        if (!cd || (cd.status !== "valid" && cd.status !== "uploaded")) missing.push(docName);
+      }
+    }
+    return missing;
   }, [g.type, compMap]);
 
   // ── Stage classification ──
@@ -789,7 +913,14 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             <Field label="Stage">
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: stg?.c || C.t4, flexShrink: 0 }} />
-                <select value={g.stage} onChange={e => up("stage", e.target.value)}
+                <select value={g.stage} onChange={e => {
+                    const newStage = e.target.value;
+                    if (newStage === "submitted") {
+                      setShowSubmitModal(true);
+                    } else {
+                      up("stage", newStage);
+                    }
+                  }}
                   style={{ fontSize: 14, fontWeight: 600, color: stg?.c || C.dark, border: "none", background: "transparent", fontFamily: FONT, cursor: "pointer", flex: 1 }}>
                   {(stages || []).map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                 </select>
@@ -1048,8 +1179,26 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 <div style={{ fontSize: 13, color: C.dark, fontWeight: 500 }}>{g.hrs || 0}h</div>
               </Field>
               <Field label="Deadline">
-                <input type="date" value={g.deadline || ""} onChange={e => up("deadline", e.target.value || null)}
-                  style={{ fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, padding: "5px 10px", fontFamily: FONT, marginTop: 2 }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input type="date" value={g.deadline || ""} onChange={e => {
+                    const val = e.target.value || null;
+                    up("deadline", val);
+                    if (val && val !== g.deadline) {
+                      // Auto-sync to Google Calendar if connected
+                      import("../api").then(({ syncGrantToGcal }) => {
+                        syncGrantToGcal({ ...g, deadline: val }).catch(() => {});
+                      });
+                      setTimeout(() => downloadICS({ ...g, deadline: val }, "deadline"), 300);
+                    }
+                  }}
+                    style={{ fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 8, padding: "5px 10px", fontFamily: FONT, marginTop: 2 }} />
+                  {g.deadline && (
+                    <button onClick={() => downloadICS(g, "deadline")} title="Download calendar invite"
+                      style={{ fontSize: 12, background: "none", border: `1px solid ${C.line}`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", color: C.t3, fontFamily: FONT }}>
+                      📅
+                    </button>
+                  )}
+                </div>
               </Field>
             </div>
           </Card>
@@ -1261,6 +1410,14 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       {(showAll || isMiddle) && (
         <div ref={proposalRef}>
           <SectionWrap title="Write Proposal" defaultOpen={isMiddle}>
+            {isSubmittedPlus && (
+              <div style={{ padding: "10px 14px", background: C.amberSoft, borderRadius: 8, marginBottom: 10, border: `1px solid ${C.amber}20`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 12, color: C.amber, fontWeight: 600 }}>This proposal has been submitted and is locked for editing.</span>
+                {(currentMember?.role === "director" || currentMember?.role === "board") && (
+                  <button onClick={() => up("stage", "review")} style={{ fontSize: 11, fontWeight: 600, color: C.primary, background: "none", border: `1px solid ${C.primary}30`, borderRadius: 5, padding: "4px 10px", cursor: "pointer", fontFamily: FONT }}>Unlock → Review</button>
+                )}
+              </div>
+            )}
             <ProposalWorkspace
               grant={g}
               ai={ai}
@@ -1272,6 +1429,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               setBusy={setBusy}
               autoGenerate={rollingDice}
               onAutoGenerateComplete={() => { setRollingDice(false); setDiceStep(""); }}
+              isLocked={isSubmittedPlus}
             />
             {/* Ask confirmation */}
             {(g.askSource === "ai-draft" || g.askSource === "budget-builder") && g.ask > 0 && (
@@ -1294,6 +1452,31 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             )}
           </SectionWrap>
         </div>
+      )}
+
+      {/* Outstanding Actions — visible in all active stages */}
+      {!isClosed && (
+        <SectionWrap
+          title="Outstanding Actions"
+          defaultOpen={true}
+          badge={(() => {
+            const manual = (g.outstandingActions || []).filter(a => !a.done).length;
+            // Quick count of auto items
+            let auto = 0;
+            if (!g.deadline) auto++;
+            if (!g.owner || g.owner === "team") auto++;
+            if (!g.aiResearch && !["scouted", "vetting"].includes(g.stage)) auto++;
+            if (!g.aiDraft && !g.aiSections && ["drafting", "review"].includes(g.stage)) auto++;
+            if (g.ask === 0 && !["scouted", "vetting"].includes(g.stage)) auto++;
+            auto += missingDocNames.length;
+            const total = manual + auto;
+            return total > 0 ? `${total} action${total !== 1 ? "s" : ""}` : "all clear";
+          })()}
+        >
+          <Card>
+            <OutstandingActions grant={g} onUpdate={(actions) => up("outstandingActions", actions)} complianceDocs={complianceDocs} missingDocs={missingDocNames} />
+          </Card>
+        </SectionWrap>
       )}
 
       {/* Follow-ups — LATE (open), or showAll */}
@@ -1650,6 +1833,59 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           {showAll ? "Show relevant sections only" : "Show all sections"}
         </button>
       </div>
+
+      {/* Submission validation modal */}
+      {showSubmitModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 200,
+          background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center",
+        }} onClick={() => setShowSubmitModal(false)}>
+          <div style={{
+            background: C.white, borderRadius: 12, padding: "24px 28px", width: 480,
+            boxShadow: "0 16px 48px rgba(0,0,0,0.2)",
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: C.dark, marginBottom: 16 }}>Submit Proposal</div>
+            <div style={{ fontSize: 13, color: C.t3, marginBottom: 16 }}>Check everything is ready before submitting.</div>
+
+            {(() => {
+              const checks = [
+                { label: "Proposal draft", ok: !!g.aiDraft || !!(g.aiSections && Object.keys(g.aiSections).length > 0), detail: g.aiDraft ? "Draft ready" : "No draft generated" },
+                { label: "Budget", ok: !!g.budgetTable || g.ask > 0, detail: g.ask > 0 ? `R${g.ask.toLocaleString()}` : "No budget set" },
+                { label: "Deadline set", ok: !!g.deadline, detail: g.deadline ? new Date(g.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" }) : "No deadline" },
+                { label: "Outstanding actions", ok: !(g.outstandingActions || []).some(a => !a.done), detail: (() => { const open = (g.outstandingActions || []).filter(a => !a.done); return open.length > 0 ? `${open.length} open: ${open[0].text}` : "All clear"; })() },
+              ];
+              const allOk = checks.every(c => c.ok);
+              const isDirector = currentMember?.role === "director" || currentMember?.role === "board";
+
+              return (
+                <>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+                    {checks.map((c, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: c.ok ? C.okSoft : C.redSoft, border: `1px solid ${c.ok ? C.ok + "30" : C.red + "30"}` }}>
+                        <span style={{ fontSize: 16 }}>{c.ok ? "✓" : "✕"}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: c.ok ? C.ok : C.red }}>{c.label}</div>
+                          <div style={{ fontSize: 11, color: C.t3 }}>{c.detail}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                    <Btn v="ghost" style={{ fontSize: 12 }} onClick={() => setShowSubmitModal(false)}>Cancel</Btn>
+                    {!allOk && isDirector && (
+                      <Btn v="ghost" style={{ fontSize: 12, color: C.amber, borderColor: C.amber + "40" }} onClick={() => { up("stage", "submitted"); setShowSubmitModal(false); }}>Submit anyway (Director override)</Btn>
+                    )}
+                    {allOk && (
+                      <Btn v="primary" style={{ fontSize: 12, padding: "8px 20px" }} onClick={() => { up("stage", "submitted"); setShowSubmitModal(false); }}>Submit proposal</Btn>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

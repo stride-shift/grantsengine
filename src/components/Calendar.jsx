@@ -5,7 +5,7 @@ import { Avatar } from "./index";
 import { getAuth } from "../api";
 
 /* ── ICS helpers ── */
-function generateICSEvent(grant, type = "deadline") {
+export function generateICSEvent(grant, type = "deadline") {
   const dateStr = type === "deadline" ? grant.deadline : grant.subDate;
   if (!dateStr) return null;
   const d = new Date(dateStr.slice(0, 10) + "T09:00:00");
@@ -29,7 +29,7 @@ function generateICSEvent(grant, type = "deadline") {
   ].filter(Boolean).join("\r\n");
 }
 
-function downloadICS(grant, type = "deadline") {
+export function downloadICS(grant, type = "deadline") {
   const ics = generateICSEvent(grant, type);
   if (!ics) return;
   const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
@@ -462,9 +462,9 @@ export default function Calendar({ grants, team, stages, onSelectGrant }) {
               const { slug } = getAuth();
               const feedUrl = `${window.location.origin}/api/org/${slug}/calendar.ics`;
               navigator.clipboard.writeText(feedUrl).then(() => {
-                alert("Calendar feed URL copied! Paste it in your calendar app (Google Calendar → Other calendars → From URL)");
+                alert("Calendar feed URL copied!\n\nTo subscribe:\n• Google Calendar: Other calendars → From URL → Paste\n• Outlook: Add calendar → From internet → Paste\n• Apple Calendar: File → New Subscription → Paste\n\nYour calendar will auto-update when deadlines change.");
               }).catch(() => {
-                prompt("Copy this URL and subscribe in your calendar app:", feedUrl);
+                prompt("Copy this URL and add it to your calendar app as a subscription:", feedUrl);
               });
             }}
             style={{
@@ -472,9 +472,9 @@ export default function Calendar({ grants, team, stages, onSelectGrant }) {
               borderRadius: 6, border: `1px solid ${C.line}`, background: "#fff",
               color: C.primary, cursor: "pointer",
             }}
-            title="Copy ICS feed URL for subscribing in Google/Outlook calendar"
+            title="Get a URL to subscribe to this calendar in Google Calendar, Outlook, or Apple Calendar. All deadlines and follow-ups will sync automatically."
           >
-            📅 Subscribe
+            📅 Subscribe to calendar
           </button>
         </div>
 

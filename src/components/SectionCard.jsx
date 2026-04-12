@@ -177,7 +177,7 @@ function BudgetTable({ bt }) {
    Individual section of a section-by-section proposal.
    States: empty / loading / view / edit / error
 */
-export default function SectionCard({ name, index, total, section, busy, onGenerate, onSave, onRestore, budgetTable }) {
+export default function SectionCard({ name, index, total, section, busy, onGenerate, onSave, onRestore, budgetTable, isLocked = false }) {
   const hasText = section?.text && !section.text.startsWith("Error");
   const isError = section?.text && (section.text.startsWith("Error") || section.text.startsWith("Rate limit") || section.text.startsWith("Connection"));
   const [expanded, setExpanded] = useState(!hasText);
@@ -193,6 +193,7 @@ export default function SectionCard({ name, index, total, section, busy, onGener
   useEffect(() => { setInstructions(section?.customInstructions || ""); }, [section?.customInstructions]);
 
   const startEdit = () => {
+    if (isLocked) return;
     setEditText(section?.text || "");
     setEditing(true);
     setExpanded(true);

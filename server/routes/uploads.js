@@ -6,12 +6,20 @@ import { createClient } from '@supabase/supabase-js';
 import {
   getUploadsByOrg, getUploadsByGrant, getUploadById,
   createUpload, deleteUploadById, getOrgUploadsText, getGrantUploadsText,
+  getMemberRole, updateUploadCategory, updateUploadText,
 } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { resolveOrg } from '../middleware/org.js';
 import { extractText, truncateText } from '../extractors/index.js';
 
 const orgAuth = [resolveOrg, requireAuth];
+const ROLE_LEVELS = { director: 3, board: 3, hop: 2, pm: 1, coord: 1, comms: 0 };
+
+async function getMemberLevel(req) {
+  if (!req.memberId) return 0;
+  const role = await getMemberRole(req.orgId, req.memberId);
+  return ROLE_LEVELS[role] || 0;
+}
 
 // Supabase Storage client
 function getStorage() {
@@ -84,6 +92,7 @@ router.post('/org/:slug/uploads', ...orgAuth, upload.single('file'), async (req,
       size: req.file.size,
       extracted_text: text ? truncateText(text, 15000) : null,
       category: req.body.category || null,
+      visibility: req.body.visibility || 'public',
     });
 
     res.status(201).json({
@@ -178,6 +187,11 @@ router.get('/org/:slug/uploads', ...orgAuth, w(async (req, res) => {
   if (category) {
     uploads = uploads.filter(u => u.category === category);
   }
+  // Role-based visibility: hide admin-only docs from level < 2
+  const level = await getMemberLevel(req);
+  if (level < 2) {
+    uploads = uploads.filter(u => u.visibility !== 'admin');
+  }
   // Return metadata with truncated text preview
   res.json(uploads.map(u => ({
     ...u,
@@ -191,6 +205,11 @@ router.get('/org/:slug/uploads', ...orgAuth, w(async (req, res) => {
 router.get('/org/:slug/uploads/:id/download', ...orgAuth, w(async (req, res) => {
   const up = await getUploadById(req.params.id, req.orgId);
   if (!up) return res.status(404).json({ error: 'Upload not found' });
+  // Block admin-only docs for low-level users
+  if (up.visibility === 'admin') {
+    const level = await getMemberLevel(req);
+    if (level < 2) return res.status(403).json({ error: 'Access denied — admin-only document' });
+  }
 
   if (up.mime_type === 'video/youtube') {
     return res.redirect(up.filename); // filename is the YouTube URL
@@ -207,10 +226,52 @@ router.get('/org/:slug/uploads/:id/download', ...orgAuth, w(async (req, res) => 
   res.json({ url: data.signedUrl, name: up.original_name, mime_type: up.mime_type });
 }));
 
+// POST /api/org/:slug/uploads/:id/reextract — re-extract text (for failed PDFs)
+router.post('/org/:slug/uploads/:id/reextract', ...orgAuth, w(async (req, res) => {
+  const up = await getUploadById(req.params.id, req.orgId);
+  if (!up) return res.status(404).json({ error: 'Upload not found' });
+  if (up.mime_type === 'video/youtube') return res.status(400).json({ error: 'Cannot re-extract YouTube videos' });
+
+  // Download file from Supabase
+  const storage = getStorage();
+  if (!storage) return res.status(500).json({ error: 'Storage not configured' });
+
+  const storagePath = `${req.orgId}/${up.filename}`;
+  const { data: fileData, error: dlError } = await storage.download(storagePath);
+  if (dlError || !fileData) return res.status(500).json({ error: 'Could not download file for re-extraction' });
+
+  const buffer = Buffer.from(await fileData.arrayBuffer());
+  const { text, error } = await extractText(buffer, up.mime_type, up.original_name);
+
+  if (text) {
+    const truncated = truncateText(text, 15000);
+    await updateUploadText(req.params.id, req.orgId, truncated);
+    console.log(`[Re-extract] Success: ${up.original_name} — ${truncated.length} chars`);
+    res.json({ ok: true, extracted: true, length: truncated.length });
+  } else {
+    console.log(`[Re-extract] Failed: ${up.original_name} — ${error || 'no text'}`);
+    res.json({ ok: true, extracted: false, error: error || 'No text could be extracted' });
+  }
+}));
+
+// PUT /api/org/:slug/uploads/:id/category — update document category
+router.put('/org/:slug/uploads/:id/category', ...orgAuth, w(async (req, res) => {
+  const { category } = req.body;
+  if (!category) return res.status(400).json({ error: 'Category required' });
+  const up = await getUploadById(req.params.id, req.orgId);
+  if (!up) return res.status(404).json({ error: 'Upload not found' });
+  await updateUploadCategory(req.params.id, req.orgId, category);
+  res.json({ ok: true });
+}));
+
 // GET /api/org/:slug/uploads/:id — single upload with full text
 router.get('/org/:slug/uploads/:id', ...orgAuth, w(async (req, res) => {
   const up = await getUploadById(req.params.id, req.orgId);
   if (!up) return res.status(404).json({ error: 'Upload not found' });
+  if (up.visibility === 'admin') {
+    const level = await getMemberLevel(req);
+    if (level < 2) return res.status(403).json({ error: 'Access denied — admin-only document' });
+  }
   res.json(up);
 }));
 

@@ -144,6 +144,9 @@ CREATE TABLE IF NOT EXISTS uploads (
 );
 CREATE INDEX IF NOT EXISTS idx_uploads_org ON uploads(org_id);
 
+-- Upload visibility for role-based access control
+ALTER TABLE uploads ADD COLUMN IF NOT EXISTS visibility TEXT DEFAULT 'public';
+
 CREATE TABLE IF NOT EXISTS compliance_docs (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,

@@ -10,16 +10,19 @@
 export const scoutBriefPrompt = (orgContext) => ({
   system: `You distill an organisation's identity into a concise scout brief that shapes which grant opportunities an AI should find for them.
 
+CRITICAL: Do NOT produce generic sector labels. Use the SPECIFIC programme names, delivery models, cost structures, partnership examples, and impact numbers from the org context below. If the context mentions 8 programme types, name them. If it mentions specific partners (e.g. Inkcubeko, CCBA, Penreach, Sci-Bono), reference the delivery model. If it has employment rates or completion rates, use the exact numbers.
+
 Output format — plain text, NO markdown, NO bullet points, NO headers. Use this exact structure:
 
-Line 1: One sentence — what the org does and who it serves.
-Line 2: "WE DO:" followed by 6-8 SPECIFIC focus areas, comma-separated. Be precise (e.g. "youth employment" not "education", "AI-native digital skills" not "technology").
-Line 3: "WE DON'T DO:" followed by 5-7 sectors/topics that are NOT relevant — common funder categories this org should NEVER be matched with.
-Line 4: "SECRET SAUCE:" One sentence about what makes this org's approach distinctive — the numbers and the method that set them apart.
+Line 1: One sentence — what the org does, who it serves, and the scale (cohort sizes, programmes per year, geographic reach).
+Line 2: "WE DO:" followed by 8-12 SPECIFIC focus areas, comma-separated. Use exact programme names and delivery models from the context — e.g. "AI-native 9-month digital skills cohorts (R516K-R1.6M per cohort)", "corporate graduate accelerators (e.g. CCBA Future Leaders)", "FET high school work-readiness (3-year, 60 learners)", "SETA-accredited skills development", "ICITP-certified assessment". NOT generic labels like "education" or "digital skills training".
+Line 3: "WE DON'T DO:" followed by 5-7 sectors/topics that are NOT relevant — common funder categories this org should NEVER be matched with. Be aggressive here — exclude anything that wastes search time.
+Line 4: "SECRET SAUCE:" 2-3 sentences with SPECIFIC numbers: completion rate, employment placement rate, cost per learner, accreditation body, proprietary AI tools, number of cohorts delivered, employer partners. This is the proof that makes funders say yes.
+Line 5: "PARTNERSHIPS:" Key delivery partners and returning funders — names and what they fund. This helps the AI avoid duplicating existing relationships and find complementary new ones.
 
 Be specific and opinionated. This brief is used to FILTER grant opportunities — vagueness wastes time. The "WE DON'T DO" list is critical for excluding irrelevant results.`,
   user: orgContext,
-  maxTok: 500,
+  maxTok: 700,
   search: false,
 });
 
@@ -118,7 +121,7 @@ DO NOT include opportunities marked "By invitation" unless there is a realistic 
 PRIORITISE "Open" opportunities. Include "Relationship first" only if the funder has a clear contact channel.
 
 RESPOND WITH ONLY A JSON ARRAY — no markdown, no backticks, no explanation. Each object:
-{"name":"[opportunity name]","funder":"[organisation]","type":"[Corporate CSI|Government/SETA|International|Foundation|Tech Company|Development Agency|Impact Investor|Tech Credit|In-Kind|Partnership]","funderBudget":[amount in ZAR integer — convert from USD/EUR/GBP if needed, 0 if non-monetary],"valueType":"[cash|credit|in-kind|subscription|unknown]","deadline":"[YYYY-MM-DD or null]","fit":"[High|Medium|Low]","reason":"[1-2 sentences: specific alignment — name which org focus areas match, what the funder prioritises, and any caveats with detail (e.g. 'Geographic focus is Limpopo only — d-lab would need a local delivery partner' NOT 'geographic area may be limiting')]","url":"[application URL or funder contact page — must be a REAL URL you found via search, not a guessed/constructed URL]","focus":["tag1","tag2"],"access":"[Open|Relationship first|By invitation|Unknown]","accessNote":"[1 sentence: how to apply or how to get in the door]","market":"[sa|global]","sourceConfidence":"[verified|likely|uncertain — verified = found active listing on funder website, likely = funder exists and has funded similar before but no current listing found, uncertain = limited evidence]"}
+{"name":"[opportunity name]","funder":"[organisation]","type":"[Corporate CSI|Government/SETA|International|Foundation|Tech Company|Development Agency|Impact Investor|Tech Credit|In-Kind|Partnership]","funderBudget":[amount in ZAR integer — convert from USD/EUR/GBP if needed, 0 if non-monetary],"valueType":"[cash|credit|in-kind|subscription|unknown]","deadline":"[YYYY-MM-DD or null]","fit":"[High|Medium|Low]","reason":"[1-2 sentences: specific alignment — name which org focus areas match, what the funder prioritises, and any caveats with detail (e.g. 'Geographic focus is Limpopo only — d-lab would need a local delivery partner' NOT 'geographic area may be limiting')]","url":"[direct link to the application/submission page, open call, or RFP — NOT the funder homepage or about page. Must be a REAL URL you found via search that leads to where an NPO can apply. If no application page exists, use the funder's grants/contact page]","focus":["tag1","tag2"],"access":"[Open|Relationship first|By invitation|Unknown]","accessNote":"[1 sentence: how to apply or how to get in the door]","market":"[sa|global]","sourceConfidence":"[verified|likely|uncertain — verified = found active listing on funder website, likely = funder exists and has funded similar before but no current listing found, uncertain = limited evidence]"}
 
 FIT = HIGH only if 3+ of the organisation's key focus areas match, budget is in range, and it accepts unsolicited applications.
 NEVER use vague caveats like "may be limiting", "could be challenging", "might not align". If there's a caveat, spell out exactly what it is and what d-lab would need to do about it.

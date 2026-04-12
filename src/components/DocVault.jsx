@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { C, FONT, MONO } from "../theme";
 import { Btn } from "./index";
-import { getUploads, uploadFile, deleteUpload, getUploadsByCategory, getUploadDownloadUrl } from "../api";
+import { getUploads, uploadFile, deleteUpload, getUploadsByCategory, getUploadDownloadUrl, kvGet, kvSet } from "../api";
 import { ORG_DOCS } from "../data/constants";
 
 /* ── Document categories ── */
@@ -38,13 +38,40 @@ function daysSince(dateStr) {
   return Math.floor((Date.now() - d.getTime()) / 86400000);
 }
 
-export default function DocVault({ grants, complianceDocs }) {
+export default function DocVault({ grants, complianceDocs, currentMember }) {
+  const ROLE_LEVELS = { director: 3, board: 3, hop: 2, pm: 1, coord: 1, comms: 0 };
+  const memberLevel = ROLE_LEVELS[currentMember?.role] || 0;
+  const isAdmin = memberLevel >= 2;
   const [uploads, setUploads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all");
   const [uploading, setUploading] = useState(false);
   const [uploadCat, setUploadCat] = useState("org");
+  const [uploadVisibility, setUploadVisibility] = useState("public");
   const [showUpload, setShowUpload] = useState(false);
+  const [proposalSubTab, setProposalSubTab] = useState("all"); // "all" | "references"
+  const [referenceIds, setReferenceIds] = useState(new Set()); // proposal IDs marked as AI reference
+
+  // Load reference IDs from KV store
+  useEffect(() => {
+    kvGet("proposal_references").then(data => {
+      if (data) {
+        const ids = Array.isArray(data) ? data : (data.value || []);
+        setReferenceIds(new Set(ids));
+      }
+    }).catch(() => {});
+  }, []);
+
+  const toggleReference = (id) => {
+    setReferenceIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      const arr = [...next];
+      kvSet("proposal_references", arr).catch(() => {});
+      return next;
+    });
+  };
 
   // Load all org uploads
   useEffect(() => {
@@ -80,20 +107,49 @@ export default function DocVault({ grants, complianceDocs }) {
     };
   }, [uploads, complianceDocs]);
 
-  const handleUpload = async (e) => {
+  const handleUpload = async (e, category) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
     try {
-      await uploadFile(file, null, uploadCat);
-      // Reload
+      const cat = category || (activeCategory !== "all" ? activeCategory : "org");
+      await uploadFile(file, null, cat, uploadVisibility);
       const data = await getUploads();
       setUploads(data || []);
-      setShowUpload(false);
     } catch (err) {
       alert("Upload failed: " + err.message);
     } finally {
       setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const triggerUpload = (cat) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".pdf,.doc,.docx,.xlsx,.xls,.csv,.txt,.md,.jpg,.jpeg,.png";
+    input.onchange = (e) => handleUpload(e, cat);
+    input.click();
+  };
+
+  const changeDocCategory = async (docId, newCategory) => {
+    try {
+      const { f: apiFetch } = await import("../api");
+    } catch {}
+    // Update category via a PUT to the upload — we need a server endpoint for this
+    // For now, use the existing pattern: delete + re-create is too destructive
+    // Instead, add a PATCH-style update
+    try {
+      const res = await fetch(`/api/org/${localStorage.getItem("gt_slug")}/uploads/${docId}/category`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("gt_token")}` },
+        body: JSON.stringify({ category: newCategory }),
+      });
+      if (res.ok) {
+        setUploads(prev => prev.map(u => u.id === docId ? { ...u, category: newCategory } : u));
+      }
+    } catch (err) {
+      console.error("Category update failed:", err);
     }
   };
 
@@ -127,45 +183,7 @@ export default function DocVault({ grants, complianceDocs }) {
             Org documents, proposals, and compliance files in one place
           </div>
         </div>
-        <Btn v="primary" style={{ fontSize: 12, padding: "8px 16px" }} onClick={() => setShowUpload(!showUpload)}>
-          + Upload Document
-        </Btn>
       </div>
-
-      {/* Upload panel */}
-      {showUpload && (
-        <div style={{
-          background: C.white, borderRadius: 10, padding: "14px 18px", marginBottom: 14,
-          border: `1px solid ${C.primary}30`, boxShadow: C.cardShadow,
-        }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: C.dark, marginBottom: 10 }}>Upload a document</div>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: C.t3, display: "block", marginBottom: 4 }}>Category</label>
-              <select
-                value={uploadCat}
-                onChange={e => setUploadCat(e.target.value)}
-                style={{ padding: "6px 10px", fontSize: 12, fontFamily: FONT, border: `1px solid ${C.line}`, borderRadius: 6 }}
-              >
-                {DOC_CATEGORIES.filter(c => c.id !== "all").map(c => (
-                  <option key={c.id} value={c.id}>{c.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: C.t3, display: "block", marginBottom: 4 }}>File</label>
-              <input
-                type="file"
-                onChange={handleUpload}
-                disabled={uploading}
-                accept=".pdf,.doc,.docx,.xlsx,.xls,.csv,.txt,.md,.jpg,.jpeg,.png"
-                style={{ fontSize: 12, fontFamily: FONT }}
-              />
-            </div>
-            {uploading && <span style={{ fontSize: 12, color: C.t3 }}>Uploading...</span>}
-          </div>
-        </div>
-      )}
 
       {/* Category tabs */}
       <div style={{
@@ -239,17 +257,81 @@ export default function DocVault({ grants, complianceDocs }) {
         </div>
       )}
 
-      {/* Proposal library info */}
-      {activeCategory === "proposal" && (
+      {/* Proposal library sub-tabs */}
+      {activeCategory === "proposal" && <>
+        <div style={{ display: "flex", gap: 0, marginBottom: 12, borderBottom: `2px solid ${C.line}` }}>
+          {[["all", "All Proposals"], ["references", "AI References"]].map(([k, l]) => (
+            <button key={k} onClick={() => setProposalSubTab(k)} style={{
+              padding: "8px 20px", fontSize: 13, fontWeight: 600, fontFamily: FONT,
+              border: "none", cursor: "pointer",
+              borderBottom: proposalSubTab === k ? `2px solid ${C.primary}` : "2px solid transparent",
+              background: "transparent",
+              color: proposalSubTab === k ? C.primary : C.t3,
+              marginBottom: -2,
+            }}>{l}{k === "references" && referenceIds.size > 0 && (
+              <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, background: C.primarySoft, color: C.primary, padding: "1px 6px", borderRadius: 100 }}>{referenceIds.size}</span>
+            )}</button>
+          ))}
+        </div>
+
+        {/* All Proposals explainer */}
+        {proposalSubTab === "all" && (
+          <div style={{
+            background: C.raised, borderRadius: 8, padding: "10px 14px", marginBottom: 10,
+          }}>
+            <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.5 }}>
+              Proposals are auto-saved here when a grant moves to "Submitted". You can also upload past successful proposals manually. Star ★ your best ones to teach the AI — go to <button onClick={() => setProposalSubTab("references")} style={{ color: C.primary, fontWeight: 600, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, fontSize: 12 }}>AI References</button> to manage them.
+            </div>
+          </div>
+        )}
+      </>}
+
+      {/* AI References tab content */}
+      {activeCategory === "proposal" && proposalSubTab === "references" && (
         <div style={{
           background: `linear-gradient(135deg, ${C.primarySoft} 0%, ${C.blueSoft || C.primarySoft} 100%)`,
-          borderRadius: 10, padding: "12px 18px", marginBottom: 14,
+          borderRadius: 10, padding: "14px 18px", marginBottom: 14,
           border: `1px solid ${C.primary}15`,
         }}>
-          <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.5 }}>
-            Proposals are auto-saved here when a grant moves to "Submitted". You can also manually upload past proposals.
-            The AI uses these as reference when drafting new proposals for similar funders.
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.primary, marginBottom: 4 }}>Reference Proposals for AI</div>
+          <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.5, marginBottom: 12 }}>
+            Mark your best proposals as references. The AI studies these when drafting new proposals — matching your tone, structure, and framing. Toggle the star ★ on any proposal to add or remove it.
           </div>
+
+          {filtered.length === 0 ? (
+            <div style={{ fontSize: 12, color: C.t3, padding: "12px 0", textAlign: "center" }}>
+              No proposals uploaded yet. Go to <button onClick={() => setProposalSubTab("all")} style={{ color: C.primary, fontWeight: 600, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, fontSize: 12 }}>All Proposals</button> to upload some first.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {filtered.map(doc => {
+                const isRef = referenceIds.has(doc.id);
+                return (
+                  <div key={doc.id} style={{
+                    display: "flex", alignItems: "center", gap: 12, padding: "10px 14px",
+                    background: isRef ? C.white : `${C.white}80`, borderRadius: 8,
+                    border: `1px solid ${isRef ? C.primary + "40" : C.line}`,
+                  }}>
+                    <button onClick={() => toggleReference(doc.id)} style={{
+                      fontSize: 20, background: "none", border: "none", cursor: "pointer",
+                      color: isRef ? "#F59E0B" : C.t4, padding: 0, lineHeight: 1,
+                    }} title={isRef ? "Remove as AI reference" : "Mark as AI reference"}>
+                      {isRef ? "★" : "☆"}
+                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.dark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.original_name}</div>
+                      <div style={{ fontSize: 11, color: doc.has_text ? C.ok : C.amber, marginTop: 1 }}>
+                        {doc.has_text ? "✓ Text extracted — AI can read this" : "⚠ No text extracted — AI cannot use this"}
+                      </div>
+                    </div>
+                    {isRef && (
+                      <span style={{ fontSize: 10, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "2px 8px", borderRadius: 100, flexShrink: 0 }}>Active reference</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -259,7 +341,7 @@ export default function DocVault({ grants, complianceDocs }) {
       )}
 
       {/* Empty state */}
-      {!loading && filtered.length === 0 && (
+      {!loading && filtered.length === 0 && !(activeCategory === "proposal" && proposalSubTab === "references") && (
         <div style={{
           textAlign: "center", padding: "40px 20px",
           background: C.white, borderRadius: 10, border: `1px solid ${C.line}`,
@@ -268,14 +350,17 @@ export default function DocVault({ grants, complianceDocs }) {
           <div style={{ fontSize: 14, fontWeight: 600, color: C.dark, marginBottom: 4 }}>
             No documents{activeCategory !== "all" ? ` in ${DOC_CATEGORIES.find(c => c.id === activeCategory)?.label}` : ""}
           </div>
-          <div style={{ fontSize: 12, color: C.t3 }}>
-            Upload documents to build your vault
+          <div style={{ fontSize: 12, color: C.t3, marginBottom: 12 }}>
+            Upload documents to get started
           </div>
+          <Btn v="primary" style={{ fontSize: 12, padding: "8px 20px" }} onClick={() => triggerUpload(activeCategory === "all" ? "org" : activeCategory)} disabled={uploading}>
+            {uploading ? "Uploading..." : `+ Upload to ${DOC_CATEGORIES.find(c => c.id === activeCategory)?.label || "Documents"}`}
+          </Btn>
         </div>
       )}
 
-      {/* Document list */}
-      {!loading && filtered.length > 0 && (
+      {/* Document list — hidden when viewing AI References tab */}
+      {!loading && filtered.length > 0 && !(activeCategory === "proposal" && proposalSubTab === "references") && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {filtered.map(doc => {
             const age = daysSince(doc.created_at);
@@ -314,6 +399,33 @@ export default function DocVault({ grants, complianceDocs }) {
                     <span>{formatBytes(doc.size)}</span>
                     <span>{catInfo.icon} {catInfo.label}</span>
                     {doc.has_text && <span style={{ color: C.ok }}>Text extracted</span>}
+                    {!doc.has_text && doc.mime_type !== "video/youtube" && (
+                      <button onClick={async (e) => {
+                        e.stopPropagation();
+                        const btn = e.currentTarget;
+                        btn.textContent = "Extracting...";
+                        btn.disabled = true;
+                        try {
+                          const res = await fetch(`/api/org/${localStorage.getItem("gt_slug")}/uploads/${doc.id}/reextract`, {
+                            method: "POST", headers: { "Authorization": `Bearer ${localStorage.getItem("gt_token")}` },
+                          });
+                          const data = await res.json();
+                          if (data.extracted) {
+                            btn.textContent = "✓ Done";
+                            btn.style.color = C.ok;
+                            // Refresh uploads
+                            const fresh = await getUploads();
+                            setUploads(fresh || []);
+                          } else {
+                            btn.textContent = "Failed";
+                            btn.style.color = C.red;
+                          }
+                        } catch { btn.textContent = "Error"; btn.style.color = C.red; }
+                      }} style={{ fontSize: 10, fontWeight: 600, color: C.blue, background: "none", border: `1px solid ${C.blue}30`, borderRadius: 4, padding: "1px 6px", cursor: "pointer", fontFamily: FONT }}>
+                        Re-extract text
+                      </button>
+                    )}
+                    {doc.visibility === "admin" && <span style={{ fontSize: 9, fontWeight: 700, color: C.amber, background: C.amberSoft, padding: "1px 6px", borderRadius: 100 }}>ADMIN ONLY</span>}
                     {age !== null && <span>{age === 0 ? "Today" : age === 1 ? "Yesterday" : `${age}d ago`}</span>}
                     {doc.grant_id && (
                       <span style={{ color: C.primary }}>Linked to grant</span>
@@ -322,26 +434,70 @@ export default function DocVault({ grants, complianceDocs }) {
                 </div>
 
                 {/* Actions */}
+                {doc.category === "proposal" && (
+                  <button onClick={(e) => { e.stopPropagation(); toggleReference(doc.id); }}
+                    style={{
+                      fontSize: 18, background: "none", border: "none", cursor: "pointer",
+                      color: referenceIds.has(doc.id) ? "#F59E0B" : C.t4, padding: "2px 4px", lineHeight: 1,
+                      flexShrink: 0, transition: "all 0.15s",
+                    }}
+                    title={referenceIds.has(doc.id) ? "Remove as AI reference" : "Mark as AI reference — AI will learn from this proposal"}>
+                    {referenceIds.has(doc.id) ? "★" : "☆"}
+                  </button>
+                )}
                 <button
                   onClick={(e) => { e.stopPropagation(); handleView(doc); }}
                   style={{
                     fontSize: 11, color: C.primary, background: "none",
                     border: `1px solid ${C.primary}30`, borderRadius: 5,
-                    cursor: "pointer", fontFamily: FONT, padding: "4px 10px", fontWeight: 600,
+                    cursor: "pointer", fontFamily: FONT, padding: "4px 10px", fontWeight: 600, flexShrink: 0,
                   }}
                   title="View / Download"
                 >View ↗</button>
-                <button
-                  onClick={(e) => handleDelete(doc.id, e)}
+                <select
+                  value={doc.category || "org"}
+                  onClick={e => e.stopPropagation()}
+                  onChange={e => { e.stopPropagation(); changeDocCategory(doc.id, e.target.value); }}
                   style={{
-                    fontSize: 12, color: C.t4, background: "none", border: "none",
-                    cursor: "pointer", fontFamily: FONT, padding: "4px 8px",
+                    fontSize: 11, fontFamily: FONT, border: `1px solid ${C.line}`, borderRadius: 5,
+                    padding: "4px 6px", background: C.white, color: C.t3, cursor: "pointer", flexShrink: 0,
+                  }}
+                  title="Move to category"
+                >
+                  {DOC_CATEGORIES.filter(c => c.id !== "all").map(c => (
+                    <option key={c.id} value={c.id}>{c.label}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm(`Delete "${doc.original_name}"?`)) {
+                      deleteUpload(doc.id).then(() => setUploads(prev => prev.filter(u => u.id !== doc.id))).catch(err => alert("Delete failed: " + err.message));
+                    }
+                  }}
+                  style={{
+                    fontSize: 14, color: C.t4, background: "none", border: "none",
+                    cursor: "pointer", fontFamily: FONT, padding: "4px 8px", flexShrink: 0,
                   }}
                   title="Delete document"
                 >✕</button>
               </div>
             );
           })}
+          {/* Inline upload button at bottom of list */}
+          <button onClick={() => triggerUpload(activeCategory === "all" ? "org" : activeCategory)} disabled={uploading}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              padding: "10px 14px", borderRadius: 8,
+              border: `1px dashed ${C.line}`, background: "transparent",
+              cursor: "pointer", fontFamily: FONT, fontSize: 12, fontWeight: 600, color: C.t3,
+              transition: "all 0.15s", width: "100%",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; e.currentTarget.style.background = C.primarySoft; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.color = C.t3; e.currentTarget.style.background = "transparent"; }}
+          >
+            {uploading ? "Uploading..." : `+ Upload to ${DOC_CATEGORIES.find(c => c.id === activeCategory)?.label || "Documents"}`}
+          </button>
         </div>
       )}
     </div>

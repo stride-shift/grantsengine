@@ -398,6 +398,7 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
 
                 {/* Actions */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                  <span title={!vetted ? "Complete all 4 verification checks to approve" : "Move to vetting stage"}>
                   <Btn
                     v="primary"
                     disabled={!vetted}
@@ -409,6 +410,7 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
                   >
                     Approve →
                   </Btn>
+                  </span>
                   <Btn
                     v="ghost"
                     style={{ fontSize: 11, padding: "6px 14px", color: C.red, borderColor: C.red + "30" }}

@@ -483,11 +483,12 @@ export const getUploads = async (grantId) => {
   return res.json();
 };
 
-export const uploadFile = async (file, grantId, category) => {
+export const uploadFile = async (file, grantId, category, visibility) => {
   const form = new FormData();
   form.append('file', file);
   if (grantId) form.append('grant_id', grantId);
   if (category) form.append('category', category);
+  if (visibility) form.append('visibility', visibility);
   const res = await f('/uploads', { method: 'POST', body: form });
   if (!res.ok) {
     const err = await res.json();
@@ -531,6 +532,41 @@ export const getUploadDownloadUrl = async (id) => {
 export const getUploadsContext = async (grantId) => {
   const qs = grantId ? `?grant_id=${grantId}` : '';
   const res = await f(`/uploads/context${qs}`);
+  return res.json();
+};
+
+// ── Google Calendar ──
+
+export const getGcalStatus = async () => {
+  const res = await f('/gcal/status');
+  return res.json();
+};
+
+export const getGcalAuthUrl = async () => {
+  const { slug } = getAuth();
+  const res = await fetch(`/api/auth/google/url?slug=${slug}`);
+  return res.json();
+};
+
+export const disconnectGcal = async () => {
+  const res = await f('/gcal/disconnect', { method: 'POST' });
+  return res.json();
+};
+
+export const syncGrantToGcal = async (grant) => {
+  const res = await f('/gcal/sync', {
+    method: 'POST',
+    body: JSON.stringify({
+      grantId: grant.id, grantName: grant.name, funder: grant.funder,
+      deadline: grant.deadline, owner: grant.owner, ask: grant.ask,
+      stage: grant.stage, applyUrl: grant.applyUrl,
+    }),
+  });
+  return res.json();
+};
+
+export const syncAllToGcal = async () => {
+  const res = await f('/gcal/sync-all', { method: 'POST' });
   return res.json();
 };
 
