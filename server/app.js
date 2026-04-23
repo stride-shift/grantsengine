@@ -11,6 +11,7 @@ import aiRoutes from './routes/ai.js';
 import uploadRoutes from './routes/uploads.js';
 import adminRoutes from './routes/admin.js';
 import gcalRoutes from './routes/gcal.js';
+import autofillRoutes from './routes/autofill.js';
 import pool from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -61,6 +62,7 @@ app.use('/api', aiRoutes);
 app.use('/api', uploadRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', gcalRoutes);
+app.use('/api', autofillRoutes);
 
 // Health check (includes DB connectivity)
 app.get('/api/health', async (req, res) => {

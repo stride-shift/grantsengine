@@ -1,0 +1,19 @@
+{
+  "name": "grants-engine-playwright",
+  "version": "1.0.0",
+  "description": "Playwright service for auto-filling grant application forms",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "playwright": "^1.48.0",
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

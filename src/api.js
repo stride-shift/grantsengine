@@ -585,6 +585,40 @@ export const reassignGcal = async (grantId, oldOwner, newOwner, grant) => {
   return res.json();
 };
 
+// ── Auto-fill application forms ──
+
+export const detectForm = async (grantId) => {
+  const res = await f(`/grants/${grantId}/detect-form`, { method: 'POST' });
+  return res.json();
+};
+
+export const getAutofillJob = async (jobId) => {
+  const res = await f(`/autofill/${jobId}`);
+  return res.json();
+};
+
+export const updateAutofillMappings = async (jobId, fieldMappings) => {
+  const res = await f(`/autofill/${jobId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ field_mappings: fieldMappings }),
+  });
+  return res.json();
+};
+
+export const runAutofill = async (jobId, credentials) => {
+  const res = await f(`/autofill/${jobId}/fill`, {
+    method: 'POST',
+    body: JSON.stringify({ credentials }),
+    _skipOkCheck: true,
+  });
+  return res.json();
+};
+
+export const submitAutofill = async (jobId) => {
+  const res = await f(`/autofill/${jobId}/submit`, { method: 'POST', _skipOkCheck: true });
+  return res.json();
+};
+
 // ── Health ──
 
 export const checkHealth = async () => {
