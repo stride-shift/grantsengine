@@ -9,6 +9,7 @@ import { DOCS, DOC_MAP, ORG_DOCS } from "../data/constants";
 import ProposalWorkspace from "./ProposalWorkspace";
 import BudgetBuilder from "./BudgetBuilder";
 import { downloadICS } from "./Calendar";
+import AutoFillPanel from "./AutoFillPanel";
 
 const fmtTs = (iso) => iso ? new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
 
@@ -209,6 +210,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   const [uploads, setUploads] = useState([]);
   const [rollingDice, setRollingDice] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showAutoFill, setShowAutoFill] = useState(false);
   const [diceStep, setDiceStep] = useState("");
 
   // Sync AI state when switching between grants
@@ -481,9 +483,14 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           </div>
           <div style={{ display: "flex", gap: 8, flexShrink: 0, position: "relative" }} ref={overflowRef}>
             {g.applyUrl && (
-              <a href={g.applyUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                <Btn v="ghost" style={{ fontSize: 12 }}>{"\u2197"} Apply</Btn>
-              </a>
+              <>
+                <a href={g.applyUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                  <Btn v="ghost" style={{ fontSize: 12 }}>{"\u2197"} Apply</Btn>
+                </a>
+                <Btn v="primary" style={{ fontSize: 12 }} onClick={() => setShowAutoFill(true)}>
+                  ⚡ Auto-fill
+                </Btn>
+              </>
             )}
             <button onClick={() => setOverflow(p => !p)}
               style={{
@@ -1845,6 +1852,17 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       </div>
 
       {/* Submission validation modal */}
+      {showAutoFill && (
+        <AutoFillPanel
+          grant={g}
+          onClose={() => setShowAutoFill(false)}
+          onSubmitted={() => {
+            setShowAutoFill(false);
+            up("stage", "submitted");
+          }}
+        />
+      )}
+
       {showSubmitModal && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 200,

@@ -249,3 +249,28 @@ CREATE INDEX IF NOT EXISTS idx_prt_member ON password_reset_tokens(member_id);
 ALTER TABLE orgs ADD COLUMN IF NOT EXISTS primary_color TEXT;
 ALTER TABLE orgs ADD COLUMN IF NOT EXISTS primary_dark TEXT;
 ALTER TABLE orgs ADD COLUMN IF NOT EXISTS accent_color TEXT;
+
+-- ═══ Auto-Fill Jobs (for Playwright form-filling) ═══
+CREATE TABLE IF NOT EXISTS autofill_jobs (
+  id TEXT PRIMARY KEY,
+  grant_id TEXT NOT NULL,
+  org_id TEXT NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+  apply_url TEXT,
+  form_type TEXT,
+  detected_fields JSONB,
+  field_mappings JSONB,
+  session_id TEXT,
+  status TEXT DEFAULT 'pending',
+  screenshots JSONB,
+  error_message TEXT,
+  confirmation_text TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_autofill_jobs_grant ON autofill_jobs(grant_id);
+CREATE INDEX IF NOT EXISTS idx_autofill_jobs_org ON autofill_jobs(org_id);
+
+-- Extended org profile fields for form auto-fill
+ALTER TABLE org_profiles ADD COLUMN IF NOT EXISTS legal_address TEXT;
+ALTER TABLE org_profiles ADD COLUMN IF NOT EXISTS bank_details JSONB;
+ALTER TABLE org_profiles ADD COLUMN IF NOT EXISTS reg_numbers JSONB;
