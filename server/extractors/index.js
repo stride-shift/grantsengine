@@ -2,10 +2,10 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
 // Lazy-load CJS packages to avoid crashes on Vercel (pdf-parse reads test files at import)
-let _pdfParse, _mammoth, _XLSX;
+let _pdfParse, _mammoth, _ExcelJS;
 function getPdfParse() { return _pdfParse || (_pdfParse = require('pdf-parse')); }
 function getMammoth() { return _mammoth || (_mammoth = require('mammoth')); }
-function getXLSX() { return _XLSX || (_XLSX = require('xlsx')); }
+function getExcelJS() { return _ExcelJS || (_ExcelJS = require('exceljs')); }
 
 /**
  * Extract text from a file buffer based on MIME type.
@@ -89,15 +89,33 @@ export async function extractText(buffer, mimeType, originalName) {
       }
     }
 
-    // Excel (XLSX/XLS)
+    // Excel (XLSX/XLS) — switched from `xlsx` (SheetJS, unfixable npm vulnerabilities)
+    // to `exceljs` which is actively maintained. xls (legacy binary format) isn't
+    // supported by exceljs — only xlsx — but it's rarely seen in modern uploads.
     if (mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
         mimeType === 'application/vnd.ms-excel' ||
         originalName?.match(/\.xlsx?$/i)) {
-      const XLSX = getXLSX();
-      const workbook = XLSX.read(buffer, { type: 'buffer' });
-      const sheets = workbook.SheetNames.map(name => {
-        const sheet = workbook.Sheets[name];
-        return `[${name}]\n${XLSX.utils.sheet_to_csv(sheet)}`;
+      const ExcelJS = getExcelJS();
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer);
+      const sheets = workbook.worksheets.map(ws => {
+        const rows = [];
+        ws.eachRow({ includeEmpty: false }, (row) => {
+          // row.values is 1-indexed and starts with undefined at [0]; slice it off.
+          // Map each cell to a flat string representation suitable for AI ingestion.
+          const cells = (row.values || []).slice(1).map(v => {
+            if (v === null || v === undefined) return '';
+            if (typeof v === 'object') {
+              if (v.text) return v.text;            // rich-text cell
+              if (v.result !== undefined) return v.result; // formula cell
+              if (v instanceof Date) return v.toISOString().slice(0, 10);
+              return JSON.stringify(v);
+            }
+            return String(v);
+          });
+          rows.push(cells.join(','));
+        });
+        return `[${ws.name}]\n${rows.join('\n')}`;
       });
       return { text: sheets.join('\n\n').trim() || null, error: null };
     }
