@@ -127,6 +127,12 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
   }, []);
 
   // Locate the target for the current step.
+  // We read `ready` via a ref instead of the state value because including `ready`
+  // in deps caused a re-render loop: setReady(true) → ready changes → locateTarget
+  // gets a new identity → effect re-runs → setReady(false) → blink.
+  const readyRef = useRef(false);
+  useEffect(() => { readyRef.current = ready; }, [ready]);
+
   const locateTarget = useCallback(async () => {
     if (!tourId || !step) return;
 
@@ -134,9 +140,11 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
     if (!step.target) {
       targetElRef.current = null;
       if (trackingRafRef.current) cancelAnimationFrame(trackingRafRef.current);
-      // Smooth content cross-fade
-      setContentVisible(false);
-      await new Promise(r => setTimeout(r, 150));
+      // Only cross-fade if we were already on a step (avoids initial blink on tour open)
+      if (readyRef.current) {
+        setContentVisible(false);
+        await new Promise(r => setTimeout(r, 150));
+      }
       setTargetRect(null);
       setTooltipPos(computeTooltipPosition({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 }, "center"));
       setReady(true);
@@ -153,11 +161,11 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
 
     if (el) {
       // Cross-fade tooltip content out while we transition the position
-      if (ready) setContentVisible(false);
+      if (readyRef.current) setContentVisible(false);
 
       targetElRef.current = el;
       // Smooth scroll the target into the centre of the viewport
-      el.scrollIntoView({ block: "center", behavior: ready ? "smooth" : "auto" });
+      el.scrollIntoView({ block: "center", behavior: readyRef.current ? "smooth" : "auto" });
 
       // Give the smooth-scroll one frame to start, then track via rAF until it lands
       await new Promise(r => requestAnimationFrame(() => r()));
@@ -171,14 +179,16 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
     } else {
       // Target never appeared — show as centred modal
       targetElRef.current = null;
-      setContentVisible(false);
-      await new Promise(r => setTimeout(r, 150));
+      if (readyRef.current) {
+        setContentVisible(false);
+        await new Promise(r => setTimeout(r, 150));
+      }
       setTargetRect(null);
       setTooltipPos(computeTooltipPosition({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 }, "center"));
       setReady(true);
       setContentVisible(true);
     }
-  }, [tourId, step, currentView, onNavigate, trackRectUntilStable, ready]);
+  }, [tourId, step, currentView, onNavigate, trackRectUntilStable]);
 
   useEffect(() => { locateTarget(); }, [locateTarget]);
 
