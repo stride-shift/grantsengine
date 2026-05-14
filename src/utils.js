@@ -91,6 +91,19 @@ export const isUsableUrl = (url) => {
   return true;
 };
 
+// True if the URL points to a bare funder homepage with no specific path —
+// e.g. https://www.nac.org.za/ or https://momentum.co.za. These are weak
+// "apply links" and the hygiene job should re-resolve them to specific pages
+// (a grants page, application form, RFP page, etc.).
+export const isHomepageOnly = (url) => {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/$/, "");
+    return path === "" || path === "/" || path === "/index" || path === "/home" || path === "/en";
+  } catch { return false; }
+};
+
 // Normalise a funder name for deduplication: lowercase, strip common decorators,
 // collapse whitespace. "The Vodacom Foundation Trust" → "vodacom"
 export const normaliseFunder = (raw) => {
