@@ -151,7 +151,7 @@ const AIBlock = ({ label, sub, busy, result, onRun, btnLabel, busyLabel, accentC
 
 export default function Dashboard({
   grants, team, stages, complianceDocs = [], onSelectGrant, onNavigate,
-  onRunReport, onRunInsights, onRunStrategy, orgName,
+  onRunReport, onRunInsights, onRunStrategy, orgName, onLaunchTour,
 }) {
   const [reportBusy, setReportBusy] = useState(false);
   const [reportResult, setReportResult] = useState(null);
@@ -528,6 +528,7 @@ export default function Dashboard({
 
       {grants.length > 0 && (<>
       {/* ═══════════ 2. COMPACT PIPELINE SUMMARY ═══════════ */}
+      <div data-tour="dash-pipeline">
       <Section title="Pipeline" defaultOpen right={
         <button onClick={(e) => { e.stopPropagation(); onNavigate?.("pipeline"); }} style={{
           background: "none", border: "none", fontSize: 11, color: C.primary, fontWeight: 600,
@@ -682,9 +683,12 @@ export default function Dashboard({
       })()}
 
       {/* ── Submission Timeline ── */}
+      </div>
+      <div data-tour="dash-timeline">
       <Section title="Timeline">
         <Timeline grants={grants} stages={stages} team={team} onClickGrant={onSelectGrant} />
       </Section>
+      </div>
 
       {/* ═══════════ 3b. UPCOMING FOLLOW-UPS ═══════════ */}
       {(() => {
@@ -753,6 +757,7 @@ export default function Dashboard({
       })()}
 
       {/* ═══════════ 4. AI TOOLS (Report, Insights, Strategy) ═══════════ */}
+      <div data-tour="dash-ai-tools">
       <Section title="AI Tools">
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
         {onRunReport && (
@@ -767,6 +772,7 @@ export default function Dashboard({
         )}
       </div>
       </Section>
+      </div>
 
       {/* ═══════════ 3. PIPELINE INTELLIGENCE ═══════════ */}
       {ana && (

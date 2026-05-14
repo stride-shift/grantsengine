@@ -92,7 +92,7 @@ const StrategyPanel = ({ grant }) => {
   );
 };
 
-export default function Funders({ grants, team, stages, onSelectGrant, onNavigate }) {
+export default function Funders({ grants, team, stages, onSelectGrant, onNavigate, onLaunchTour }) {
   const [expandedFunder, setExpandedFunder] = useState(null);
   const [filterType, setFilterType] = useState("all");
   const [q, setQ] = useState("");
@@ -238,7 +238,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
       </div>
 
       {/* Funder cards grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, overflow: "visible" }}>
+      <div data-tour="funders-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, overflow: "visible" }}>
         {filtered.map(fd => {
           const isExpanded = expandedFunder === fd.funder;
           const totalAsk = fd.grants.reduce((s, g) => s + effectiveAsk(g), 0);

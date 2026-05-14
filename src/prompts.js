@@ -110,6 +110,13 @@ ${m.marketRule}
 CRITICAL — SEARCH-GROUNDED RESULTS ONLY:
 You have access to Google Search. You MUST use it to find REAL, CURRENTLY ACTIVE grant opportunities. Do NOT return opportunities from your training data or memory alone — every result must be something you found or verified via web search in this session. If you cannot find evidence that a grant opportunity exists and is currently open, DO NOT include it.
 
+CRITICAL — NEVER FABRICATE DEADLINES OR DATA:
+- "deadline": MUST come from the funder's own webpage. If you cannot find an explicit deadline on the funder's site or in an authoritative source, set deadline to null. NEVER guess, estimate, infer, or write a plausible-sounding date based on "typical" funding cycles.
+- "funderBudget": MUST come from the funder's stated grant size or a credible source. If no figure is published, set to 0 — do NOT invent.
+- "url": MUST be a real URL you visited via search. If you don't have a confirmed application/grants page URL, omit the result entirely — do NOT use the funder homepage as a fallback.
+- "sourceConfidence": Set "verified" ONLY if you found an active listing on the funder's website with name + URL + (deadline or open-status) in this session. Otherwise "likely" or "uncertain". Be honest — uncertain results help the user filter.
+- An opportunity with no URL, no deadline, and no published budget is NOT a credible scout result. Drop it rather than including a hollow shell.
+
 CRITICAL — VERIFY APPLICATION ACCESS:
 For EVERY opportunity, check whether the funder accepts unsolicited proposals/applications from external organisations. Search their website for application portals, open calls, RFPs, or submission guidelines.
 - "Open" = published open call, application portal, or RFP that NPOs can apply to without prior invitation

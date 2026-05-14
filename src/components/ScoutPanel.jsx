@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, forwardRef, useImperativeHandle } from "react";
 import { C, FONT, MONO } from "../theme";
-import { uid, td } from "../utils";
+import { uid, td, isGroundingRedirect, isUsableUrl, normaliseFunder as utilNormaliseFunder } from "../utils";
 import { Btn } from "./index";
 import { scoutPrompt, scoutBriefPrompt } from "../prompts";
 import { kvGet, kvSet, verifyUrls } from "../api";
@@ -191,6 +191,45 @@ const SCOUT_FALLBACK = [
   { name: "Echoing Green Fellowship", funder: "Echoing Green", type: "International", funderBudget: 1440000, deadline: "2026-03-15", fit: "Medium", reason: "Social entrepreneur fellowship, innovative models, early-stage", url: "https://echoinggreen.org/fellowship/", focus: ["Youth Employment", "Education"], access: "Open", accessNote: "Annual fellowship application — open call with published deadline, apply online" },
 ];
 
+/* ── Scout data-quality helpers ── */
+// Re-export the shared util so callers in this file keep working.
+const normaliseFunder = utilNormaliseFunder;
+
+// Levenshtein distance for fuzzy title matching
+const levenshtein = (a, b) => {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const m = []; for (let i = 0; i <= b.length; i++) m[i] = [i];
+  for (let j = 0; j <= a.length; j++) m[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      m[i][j] = b.charAt(i - 1) === a.charAt(j - 1)
+        ? m[i - 1][j - 1]
+        : Math.min(m[i - 1][j - 1] + 1, m[i][j - 1] + 1, m[i - 1][j] + 1);
+    }
+  }
+  return m[b.length][a.length];
+};
+
+const titlesSimilar = (a, b) => {
+  const na = normaliseFunder(a), nb = normaliseFunder(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.length < 8 || nb.length < 8) return false;
+  return levenshtein(na, nb) < 4;
+};
+
+// Detect a URL that's just the funder's homepage (no application path)
+const isHomepageOnly = (url) => {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/$/, "");
+    return path === "" || path === "/" || path === "/index" || path === "/home";
+  } catch { return false; }
+};
+
 const parseScoutResults = (text) => {
   try {
     const clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
@@ -214,6 +253,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
   const [scoutResults, setScoutResults] = useState([]);
   const [scoutSort, setScoutSort] = useState("fit"); // "fit" | "deadline" | "budget"
   const [scoutFitFilter, setScoutFitFilter] = useState("all"); // "all" | "high" | "medium"
+  const [showUncertain, setShowUncertain] = useState(false); // Phase 2: hide low-confidence results by default
   const [searchKeywords, setSearchKeywords] = useState(""); // Free-text keyword search
   // Scout brief + rejection feedback
   const [scoutBrief, setScoutBrief] = useState("");
@@ -222,14 +262,20 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
   const [scoutRejections, setScoutRejections] = useState([]);
   const [rejectingIdx, setRejectingIdx] = useState(null);
   const [rejectText, setRejectText] = useState("");
+  const [expandedIdx, setExpandedIdx] = useState(null);
 
   // Load scout brief + rejections from KV store on mount
   useEffect(() => {
+    const errRe = /^(Rate limit reached|Error[: (]|Connection error:|The AI service is temporarily overloaded|No response|Request failed after)/i;
     Promise.all([
       kvGet("scout_brief").catch(() => null),
       kvGet("scout_rejections").catch(() => null),
     ]).then(([brief, rejections]) => {
-      if (brief) setScoutBrief(typeof brief === "string" ? brief : brief.value || "");
+      if (brief) {
+        const text = (typeof brief === "string" ? brief : brief.value || "").trim();
+        if (text && !errRe.test(text)) setScoutBrief(text);
+        else if (text) kvSet("scout_brief", "").catch(() => {}); // purge stale error string
+      }
       if (Array.isArray(rejections)) setScoutRejections(rejections);
       else if (rejections?.value && Array.isArray(rejections.value)) setScoutRejections(rejections.value);
     });
@@ -260,15 +306,27 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
     let results = [...scoutResults];
     if (scoutFitFilter === "high") results = results.filter(s => s.fitScore >= 70);
     else if (scoutFitFilter === "medium") results = results.filter(s => s.fitScore >= 40);
+    // Phase 2: hide low-confidence results unless user explicitly opts in
+    if (!showUncertain) results = results.filter(s => s.confidence !== "low");
     if (scoutSort === "fit") results.sort((a, b) => b.fitScore - a.fitScore);
     else if (scoutSort === "deadline") results.sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999"));
     else if (scoutSort === "budget") results.sort((a, b) => (Number(b.funderBudget || b.ask) || 0) - (Number(a.funderBudget || a.ask) || 0));
     // Always push rejected to bottom
     results.sort((a, b) => (a.rejected ? 1 : 0) - (b.rejected ? 1 : 0));
     return results;
-  }, [scoutResults, scoutFitFilter, scoutSort]);
+  }, [scoutResults, scoutFitFilter, scoutSort, showUncertain]);
+
+  // Phase 2: count of hidden low-confidence results so the toggle has context
+  const hiddenLowConfCount = useMemo(
+    () => scoutResults.filter(s => s.confidence === "low").length,
+    [scoutResults]
+  );
 
   /* ── Scout Brief: generate org identity distillation ── */
+  const isApiErrorString = (s) => {
+    if (!s) return false;
+    return /^(Rate limit reached|Error[: (]|Connection error:|The AI service is temporarily overloaded|No response|Request failed after)/i.test(s.trim());
+  };
   const generateScoutBrief = async () => {
     if (!orgContext) return "";
     setScoutBriefLoading(true);
@@ -276,12 +334,16 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
       const p = scoutBriefPrompt(orgContext);
       const result = await api(p.system, p.user, p.search, p.maxTok);
       const brief = (result || "").trim();
-      if (brief) {
+      if (brief && !isApiErrorString(brief)) {
         setScoutBrief(brief);
         setScoutBriefDirty(false);
         kvSet("scout_brief", brief).catch(() => {});
+        return brief;
       }
-      return brief;
+      if (isApiErrorString(brief)) {
+        console.warn("Scout brief: API returned error, not saving:", brief);
+      }
+      return "";
     } catch (err) {
       console.error("Scout brief generation failed:", err);
       return "";
@@ -315,6 +377,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
     const existing = grants
       .filter(g => !CLOSED_STAGES.includes(g.stage))
       .map(g => g.funder.toLowerCase());
+    const existingNormalised = new Set(grants.filter(g => !CLOSED_STAGES.includes(g.stage)).map(g => normaliseFunder(g.funder)));
     const existingFunders = [...new Set(existing)].join(", ");
 
     // Auto-generate scout brief if empty
@@ -327,22 +390,16 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
     let allParsed = [];
 
     if (scoutMarket === "both") {
-      // Run SA and Global searches in parallel for balanced results
-      const [pSA, pGlobal] = [
-        scoutPrompt({ ...promptArgs, market: "sa" }),
-        scoutPrompt({ ...promptArgs, market: "global" }),
-      ];
-      const [rSA, rGlobal] = await Promise.all([
-        api(pSA.system, pSA.user, pSA.search, pSA.maxTok),
-        api(pGlobal.system, pGlobal.user, pGlobal.search, pGlobal.maxTok),
-      ]);
+      // Run SA then Global sequentially with a brief pause — keeps us under
+      // free-tier Gemini RPM limits (search-grounded calls count heavier).
+      const pSA = scoutPrompt({ ...promptArgs, market: "sa" });
+      const rSA = await api(pSA.system, pSA.user, pSA.search, pSA.maxTok);
+      await new Promise(r => setTimeout(r, 4500));
+      const pGlobal = scoutPrompt({ ...promptArgs, market: "global" });
+      const rGlobal = await api(pGlobal.system, pGlobal.user, pGlobal.search, pGlobal.maxTok);
       const parsedSA = parseScoutResults(rSA) || [];
       const parsedGlobal = parseScoutResults(rGlobal) || [];
-      const seen = new Set();
-      for (const s of [...parsedSA, ...parsedGlobal]) {
-        const key = `${(s.funder || "").toLowerCase()}|${(s.name || "").toLowerCase()}`;
-        if (!seen.has(key)) { seen.add(key); allParsed.push(s); }
-      }
+      allParsed = [...parsedSA, ...parsedGlobal];
     } else {
       const p = scoutPrompt({ ...promptArgs, market: scoutMarket });
       const r = await api(p.system, p.user, p.search, p.maxTok);
@@ -350,6 +407,18 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
     }
 
     if (!allParsed.length) allParsed = SCOUT_FALLBACK;
+
+    // Phase 2: drop results with no URL — hallucination shield
+    allParsed = allParsed.filter(s => s.url && typeof s.url === "string" && s.url.trim().length > 0);
+
+    // Phase 2: stronger de-dup using normalised funder names + fuzzy title match
+    const dedup = [];
+    for (const s of allParsed) {
+      const nf = normaliseFunder(s.funder);
+      const isDupe = dedup.some(d => normaliseFunder(d.funder) === nf && titlesSimilar(d.name, s.name));
+      if (!isDupe) dedup.push(s);
+    }
+    allParsed = dedup;
 
     // Pre-mark results if funder was previously rejected
     const rejectedFunders = new Set(scoutRejections.map(r => (r.funder || "").toLowerCase()));
@@ -360,17 +429,20 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
       const acc = (s.access || "").toLowerCase();
       // Confidence: combine AI self-rating with heuristics
       const aiConf = (s.sourceConfidence || "").toLowerCase();
+      const genericLink = isHomepageOnly(s.url);
       let confidence = "medium";
-      if (aiConf === "verified" && acc === "open" && s.url && s.deadline) confidence = "high";
-      else if (aiConf === "verified" && s.url) confidence = "high";
-      else if (aiConf === "uncertain" || !s.url || acc === "unknown") confidence = "low";
+      if (aiConf === "verified" && acc === "open" && s.url && s.deadline && !genericLink) confidence = "high";
+      else if (aiConf === "verified" && s.url && !genericLink) confidence = "high";
+      else if (aiConf === "uncertain" || !s.url || acc === "unknown" || genericLink) confidence = "low";
       else if (aiConf === "likely") confidence = "medium";
+      const sNorm = normaliseFunder(s.funder);
       return {
         ...s,
         fitScore,
         confidence,
+        genericLink,
         urlStatus: null, // will be filled by async verification
-        inPipeline: existing.includes((s.funder || "").toLowerCase()),
+        inPipeline: existingNormalised.has(sNorm) || existing.includes((s.funder || "").toLowerCase()),
         rejected: rejectedFunders.has((s.funder || "").toLowerCase()),
         added: false,
       };
@@ -380,7 +452,9 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
     setScoutSort("fit");
     setScouting(false);
 
-    // Async URL verification — runs after results are displayed
+    // Async URL verification — runs after results are displayed.
+    // Also RESOLVES Gemini grounding-redirect URLs to their final destinations:
+    // verifyUrls follows redirects, so check.redirect contains the real URL.
     const urlsToCheck = scored.filter(s => s.url && !s.rejected).map(s => s.url);
     if (urlsToCheck.length > 0) {
       try {
@@ -390,10 +464,16 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
         setScoutResults(prev => prev.map(s => {
           if (!s.url || !urlMap[s.url]) return s;
           const check = urlMap[s.url];
+          // If the original was a grounding redirect AND we followed to a real URL, swap it in.
+          let resolvedUrl = s.url;
+          if (isGroundingRedirect(s.url) && check.redirect && isUsableUrl(check.redirect)) {
+            resolvedUrl = check.redirect;
+          }
           const urlStatus = check.ok ? "verified" : check.status === 0 ? "dead" : "warning";
-          // Downgrade confidence if URL is dead
-          const confidence = urlStatus === "dead" ? "low" : s.confidence;
-          return { ...s, urlStatus, confidence };
+          // If after resolution the URL is STILL a grounding redirect or unreachable, the result is unusable.
+          const stillBad = isGroundingRedirect(resolvedUrl) || (!check.ok && check.status === 0);
+          const confidence = stillBad ? "low" : urlStatus === "dead" ? "low" : s.confidence;
+          return { ...s, url: resolvedUrl, urlStatus, confidence };
         }));
       } catch { /* URL verification is best-effort */ }
     }
@@ -403,7 +483,10 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
     const gType = SCOUT_TYPE_MAP[Object.keys(SCOUT_TYPE_MAP).find(k => (s.type || "").toLowerCase().includes(k))] || "Foundation";
     const funderBudget = Number(s.funderBudget || s.ask) || 0;
     const accessLine = s.access ? `\nAccess: ${s.access}${s.accessNote ? " — " + s.accessNote : ""}` : "";
-    const notes = `${s.reason || ""}${s.url ? "\nApply: " + s.url : ""}${accessLine}`;
+    // Only embed the URL in notes / save to applyUrl if it's a real usable URL.
+    // Grounding redirects from Gemini look real but only resolve inside the AI session.
+    const usableUrl = isUsableUrl(s.url) ? s.url : "";
+    const notes = `${s.reason || ""}${usableUrl ? "\nApply: " + usableUrl : ""}${accessLine}`;
     // Store funder's raw budget — ask will be set after proposal generation
     const scoutedMarket = s.market || (s.type === "International" ? "global" : "sa");
     const newG = {
@@ -413,7 +496,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
       focus: s.focus || ["Youth Employment", "Digital Skills"], geo: [], rel: "Cold", pri: 3, hrs: 0,
       notes, market: scoutedMarket, source: "scout",
       log: [{ d: td(), t: `Scouted by AI · funder budget R${funderBudget.toLocaleString()}${s.access ? ` · ${s.access}` : ""} · ask TBD` }],
-      on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null, applyUrl: s.url || "",
+      on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null, applyUrl: usableUrl,
     };
     onAddGrant(newG);
     setScoutResults(prev => prev.map(x => x.name === s.name && x.funder === s.funder ? { ...x, added: true } : x));
@@ -552,6 +635,22 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                 color: scoutFitFilter === k ? C.ok : C.t4, cursor: "pointer",
               }}>{l}</button>
             ))}
+            {hiddenLowConfCount > 0 && (
+              <>
+                <div style={{ width: 1, height: 16, background: C.line, margin: "0 4px" }} />
+                <button
+                  onClick={() => setShowUncertain(v => !v)}
+                  title="Low-confidence results (missing URL, unverified, or generic link) are hidden by default"
+                  style={{
+                    padding: "3px 10px", fontSize: 11, fontWeight: 600, fontFamily: FONT,
+                    borderRadius: 5, border: `1px solid ${showUncertain ? C.amber : C.line}`,
+                    background: showUncertain ? C.amberSoft : "transparent",
+                    color: showUncertain ? C.amber : C.t4, cursor: "pointer",
+                  }}>
+                  {showUncertain ? `Hide ${hiddenLowConfCount} uncertain` : `Show ${hiddenLowConfCount} uncertain`}
+                </button>
+              </>
+            )}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {scoutDisplay.map((s, i) => {
@@ -564,13 +663,18 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
               const accessIcon = acc === "open" ? "\u2713" : acc.includes("relationship") ? "\u2192" : acc.includes("invitation") ? "\u2715" : "?";
               const isByInvite = acc.includes("invitation");
               const isRejected = s.rejected;
+              const isExpanded = expandedIdx === i;
               return (
-                <div key={i} style={{
-                  padding: "8px 10px", position: "relative",
-                  background: isRejected ? `${C.t4}08` : s.added ? `${C.ok}08` : expired ? `${C.red}05` : isByInvite ? `${C.red}04` : C.bg, borderRadius: 8,
-                  border: `1px solid ${isRejected ? C.t4 + "20" : s.added ? C.ok + "30" : expired ? C.red + "25" : isByInvite ? C.red + "15" : C.line}`,
-                  opacity: isRejected ? 0.35 : (s.inPipeline && !s.added) || expired ? 0.5 : isByInvite ? 0.6 : 1,
-                }}>
+                <div key={i}
+                  onClick={() => setExpandedIdx(isExpanded ? null : i)}
+                  style={{
+                    padding: "8px 10px", position: "relative", cursor: "pointer",
+                    background: isRejected ? `${C.t4}08` : s.added ? `${C.ok}08` : expired ? `${C.red}05` : isByInvite ? `${C.red}04` : C.bg, borderRadius: 8,
+                    border: `1px solid ${isExpanded ? C.primary + "55" : isRejected ? C.t4 + "20" : s.added ? C.ok + "30" : expired ? C.red + "25" : isByInvite ? C.red + "15" : C.line}`,
+                    opacity: isRejected ? 0.35 : (s.inPipeline && !s.added) || expired ? 0.5 : isByInvite ? 0.6 : 1,
+                    boxShadow: isExpanded ? `0 0 0 3px ${C.primary}10` : "none",
+                    transition: "border-color 0.15s, box-shadow 0.15s",
+                  }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, flexWrap: "wrap" }}>
@@ -584,6 +688,18 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                         )}
                         {expired && <span style={{ fontSize: 10, fontWeight: 600, color: C.red, background: C.redSoft, padding: "1px 7px", borderRadius: 100 }}>Expired</span>}
                         {s.added && <span style={{ fontSize: 10, fontWeight: 600, color: C.ok }}>{"\u2713"}</span>}
+                        {s.inPipeline && !s.added && (
+                          <span style={{ fontSize: 10, fontWeight: 700, color: C.white, background: C.primary, padding: "2px 8px", borderRadius: 100, letterSpacing: 0.2 }}
+                            title="This funder is already in your pipeline">
+                            \u25cf Already tracking
+                          </span>
+                        )}
+                        {s.genericLink && (
+                          <span style={{ fontSize: 9, fontWeight: 600, color: C.amber, background: C.amberSoft, padding: "1px 6px", borderRadius: 100 }}
+                            title="URL points only to the funder homepage \u2014 AI did not find a specific application page">
+                            \u26a0 generic link
+                          </span>
+                        )}
                         {isRejected && <span style={{ fontSize: 10, fontWeight: 600, color: C.t4, background: C.raised, padding: "1px 7px", borderRadius: 100 }}>Rejected</span>}
                         {s.urlStatus === "verified" && <span style={{ fontSize: 9, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "1px 6px", borderRadius: 100 }} title="URL verified — link is live">{"\u2713"} Link OK</span>}
                         {s.urlStatus === "dead" && <span style={{ fontSize: 9, fontWeight: 600, color: C.red, background: C.redSoft, padding: "1px 6px", borderRadius: 100 }} title="URL is dead or unreachable">{"\u2715"} Dead link</span>}
@@ -591,19 +707,28 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                         {s.confidence && <span style={{ fontSize: 9, fontWeight: 600, color: s.confidence === "high" ? C.ok : s.confidence === "low" ? C.red : C.amber, background: (s.confidence === "high" ? C.ok : s.confidence === "low" ? C.red : C.amber) + "12", padding: "1px 6px", borderRadius: 100 }} title={`Confidence: ${s.confidence} — ${s.confidence === "high" ? "open access, URL + deadline present" : s.confidence === "low" ? "missing URL or unknown access" : "partial info available"}`}>{s.confidence === "high" ? "\u25CF" : s.confidence === "low" ? "\u25CB" : "\u25D1"} {s.confidence}</span>}
                       </div>
                       <div style={{ fontSize: 12, color: C.t3 }}>
-                        {s.funder}{(s.funderBudget || s.ask) ? ` \u00B7 ~R${Number(s.funderBudget || s.ask).toLocaleString()}` : ""}{s.valueType && s.valueType !== "cash" && s.valueType !== "unknown" ? ` \u00B7 ${s.valueType}` : ""}{s.deadline ? ` \u00B7 ${new Date(s.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : ""}
+                        {s.funder}{(s.funderBudget || s.ask) ? ` \u00B7 ~R${Number(s.funderBudget || s.ask).toLocaleString()}` : ""}{s.valueType && s.valueType !== "cash" && s.valueType !== "unknown" ? ` \u00B7 ${s.valueType}` : ""}
+                        {s.deadline ? (
+                          <span title={s.sourceConfidence === "verified" ? "Deadline confirmed on funder site" : "Deadline not verified \u2014 check funder site before relying on it"}
+                            style={{ fontStyle: s.sourceConfidence === "verified" ? "normal" : "italic", color: s.sourceConfidence === "verified" ? C.t3 : C.amber }}>
+                            {` \u00B7 ${new Date(s.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`}
+                            {s.sourceConfidence !== "verified" && " \u26A0"}
+                          </span>
+                        ) : (
+                          <span style={{ color: C.t4, fontStyle: "italic" }}>{" \u00B7 Deadline: TBC"}</span>
+                        )}
                       </div>
                       <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.4, marginTop: 3 }}>{s.reason}</div>
                       {s.accessNote && (
                         <div style={{ fontSize: 11, color: accessC, lineHeight: 1.4, marginTop: 3, fontStyle: "italic" }}>
                           {acc === "open" ? "\uD83D\uDCCB" : acc.includes("relationship") ? "\uD83E\uDD1D" : acc.includes("invitation") ? "\uD83D\uDEAB" : "\u2753"}{" "}
                           {s.url ? (
-                            <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: accessC, textDecoration: "underline" }}>{s.accessNote}</a>
+                            <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: accessC, textDecoration: "underline" }}>{s.accessNote}</a>
                           ) : s.accessNote}
                         </div>
                       )}
                     </div>
-                    <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "flex-start" }}>
+                    <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "flex-start" }} onClick={e => e.stopPropagation()}>
                       {s.url && (
                         <a href={s.url} target="_blank" rel="noopener noreferrer"
                           style={{ fontSize: 11, color: C.blue, textDecoration: "none", padding: "4px 8px", border: `1px solid ${C.blue}25`, borderRadius: 5, fontFamily: FONT, fontWeight: 500 }}>
@@ -625,9 +750,56 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                       )}
                     </div>
                   </div>
+                  {/* Expanded details panel */}
+                  {isExpanded && (
+                    <div style={{
+                      marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${C.line}`,
+                      display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 12, rowGap: 6,
+                      fontSize: 11,
+                    }}>
+                      {s.type && (<>
+                        <span style={{ color: C.t4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>Type</span>
+                        <span style={{ color: C.t2 }}>{s.type}</span>
+                      </>)}
+                      {s.fit && (<>
+                        <span style={{ color: C.t4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>AI fit</span>
+                        <span style={{ color: C.t2 }}>{s.fit}{typeof fs === "number" ? ` · score ${fs}/100` : ""}</span>
+                      </>)}
+                      {s.sourceConfidence && (<>
+                        <span style={{ color: C.t4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>AI source</span>
+                        <span style={{ color: C.t2 }}>{s.sourceConfidence}</span>
+                      </>)}
+                      {s.market && (<>
+                        <span style={{ color: C.t4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>Market</span>
+                        <span style={{ color: C.t2 }}>{s.market === "global" ? "Global" : "South Africa"}</span>
+                      </>)}
+                      {s.valueType && (<>
+                        <span style={{ color: C.t4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>Value</span>
+                        <span style={{ color: C.t2 }}>{s.valueType}</span>
+                      </>)}
+                      {Array.isArray(s.focus) && s.focus.length > 0 && (<>
+                        <span style={{ color: C.t4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>Focus</span>
+                        <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {s.focus.map((f, fi) => (
+                            <span key={fi} style={{ fontSize: 10, fontWeight: 600, color: C.primary, background: C.primarySoft, padding: "1px 7px", borderRadius: 100 }}>{f}</span>
+                          ))}
+                        </span>
+                      </>)}
+                      {s.url && (<>
+                        <span style={{ color: C.t4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>Link</span>
+                        <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                          style={{ color: C.blue, wordBreak: "break-all", textDecoration: "underline" }}>{s.url}</a>
+                      </>)}
+                      {s.rejected && s.rejectReason && (<>
+                        <span style={{ color: C.t4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>Rejected</span>
+                        <span style={{ color: C.t2 }}>{(REJECT_REASONS.find(r => r.key === s.rejectReason) || {}).label || s.rejectReason}</span>
+                      </>)}
+                    </div>
+                  )}
+
                   {/* Reject popover */}
                   {rejectingIdx === i && (
-                    <div style={{
+                    <div onClick={e => e.stopPropagation()} style={{
                       position: "absolute", top: "100%", right: 0, zIndex: 20, marginTop: 4,
                       background: C.white, borderRadius: 8, padding: 10,
                       border: `1px solid ${C.line}`, boxShadow: "0 8px 24px rgba(0,0,0,0.12)",

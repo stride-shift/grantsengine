@@ -86,13 +86,14 @@ export default function BudgetBuilder({ grant, onUpdate }) {
 
   const calcs = useMemo(() => {
     const itemTotal = items.reduce((s, it) => s + (it.amount || 0), 0);
-    const subtotal = itemTotal * cohorts;
-    const orgAmount = orgContrib ? Math.round(subtotal * 0.3) : 0;
+    const subtotal = itemTotal * cohorts; // one year's programme cost across all cohorts
+    const orgAmount = orgContrib ? Math.round(subtotal * 0.3) : 0; // ONE year of org contribution (UI consistency)
     const annualTotal = subtotal + orgAmount;
-    const total = annualTotal * years;
+    const total = annualTotal * years; // full multi-year ask INCLUDING org contribution
+    const totalOrgContribution = orgAmount * years; // multi-year org contribution to match `total`
     const totalStudents = studentsPerCohort * cohorts * years;
     const perStudent = totalStudents > 0 ? Math.round(total / totalStudents) : 0;
-    return { itemTotal, subtotal, orgAmount, annualTotal, total, totalStudents, perStudent };
+    return { itemTotal, subtotal, orgAmount, totalOrgContribution, annualTotal, total, totalStudents, perStudent };
   }, [items, cohorts, years, orgContrib, studentsPerCohort]);
 
   // Check if unsaved changes
@@ -115,7 +116,8 @@ export default function BudgetBuilder({ grant, onUpdate }) {
       items: items.map(it => ({ label: it.label, amount: it.amount, isCustom: it.isCustom })),
       includeOrgContribution: orgContrib,
       subtotal: calcs.subtotal,
-      orgContribution: calcs.orgAmount,
+      orgContribution: calcs.orgAmount, // ONE year (matches the UI line item)
+      totalOrgContribution: calcs.totalOrgContribution, // multi-year (matches the grand total)
       annualTotal: calcs.annualTotal,
       total: calcs.total,
       perStudent: calcs.perStudent,

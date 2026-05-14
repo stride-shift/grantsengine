@@ -81,7 +81,7 @@ function ChangePassword({ memberId, slug }) {
   );
 }
 
-export default function Settings({ org, profile, team, currentMember, complianceDocs = [], onUpsertCompDoc, onUpdateProfile, onUpdateOrg, onLogout }) {
+export default function Settings({ org, profile, team, currentMember, complianceDocs = [], onUpsertCompDoc, onUpdateProfile, onUpdateOrg, onLogout, onLaunchTour }) {
   const [serverStatus, setServerStatus] = useState(null);
   const [uploads, setUploads] = useState([]);
   const [expanded, setExpanded] = useState(null); // doc_id of expanded row
@@ -550,7 +550,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       </div>
 
       {/* ═══ Compliance Documents ═══ */}
-      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
+      <div data-tour="settings-compliance" style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
         {/* Header + summary bar */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <Label style={{ marginBottom: 0 }}>Compliance Documents</Label>
@@ -738,7 +738,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       </div>
 
       {/* Team */}
-      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
+      <div data-tour="settings-team" style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
         <Label>Team</Label>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {team.filter(t => t.id !== "team").map(m => (

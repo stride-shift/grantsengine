@@ -80,7 +80,7 @@ const EVENT_LABELS = {
   submitted: "Submitted",
 };
 
-export default function Calendar({ grants, team, stages, onSelectGrant }) {
+export default function Calendar({ grants, team, stages, onSelectGrant, onLaunchTour }) {
   const [viewMode, setViewMode] = useState("month");
   const [current, setCurrent] = useState(new Date());
   const [activeTypes, setActiveTypes] = useState(new Set(["deadline", "followup", "submitted"]));
@@ -420,7 +420,7 @@ export default function Calendar({ grants, team, stages, onSelectGrant }) {
           <div style={{ fontSize: 22, fontWeight: 800, color: "#333", letterSpacing: -0.5 }}>Calendar</div>
 
           {/* View toggle */}
-          <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 6, overflow: "hidden" }}>
+          <div data-tour="cal-views" style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 6, overflow: "hidden" }}>
             {["month", "week", "list"].map(v => (
               <button key={v} onClick={() => setViewMode(v)} style={{
                 padding: "5px 14px", fontSize: 12, fontWeight: 500, fontFamily: FONT,

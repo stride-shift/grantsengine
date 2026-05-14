@@ -241,6 +241,13 @@ export const injectFonts = () => {
       input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #4A7C59 !important; outline-offset: 0px; }
 
       /* ── Responsive: Mobile ── */
+      /* Jargon tooltip: definition popover appears on hover/focus of any .ge-jargon-tip span */
+      .ge-jargon-tip:hover .ge-jargon-tip-pop,
+      .ge-jargon-tip:focus .ge-jargon-tip-pop,
+      .ge-jargon-tip:focus-within .ge-jargon-tip-pop {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+      }
       @media (max-width: 768px) {
         .ge-sidebar { transform: translateX(-100%); transition: transform 0.3s ease; }
         .ge-sidebar.ge-sidebar-open { transform: translateX(0); }
@@ -252,6 +259,8 @@ export const injectFonts = () => {
         .ge-mobile-header { display: flex !important; }
         .ge-hide-mobile { display: none !important; }
         .ge-desktop-only { display: none !important; }
+        /* Grant detail sticky strip: no sidebar offset on mobile, sits below mobile header */
+        .ge-grant-stickybar { left: 0 !important; top: 56px !important; padding: 10px 16px !important; }
       }
       @media (min-width: 769px) {
         .ge-mobile-header { display: none !important; }

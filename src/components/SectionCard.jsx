@@ -2,11 +2,16 @@ import { useState, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
 import { Btn, CopyBtn, AILoadingPanel, stripMd, timeAgo } from "./index";
 
-/* ── Render section content with markdown table support ── */
+/* ── Render section content with markdown table + stat-callout support ── */
+// Matches `[STAT: <value> | <label>]` — e.g. [STAT: 92% | Programme completion vs 55% sector average]
+const STAT_PATTERN = /\[STAT:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\]/g;
+// Matches a line whose entire content is one or more STAT tokens (and optional whitespace)
+const STAT_LINE_PATTERN = /^\s*(\[STAT:[^\]]+\]\s*)+$/;
+
 function RenderContent({ text }) {
   if (!text || typeof text !== "string") return null;
 
-  // Split text into blocks: detect markdown tables (lines starting with |)
+  // Split text into blocks: detect markdown tables (lines starting with |) and stat-only lines
   const lines = text.split("\n");
   const blocks = [];
   let currentText = [];
@@ -36,6 +41,15 @@ function RenderContent({ text }) {
       if (!currentTable.length) flushText();
       const cells = trimmed.split("|").slice(1, -1).map(c => c.trim());
       currentTable.push(cells);
+    } else if (STAT_LINE_PATTERN.test(line)) {
+      // Phase 7: dedicated stat-callout row
+      flushTable();
+      flushText();
+      const stats = [];
+      const re = new RegExp(STAT_PATTERN.source, "g");
+      let m;
+      while ((m = re.exec(line)) !== null) stats.push({ value: m[1].trim(), label: m[2].trim() });
+      blocks.push({ type: "stats", stats });
     } else {
       flushTable();
       currentText.push(line);
@@ -58,9 +72,59 @@ function RenderContent({ text }) {
   const isAmt = (s) => /^R[\d,.\s]+$/.test(s.replace(/[*_]/g, "").trim());
   const isTotalRow = (cells) => cells.some(c => /total|per student|per learner/i.test(c.replace(/[*_]/g, "")));
 
+  const renderInlineStats = (raw) => {
+    if (!raw || !raw.includes("[STAT:")) return stripMd(raw);
+    const parts = [];
+    let last = 0;
+    const re = new RegExp(STAT_PATTERN.source, "g");
+    let m;
+    while ((m = re.exec(raw)) !== null) {
+      if (m.index > last) parts.push(stripMd(raw.slice(last, m.index)));
+      parts.push(
+        <span key={`s${m.index}`} style={{
+          display: "inline-flex", alignItems: "baseline", gap: 6,
+          padding: "2px 10px", margin: "0 3px", borderRadius: 100,
+          background: `${C.primary}10`, border: `1px solid ${C.primary}25`,
+          fontFamily: MONO, fontSize: 12, fontWeight: 700, color: C.primary,
+          verticalAlign: "baseline",
+        }}>
+          <span>{m[1].trim()}</span>
+          <span style={{ fontFamily: FONT, fontSize: 10, fontWeight: 500, color: C.t3, textTransform: "none" }}>{m[2].trim()}</span>
+        </span>
+      );
+      last = m.index + m[0].length;
+    }
+    if (last < raw.length) parts.push(stripMd(raw.slice(last)));
+    return parts;
+  };
+
   return blocks.map((block, i) => {
     if (block.type === "text") {
-      return <span key={i}>{stripMd(block.content)}</span>;
+      return <span key={i}>{renderInlineStats(block.content)}</span>;
+    }
+    if (block.type === "stats") {
+      return (
+        <div key={i} style={{
+          display: "flex", flexWrap: "wrap", gap: 12, margin: "16px 0",
+        }}>
+          {block.stats.map((s, si) => (
+            <div key={si} style={{
+              flex: "1 1 160px", minWidth: 140, padding: "14px 18px",
+              background: `linear-gradient(135deg, ${C.primarySoft || C.primary + "10"} 0%, ${C.white} 100%)`,
+              border: `1px solid ${C.primary}25`, borderRadius: 10,
+              boxShadow: `0 1px 4px ${C.primary}08`,
+            }}>
+              <div style={{
+                fontSize: 28, fontWeight: 800, color: C.primary, lineHeight: 1,
+                fontFamily: MONO, letterSpacing: -1, marginBottom: 6,
+              }}>{s.value}</div>
+              <div style={{
+                fontSize: 11, fontWeight: 500, color: C.t2, lineHeight: 1.4,
+              }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      );
     }
     // Table block
     const [header, ...bodyRows] = block.rows;
