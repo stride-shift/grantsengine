@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { C, FONT, MONO, injectFonts, applyOrgTheme, resetTheme } from "./theme";
-import { uid, td, dL, addD, effectiveAsk } from "./utils";
+import { uid, td, dL, addD, effectiveAsk, isUsableUrl, normaliseFunder, grantCompleteness, sanitizeNotes } from "./utils";
 import { CAD } from "./data/constants";
 import {
   isLoggedIn, getAuth, setAuth, getCurrentMember, login, logout, setPassword,
   memberLogin, memberSetPassword,
   getGrants, saveGrant, addGrant as apiAddGrant, removeGrant,
-  getTeam, getProfile, getPipelineConfig, getOrg, updateOrg as apiUpdateOrg, checkHealth, api,
+  getTeam, getProfile, getPipelineConfig, getOrg, updateOrg as apiUpdateOrg, checkHealth, api, verifyUrls,
   getCompliance, updateComplianceDoc, createComplianceDoc,
 } from "./api";
 import useAI from "./hooks/useAI";
@@ -15,6 +15,125 @@ import { Component } from "react";
 import OrgSelector from "./components/OrgSelector";
 import Login from "./components/Login";
 import { ToastProvider, useToast } from "./components/Toast";
+import TourOverlay from "./components/TourOverlay";
+import { hasSeenOverview } from "./data/tourSteps";
+
+/* Context-aware help button. On Dashboard, opens a popover so the user can pick
+ * between the nav walkthrough (overview) and the dashboard walkthrough.
+ * On every other tab, a single click launches that tab's tour directly. */
+function HelpButton({ currentView, selectedGrant, onLaunch }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  // Click-outside closes the popover
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  const tabTourFor = (view, hasGrant) => {
+    if (hasGrant) return "grantDetail";
+    switch (view) {
+      case "dashboard": return "dashboard";
+      case "pipeline":  return "pipeline";
+      case "vetting":   return "vetting";
+      case "calendar":  return "calendar";
+      case "docs":      return "docs";
+      case "funders":   return "funders";
+      case "settings":  return "settings";
+      default:          return "overview";
+    }
+  };
+
+  const handleClick = () => {
+    // Only Dashboard offers a menu — every other tab launches its tour directly.
+    if (currentView === "dashboard" && !selectedGrant) {
+      setMenuOpen(o => !o);
+    } else {
+      onLaunch(tabTourFor(currentView, !!selectedGrant));
+    }
+  };
+
+  return (
+    <div ref={menuRef} style={{ position: "fixed", bottom: 18, right: 18, zIndex: 60 }}>
+      <button
+        data-tour="help-button"
+        onClick={handleClick}
+        title={currentView === "dashboard" ? "Walk me through the app" : "Walk through this tab"}
+        style={{
+          width: 42, height: 42, borderRadius: "50%",
+          background: C.primary, border: "none",
+          boxShadow: `0 6px 18px ${C.primary}55, 0 2px 6px rgba(0,0,0,0.15)`,
+          cursor: "pointer", fontFamily: FONT,
+          fontSize: 20, fontWeight: 800, color: C.white,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          transition: "transform 180ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 180ms cubic-bezier(0.32, 0.72, 0, 1)",
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.08)"; e.currentTarget.style.boxShadow = `0 8px 24px ${C.primary}80, 0 2px 6px rgba(0,0,0,0.2)`; }}
+        onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = `0 6px 18px ${C.primary}55, 0 2px 6px rgba(0,0,0,0.15)`; }}
+      >
+        ?
+      </button>
+
+      {/* Popover — only mounted when menu is open (Dashboard only) */}
+      {menuOpen && (
+        <div style={{
+          position: "absolute", bottom: 52, right: 0,
+          width: 280, background: C.white, borderRadius: 12,
+          boxShadow: "0 12px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08)",
+          border: `1px solid ${C.line}`, overflow: "hidden",
+          fontFamily: FONT,
+          animation: "ge-help-pop 180ms cubic-bezier(0.32, 0.72, 0, 1)",
+        }}>
+          <button
+            onClick={() => { setMenuOpen(false); onLaunch("overview"); }}
+            style={{
+              width: "100%", textAlign: "left", padding: "12px 14px",
+              background: "none", border: "none", cursor: "pointer", fontFamily: FONT,
+              borderBottom: `1px solid ${C.line}`,
+              transition: "background 150ms cubic-bezier(0.32, 0.72, 0, 1)",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = C.primarySoft || `${C.primary}10`}
+            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.primary, marginBottom: 2 }}>
+              Walk me through every tab
+            </div>
+            <div style={{ fontSize: 11, color: C.t3 }}>
+              A guided tour across the whole app
+            </div>
+          </button>
+          <button
+            onClick={() => { setMenuOpen(false); onLaunch("dashboard"); }}
+            style={{
+              width: "100%", textAlign: "left", padding: "12px 14px",
+              background: "none", border: "none", cursor: "pointer", fontFamily: FONT,
+              transition: "background 150ms cubic-bezier(0.32, 0.72, 0, 1)",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = C.primarySoft || `${C.primary}10`}
+            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.dark, marginBottom: 2 }}>
+              Dashboard walkthrough
+            </div>
+            <div style={{ fontSize: 11, color: C.t3 }}>
+              Tour the sections of the dashboard
+            </div>
+          </button>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes ge-help-pop {
+          0% { opacity: 0; transform: translateY(6px) scale(0.96); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
+    </div>
+  );
+}
 import geLogo from "./grants-engine-logo.png";
 import dlabLogo from "./dlab.png";
 import geIcon from "./ge-icon.png";
@@ -121,8 +240,204 @@ function AppInner() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [complianceDocs, setComplianceDocs] = useState([]);
+  // Phase 12: which tour (if any) is currently running. null = no tour.
+  const [activeTour, setActiveTour] = useState(null);
   const saveTimers = useRef({});
+
+  // Auto-open the OVERVIEW tour the first time a member signs in. No artificial
+  // delay — the TourOverlay polls for the target element internally, so it
+  // gracefully waits for the sidebar to render.
+  useEffect(() => {
+    if (!currentMember?.id) return;
+    if (!hasSeenOverview(currentMember.id, currentMember.role)) {
+      setActiveTour("overview");
+    }
+  }, [currentMember?.id, currentMember?.role]);
   const { runAI, clearUploadsCache } = useAI({ org, profile, team, grants, stages });
+
+  // ── Background hygiene job — runs ONCE per (member, org) session after grants load.
+  // Three silent passes, in order:
+  //   1. Sanitize notes  — strip internal jargon (e.g. "1 x Type 3 cohort with stipends")
+  //   2. Dedupe          — same funder = same grant; keep most-complete, archive the rest
+  //   3. URL hygiene     — every active grant gets a working applyUrl, or none. Missing
+  //                        and dead-link (404) URLs trigger an AI search; the result is
+  //                        verified before being saved. Failed URLs are CLEARED.
+  // No UI, no progress bar, no buttons. The user just sees the pipeline get cleaner.
+  const repairRanForRef = useRef(null);
+  useEffect(() => {
+    if (!grants || grants.length === 0) return;
+    if (!runAI || !currentMember?.id) return;
+    if (repairRanForRef.current === currentMember.id) return;
+    repairRanForRef.current = currentMember.id;
+
+    const CLOSED = new Set(["won", "lost", "deferred", "archived"]);
+    const initialGrants = grants;
+
+    const persist = (id, patch) => {
+      setGrants(prev => prev.map(x => x.id === id ? { ...x, ...patch } : x));
+      const g = initialGrants.find(x => x.id === id) || {};
+      dSave(id, { ...g, ...patch });
+    };
+
+    (async () => {
+      // ─── Pass 1: sanitize notes (regex, instant) ───
+      let cleanedNotes = 0;
+      for (const g of initialGrants) {
+        const cleaned = sanitizeNotes(g.notes);
+        if (cleaned !== g.notes && (cleaned || "").length !== (g.notes || "").length) {
+          persist(g.id, { notes: cleaned });
+          cleanedNotes++;
+        }
+      }
+
+      // ─── Pass 2: dedupe by normalised funder name (instant) ───
+      // For each cluster of active grants sharing a normalised funder, keep the most-
+      // complete and archive the rest. Closed grants are left alone.
+      const clusters = new Map();
+      for (const g of initialGrants) {
+        if (CLOSED.has(g.stage)) continue;
+        const key = normaliseFunder(g.funder);
+        if (!key) continue;
+        if (!clusters.has(key)) clusters.set(key, []);
+        clusters.get(key).push(g);
+      }
+      let archived = 0;
+      for (const [, group] of clusters) {
+        if (group.length < 2) continue;
+        // Sort so the most-complete (highest score) is index 0; archive every other.
+        group.sort((a, b) => grantCompleteness(b) - grantCompleteness(a));
+        for (let i = 1; i < group.length; i++) {
+          const d = group[i];
+          persist(d.id, { stage: "archived", _archivedFrom: d.stage });
+          archived++;
+        }
+      }
+
+      // ─── Pass 3: URL hygiene (AI + verifyUrls, rate-limited) ───
+      // After dedupe, only operate on grants we've kept (not archived in this pass).
+      const archivedIds = new Set();
+      for (const [, group] of clusters) {
+        if (group.length < 2) continue;
+        for (let i = 1; i < group.length; i++) archivedIds.add(group[i].id);
+      }
+
+      const liveGrants = initialGrants.filter(g => !CLOSED.has(g.stage) && !archivedIds.has(g.id));
+
+      // First batch-check every existing applyUrl in one HEAD/GET sweep.
+      const existingUrls = [...new Set(liveGrants.filter(g => isUsableUrl(g.applyUrl)).map(g => g.applyUrl))];
+      let urlHealth = new Map();
+      if (existingUrls.length > 0) {
+        try {
+          const results = await verifyUrls(existingUrls);
+          for (const r of results) urlHealth.set(r.url, r);
+        } catch { /* best-effort */ }
+      }
+
+      let fixed = 0, cleared = 0;
+      for (let i = 0; i < liveGrants.length; i++) {
+        const g = liveGrants[i];
+        const current = g.applyUrl;
+        const healthy = current && isUsableUrl(current) && (urlHealth.get(current)?.ok === true);
+        if (healthy) continue;
+
+        // Ask AI for candidate URLs, try each until one loads.
+        let savedNew = false;
+        try {
+          const raw = await runAI("findApplyUrl", g);
+          const txt = String(raw || "");
+
+          // Parse structured candidates
+          let candidates = [];
+          try {
+            const cleaned = txt.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+            const sIdx = cleaned.indexOf("{"), eIdx = cleaned.lastIndexOf("}");
+            if (sIdx >= 0 && eIdx > sIdx) {
+              const parsed = JSON.parse(cleaned.slice(sIdx, eIdx + 1));
+              if (Array.isArray(parsed.candidates)) candidates = parsed.candidates.map(c => c.url).filter(Boolean);
+              else if (parsed.url) candidates = [parsed.url];
+            }
+          } catch { /* fall through */ }
+
+          // Extract URLs from raw text as fallback
+          const urlMatches = (txt.match(/https?:\/\/[^\s"'<>)\]]+/gi) || []).map(u => u.replace(/[.,;:)\]}>]+$/, ""));
+          for (const u of urlMatches) if (!candidates.includes(u)) candidates.push(u);
+
+          // Synthesize funder homepage guesses as ultimate fallback
+          const slug = (g.funder || "").toLowerCase()
+            .replace(/\b(the|foundation|trust|fund|group|company|corporation|corp|inc|ltd|pty|sa|africa)\b/g, "")
+            .replace(/[^a-z0-9]/g, "").trim();
+          if (slug && slug.length >= 3) {
+            for (const u of [`https://www.${slug}.co.za`, `https://${slug}.co.za`, `https://www.${slug}.com`, `https://www.${slug}.org`, `https://www.${slug}.org.za`]) {
+              if (!candidates.includes(u)) candidates.push(u);
+            }
+          }
+
+          // Filter to usable URLs
+          candidates = candidates.filter(u => isUsableUrl(u));
+
+          if (candidates.length > 0) {
+            try {
+              const check = await verifyUrls(candidates);
+              const statusMap = new Map((check || []).map(r => [r.url, r]));
+              for (const u of candidates) {
+                if (statusMap.get(u)?.ok === true) {
+                  persist(g.id, { applyUrl: u });
+                  savedNew = true;
+                  fixed++;
+                  break;
+                }
+              }
+            } catch { /* fall through */ }
+          }
+        } catch { /* swallow */ }
+
+        // If the current URL was bad and we couldn't find a working alternative, clear it.
+        if (!savedNew && current && !healthy) {
+          persist(g.id, { applyUrl: "" });
+          cleared++;
+        }
+
+        // Rate-limit between AI calls
+        if (i < liveGrants.length - 1) await new Promise(r => setTimeout(r, 4500));
+      }
+
+      // ─── Pass 4: fetch published funder briefs for grants that don't have one yet ───
+      // Same rate limit as URL hygiene. Runs after URL fixing so the AI has fresh
+      // funder URLs to search from. Only attempts grants where briefs are likely to
+      // exist (Government/SETA and International funders publish RFPs; most corporate
+      // CSI funders don't).
+      let briefsFilled = 0;
+      const grantsNeedingBrief = liveGrants.filter(g => {
+        if (g.funderBrief && g.funderBrief.trim().length > 50) return false;
+        return ["Government/SETA", "International", "Foundation"].includes(g.type);
+      });
+      for (let i = 0; i < grantsNeedingBrief.length; i++) {
+        const g = grantsNeedingBrief[i];
+        try {
+          const raw = await runAI("fetchFunderBrief", g);
+          const txt = String(raw || "").replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+          const sIdx = txt.indexOf("{"), eIdx = txt.lastIndexOf("}");
+          let parsed = null;
+          try { if (sIdx >= 0 && eIdx > sIdx) parsed = JSON.parse(txt.slice(sIdx, eIdx + 1)); } catch {}
+          if (parsed?.brief && parsed.brief.length > 100) {
+            const note = parsed.sourceUrl ? `\n\n---\nSource: ${parsed.sourceUrl}` : "";
+            persist(g.id, { funderBrief: parsed.brief + note });
+            briefsFilled++;
+          }
+        } catch { /* swallow */ }
+        if (i < grantsNeedingBrief.length - 1) await new Promise(r => setTimeout(r, 4500));
+      }
+
+      // Final, single discrete toast — only if something actually changed
+      const bits = [];
+      if (cleanedNotes) bits.push(`cleaned ${cleanedNotes} note${cleanedNotes === 1 ? "" : "s"}`);
+      if (archived) bits.push(`archived ${archived} duplicate${archived === 1 ? "" : "s"}`);
+      if (fixed) bits.push(`fixed ${fixed} link${fixed === 1 ? "" : "s"}`);
+      if (cleared) bits.push(`cleared ${cleared} dead link${cleared === 1 ? "" : "s"}`);
+      if (briefsFilled) bits.push(`fetched ${briefsFilled} funder brief${briefsFilled === 1 ? "" : "s"}`);
+      if (bits.length) toast(`Pipeline tidy-up: ${bits.join(", ")}.`, { type: "success", duration: 5000 });
+    })();
+  }, [grants, runAI, currentMember?.id]);
 
   // ── Debounced save with status indicator ──
   const [saveState, setSaveState] = useState("idle"); // "idle" | "saving" | "saved" | "error"
@@ -482,6 +797,24 @@ function AppInner() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", fontFamily: FONT, background: C.bg }}>
+      {/* Phase 12: role-based anchored tour. tourId="overview" auto-fires on first login;
+          any tab can also call setActiveTour("pipeline" | "grantDetail" | ...) for a deeper tour. */}
+      <TourOverlay
+        tourId={activeTour}
+        currentMember={currentMember}
+        currentView={view}
+        selectedGrant={sel}
+        onNavigate={(v) => setView(v === "grant-detail" ? view : v)}
+        onClose={() => setActiveTour(null)}
+      />
+      {/* Persistent help button — bottom-right corner.
+          On Dashboard: opens a popover with two options (nav walkthrough vs dashboard walkthrough).
+          Everywhere else: directly launches the tour for the current tab. */}
+      <HelpButton
+        currentView={view}
+        selectedGrant={sel}
+        onLaunch={setActiveTour}
+      />
       {/* Mobile top header */}
       <div className="ge-mobile-header" style={{
         display: "none", position: "fixed", top: 0, left: 0, right: 0, height: 56, zIndex: 20,
@@ -527,6 +860,7 @@ function AppInner() {
             const active = !sel && view === item.id;
             return (
               <button key={item.id}
+                data-tour={`nav-${item.id}`}
                 onClick={() => { setView(item.id); setSel(null); setMobileMenuOpen(false); }}
                 style={{
                   display: "flex", alignItems: "center", gap: 8, width: "100%",
@@ -646,6 +980,7 @@ function AppInner() {
             onBack={() => setSel(null)}
             onRunAI={runAI}
             onUploadsChanged={(grantId) => { clearUploadsCache(grantId); }}
+            onLaunchTour={setActiveTour}
           />
         ) : view === "dashboard" ? (
           <Dashboard
@@ -659,6 +994,7 @@ function AppInner() {
             onRunReport={() => runAI("report", EMPTY_GRANT)}
             onRunInsights={() => runAI("insights", EMPTY_GRANT)}
             onRunStrategy={() => runAI("strategy", EMPTY_GRANT)}
+            onLaunchTour={setActiveTour}
           />
         ) : view === "pipeline" ? (
           <Pipeline
@@ -674,6 +1010,7 @@ function AppInner() {
             onRunAI={runAI}
             api={api}
             onToast={toast}
+            onLaunchTour={setActiveTour}
           />
         ) : view === "vetting" ? (
           <Vetting
@@ -683,6 +1020,7 @@ function AppInner() {
             onSelectGrant={(id) => setSel(id)}
             onUpdateGrant={updateGrant}
             onNavigate={(v) => { setSel(null); setView(v); }}
+            onLaunchTour={setActiveTour}
           />
         ) : view === "calendar" ? (
           <Calendar
@@ -690,12 +1028,14 @@ function AppInner() {
             team={team}
             stages={stages}
             onSelectGrant={(id) => setSel(id)}
+            onLaunchTour={setActiveTour}
           />
         ) : view === "docs" ? (
           <DocVault
             grants={grants}
             complianceDocs={complianceDocs}
             currentMember={currentMember}
+            onLaunchTour={setActiveTour}
           />
         ) : view === "funders" ? (
           <Funders
@@ -704,6 +1044,7 @@ function AppInner() {
             stages={stages}
             onSelectGrant={(id) => setSel(id)}
             onNavigate={(v) => { setSel(null); setView(v); }}
+            onLaunchTour={setActiveTour}
           />
         ) : view === "settings" ? (
           <Settings
@@ -727,6 +1068,7 @@ function AppInner() {
               applyOrgTheme(newOrg);
             }}
             onLogout={handleLogout}
+            onLaunchTour={setActiveTour}
           />
         ) : view === "admin" && currentMember?.role === "director" ? (
           <Admin org={org} team={team} grants={grants} currentMember={currentMember} onSaveGrant={saveGrant} onSetGrants={setGrants} onTeamChanged={async () => {

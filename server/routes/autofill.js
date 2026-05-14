@@ -121,25 +121,76 @@ Rules:
   }
 }
 
+// ── Extract candidate URLs from a grant's data (applyUrl, notes, etc.) ──
+function isUsableApplicationUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  if (!url.match(/^https?:\/\//i)) return false;
+  // Skip Google search/redirect URLs — they're not real application pages
+  if (url.includes('vertexaisearch.cloud.google.com')) return false;
+  if (url.includes('google.com/url?')) return false;
+  if (url.includes('/grounding-api-redirect/')) return false;
+  return true;
+}
+
+function findApplicationUrl(grant) {
+  // 1. Explicit applyUrl field wins if usable
+  if (isUsableApplicationUrl(grant.applyUrl)) return grant.applyUrl;
+
+  // 2. Scan notes for URLs
+  const urlRegex = /https?:\/\/[^\s,"'<>)]+/gi;
+  const candidates = [];
+  const notes = grant.notes || '';
+  const matches = notes.match(urlRegex) || [];
+  for (const m of matches) {
+    // Strip trailing punctuation that regex picked up
+    const cleaned = m.replace(/[.,;:)\]}>]+$/, '');
+    if (isUsableApplicationUrl(cleaned)) candidates.push(cleaned);
+  }
+
+  // 3. Prefer URL that comes after "Apply:" label
+  const applyMatch = notes.match(/Apply\s*:\s*(https?:\/\/\S+)/i);
+  if (applyMatch && isUsableApplicationUrl(applyMatch[1])) {
+    return applyMatch[1].replace(/[.,;:)\]}>]+$/, '');
+  }
+
+  return candidates[0] || null;
+}
+
 // POST /api/org/:slug/grants/:id/detect-form
 // Fetches the grant's applyUrl, sends HTML to Gemini, returns detected fields + suggested mappings
 router.post('/org/:slug/grants/:id/detect-form', ...orgAuth, w(async (req, res) => {
   const grant = await getGrantById(req.params.id, req.orgId);
   if (!grant) return res.status(404).json({ error: 'Grant not found' });
-  if (!grant.applyUrl) return res.status(400).json({ error: 'Grant has no applyUrl — add one in the grant profile first' });
 
-  // Fetch the form page HTML
+  const applicationUrl = findApplicationUrl(grant);
+  if (!applicationUrl) {
+    return res.status(400).json({
+      // Plain-English message — the client matches on the "no apply link" phrase to surface the AI search button.
+      error: "We don't have a link to apply for this grant yet. Let AI find the funder's application page, or paste a link yourself.",
+      code: 'no_apply_link',
+    });
+  }
+
+  // Fetch the form page HTML with a real browser User-Agent + headers, otherwise
+  // Cloudflare-fronted SA corporate sites 403 us instantly.
   let html = '';
   let fetchError = null;
+  let finalUrl = applicationUrl;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
-    const pageResponse = await fetch(grant.applyUrl, {
+    const pageResponse = await fetch(applicationUrl, {
       signal: controller.signal,
       redirect: 'follow',
-      headers: { 'User-Agent': 'Mozilla/5.0 (GrantEngine Form Detector)' },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+      },
     });
     clearTimeout(timeout);
+    finalUrl = pageResponse.url || applicationUrl;
     if (pageResponse.ok) {
       html = await pageResponse.text();
     } else {
@@ -152,7 +203,7 @@ router.post('/org/:slug/grants/:id/detect-form', ...orgAuth, w(async (req, res) 
   // Detect form structure
   let formStructure;
   try {
-    formStructure = await detectFormFromHTML(grant.applyUrl, html);
+    formStructure = await detectFormFromHTML(finalUrl, html);
   } catch (err) {
     return res.status(500).json({ error: `Form detection failed: ${err.message}`, fetchError });
   }
@@ -203,7 +254,7 @@ router.post('/org/:slug/grants/:id/detect-form', ...orgAuth, w(async (req, res) 
   // Create job record
   const jobId = await createAutofillJob(req.orgId, {
     grant_id: grant.id,
-    apply_url: grant.applyUrl,
+    apply_url: finalUrl,
     form_type: formStructure.formType,
     detected_fields: formStructure.fields || [],
     field_mappings: mappings,
@@ -219,6 +270,8 @@ router.post('/org/:slug/grants/:id/detect-form', ...orgAuth, w(async (req, res) 
     submitButtonText: formStructure.submitButtonText,
     notes: formStructure.notes,
     fetchError,
+    resolvedUrl: finalUrl,
+    urlSource: grant.applyUrl === applicationUrl ? 'applyUrl' : 'notes',
   });
 }));
 

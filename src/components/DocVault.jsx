@@ -38,7 +38,7 @@ function daysSince(dateStr) {
   return Math.floor((Date.now() - d.getTime()) / 86400000);
 }
 
-export default function DocVault({ grants, complianceDocs, currentMember }) {
+export default function DocVault({ grants, complianceDocs, currentMember, onLaunchTour }) {
   const ROLE_LEVELS = { director: 3, board: 3, hop: 2, pm: 1, coord: 1, comms: 0 };
   const memberLevel = ROLE_LEVELS[currentMember?.role] || 0;
   const isAdmin = memberLevel >= 2;
@@ -186,7 +186,7 @@ export default function DocVault({ grants, complianceDocs, currentMember }) {
       </div>
 
       {/* Category tabs */}
-      <div style={{
+      <div data-tour="docs-categories" style={{
         display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap",
       }}>
         {DOC_CATEGORIES.map(cat => {
@@ -353,9 +353,11 @@ export default function DocVault({ grants, complianceDocs, currentMember }) {
           <div style={{ fontSize: 12, color: C.t3, marginBottom: 12 }}>
             Upload documents to get started
           </div>
-          <Btn v="primary" style={{ fontSize: 12, padding: "8px 20px" }} onClick={() => triggerUpload(activeCategory === "all" ? "org" : activeCategory)} disabled={uploading}>
-            {uploading ? "Uploading..." : `+ Upload to ${DOC_CATEGORIES.find(c => c.id === activeCategory)?.label || "Documents"}`}
-          </Btn>
+          <span data-tour="docs-upload">
+            <Btn v="primary" style={{ fontSize: 12, padding: "8px 20px" }} onClick={() => triggerUpload(activeCategory === "all" ? "org" : activeCategory)} disabled={uploading}>
+              {uploading ? "Uploading..." : `+ Upload to ${DOC_CATEGORIES.find(c => c.id === activeCategory)?.label || "Documents"}`}
+            </Btn>
+          </span>
         </div>
       )}
 

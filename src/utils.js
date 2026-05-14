@@ -1,5 +1,6 @@
 import { C } from "./theme";
 import { DOCS, DOC_MAP, GATES } from "./data/constants";
+import { applyGlossary } from "./data/glossary";
 
 // ── Parse structured research JSON from AI response ──
 export const parseStructuredResearch = (raw) => {
@@ -68,7 +69,93 @@ export const cleanProposalText = (text) => {
   }
   // 4. Clean up artifacts: double spaces, blank lines, leading punctuation
   cleaned = cleaned.replace(/\n\s*[,;]\s/g, "\n").replace(/  +/g, " ").replace(/\n{3,}/g, "\n\n").replace(/\n +/g, "\n").trim();
+  // 5. Phase 6: insert bracketed definitions for internal/sector jargon on first use
+  cleaned = applyGlossary(cleaned);
   return cleaned;
+};
+
+// Phase 2 / URL hygiene: detect Gemini grounding-redirect URLs.
+// These are tracking URLs Gemini returns when grounded with Google Search.
+// They only resolve inside a Gemini session — useless as application links.
+export const isGroundingRedirect = (url) => {
+  if (!url || typeof url !== "string") return false;
+  return /vertexaisearch\.cloud\.google\.com|\/grounding-api-redirect\/|google\.com\/url\?/i.test(url);
+};
+
+// Returns true if the URL is a real, usable application URL — must be http(s),
+// not a grounding redirect.
+export const isUsableUrl = (url) => {
+  if (!url || typeof url !== "string") return false;
+  if (!/^https?:\/\//i.test(url)) return false;
+  if (isGroundingRedirect(url)) return false;
+  return true;
+};
+
+// Normalise a funder name for deduplication: lowercase, strip common decorators,
+// collapse whitespace. "The Vodacom Foundation Trust" → "vodacom"
+export const normaliseFunder = (raw) => {
+  if (!raw) return "";
+  return raw
+    .toLowerCase()
+    .replace(/\b(the|a|an)\b/g, " ")
+    .replace(/\b(foundation|trust|fund|programme|program|grant|grants|initiative|charity|charities|organisation|organization|inc|ltd|llc|nv|sa|pty|group|company|corporation|corp)\b/g, " ")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+// Score a grant by how "complete" it is — used for dedupe to pick which
+// duplicate to keep. Higher = more data filled in = keep this one.
+export const grantCompleteness = (g) => {
+  if (!g) return 0;
+  let s = 0;
+  if (isUsableUrl(g.applyUrl)) s += 10;
+  if (g.deadline) s += 4;
+  if (g.ask && g.ask > 0) s += 4;
+  if (g.funderBudget && g.funderBudget > 0) s += 2;
+  if (g.budgetTable) s += 8;
+  if (g.aiDraft && g.aiDraft.length > 200) s += 12;
+  if (g.aiSections && Object.keys(g.aiSections).length > 0) s += 12;
+  if (g.aiResearch && g.aiResearch.length > 200) s += 6;
+  if (g.aiFitscore) s += 3;
+  if (g.funderBrief && g.funderBrief.length > 50) s += 8;
+  if (g.notes && g.notes.length > 20) s += 2;
+  if (Array.isArray(g.log)) s += Math.min(g.log.length, 10);
+  if (g.owner && g.owner !== "team") s += 4;
+  // Penalise scouted stage (oldest unworked) vs anything further along
+  const stageBoost = { scouted: 0, vetting: 2, qualifying: 4, drafting: 8, review: 12, submitted: 14, awaiting: 14, won: 20, lost: 6, resubmit: 10, deferred: 2, archived: -10 };
+  s += (stageBoost[g.stage] || 0);
+  return s;
+};
+
+// Strip internal jargon from grant notes — sentences that reference internal
+// programme-type classifications ("Type 1 cohort", "Type 4 FET programme", etc.)
+// are planning shorthand. They mean nothing to a reader outside the org and
+// derail AI searches. We drop the entire sentence containing the reference.
+//
+// Matches the patterns we've seen in real data:
+//   "1 x Type 3 cohort with stipends."
+//   "Type 4 FET programme. 3-year, 425-hour journey."
+//   "2 x Type 2 cohort"
+//   "Type 3 programme"
+//   "Type 6 — Cyborg Habits"
+const INTERNAL_TYPE_RE = /\bType\s*\d+\b/i;
+// Also strip sentences that are purely "N x cohort" planning shorthand
+const N_X_COHORT_RE = /^\s*\d+\s*x\s+/i;
+
+export const sanitizeNotes = (notes) => {
+  if (!notes || typeof notes !== "string") return notes;
+  // Split on sentence-end punctuation OR newlines. Keep "Apply:" lines etc.
+  // by checking only for the internal-jargon pattern.
+  const parts = notes.split(/(?<=[.!?])\s+|\n/);
+  const kept = parts.filter(s => {
+    const t = (s || "").trim();
+    if (!t) return false;
+    if (INTERNAL_TYPE_RE.test(t)) return false;          // "Type N ..." anywhere
+    if (N_X_COHORT_RE.test(t) && /cohort/i.test(t)) return false; // "1 x cohort..."
+    return true;
+  });
+  return kept.join(" ").replace(/\s+/g, " ").replace(/\s+([.!?,;:])/g, "$1").trim();
 };
 
 export const fmt = n => n ? `R${(n / 1e6).toFixed(1)}M` : "—";
@@ -77,6 +164,69 @@ export const dL = d => d ? Math.ceil((new Date(d) - new Date()) / 864e5) : null;
 export const uid = () => "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 export const urgC = d => d === null ? C.t3 : d < 0 ? C.red : d <= 14 ? C.red : d < 30 ? C.amber : C.ok;
 export const urgLabel = d => d === null ? null : d < 0 ? `${Math.abs(d)}d overdue` : d === 0 ? "Due today" : d <= 3 ? `${d}d left!` : d <= 14 ? `⚠ ${d}d` : `${d}d`;
+
+// ── Visual-breaks quality check ──
+// Verifies that a generated proposal (or one section of it) isn't a wall of text.
+// Funders skim — proposals without tables, callouts, headers, or short paragraphs
+// don't get read. This checker flags sections that need visual relief.
+//
+// Returns { issues: [...], score: 0..100 } where score reflects how break-friendly
+// the document is. Issues are human-readable strings.
+const SOFT_PARA_LIMIT_WORDS = 120; // a paragraph longer than this is a wall
+const MAX_RUN_WORDS_WITHOUT_BREAK = 400; // sections longer than this need a header/table/callout
+
+export const validateProposalBreaks = (text) => {
+  const issues = [];
+  if (!text || typeof text !== "string") return { issues: [], score: 100 };
+
+  const stripCode = text;
+  const hasTable = /\|.*\|.*\|/m.test(stripCode); // any markdown table at all
+  const hasStat = /\[STAT:\s*[^|\]]+\|[^\]]+\]/i.test(stripCode); // any stat callout
+  const hasHeaders = /^#{1,6}\s+\S/m.test(stripCode); // markdown headers
+  const wordCount = stripCode.split(/\s+/).filter(Boolean).length;
+
+  if (wordCount < 200) return { issues: [], score: 100 }; // too short to need breaks
+
+  if (!hasTable && wordCount >= 300) {
+    issues.push("No tables found — costing or quantitative breakdowns should use markdown tables.");
+  }
+  if (!hasStat && wordCount >= 600) {
+    issues.push("No stat callouts found — surface 2-3 key impact numbers as [STAT: value | label] for visual emphasis.");
+  }
+  if (!hasHeaders && wordCount >= 400) {
+    issues.push("No section headers found — break the document with ## headings every major topic.");
+  }
+
+  // Paragraph-by-paragraph check
+  const paras = stripCode.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
+  let longParaCount = 0;
+  for (const p of paras) {
+    if (/^[#|]/.test(p)) continue; // skip headers and tables
+    const w = p.split(/\s+/).filter(Boolean).length;
+    if (w > SOFT_PARA_LIMIT_WORDS) longParaCount++;
+  }
+  if (longParaCount >= 3) {
+    issues.push(`${longParaCount} paragraphs over ${SOFT_PARA_LIMIT_WORDS} words — break them up for readability.`);
+  }
+
+  // Run-without-break check: longest stretch of plain prose without ANY visual relief
+  let longestRun = 0, currentRun = 0;
+  for (const line of stripCode.split(/\n+/)) {
+    const t = line.trim();
+    if (!t) continue;
+    const isBreak = /^#{1,6}\s/.test(t) || /^\|.*\|/.test(t) || /^\[STAT:/.test(t) || /^[-*]\s/.test(t);
+    if (isBreak) { longestRun = Math.max(longestRun, currentRun); currentRun = 0; }
+    else { currentRun += t.split(/\s+/).filter(Boolean).length; }
+  }
+  longestRun = Math.max(longestRun, currentRun);
+  if (longestRun > MAX_RUN_WORDS_WITHOUT_BREAK) {
+    issues.push(`${longestRun} words of unbroken prose detected — insert a header, table, or callout to break the flow.`);
+  }
+
+  // Score: 100 minus 15 per issue, floor at 0
+  const score = Math.max(0, 100 - issues.length * 15);
+  return { issues, score };
+};
 
 // ── Stage-aware deadline intelligence ──
 // In grant funding, "deadline" = submission deadline.

@@ -70,7 +70,9 @@ export async function runDeadlineReminders() {
           const createdDate = g.log?.[0]?.d;
           if (!createdDate) continue;
 
-          const hoursSinceCreated = (now.getTime() - new Date(createdDate).getTime()) / 3600000;
+          const createdTime = new Date(createdDate).getTime();
+          if (isNaN(createdTime)) continue;
+          const hoursSinceCreated = (now.getTime() - createdTime) / 3600000;
           if (hoursSinceCreated >= 48) {
             const key = `reminder-nodeadline-${g.id}-${g.owner}`;
             const sent = await kvGet(orgId, key);

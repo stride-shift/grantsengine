@@ -17,7 +17,7 @@ const isFullyVetted = (g) => {
 };
 
 /* ── Main component ── */
-export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateGrant, onNavigate }) {
+export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateGrant, onNavigate, onLaunchTour }) {
   const [filter, setFilter] = useState("all"); // "all" | "mine" | "unvetted" | "vetted"
   const [sortBy, setSortBy] = useState("deadline"); // "deadline" | "fit" | "funder" | "date"
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -239,7 +239,7 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
       )}
 
       {/* Grant cards */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div data-tour="vetting-list" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {vettingGrants.map(g => {
           const vetted = isFullyVetted(g);
           const vetting = g.vetting || {};

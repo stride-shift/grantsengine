@@ -241,12 +241,35 @@ export default function useAI({ org, profile, team, grants, stages }) {
     }
 
     // Anti-hallucination instruction — added to every prompt type
-    const factGuard = `\n\nCRITICAL ACCURACY RULES:
-- Use facts, names, impact stats, and achievements from the organisation context and uploaded documents. These are your primary source of truth.
-- If specific information is not provided (e.g. an exact date), write [TO BE CONFIRMED] rather than inventing it.
+    const factGuard = `\n\nCRITICAL ACCURACY RULES — ZERO TOLERANCE FOR FABRICATION:
+
+SOURCE-OF-TRUTH HIERARCHY (in order):
+1. The grant data passed in the user message (funder, ask, deadline, notes, focus, funderFeedback)
+2. The funder brief and any uploaded documents in the context
+3. The organisation context (programmes, impact stats, alumni)
+ANYTHING NOT IN THESE SOURCES IS NOT A FACT. Do not invent.
+
+NEVER FABRICATE:
+- Deadlines or submission dates not in the grant data — if no deadline is provided, write "[Deadline: TBC]" or omit the date entirely. NEVER guess "by end of Q2" or "before 30 June" or similar plausible-sounding dates.
+- Funder priorities, preferences, or strategic focus areas — if you don't have the funder's own words from research or uploaded docs, write generically (e.g. "aligns with their stated focus on skills development") rather than inventing specifics.
+- Monetary amounts beyond the confirmed ask and programme costs. Sub-budgets, sub-totals, and percentage allocations must add up to the SAME total ask. If a number isn't derivable from the budget block, mark it "[TBC]".
+- Programme details, cohort sizes, durations, or accreditation claims not in the org context.
+- Statistics, completion rates, or employment rates other than the exact verified numbers in the context.
+- Names of individuals beyond those explicitly listed in the context.
+
+WHEN A FACT IS UNAVAILABLE, USE THESE LABELS:
+- Date: "[Deadline: TBC]"  /  Amount: "[Amount: TBC]"  /  Programme detail: "[To be confirmed with funder]"
+- It is BETTER to write "[TBC]" than to write a plausible-sounding fabrication. A reviewer can fix TBCs. They cannot un-trust an invented number.
+
+DERIVED VS PROVIDED:
+- "Provided" data (from context/grant/budget) must appear exactly as given — no rephrasing of numbers, no rounding, no shifting decimals.
+- "Derived" data (calculated from provided data) must be mathematically consistent across the document. Per-student cost = total ÷ students. If you can't show the math, don't write the number.
+
+TEAM/STAFF:
 - Do NOT name directors individually — refer to "the directors", "programme management and ops team", or "the leadership team".
-- Never fabricate statistics, names, or achievements not present in the provided context.
-- You MAY creatively design programme structures, propose new combinations of the organisation's components, and scale up delivery models — but ground everything in the organisation's real capabilities and cost structures.
+
+WHAT YOU MAY DO:
+- Creatively design programme structures, propose new combinations of the organisation's components, and scale up delivery models — but ground everything in the organisation's real capabilities and cost structures.
 - Programme costs should be realistic and derived from the provided cost-per-student figures, scaled appropriately for the proposed scope.`;
 
     // ── Budget context builder ── used by ALL prompt types
@@ -264,7 +287,7 @@ Students: ${btStudents}${bt.cohorts > 1 ? ` (${bt.cohorts} cohorts × ${bt.stude
 Duration: ${bt.duration}${btYears > 1 ? ` per year, ${btYears}-year programme` : ""}
 Line items (per cohort):
 ${bt.items.map(it => `  ${it.label}: R${it.amount.toLocaleString()}`).join("\n")}
-${bt.includeOrgContribution ? `30% org contribution: R${(bt.orgContribution || 0).toLocaleString()}\n` : ""}${btYears > 1 ? `Annual total: R${(bt.annualTotal || bt.total / btYears).toLocaleString()}\n` : ""}TOTAL${btYears > 1 ? ` (${btYears}-YEAR)` : ""}: R${bt.total.toLocaleString()} | Per student: R${bt.perStudent.toLocaleString()}` }
+${bt.includeOrgContribution ? `30% organisational contribution to core operating costs (ADDED to the ask — NOT a deduction; do NOT write "less 30%" or treat as a discount): R${(bt.totalOrgContribution || (bt.orgContribution || 0) * btYears).toLocaleString()}${btYears > 1 ? ` over ${btYears} years (R${(bt.orgContribution || 0).toLocaleString()}/year)` : ""}\n` : ""}${btYears > 1 ? `Annual total (including org contribution): R${(bt.annualTotal || bt.total / btYears).toLocaleString()}\n` : ""}TOTAL ASK${btYears > 1 ? ` (${btYears}-YEAR)` : ""}: R${bt.total.toLocaleString()} (this is the full amount requested from the funder, inclusive of the 30% org contribution) | Per student: R${bt.perStudent.toLocaleString()}` }
       : detectedPt
         ? { perStudent: detectedPt.perStudent, total: detectedPt.cost, typeLabel: detectedPt.label,
             students: detectedPt.students, cohorts: 1, duration: detectedPt.duration,
@@ -326,6 +349,27 @@ SCALE THROUGH TECHNOLOGY — if the organisation has proprietary tools or techno
 
 COVER EMAIL: Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." Open with the human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as the director (do NOT name them — just "Director, ${orgName}").
 
+DOCUMENT STRUCTURE — STRICT, NO ORPHAN SECTIONS:
+1. Cover email (subject line + body + sign-off).
+2. Separator line.
+3. "PROPOSAL" heading.
+4. (If proposal >4 pages / ~2000 words) Table of Contents listing every section number and title.
+5. "Executive Summary" — see Beethoven's Fifth below.
+6. Body sections in the funder-appropriate order (listed below).
+7. "Assumptions" section listing any assumptions made where the funder brief was silent (at minimum one bullet — "None identified" is acceptable only if the brief was fully prescriptive).
+8. Final section MUST be impact-focused (not "Appendices", not "Budget"). The reader's last impression is what your money builds, not what paperwork is attached. Appendices come AFTER the impact close as a separate listing.
+
+NEVER insert a section, paragraph, or intro line between the cover email sign-off and the "PROPOSAL" heading. NEVER insert anything between the "PROPOSAL" heading and the Executive Summary (or TOC if used).
+
+EXECUTIVE SUMMARY — BEETHOVEN'S FIFTH (200-300 words, exactly 5 elements in this order, no others):
+1. WHO WE ARE — one sentence naming ${orgName} and the system you run (programme types, scale, geography).
+2. WHAT WE DO — one to two sentences on the delivery model, in concrete terms (cohort size, duration, outcomes-per-rand).
+3. WHAT WE'RE ASKING FOR — one sentence stating the specific programme, scope, and cohort count being proposed.
+4. HOW MUCH — one sentence with the exact ask amount (the same number that appears in the budget table — see RULE #3).
+5. IMPACT — two to three sentences with specific outcomes the funder's investment unlocks (number of learners, completion rate, employment outcome). End on a forward-looking line.
+
+Every element must be specific. The Executive Summary is the only part many readers will read in full — earn the rest of the proposal.
+
 VARIED OPENINGS — CRITICAL:
 - Every proposal must have a UNIQUE opening that is specifically crafted for THIS funder, THIS grant, THIS moment. Do NOT recycle the same narrative structure across grants.
 - The opening paragraph is the most important paragraph. It must earn the next paragraph. Vary your technique:
@@ -347,6 +391,15 @@ DEPTH — this is critical. Write a SUBSTANTIVE proposal, not a skeleton:
 - Programme sections should describe the actual week-by-week or phase-by-phase journey: what happens on Day 1, what tools they use, what the coaching looks like. Be concrete and factual — the reader should understand exactly what ${orgName} delivers.
 - Impact sections should weave numbers INTO narrative — not just "X% employment rate" but woven into stories and specifics.
 - Budget section MUST include a markdown table: | Line Item | Detail | Amount | with all line items, per-student cost, and total. Wrap the table in 1-2 sentences of value narrative before and after.
+- ANY costing, financial breakdown, or quantitative line-item list anywhere in the proposal MUST be presented as a markdown table — never as inline prose like "R516,000 for stipends and R720,000 for laptops". Tables are mandatory for: line-item budgets, cost-per-cohort summaries, multi-year totals, B-BBEE points calculations, and any other numeric breakdown.
+
+VISUAL STAT CALLOUTS — use these to surface 2-4 headline impact numbers per proposal so they aren't buried in prose. Syntax (the system renders them as visual cards):
+[STAT: <number> | <one-line context>]
+Examples:
+[STAT: 92% | Programme completion rate vs 55% sector average]
+[STAT: 85% | Employment within 3 months of graduation]
+[STAT: R25,800 | Cost per learner — full nine-month programme]
+Place a row of 2-3 STAT callouts on their own line (no other text on that line) in: the Executive Summary, the Impact / Evidence section, and the Programme overview. Use real numbers from the organisation context — NEVER invent stats for the callouts. Do NOT overuse them — 5-8 total across the whole proposal is the maximum.
 - Include specific organisational details from the context that bring it to life: tools, coaching model, delivery structure, accreditation pathway.
 - If the funder type expects compliance sections (SETA alignment, B-BBEE, M&E frameworks), write those with EQUAL depth — but still with narrative warmth.
 - CRITICAL: Every section must open DIFFERENTLY. Do not start two sections with the same narrative device. Vary between: data points, direct statements, outcome proof, funder mission alignment, programme specifics.
@@ -406,7 +459,7 @@ ASK RECOMMENDATION — CRITICAL:
 At the very END of your proposal (after all sections), include this structured line on its own line. The system parses it to set the grant ask:
 ${bt ? `ASK_RECOMMENDATION: Type ${bt.typeNum}, ${bt.cohorts} cohort(s), ${bt.years || 1} year(s), R${bt.total}` : `ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), [years] year(s), R[total amount as integer with no commas or spaces]`}
 ${budgetInfo ? `The ask MUST be R${budgetInfo.total.toLocaleString()}. Do NOT change this amount.` : ""}${factGuard}`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(Array.isArray(grant.focus) ? grant.focus : []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderFeedback ? `\n\n=== FUNDER FEEDBACK (from previous application) ===\n${grant.funderFeedback}\nCRITICAL: This is real feedback from the funder. Address every concern raised. If they said the budget was too high, adjust. If they wanted more evidence, provide it. This feedback is your most important input.` : ""}${researchBlock}${fitScoreBlock}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(Array.isArray(grant.focus) ? grant.focus : []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderBrief ? `\n\n=== FUNDER BRIEF (PRIMARY SOURCE OF TRUTH — paste from funder verbatim) ===\n${grant.funderBrief}\nCRITICAL: This is the funder's own words. Mirror their language, answer every question they ask, and respect every constraint they specify (deadlines, page limits, eligibility, themes). If anything in this brief contradicts other context, the brief wins. Do NOT introduce facts, dates, or programme details that are not in this brief, the grant data, or the organisation context.` : ""}${grant.funderFeedback ? `\n\n=== FUNDER FEEDBACK (from previous application) ===\n${grant.funderFeedback}\nCRITICAL: This is real feedback from the funder. Address every concern raised. If they said the budget was too high, adjust. If they wanted more evidence, provide it. This feedback is your most important input.` : ""}${researchBlock}${fitScoreBlock}`,
         false, 5000
       );
     }
@@ -501,6 +554,8 @@ ${budgetInfo ? `The ask MUST be R${budgetInfo.total.toLocaleString()}. Do NOT ch
         sectionGuide = `COVER EMAIL INSTRUCTIONS:
 Subject line + 5-8 sentence body. Open with a specific, compelling hook — NOT "I am writing to submit..." and NOT "Imagine..." Open with human impact or the opportunity. One proof point. Close with a low-friction next step. Sign off as "Director, ${orgName}" (do NOT name them).
 
+END CLEANLY: The cover email ends with the sign-off — nothing else. Do NOT add a P.S., a teaser line, an "Executive Summary follows" note, or any bridging paragraph. The next section is a separate document that begins on its own.
+
 OPENING HOOK: ${fs.hook}
 
 OPENING TECHNIQUE — choose ONE (whichever fits this funder best):
@@ -512,8 +567,17 @@ OPENING TECHNIQUE — choose ONE (whichever fits this funder best):
 NEVER open with "Imagine..." or scene-setting invitations. Start with something real.`;
 
       } else if (isExecSummary) {
-        sectionGuide = `EXECUTIVE SUMMARY INSTRUCTIONS:
-~${wordLimit} words. A compelling standalone case — someone should want to fund ${orgName} after reading ONLY this section.
+        sectionGuide = `EXECUTIVE SUMMARY — BEETHOVEN'S FIFTH STRUCTURE (~${wordLimit} words):
+
+Cover exactly these 5 elements in this order — no others:
+1. WHO WE ARE — one sentence naming ${orgName} and the system it runs (programme types, scale, geography).
+2. WHAT WE DO — one to two sentences on the delivery model in concrete terms (cohort size, duration, outcomes-per-rand).
+3. WHAT WE'RE ASKING FOR — one sentence stating the specific programme, scope, and cohort count being proposed.
+4. HOW MUCH — one sentence with the exact ask amount${budgetInfo ? ` (R${budgetInfo.total?.toLocaleString()})` : ""}, matching the budget table exactly.
+5. IMPACT — two to three sentences with specific outcomes the funder's investment unlocks (number of learners, completion rate, employment outcome). End on a forward-looking line about what comes next.
+
+Every element must be specific. This is the only section many readers will read in full — earn the rest of the proposal.
+
 Use a DIFFERENT hook from the cover letter — check the ALREADY-WRITTEN SECTIONS and do NOT repeat the same opening device or story.
 
 OPENING — choose ONE technique that is DIFFERENT from the cover letter:
@@ -762,8 +826,40 @@ ADDITIONAL RULES:
 - Do NOT invent figures or statistics not in the context — write with substance, not padding${priorFitScore?.research || grant.aiResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}
 
 Write ONLY the "${sectionName}" section content. No section header — just the content.${factGuard}`,
-        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(Array.isArray(grant.focus) ? grant.focus : []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderFeedback ? `\n\n=== FUNDER FEEDBACK (from previous application) ===\n${grant.funderFeedback}\nAddress every concern raised in this feedback.` : ""}${researchBlock}${fitBlock}${priorSummary ? `\n\nALREADY-WRITTEN SECTIONS (read these carefully — do NOT repeat their openings, stories, or statistics):\n${priorSummary}` : ""}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(Array.isArray(grant.focus) ? grant.focus : []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderBrief ? `\n\n=== FUNDER BRIEF (PRIMARY SOURCE OF TRUTH — paste from funder verbatim) ===\n${grant.funderBrief}\nCRITICAL: Mirror the funder's language. Answer every question they ask. Respect every constraint (deadlines, page limits, eligibility, themes). If anything contradicts other context, the brief wins.` : ""}${grant.funderFeedback ? `\n\n=== FUNDER FEEDBACK (from previous application) ===\n${grant.funderFeedback}\nAddress every concern raised in this feedback.` : ""}${researchBlock}${fitBlock}${priorSummary ? `\n\nALREADY-WRITTEN SECTIONS (read these carefully — do NOT repeat their openings, stories, or statistics):\n${priorSummary}` : ""}`,
         false, tokenBudget
+      );
+    }
+    if (type === "conceptNote") {
+      // Phase 8: short pre-proposal pitch — sells the IDEA before any full proposal
+      const fs = funderStrategy(grant);
+      return await api(
+        `You write a concept note for ${orgName}. A concept note is a short, sharp pitch that earns the right to submit a full proposal — typically 1-2 pages, sent before any formal application.
+
+GOAL: Get the funder to say "yes, send us the full proposal." Nothing more. Do not try to close the deal in the concept note.
+
+STRUCTURE — keep it tight. ~500-700 words total. Use these section headers, in this order:
+
+1. WHO WE ARE (50-80 words) — one paragraph naming ${orgName}, the system you run, the scale, and one headline outcome.
+2. WHAT WE WANT TO DO (100-150 words) — the specific programme or intervention you're proposing, with cohort size, duration, and concrete delivery model.
+3. WHY IT MATTERS (100-150 words) — the gap this closes, anchored on real data from the context. Frame it through the funder's stated priorities if known.
+4. WHAT WE NEED FROM YOU (50-80 words) — the ask: amount, what it funds, and what the funder gets back (impact, B-BBEE value, visibility — whatever applies).
+5. NEXT STEPS (40-60 words) — propose a 20-minute call to discuss; offer to send the full proposal.
+
+VOICE & RULES — same as the full proposal:
+- Warm, human, confident. Specific numbers, not adjectives.
+- NEVER fabricate facts. Use the org's real outcomes, alumni, and programme costs only.
+- NEVER use "Imagine", "Picture", "Consider" or any scene-setting opener.
+- NEVER mention staff by name.
+- USE the funder brief verbatim if present — mirror their language.
+${grant.funderBrief ? "\nThe FUNDER BRIEF below is the primary source of truth. Anchor your concept on what they explicitly say they want.\n" : ""}
+${budgetInfo ? `\nBUDGET: The ask is R${budgetInfo.total.toLocaleString()} for ${budgetInfo.students} students. Use this exact figure.` : ""}
+
+FORMAT: Markdown. Use ## for section headings. Keep paragraphs short — 3-5 sentences each. Optionally include ONE [STAT: value | label] callout in the WHY IT MATTERS section.
+
+Sign off as "Director, ${orgName}".${factGuard}`,
+        `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()}`}\nFocus: ${(Array.isArray(grant.focus) ? grant.focus : []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderBrief ? `\n\n=== FUNDER BRIEF (PRIMARY SOURCE OF TRUTH) ===\n${grant.funderBrief}` : ""}`,
+        false, 1800
       );
     }
     if (type === "research") {
@@ -917,6 +1013,149 @@ RECOVERY OPTIONS:
 Keep it concise and specific to this grant. No generic advice.${grant.funderFeedback ? "\n\nACTUAL FUNDER FEEDBACK is provided below. This is the most important input — ground your analysis in what they actually said, not speculation." : ""}`,
         `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\nAsk: R${grant.ask?.toLocaleString()}\nRelationship: ${grant.rel}\nFocus: ${(Array.isArray(grant.focus) ? grant.focus : []).join(", ")}\nNotes: ${grant.notes || "None"}\nOutcome: ${outcome}${grant.funderFeedback ? `\n\n=== ACTUAL FUNDER FEEDBACK ===\n${grant.funderFeedback}` : ""}`,
         false, 1000
+      );
+    }
+    if (type === "fetchFunderBrief") {
+      // Search the funder's website for an actual RFP / call document, then extract
+      // the full text (or as much as is publicly available) so the user doesn't have
+      // to paste it manually. Returns plain text in the "brief" field, plus the source
+      // URL it found and a confidence rating.
+      return await api(
+        `You research a specific funder and extract their published RFP / call document so a non-profit can use it as the source of truth for a proposal.
+
+GOAL: Find the funder's most recent published funding call / RFP / application brief that an NPO would apply to, and return its full text content.
+
+WHAT TO LOOK FOR — in order of preference:
+1. A current published RFP / open call document on the funder's website (often a PDF).
+2. A "how to apply" / "funding criteria" page with explicit eligibility, themes, deadline, requirements.
+3. A press release or news post announcing a current grant window with detail.
+4. Their funding-priorities / grants-programme overview page.
+
+RULES:
+- ONLY use information you find on the funder's OWN domain or an official partner site this session via Google Search.
+- Do NOT invent or paraphrase. Extract the funder's own wording verbatim.
+- Skip news articles, third-party blog posts, Wikipedia, LinkedIn, and grants directories.
+- If the funder has no published brief, return brief: null with a note explaining what you searched.
+
+WHAT TO INCLUDE in the extracted brief (when present in the source):
+- Eligibility criteria (who can apply)
+- Focus areas / themes / sectors they fund this cycle
+- Application deadline / window
+- Funding range or maximum grant size
+- Required documents
+- Specific questions the applicant must answer
+- Page limits / format constraints
+- Scoring criteria
+- How to submit
+
+RESPOND WITH ONLY A JSON OBJECT — no markdown, no backticks, no preamble:
+{
+  "brief": "[the extracted brief text verbatim, or null if none found]",
+  "sourceUrl": "[URL of the page or document the brief came from]",
+  "confidence": "[high|medium|low]",
+  "note": "[1 sentence: what document this is and where it lives]"
+}
+
+Confidence:
+- "high"   = found a current published RFP / call document with substantial detail
+- "medium" = found a how-to-apply page or grants overview with useful criteria
+- "low"    = only found general funding-priorities text, no specific call`,
+        `Find the funder's current RFP / call document / application brief and extract its full text.
+
+Funder: ${grant.funder}
+Funder type: ${grant.type || "unknown"}
+${grant.name && grant.name !== grant.funder ? `Grant programme: ${grant.name}` : ""}`,
+        true, 6000
+      );
+    }
+    if (type === "findApplyUrl") {
+      // Return MULTIPLE candidate URLs. Client verifies each in order and uses
+      // the first one that loads. More shots on goal = higher success rate when
+      // any single URL is hallucinated or fails verification.
+      return await api(
+        `You are finding webpages on a specific funder's website where a non-profit could start a funding conversation.
+
+CORE TASK: Return a list of 3-6 candidate URLs on the funder's own website. The user will verify each — your job is to give them options, not be perfect with one.
+
+WHAT TO INCLUDE — try to cover these categories:
+1. The funder's homepage (ALWAYS include this — it's the safest fallback).
+2. Their main "about us" or company page.
+3. Their corporate social investment / CSI / sustainability / responsibility page.
+4. Their grants / funding / foundation / community page.
+5. Any "how to apply" or "contact us about funding" page.
+6. Any dedicated application form, RFP, or open call page (if one exists).
+
+VALIDATION:
+- Every URL MUST be on the funder's own domain (e.g. momentumgroup.co.za, sasol.com, dgmt.co.za). Subdomains fine.
+- Every URL MUST be a real link you found via Google Search in this session.
+- NEVER return a Google redirect URL (vertexaisearch.cloud.google.com, google.com/url?, /grounding-api-redirect/). Resolve to the FINAL destination URL only.
+- ALWAYS include the funder's homepage as one candidate. Even if you also find specific pages.
+
+WRITE NOTES IN PLAIN ENGLISH. No jargon, no acronyms without explanation. Each note should be 1 short sentence saying what the page is.
+
+RESPOND WITH ONLY A JSON OBJECT — no markdown, no backticks, no preamble:
+{
+  "candidates": [
+    {"url": "[URL]", "pageType": "[form|info_page|contact|homepage]", "note": "[plain-English description]"},
+    {"url": "[URL]", "pageType": "...", "note": "..."}
+  ],
+  "summary": "[1 sentence: what you found overall and how the user should approach this funder]"
+}
+
+pageType values:
+- "form"      = page has an actual online application form / submission portal
+- "info_page" = page describes how to apply but has no form
+- "contact"   = page just has email/phone for funding inquiries
+- "homepage"  = the funder's homepage`,
+        `Find candidate webpages on this funder's website for starting a funding conversation. Return AT LEAST 3 URLs, always including the homepage.
+
+Funder: ${grant.funder}
+Funder type: ${grant.type || "unknown"}`,
+        true, 1200
+      );
+    }
+    if (type === "_DEAD_findApplyUrl_legacy") {
+      return await api(
+        `You are finding the best webpage where a non-profit could start a funding conversation with a specific organisation.
+
+CORE RULE: ALWAYS return a URL. The "url" field MUST be a real, working URL on the funder's own website. Returning null is forbidden EXCEPT in the one case where you can prove the funder has no website at all (which is extremely rare).
+
+WHAT TO LOOK FOR — in order of preference:
+1. A dedicated application form, RFP, or open call page.
+2. A "how to apply for funding" or "grants programme" page.
+3. A funding / corporate social investment / community / responsibility page that describes how the funder gives money.
+4. A "contact us about partnerships / funding / grants" page.
+5. The funder's homepage — only as an absolute last resort, but STILL return it rather than returning null.
+
+VALIDATION:
+- The URL MUST be on the funder's own domain. Subdomains and deep paths are fine.
+- The URL MUST be a real link you found via Google Search in this session.
+- NEVER return a Google redirect URL (vertexaisearch.cloud.google.com, google.com/url?, /grounding-api-redirect/). Return the FINAL destination URL only.
+- If you found a useful page but it's not a literal application form, still return it. The user can navigate from there. A real page is always more useful than null.
+
+WRITE THE NOTE IN PLAIN ENGLISH. No internal jargon, no acronyms without explanation. Say what the page IS in language a first-time user would understand. Examples:
+- "Their main funding page. Lists priorities and tells you how to get in touch about a grant."
+- "An application form for their education grants programme."
+- "Their corporate giving page. Doesn't have a form but explains who to email."
+
+RESPOND WITH ONLY A JSON OBJECT — no markdown, no backticks, no preamble:
+{"url":"[real URL on funder's site]","confidence":"[high|medium|low]","pageType":"[form|info_page|contact|homepage]","note":"[plain-English description of the page in 1 sentence]"}
+
+Confidence:
+- "high" = dedicated application form, RFP, or open call
+- "medium" = grants programme overview / how-to-apply / funding directory page
+- "low" = general corporate giving / responsibility / contact page — still useful as a starting point
+
+pageType:
+- "form"      = the page has an actual online application form / submission portal
+- "info_page" = the page describes how to apply (priorities, eligibility, instructions) but has no form
+- "contact"   = the page just has email/phone for funding inquiries
+- "homepage"  = nothing better was findable, returning the bare homepage`,
+        `Find the best page on the funder's website for starting a funding conversation.
+
+Funder: ${grant.funder}
+Funder type: ${grant.type || "unknown"}`,
+        true, 600
       );
     }
     if (type === "urlextract") {

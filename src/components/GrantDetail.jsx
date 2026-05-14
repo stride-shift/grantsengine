@@ -10,6 +10,7 @@ import ProposalWorkspace from "./ProposalWorkspace";
 import BudgetBuilder from "./BudgetBuilder";
 import { downloadICS } from "./Calendar";
 import AutoFillPanel from "./AutoFillPanel";
+import { glossText } from "./JargonTip";
 
 const fmtTs = (iso) => iso ? new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
 
@@ -47,6 +48,25 @@ const Card = ({ children, accent, pad = "16px 20px", style: sx, className }) => 
   }}>{children}</div>
 );
 
+// Collapsible section helper — MUST live at module scope. Defining it inside the
+// GrantDetail component would create a new function identity per render, causing
+// React to unmount and remount the children every time. That nuked local state in
+// children like ProposalWorkspace (e.g. the showPreview Sections/Full toggle).
+const SectionWrap = ({ title, defaultOpen, badge, children, id }) => (
+  <details open={defaultOpen || undefined} style={{ marginBottom: 12 }} id={id}>
+    <summary style={{
+      fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.4, textTransform: "uppercase",
+      cursor: "pointer", padding: "8px 0", userSelect: "none",
+      display: "flex", alignItems: "center", gap: 8,
+      borderBottom: `1px solid ${C.line}`, marginBottom: 10,
+    }}>
+      {title}
+      {badge}
+    </summary>
+    {children}
+  </details>
+);
+
 const Hd = ({ children, right, mb = 12 }) => (
   <div style={{
     display: "flex", alignItems: "baseline", justifyContent: "space-between",
@@ -64,16 +84,27 @@ const Field = ({ label, children }) => (
   </div>
 );
 
-const ActivityRow = ({ date, text, isLast }) => (
-  <div className="ge-hover-slide" style={{
-    display: "flex", gap: 10, padding: "8px 14px",
-    borderBottom: isLast ? "none" : `1px solid ${C.line}`,
-    alignItems: "center", background: "transparent",
-  }}>
-    <span style={{ fontSize: 11, color: C.t4, fontFamily: MONO, minWidth: 80 }}>{date}</span>
-    <span style={{ fontSize: 13, color: C.t1 }}>{text}</span>
-  </div>
-);
+const ActivityRow = ({ date, text, by, team, isLast }) => {
+  const member = by && team ? team.find(t => t.id === by) : null;
+  return (
+    <div className="ge-hover-slide" style={{
+      display: "flex", gap: 10, padding: "8px 14px",
+      borderBottom: isLast ? "none" : `1px solid ${C.line}`,
+      alignItems: "center", background: "transparent",
+    }}>
+      <span style={{ fontSize: 11, color: C.t4, fontFamily: MONO, minWidth: 80 }}>{date}</span>
+      <span style={{ fontSize: 13, color: C.t1, flex: 1 }}>{text}</span>
+      {member && member.id !== "team" && (
+        <span style={{
+          fontSize: 10, fontWeight: 700, color: C.white, background: member.c || C.t3,
+          padding: "2px 8px", borderRadius: 100, fontFamily: FONT,
+        }} title={`by ${member.name}`}>
+          {member.ini || member.name?.slice(0, 2)}
+        </span>
+      )}
+    </div>
+  );
+};
 
 /* ── Outstanding Actions Checklist ── */
 function OutstandingActions({ grant, onUpdate, complianceDocs = [], missingDocs = [] }) {
@@ -183,7 +214,7 @@ function OutstandingActions({ grant, onUpdate, complianceDocs = [], missingDocs 
   );
 }
 
-export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], currentMember, orgName = "the organisation", onUpdate, onDelete, onBack, onRunAI, onUploadsChanged }) {
+export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], currentMember, orgName = "the organisation", onUpdate, onDelete, onBack, onRunAI, onUploadsChanged, onLaunchTour }) {
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState({});
   const [ai, setAi] = useState(() => ({
@@ -197,6 +228,50 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   const [overflow, setOverflow] = useState(false);
   const [showFullResearch, setShowFullResearch] = useState(false);
   const overflowRef = useRef(null);
+
+  // Auto-fetch funder brief when a grant opens with no brief yet.
+  // The background hygiene job (App.jsx) handles the bulk pre-fetch across all
+  // grants. This on-open trigger is the safety net for grants opened before the
+  // hygiene job got to them, or grants added after it ran.
+  //
+  // Small delay (3s) before firing so it doesn't race with the hygiene job's
+  // first Gemini call and trip rate limits.
+  const briefFetchedRef = useRef(new Set());
+  const [autoBriefBusy, setAutoBriefBusy] = useState(false);
+  useEffect(() => {
+    const gid = grant?.id;
+    if (!gid) return;
+    if (briefFetchedRef.current.has(gid)) return;
+    if (grant.funderBrief && grant.funderBrief.trim().length > 50) return; // already on file
+    if (!onRunAI || !onUpdate) return;
+    briefFetchedRef.current.add(gid);
+
+    const timer = setTimeout(() => {
+      setAutoBriefBusy(true);
+      (async () => {
+        try {
+          const raw = await onRunAI("fetchFunderBrief", grant);
+          const txt = String(raw || "").replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+          const sIdx = txt.indexOf("{"), eIdx = txt.lastIndexOf("}");
+          let parsed = null;
+          try { if (sIdx >= 0 && eIdx > sIdx) parsed = JSON.parse(txt.slice(sIdx, eIdx + 1)); } catch {}
+          if (parsed?.brief && parsed.brief.length > 100) {
+            // Only persist if the box is STILL empty when the fetch returns
+            const latestBrief = (grant.funderBrief || "").trim();
+            if (latestBrief.length < 50) {
+              const note = parsed.sourceUrl ? `\n\n---\nSource: ${parsed.sourceUrl}` : "";
+              onUpdate(gid, { funderBrief: parsed.brief + note });
+              aiLog(`AI auto-filled funder brief from ${parsed.sourceUrl || "funder site"}`);
+            }
+          }
+        } catch { /* silent — user can still trigger manually via the Re-fetch button */ }
+        setAutoBriefBusy(false);
+      })();
+    }, 3000);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grant?.id]);
 
   // Close overflow on outside click
   useEffect(() => {
@@ -306,11 +381,24 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
     setBusy(p => ({ ...p, research: false }));
   }, [grant, onRunAI, onUpdate]);
 
-  // Auto-log AI actions to activity feed
+  // Auto-log AI actions to activity feed — Phase 10: include actor attribution
   const aiLog = (action) => {
     const prev = grant?.log || [];
-    onUpdate(grant.id, { log: [...prev, { d: td(), t: action }] });
+    onUpdate(grant.id, { log: [...prev, { d: td(), t: action, by: currentMember?.id || "team" }] });
   };
+
+  // Phase 10: log first-view per session so we know who looked at this grant
+  const viewLoggedRef = useRef(null);
+  useEffect(() => {
+    if (!grant?.id || !currentMember?.id || viewLoggedRef.current === grant.id) return;
+    viewLoggedRef.current = grant.id;
+    const today = td();
+    const log = grant.log || [];
+    // Only log if this person hasn't viewed it today already (avoid spam)
+    const alreadyLoggedToday = log.some(e => e.t === "Opened grant" && e.d === today && e.by === currentMember.id);
+    if (alreadyLoggedToday) return;
+    onUpdate(grant.id, { log: [...log, { d: today, t: "Opened grant", by: currentMember.id }] });
+  }, [grant?.id, currentMember?.id]);
 
   const uploadsLoaded = useRef(false);
   const loadUploads = useCallback(async () => {
@@ -419,21 +507,11 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
 
   const proposalRef = useRef(null);
 
-  // ── Collapsible section helper ──
-  const SectionWrap = ({ title, defaultOpen, badge, children, id }) => (
-    <details open={defaultOpen || undefined} style={{ marginBottom: 12 }} id={id}>
-      <summary style={{
-        fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.4, textTransform: "uppercase",
-        cursor: "pointer", padding: "8px 0", userSelect: "none",
-        display: "flex", alignItems: "center", gap: 8,
-        borderBottom: `1px solid ${C.line}`, marginBottom: 10,
-      }}>
-        {title}
-        {badge}
-      </summary>
-      {children}
-    </details>
-  );
+  // SectionWrap moved to module scope (above the component) so it has a stable identity.
+  // Defining it here would create a new function reference on every render of GrantDetail,
+  // causing React to unmount + remount every child (including ProposalWorkspace) and wiping
+  // their local state — e.g. the showPreview flag, which is why "Full Document" used to
+  // revert to "Sections" view.
 
   return (
     <div style={{ padding: "16px 16px", maxWidth: 920 }}>
@@ -460,6 +538,131 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         <span style={{ color: C.dark, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 400 }}>{g.name}</span>
       </div>
 
+      {/* Fixed status strip — key facts always visible while scrolling.
+          We use position: fixed because the parent flex layout doesn't give a
+          constrained scrolling ancestor that position: sticky can grip onto.
+          Sits at the top of the main content area (240px sidebar offset on desktop). */}
+      {(() => {
+        const ownerMember = team?.find(t => t.id === g.owner);
+        const ownerLabel = ownerMember && ownerMember.id !== "team" ? ownerMember.name : "Unassigned";
+        const dDays = dL(g.deadline);
+        const deadlineLabel = !g.deadline ? "No deadline"
+          : dDays < 0 ? `${Math.abs(dDays)}d overdue`
+          : dDays === 0 ? "Due today"
+          : `${dDays}d left`;
+        const deadlineColor = !g.deadline ? C.t4 : dDays < 0 ? C.red : dDays <= 14 ? C.amber : C.t2;
+        const askLabel = g.ask > 0 ? `R${(g.ask / 1e6).toFixed(2).replace(/\.?0+$/, "")}M` : "Ask TBD";
+        const readinessPct = (() => {
+          try {
+            const r = grantReadiness(g, complianceDocs);
+            const v = typeof r?.score === "number" ? r.score : null;
+            return v !== null && !Number.isNaN(v) ? Math.round(v) : null;
+          } catch { return null; }
+        })();
+        return (<>
+          {/* Spacer so the fixed strip doesn't overlap content below */}
+          <div style={{ height: 48, marginBottom: 8 }} />
+          <div className="ge-grant-stickybar" style={{
+            position: "fixed", top: 0, left: 240, right: 0, zIndex: 30,
+            background: C.white,
+            borderBottom: `1px solid ${C.line}`,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+            padding: "10px 24px",
+            display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap",
+            fontFamily: FONT,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: stg?.c || C.t4, flexShrink: 0 }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.dark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 12 }}>
+              <div data-tour="stage-button" style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6 }}>Stage</span>
+                <span style={{ color: stg?.c || C.t3, fontWeight: 700 }}>{stg?.label}</span>
+              </div>
+              <span style={{ color: C.line }}>·</span>
+              <div style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6 }}>Ask</span>
+                <span style={{ fontFamily: MONO, fontWeight: 700, color: g.ask > 0 ? C.dark : C.t4 }}>{askLabel}</span>
+              </div>
+              <span style={{ color: C.line }}>·</span>
+              <div style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6 }}>Owner</span>
+                <span style={{ color: C.t2, fontWeight: 600 }}>{ownerLabel}</span>
+              </div>
+              <span style={{ color: C.line }}>·</span>
+              <div style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6 }}>Deadline</span>
+                <span style={{ color: deadlineColor, fontWeight: dDays !== null && dDays <= 14 ? 700 : 600 }}>{deadlineLabel}</span>
+              </div>
+              {readinessPct !== null && (<>
+                <span style={{ color: C.line }}>·</span>
+                <button
+                  onClick={() => {
+                    const el = document.querySelector('[data-tour="outstanding-actions"]');
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                  title="Jump to outstanding actions"
+                  style={{
+                    background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: FONT,
+                    display: "inline-flex", alignItems: "baseline", gap: 4,
+                  }}
+                >
+                  <span style={{ fontSize: 9, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6 }}>Ready</span>
+                  <span style={{
+                    color: readinessPct >= 80 ? C.ok : readinessPct >= 40 ? C.amber : C.red,
+                    fontWeight: 700, fontSize: 12,
+                  }}>{readinessPct}%</span>
+                </button>
+              </>)}
+            </div>
+          </div>
+        </>);
+      })()}
+
+      {/* Stage-aware "what now?" banner — uses grantReadiness().nextAction so the
+          UI tells the user what to do at their current stage, instead of dumping
+          every panel and letting them figure it out. */}
+      {(() => {
+        let r = null;
+        try { r = grantReadiness(g, complianceDocs); } catch {}
+        const action = r?.nextAction;
+        if (!action) return null;
+        const tone =
+          ["scouted", "vetting", "qualifying"].includes(g.stage) ? "info" :
+          g.stage === "drafting" ? "active" :
+          g.stage === "review" ? "active" :
+          g.stage === "resubmit" ? "warning" :
+          ["submitted", "awaiting"].includes(g.stage) ? "muted" :
+          g.stage === "won" ? "success" :
+          g.stage === "lost" ? "muted" :
+          "muted";
+        const colors = {
+          info:    { bg: `${C.blue}08`,   border: `${C.blue}25`,   accent: C.blue,   icon: "▸" },
+          active:  { bg: `${C.primary}08`, border: `${C.primary}25`, accent: C.primary, icon: "▸" },
+          warning: { bg: `${C.amber}08`,  border: `${C.amber}30`,  accent: C.amber,  icon: "⚠" },
+          success: { bg: `${C.ok}08`,     border: `${C.ok}25`,     accent: C.ok,     icon: "✓" },
+          muted:   { bg: C.bg,             border: C.line,           accent: C.t3,     icon: "·" },
+        }[tone];
+        return (
+          <div style={{
+            marginBottom: 16, padding: "10px 14px", borderRadius: 10,
+            background: colors.bg, border: `1px solid ${colors.border}`,
+            display: "flex", alignItems: "center", gap: 10, fontFamily: FONT,
+          }}>
+            <span style={{ color: colors.accent, fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{colors.icon}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: colors.accent, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 2 }}>
+                What now?
+              </div>
+              <div style={{ fontSize: 13, color: C.dark, fontWeight: 500, lineHeight: 1.4 }}>
+                {action}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <Card accent={stg?.c || C.t4} style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
           <div>
@@ -483,15 +686,14 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           </div>
           <div style={{ display: "flex", gap: 8, flexShrink: 0, position: "relative" }} ref={overflowRef}>
             {g.applyUrl && (
-              <>
-                <a href={g.applyUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                  <Btn v="ghost" style={{ fontSize: 12 }}>{"\u2197"} Apply</Btn>
-                </a>
-                <Btn v="primary" style={{ fontSize: 12 }} onClick={() => setShowAutoFill(true)}>
-                  ⚡ Auto-fill
-                </Btn>
-              </>
+              <a href={g.applyUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                <Btn v="ghost" style={{ fontSize: 12 }}>{"\u2197"} Apply</Btn>
+              </a>
             )}
+            {/* Auto-fill is always available — the panel auto-searches for a URL via AI when none is on file */}
+            <Btn v="primary" style={{ fontSize: 12 }} onClick={() => setShowAutoFill(true)}>
+              {"⚡"} Auto-fill
+            </Btn>
             <button onClick={() => setOverflow(p => !p)}
               style={{
                 width: 32, height: 32, borderRadius: 8, border: `1px solid ${C.line}`,
@@ -592,7 +794,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           <Card style={{ marginBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.2, textTransform: "uppercase" }}>About This Opportunity</div>
-              {g.applyUrl && (
+              {/* Phase 3: removed duplicate "Apply" link \u2014 header button at the top of the page is the single source of truth */}
+              {false && g.applyUrl && (
                 <a href={g.applyUrl} target="_blank" rel="noopener noreferrer"
                   style={{ fontSize: 11, fontWeight: 600, color: C.blue, textDecoration: "none", marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
                   {"\u2197"} Apply
@@ -611,6 +814,106 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 </div>
               </div>
             )}
+
+            {/* ── What this grant is about — grant-specific details, distinct from funder strategy ── */}
+            {(() => {
+              // Pull what we know about THIS grant (vs the funder generally)
+              const desc = (g.notes || "").split(/\n+/).filter(line => {
+                const t = line.trim();
+                if (!t) return false;
+                if (/^Apply:\s*https?:/i.test(t)) return false;       // strip the apply URL line
+                if (/^Access:/i.test(t)) return false;                // strip the access line
+                return true;
+              }).join(" ").trim();
+              const accessMatch = (g.notes || "").match(/Access:\s*([^\n]+)/i);
+              const accessText = accessMatch ? accessMatch[1].trim() : null;
+              const geoList = Array.isArray(g.geo) ? g.geo.filter(Boolean) : [];
+              const dDays = dL(g.deadline);
+              // Submission method classification — heuristic from accessText + applyUrl shape.
+              // Tells the user up-front whether they're filling a form, emailing a proposal,
+              // or sending paper. Saves them from opening Auto-fill on a funder that just
+              // wants an email pitch.
+              const submissionMethod = (() => {
+                const a = (accessText || "").toLowerCase();
+                const notesL = (g.notes || "").toLowerCase();
+                const blob = a + " " + notesL;
+                const hasUrl = !!g.applyUrl;
+                const onlineForm  = /\b(online portal|online form|application form|submission portal|apply online|web form|e-form|form online)\b/i.test(blob);
+                const loi         = /\b(letter of inquiry|loi)\b/i.test(blob);
+                const emailish    = /\b(email|e-mail|@|enquiry|inquiry)\b/i.test(blob);
+                const physical    = /\b(post(ed)?|postal|courier|in person|hand-?deliver|physical)\b/i.test(blob);
+                const invitation  = /\b(by invitation|invitation only|invited only|not accepting unsolicited|closed call)\b/i.test(blob);
+                const relationship= /\b(relationship first|warm intro|approach via|approach through|contact us first)\b/i.test(blob);
+                if (invitation)  return { label: "By invitation only", desc: "This funder doesn't accept unsolicited applications.", color: C.red };
+                if (onlineForm && hasUrl) return { label: "Online application form", desc: "Fill the funder's form on their site. Try the Auto-fill button.", color: C.ok };
+                if (onlineForm)  return { label: "Online application form", desc: "Form lives on the funder's site — add the apply link above.", color: C.amber };
+                if (loi)         return { label: "Letter of Inquiry first", desc: "Send a short pitch first; full proposal only on invitation.", color: C.blue };
+                if (emailish)    return { label: "Email submission", desc: "Email the proposal directly to the funder's contact.", color: C.blue };
+                if (physical)    return { label: "Paper / posted submission", desc: "This funder needs a physical copy delivered or posted.", color: C.amber };
+                if (relationship)return { label: "Relationship-first", desc: "Make contact before sending anything formal — no public submission channel.", color: C.amber };
+                return null;
+              })();
+              const hasDetail = desc || accessText || g.deadline || geoList.length > 0 || g.applyUrl || submissionMethod;
+              if (!hasDetail) return null;
+              return (
+                <div style={{
+                  marginBottom: 16, padding: "14px 16px",
+                  background: C.white, borderRadius: 10, border: `1px solid ${C.primary}20`,
+                }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.primary, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 10 }}>
+                    About this grant
+                  </div>
+                  {desc && (
+                    <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.6, marginBottom: 12 }}>
+                      {desc}
+                    </div>
+                  )}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "8px 18px" }}>
+                    {g.deadline && (
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Deadline</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: dDays !== null && dDays < 0 ? C.red : dDays !== null && dDays <= 14 ? C.amber : C.dark }}>
+                          {new Date(g.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                          {dDays !== null && dDays >= 0 && <span style={{ marginLeft: 6, color: C.t4, fontWeight: 500 }}>({dDays === 0 ? "today" : `${dDays}d`})</span>}
+                          {dDays !== null && dDays < 0 && <span style={{ marginLeft: 6, color: C.red, fontWeight: 500 }}>({Math.abs(dDays)}d ago)</span>}
+                        </div>
+                      </div>
+                    )}
+                    {submissionMethod && (
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Submission method</div>
+                        <div style={{ fontSize: 13, color: submissionMethod.color, fontWeight: 600, marginBottom: 2 }}>{submissionMethod.label}</div>
+                        <div style={{ fontSize: 11, color: C.t3, lineHeight: 1.4 }}>{submissionMethod.desc}</div>
+                      </div>
+                    )}
+                    {accessText && (
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>How to apply</div>
+                        <div style={{ fontSize: 13, color: C.t2, lineHeight: 1.45 }}>{accessText}</div>
+                      </div>
+                    )}
+                    {geoList.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Geography</div>
+                        <div style={{ fontSize: 13, color: C.t2 }}>{geoList.join(", ")}</div>
+                      </div>
+                    )}
+                    {g.market && (
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Market</div>
+                        <div style={{ fontSize: 13, color: C.t2 }}>{g.market === "global" ? "Global / International" : "South Africa"}</div>
+                      </div>
+                    )}
+                    {g.applyUrl && (
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Application page</div>
+                        <a href={g.applyUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: C.blue, textDecoration: "underline", wordBreak: "break-all" }}>{g.applyUrl}</a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ── Key details grid ── */}
             <div style={{
@@ -672,16 +975,13 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               </div>
             </div>
 
-            {/* ── Proposal language keywords ── */}
+            {/* ── Proposal language keywords — these are AI guidance, not clickable filters.
+                Render as flat comma-separated text to avoid the misleading pill affordance. ── */}
             {hasHook && fs.lang && (
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 6 }}>Funder Language</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {fs.lang.split(",").map((w, i) => (
-                    <span key={i} style={{ padding: "2px 8px", fontSize: 11, background: C.blueSoft, color: C.blue, borderRadius: 4, fontWeight: 500 }}>
-                      {w.trim()}
-                    </span>
-                  ))}
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Funder Language</div>
+                <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.5, fontStyle: "italic" }}>
+                  {fs.lang.split(",").map(w => w.trim()).filter(Boolean).join(" · ")}
                 </div>
               </div>
             )}
@@ -693,7 +993,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                   {fs.structure.map((s, i) => (
                     <span key={i} style={{ padding: "2px 8px", fontSize: 11, background: C.warm200, color: C.t2, borderRadius: 4, fontWeight: 500 }}>
-                      {i + 1}. {s}
+                      {i + 1}. {glossText(s)}
                     </span>
                   ))}
                 </div>
@@ -766,13 +1066,18 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               </div>
             )}
 
-            {/* ── Internal notes — compact, secondary ── */}
+            {/* ── Internal notes — for your team only, never seen by the funder or used as proposal source ── */}
             <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Internal Notes</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase" }}>Internal Notes</div>
+                <div style={{ fontSize: 11, color: C.t4 }}>
+                  Only your team sees this. The funder never does. Use it for strategy thoughts, who-knows-who, "why we said no last time", or anything you want the next person opening this grant to know.
+                </div>
+              </div>
               <textarea
                 value={g.notes || ""}
                 onChange={e => up("notes", e.target.value)}
-                placeholder="Internal notes about this opportunity..."
+                placeholder="e.g. 'Alison met their CSI lead at the SAGEA breakfast. They prefer multi-year commitments. Decision-maker is Sipho — Barbara has his number.'"
                 style={{
                   width: "100%", minHeight: 48, padding: "8px 10px",
                   fontSize: 12, lineHeight: 1.5, color: C.t2,
@@ -1088,9 +1393,252 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
 
         return (
           <>
+            {/* Phase 4: Funder brief — paste-in source of truth for the AI.
+                Only goes amber for funder types that actually publish RFPs (SETAs,
+                most international foundations). Corporate CSI / partnerships rarely
+                have a brief to paste, so default is neutral. */}
+            {!isSubmittedPlus && (() => {
+              const briefExpected = ["Government/SETA", "International"].includes(g.type);
+              const hasBrief = !!g.funderBrief;
+              const state = hasBrief ? "filled" : briefExpected ? "expected" : "optional";
+              const colors = {
+                filled:   { bg: `${C.ok}05`,   border: `${C.ok}25`,   accent: C.ok,    label: "Funder brief on file" },
+                expected: { bg: `${C.amber}05`, border: `${C.amber}30`, accent: C.amber, label: "Paste the funder's RFP / brief" },
+                optional: { bg: C.bg,            border: C.line,         accent: C.t3,    label: "Funder brief (optional)" },
+              }[state];
+              return (
+              <div data-tour="funder-brief" style={{
+                marginBottom: 10, padding: "10px 12px", borderRadius: 10,
+                background: colors.bg, border: `1px solid ${colors.border}`,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 8, flexWrap: "wrap" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: colors.accent, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                    {colors.label}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button
+                      onClick={async () => {
+                        setBusy(p => ({ ...p, fetchBrief: true }));
+                        try {
+                          const raw = await onRunAI("fetchFunderBrief", g);
+                          const txt = String(raw || "").replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+                          const sIdx = txt.indexOf("{"), eIdx = txt.lastIndexOf("}");
+                          let parsed = null;
+                          try { if (sIdx >= 0 && eIdx > sIdx) parsed = JSON.parse(txt.slice(sIdx, eIdx + 1)); } catch {}
+                          if (parsed?.brief && parsed.brief.length > 100) {
+                            const note = parsed.sourceUrl ? `\n\n---\nSource: ${parsed.sourceUrl}` : "";
+                            up("funderBrief", parsed.brief + note);
+                            aiLog(`AI re-fetched funder brief (${parsed.confidence || "unknown"} confidence) from ${parsed.sourceUrl || "funder site"}`);
+                          } else {
+                            aiLog(`AI couldn't find a published brief: ${parsed?.note || "no result"}`);
+                          }
+                        } catch (e) { /* surface via busy state */ }
+                        setBusy(p => ({ ...p, fetchBrief: false }));
+                      }}
+                      disabled={busy.fetchBrief || autoBriefBusy}
+                      title="Re-run the AI search for the funder's published RFP / brief. Overwrites the current text."
+                      style={{
+                        fontSize: 10, fontWeight: 700, color: C.primary,
+                        background: "none",
+                        border: `1px solid ${C.primary}40`, borderRadius: 5, padding: "4px 10px",
+                        cursor: (busy.fetchBrief || autoBriefBusy) ? "wait" : "pointer", fontFamily: FONT,
+                      }}
+                    >
+                      {busy.fetchBrief ? "Searching…" : autoBriefBusy ? "Auto-fetching…" : "↻ Re-fetch"}
+                    </button>
+                    <span style={{ fontSize: 10, color: C.t4 }}>AI auto-fills on open · edit freely</span>
+                  </div>
+                </div>
+                {/* Plain-English help: what is this, where do you get it, what if you don't have one */}
+                <div style={{ fontSize: 11, color: C.t3, lineHeight: 1.5, marginBottom: 8, padding: "6px 10px", background: `${colors.accent}08`, borderRadius: 6, borderLeft: `2px solid ${colors.accent}40` }}>
+                  {briefExpected ? (
+                    <>
+                      <strong style={{ color: C.t2 }}>What to do:</strong> Download the funder's published RFP / call document from their website, copy the full text, and paste it below verbatim. The AI mirrors their wording, answers every question they ask, respects every constraint (deadlines, page limits, themes).
+                      <br />
+                      <em>Don't have one? Leave blank — the AI will use the funder type, scout research, and your org profile instead.</em>
+                    </>
+                  ) : (
+                    <>
+                      <strong style={{ color: C.t2 }}>Optional.</strong> Most {(g.type || "").toLowerCase() || "corporate"} funders don't publish a formal RFP — they take inquiries via email or relationship. If you DO have a written brief (from a meeting, an email, or their site), paste it below. Otherwise leave blank.
+                    </>
+                  )}
+                </div>
+                {autoBriefBusy && !g.funderBrief && (
+                  <div style={{
+                    marginBottom: 8, padding: "8px 12px", borderRadius: 6,
+                    background: `${C.primary}10`, border: `1px solid ${C.primary}30`,
+                    display: "flex", alignItems: "center", gap: 10, fontFamily: FONT,
+                  }}>
+                    <span style={{
+                      width: 10, height: 10, borderRadius: "50%", background: C.primary,
+                      animation: "ge-pulse 1.4s ease-in-out infinite", flexShrink: 0,
+                    }} />
+                    <span style={{ fontSize: 12, color: C.primary, fontWeight: 600 }}>
+                      AI is searching the funder's website for their RFP — usually takes 10-15 seconds.
+                    </span>
+                  </div>
+                )}
+                <textarea
+                  value={g.funderBrief || ""}
+                  onChange={e => up("funderBrief", e.target.value)}
+                  placeholder={briefExpected
+                    ? "Paste the funder's RFP / call document text here. Include eligibility, themes, deadline, page limits, scoring criteria, and any questions they want answered."
+                    : "Optional. If the funder has emailed you a brief, sent funding criteria, or you have meeting notes from them, paste the text here."}
+                  rows={g.funderBrief ? 3 : 4}
+                  style={{
+                    width: "100%", fontSize: 12, lineHeight: 1.5, fontFamily: FONT,
+                    color: C.dark, background: autoBriefBusy ? `${C.primary}05` : C.white,
+                    border: `1px solid ${autoBriefBusy ? C.primary + "40" : C.line}`, borderRadius: 6,
+                    padding: "8px 10px", resize: "vertical", outline: "none",
+                    boxSizing: "border-box", transition: "background 0.2s, border-color 0.2s",
+                  }}
+                />
+                {/* Application URL — sits inside the same panel so the user sees it together with the brief */}
+                <div data-tour="apply-url" style={{ marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${C.line}` }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, gap: 8 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.t3, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                      Apply link
+                    </div>
+                    <button
+                      onClick={async () => {
+                        setBusy(p => ({ ...p, findUrl: true }));
+                        try {
+                          const raw = await onRunAI("findApplyUrl", g);
+                          if (isAIError(raw)) {
+                            aiLog(`Find application URL failed: ${String(raw).slice(0, 80)}`);
+                          } else {
+                            const txt = String(raw).replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+                            const start = txt.indexOf("{"); const end = txt.lastIndexOf("}");
+                            let parsed = null;
+                            try { if (start >= 0 && end > start) parsed = JSON.parse(txt.slice(start, end + 1)); } catch {}
+                            if (parsed?.url && /^https?:\/\//i.test(parsed.url) && !/vertexaisearch|grounding-api-redirect|google\.com\/url\?/.test(parsed.url)) {
+                              up("applyUrl", parsed.url);
+                              aiLog(`AI found application URL (${parsed.confidence || "unknown"} confidence): ${parsed.url}`);
+                            } else {
+                              aiLog(`AI could not find an application URL: ${parsed?.note || "no result"}`);
+                            }
+                          }
+                        } catch (e) { /* surface via busy state */ }
+                        setBusy(p => ({ ...p, findUrl: false }));
+                      }}
+                      disabled={busy.findUrl}
+                      title="Search the funder's website for the actual application page"
+                      style={{
+                        fontSize: 10, fontWeight: 700, color: C.primary, background: "none",
+                        border: `1px solid ${C.primary}40`, borderRadius: 5, padding: "3px 9px",
+                        cursor: busy.findUrl ? "wait" : "pointer", fontFamily: FONT,
+                      }}
+                    >
+                      {busy.findUrl ? "Searching…" : g.applyUrl ? "Search again" : "Search for the link"}
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input
+                      type="url"
+                      value={g.applyUrl || ""}
+                      onChange={e => up("applyUrl", e.target.value)}
+                      placeholder="Paste the funder's apply page link here — or click Search to find it"
+                      style={{
+                        flex: 1, fontSize: 12, fontFamily: FONT,
+                        color: C.dark, background: C.white,
+                        border: `1px solid ${C.line}`, borderRadius: 6,
+                        padding: "6px 10px", outline: "none",
+                      }}
+                    />
+                    {g.applyUrl && /^https?:\/\//i.test(g.applyUrl) && (
+                      <a href={g.applyUrl} target="_blank" rel="noopener noreferrer"
+                        style={{
+                          fontSize: 11, fontWeight: 600, color: C.blue, textDecoration: "none",
+                          padding: "5px 10px", border: `1px solid ${C.blue}30`, borderRadius: 5,
+                          whiteSpace: "nowrap", fontFamily: FONT,
+                        }}>
+                        Open ↗
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+              );
+            })()}
+            {/* Funder feedback — paste the funder's response after submission. Shows on
+                Submitted/Awaiting/Deferred only (active wait-for-response phase). The
+                bottom "Funder Feedback" section handles Won/Lost/Resubmit with deeper
+                analysis context, so we leave those stages to it. */}
+            {["submitted", "awaiting", "deferred"].includes(g.stage) && (() => {
+              const hasFeedback = !!(g.funderFeedback && g.funderFeedback.trim());
+              const hasHistory = ["Previous Funder", "Warm Intro"].includes(g.rel)
+                || ["lost", "deferred", "resubmit"].includes(g.stage);
+              const accent = hasFeedback ? C.ok : C.t3;
+              return (
+                <div data-tour="funder-feedback" style={{
+                  marginBottom: 10, padding: "10px 12px", borderRadius: 10,
+                  background: hasFeedback ? `${C.ok}05` : C.bg,
+                  border: `1px solid ${hasFeedback ? C.ok + "25" : C.line}`,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: accent, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                      {hasFeedback ? "Funder feedback on file" : "Funder feedback (optional)"}
+                    </div>
+                    <div style={{ fontSize: 10, color: C.t4 }}>
+                      {hasHistory ? "Strongly recommended — this funder has history with you." : "Paste rejection notes or meeting outcomes if you have them."}
+                    </div>
+                  </div>
+                  <textarea
+                    value={g.funderFeedback || ""}
+                    onChange={e => up("funderFeedback", e.target.value)}
+                    placeholder={
+                      g.stage === "lost" || g.stage === "resubmit"
+                        ? "e.g. 'Board flagged budget as too high for first-time grantee. Wanted more evidence of completion rates. Asked us to resubmit with a smaller cohort.'"
+                        : g.stage === "won"
+                        ? "e.g. 'Board liked the AI tools angle. Asked about scaling to other provinces.' — useful for next cycle."
+                        : "e.g. notes from a meeting, an email reply, or what they said when declining a previous application."
+                    }
+                    rows={hasFeedback ? 3 : 2}
+                    style={{
+                      width: "100%", fontSize: 12, lineHeight: 1.5, fontFamily: FONT,
+                      color: C.dark, background: C.white,
+                      border: `1px solid ${C.line}`, borderRadius: 6,
+                      padding: "8px 10px", resize: "vertical", outline: "none",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  <div style={{ fontSize: 10, color: C.t4, marginTop: 4 }}>
+                    The AI treats this as its most important input — it'll address every concern raised here in the next draft.
+                  </div>
+                </div>
+              );
+            })()}
+            {/* Optional glossary-appendix toggle — when checked, the proposal will end with
+                a definitions section for any acronyms (B-BBEE, ICITP, NQF, SAQA, etc.) used.
+                Useful for international funders and first-time readers. */}
+            {!isSubmittedPlus && (
+              <label style={{
+                display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10,
+                padding: "8px 12px", borderRadius: 8,
+                background: g.includeGlossary ? `${C.primary}08` : C.bg,
+                border: `1px solid ${g.includeGlossary ? C.primary + "30" : C.line}`,
+                cursor: "pointer", fontFamily: FONT,
+              }}>
+                <input
+                  type="checkbox"
+                  checked={!!g.includeGlossary}
+                  onChange={e => up("includeGlossary", e.target.checked)}
+                  style={{ marginTop: 2, accentColor: C.primary, cursor: "pointer" }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: g.includeGlossary ? C.primary : C.t2 }}>
+                    Include a glossary appendix in the proposal
+                  </div>
+                  <div style={{ fontSize: 11, color: C.t4, marginTop: 2, lineHeight: 1.4 }}>
+                    Adds a final "Glossary" section that defines every acronym and sector term used (B-BBEE, NQF, SAQA, FET, ICITP, PBO…). Helpful for international funders or readers new to the SA NPO landscape.
+                  </div>
+                </div>
+              </label>
+            )}
             {/* Generate — big CTA for full auto-generate */}
             {!allDone && !isSubmittedPlus && (
               <button
+                data-tour="make-magic"
                 onClick={rollTheDice}
                 disabled={rollingDice || anyBusy}
                 style={{
@@ -1125,6 +1673,46 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                       <path d="M20 3v4M22 5h-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                     </svg>
                     <span>Make the Magic Happen</span>
+                  </>
+                )}
+              </button>
+            )}
+            {/* Phase 8: Concept Note generator — lighter pitch sent before a full proposal */}
+            {!isSubmittedPlus && (
+              <button
+                data-tour="concept-note"
+                onClick={async () => {
+                  setBusy(p => ({ ...p, conceptNote: true }));
+                  try {
+                    const raw = await onRunAI("conceptNote", g);
+                    const cleaned = isAIError(raw) ? raw : cleanProposalText(raw);
+                    if (!isAIError(cleaned)) onUpdate(g.id, { aiConceptNote: cleaned, aiConceptNoteAt: new Date().toISOString() });
+                  } catch (e) { /* surface via busy state */ }
+                  setBusy(p => ({ ...p, conceptNote: false }));
+                }}
+                disabled={busy.conceptNote || rollingDice || anyBusy}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  padding: "9px 16px", marginBottom: 10, borderRadius: 10,
+                  background: C.white, color: C.purple,
+                  border: `1px solid ${C.purple}40`,
+                  cursor: (busy.conceptNote || rollingDice || anyBusy) ? "default" : "pointer",
+                  fontFamily: FONT, fontSize: 13, fontWeight: 600,
+                  opacity: (busy.conceptNote || rollingDice || anyBusy) ? 0.6 : 1,
+                }}
+                title="Generate a 1-2 page concept note — the short pitch you send to test interest before submitting a full proposal"
+              >
+                {busy.conceptNote ? (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ animation: "ge-spin 1s linear infinite" }}>
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                    <span>Drafting concept note…</span>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 13 }}>📝</span>
+                    <span>{g.aiConceptNote ? "Regenerate concept note" : "Generate concept note (pre-proposal pitch)"}</span>
                   </>
                 )}
               </button>
@@ -1412,15 +2000,17 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
 
       {/* Budget Builder — MIDDLE (open), or showAll */}
       {(showAll || isMiddle) && (
-        <SectionWrap title="Budget" defaultOpen={isMiddle}
-          badge={g.budgetTable ? (
-            <span style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, color: C.ok, background: C.okSoft, padding: "2px 8px", borderRadius: 6 }}>
-              {fmtK(g.budgetTable.total)}
-            </span>
-          ) : null}
-        >
-          <BudgetBuilder grant={g} onUpdate={onUpdate} />
-        </SectionWrap>
+        <div data-tour="budget-section">
+          <SectionWrap title="Budget" defaultOpen={isMiddle}
+            badge={g.budgetTable ? (
+              <span style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, color: C.ok, background: C.okSoft, padding: "2px 8px", borderRadius: 6 }}>
+                {fmtK(g.budgetTable.total)}
+              </span>
+            ) : null}
+          >
+            <BudgetBuilder grant={g} onUpdate={onUpdate} />
+          </SectionWrap>
+        </div>
       )}
 
       {/* Proposal Workspace — MIDDLE (open), or showAll */}
@@ -1434,6 +2024,35 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                   <button onClick={() => up("stage", "review")} style={{ fontSize: 11, fontWeight: 600, color: C.primary, background: "none", border: `1px solid ${C.primary}30`, borderRadius: 5, padding: "4px 10px", cursor: "pointer", fontFamily: FONT }}>Unlock → Review</button>
                 )}
               </div>
+            )}
+            {/* Phase 8: Concept note display — appears once generated, can be regenerated via button above */}
+            {g.aiConceptNote && !isAIError(g.aiConceptNote) && (
+              <Card style={{ marginBottom: 14, padding: 18, border: `1px solid ${C.purple}25` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>📝</span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: C.purple, letterSpacing: 0.2 }}>Concept Note</div>
+                      <div style={{ fontSize: 10, color: C.t4 }}>Pre-proposal pitch — send this first to test funder interest</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {g.aiConceptNoteAt && <span style={{ fontSize: 10, color: C.t4 }}>{timeAgo(g.aiConceptNoteAt)}</span>}
+                    <button onClick={() => { navigator.clipboard?.writeText(g.aiConceptNote); }}
+                      style={{ fontSize: 11, fontWeight: 600, color: C.purple, background: "none", border: `1px solid ${C.purple}30`, borderRadius: 5, padding: "3px 10px", cursor: "pointer", fontFamily: FONT }}>
+                      Copy
+                    </button>
+                  </div>
+                </div>
+                <div style={{
+                  fontSize: 13, lineHeight: 1.6, color: C.t1,
+                  whiteSpace: "pre-wrap", fontFamily: FONT,
+                  padding: "12px 14px", background: `${C.purple}05`, borderRadius: 8,
+                  border: `1px solid ${C.purple}15`,
+                }}>
+                  {g.aiConceptNote}
+                </div>
+              </Card>
             )}
             <ProposalWorkspace
               grant={g}
@@ -1491,7 +2110,9 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           })()}
         >
           <Card>
-            <OutstandingActions grant={g} onUpdate={(actions) => up("outstandingActions", actions)} complianceDocs={complianceDocs} missingDocs={missingDocNames} />
+            <div data-tour="outstanding-actions">
+              <OutstandingActions grant={g} onUpdate={(actions) => up("outstandingActions", actions)} complianceDocs={complianceDocs} missingDocs={missingDocNames} />
+            </div>
           </Card>
         </SectionWrap>
       )}
@@ -1623,12 +2244,40 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 <div style={{ height: "100%", width: `${(docReadiness.ready / docReadiness.total) * 100}%`, background: docReadiness.ready === docReadiness.total ? C.ok : C.primary, borderRadius: 2, transition: "width 0.3s ease" }} />
               </div>
             )}
-            <div style={{ fontSize: 11, color: C.t4, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ fontSize: 11, color: C.t4, marginBottom: 10, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               Tick documents to attach to this submission
               {(g.attachedDocs || []).length > 0 && (
                 <span style={{ fontSize: 10, fontWeight: 700, color: C.ok, background: C.okSoft, padding: "2px 8px", borderRadius: 100 }}>
                   {(g.attachedDocs || []).length} attached
                 </span>
+              )}
+              <div style={{ flex: 1 }} />
+              {/* Phase 9: one-click attach-all-valid */}
+              <button
+                onClick={() => {
+                  const validIds = orgDocs.filter(d => d.statusLabel === "Valid" || d.statusLabel === "Uploaded" || (d.statusLabel && d.statusLabel.startsWith("Expires"))).map(d => d.orgDocId);
+                  const customIds = grantDocs.map(name => `custom:${name}`);
+                  const all = [...new Set([...validIds, ...customIds])];
+                  up("attachedDocs", all);
+                }}
+                style={{
+                  fontSize: 10, fontWeight: 700, color: C.primary, background: "none",
+                  border: `1px solid ${C.primary}30`, borderRadius: 5, padding: "3px 9px",
+                  cursor: "pointer", fontFamily: FONT,
+                }}
+                title="Tick every document that has a valid org-level upload, plus all grant-specific items"
+              >
+                ✓ Attach all suggested
+              </button>
+              {(g.attachedDocs || []).length > 0 && (
+                <button
+                  onClick={() => up("attachedDocs", [])}
+                  style={{
+                    fontSize: 10, fontWeight: 600, color: C.t4, background: "none",
+                    border: `1px solid ${C.line}`, borderRadius: 5, padding: "3px 9px",
+                    cursor: "pointer", fontFamily: FONT,
+                  }}
+                >Clear</button>
               )}
             </div>
             {orgDocs.length > 0 && (
@@ -1826,14 +2475,16 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
 
       {/* Activity — always visible, open in LATE/CLOSED */}
       <SectionWrap title="Activity" defaultOpen={isLate || isClosed}>
+        <div data-tour="activity-log">
         <Card pad="0" style={{ overflow: "hidden" }}>
           {(g.log || []).slice().reverse().map((entry, i, arr) => (
-            <ActivityRow key={i} date={entry.d} text={entry.t} isLast={i === arr.length - 1} />
+            <ActivityRow key={i} date={entry.d} text={entry.t} by={entry.by} team={team} isLast={i === arr.length - 1} />
           ))}
           {(!g.log || !g.log.length) && (
             <div style={{ padding: 18, textAlign: "center", color: C.t4, fontSize: 13 }}>No activity yet</div>
           )}
         </Card>
+        </div>
       </SectionWrap>
 
       {/* Show all sections toggle */}
@@ -1855,6 +2506,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       {showAutoFill && (
         <AutoFillPanel
           grant={g}
+          onRunAI={onRunAI}
+          onUpdateGrant={onUpdate}
           onClose={() => setShowAutoFill(false)}
           onSubmitted={() => {
             setShowAutoFill(false);

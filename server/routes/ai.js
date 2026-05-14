@@ -198,45 +198,78 @@ router.post('/org/:slug/ai/messages', resolveOrg, requireAuth, async (req, res) 
   }
 });
 
-// POST /api/org/:slug/ai/verify-urls — batch URL health check
+// POST /api/org/:slug/ai/verify-urls — batch URL health check.
+// Uses a real Chrome User-Agent + standard headers so SA corporate sites
+// behind Cloudflare don't immediately 403 a bot.
+//
+// Returns:
+//   ok:    true  — URL is reachable (200, 301/302/303/307/308 redirects, 401, 403)
+//   ok:    false — URL is broken (404, 410, DNS fail, connection refused, timeout)
+//
+// 401/403 count as "exists" because Cloudflare and similar gateways return them
+// to non-browser clients even though the page is fine in a real browser.
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+};
+
+function classifyStatus(status) {
+  if (status >= 200 && status < 300) return { ok: true,  reason: 'ok' };
+  if (status >= 300 && status < 400) return { ok: true,  reason: 'redirect' };
+  if (status === 401 || status === 403) return { ok: true, reason: 'auth_required' }; // bot-blocked, page exists
+  if (status === 404 || status === 410) return { ok: false, reason: 'not_found' };
+  if (status >= 500) return { ok: false, reason: 'server_error' };
+  return { ok: false, reason: 'unknown' };
+}
+
 router.post('/org/:slug/ai/verify-urls', resolveOrg, requireAuth, async (req, res) => {
   const { urls } = req.body;
   if (!Array.isArray(urls) || urls.length === 0) {
     return res.status(400).json({ error: 'urls array required' });
   }
 
+  const fetchWithTimeout = async (url, method, timeoutMs = 10000) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, {
+        method,
+        signal: controller.signal,
+        redirect: 'follow',
+        headers: BROWSER_HEADERS,
+      });
+      // Don't read body, just headers
+      if (method === 'GET') response.body?.cancel?.();
+      return { ok: true, response };
+    } catch (err) {
+      return { ok: false, err };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
   const results = await Promise.all(
     urls.slice(0, 20).map(async (url) => {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
-        const response = await fetch(url, {
-          method: 'HEAD',
-          signal: controller.signal,
-          redirect: 'follow',
-          headers: { 'User-Agent': 'Mozilla/5.0 (GrantEngine URL Checker)' },
-        });
-        clearTimeout(timeout);
-        return { url, status: response.status, ok: response.ok, redirect: response.redirected ? response.url : null };
-      } catch (err) {
-        // HEAD failed, try GET (some servers block HEAD)
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 8000);
-          const response = await fetch(url, {
-            method: 'GET',
-            signal: controller.signal,
-            redirect: 'follow',
-            headers: { 'User-Agent': 'Mozilla/5.0 (GrantEngine URL Checker)' },
-          });
-          clearTimeout(timeout);
-          // Only read enough to confirm it's alive, don't consume full body
-          response.body?.cancel?.();
-          return { url, status: response.status, ok: response.ok, redirect: response.redirected ? response.url : null };
-        } catch {
-          return { url, status: 0, ok: false, error: err.message };
-        }
+      // Try GET first — many servers (esp. Cloudflare-fronted) treat HEAD weirdly
+      let attempt = await fetchWithTimeout(url, 'GET');
+      // If GET fails, fall back to HEAD (some servers explicitly block GET to bots)
+      if (!attempt.ok) attempt = await fetchWithTimeout(url, 'HEAD');
+
+      if (!attempt.ok) {
+        return { url, status: 0, ok: false, reason: 'unreachable', error: attempt.err?.message || 'fetch failed' };
       }
+      const r = attempt.response;
+      const cls = classifyStatus(r.status);
+      return {
+        url,
+        status: r.status,
+        ok: cls.ok,
+        reason: cls.reason,
+        redirect: r.redirected ? r.url : null,
+      };
     })
   );
 

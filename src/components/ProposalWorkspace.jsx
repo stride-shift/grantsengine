@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
 import { Btn, CopyBtn, DownloadBtn } from "./index";
-import { assembleText, effectiveAsk, isAIError, cleanProposalText } from "../utils";
+import { assembleText, effectiveAsk, isAIError, cleanProposalText, validateProposalBreaks } from "../utils";
+import { buildGlossaryAppendix } from "../data/glossary";
 import { funderStrategy, detectType, PTYPES } from "../data/funderStrategy";
 import SectionCard from "./SectionCard";
 import { analyzeEditInBackground } from "../editLearner";
@@ -316,7 +317,14 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
   }, [sections, order, g]);
 
   // ── Copy all assembled text ──
-  const assembledText = assembleText(sections, order);
+  // If the user has opted in to a glossary appendix, build it from the assembled text
+  // and append. Only adds when at least one glossary term actually appears.
+  const assembledText = (() => {
+    const base = assembleText(sections, order);
+    if (!g.includeGlossary) return base;
+    const appendix = buildGlossaryAppendix(base);
+    return appendix ? (base + "\n\n" + appendix) : base;
+  })();
 
   // ── Legacy migration: grant has aiDraft but no aiSections ──
   const hasLegacyDraft = g.aiDraft && !g.aiSections;
@@ -486,6 +494,30 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
           </Btn>
         </div>
       )}
+
+      {/* ── Quality check: visual breaks ── */}
+      {assembledText.trim().split(/\s+/).filter(Boolean).length > 300 && (() => {
+        const { issues, score } = validateProposalBreaks(assembledText);
+        if (issues.length === 0) return null;
+        return (
+          <div style={{
+            margin: "0 14px 12px", padding: "10px 12px", borderRadius: 8,
+            background: score < 60 ? `${C.amber}10` : `${C.amber}06`,
+            border: `1px solid ${C.amber}30`,
+            fontFamily: FONT,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: C.amber, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Readability check · {score}/100
+              </span>
+              <span style={{ fontSize: 11, color: C.t4 }}>Funders skim — break up walls of text.</span>
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: C.t2, lineHeight: 1.55 }}>
+              {issues.map((iss, i) => <li key={i} style={{ marginBottom: 2 }}>{iss}</li>)}
+            </ul>
+          </div>
+        );
+      })()}
 
       {/* ── Document Preview ── */}
       {showPreview && assembledText.trim() && (

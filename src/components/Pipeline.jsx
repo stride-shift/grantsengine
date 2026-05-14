@@ -65,7 +65,7 @@ const AVATAR_COLORS = [
   { bg: C.purpleSoft, accent: C.purple },
 ];
 
-export default function Pipeline({ grants, team, stages, funderTypes, complianceDocs = [], orgContext = "", onSelectGrant, onUpdateGrant, onAddGrant, onRunAI, api, onToast }) {
+export default function Pipeline({ grants, team, stages, funderTypes, complianceDocs = [], orgContext = "", onSelectGrant, onUpdateGrant, onAddGrant, onRunAI, api, onToast, onLaunchTour }) {
   const [pView, setPView] = useState("list");
   const [q, setQ] = useState("");
   const [sf, setSf] = useState("all");
@@ -453,7 +453,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             <option value="fit">Fit score</option>
           </select>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 0, borderRadius: 8, overflow: "hidden", border: `1px solid ${C.primary}40` }}>
+          <div data-tour="scout-button" style={{ display: "flex", alignItems: "center", gap: 0, borderRadius: 8, overflow: "hidden", border: `1px solid ${C.primary}40` }}>
             <button onClick={() => scoutRef.current?.aiScout()} disabled={isScouting} style={{
               padding: "7px 14px", fontSize: 12, fontWeight: 700, fontFamily: FONT,
               background: isScouting ? C.primarySoft : C.primary,
@@ -483,7 +483,6 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             v="ghost" style={{ fontSize: 12, padding: "6px 12px", color: batchAction ? C.primary : C.t4, borderColor: batchAction ? C.primary + "30" : undefined }}>
             {batchAction ? "Done" : "Select"}
           </Btn>
-
           {/* Status pills — inline with actions */}
         </div>
       )}
@@ -510,7 +509,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
           color: activeFilters.has(f) ? C.primary : C.t3,
         });
         return (
-          <div style={{
+          <div data-tour="pipeline-filters" style={{
             display: "flex", alignItems: "center", gap: 6, marginBottom: 10,
             padding: "8px 14px", background: C.white, borderRadius: 10,
             border: `1px solid ${C.line}`, flexWrap: "wrap",
@@ -520,6 +519,22 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             <button onClick={() => toggleFilter("due-week")} style={pillStyle("due-week", C.amber, C.amberSoft)}>● Due soon {dueSoonCount}</button>
             {awaitingCount > 0 && <button onClick={() => toggleFilter("awaiting")} style={pillStyle("awaiting", "#0891B2", "#ECFEFF")}>● Awaiting {awaitingCount}</button>}
             {missedCount > 0 && <button onClick={() => toggleFilter("missed")} style={pillStyle("missed", C.red, C.redSoft)}>● Missed {missedCount}</button>}
+            {missedCount > 0 && (
+              <button
+                onClick={() => {
+                  if (!window.confirm(`Archive all ${missedCount} missed opportunities? They'll move to "Not Relevant" and can be restored later.`)) return;
+                  const missed = grants.filter(g => { const d = dL(g.deadline); return d !== null && d < 0 && !CLOSED_STAGES.includes(g.stage) && g.stage !== "submitted" && g.stage !== "awaiting"; });
+                  for (const g of missed) onUpdateGrant(g.id, { stage: "archived" });
+                  onToast?.(`Archived ${missed.length} missed opportunit${missed.length === 1 ? "y" : "ies"}`);
+                }}
+                title="Bulk-archive every grant whose deadline has passed and is still in an early stage"
+                style={{
+                  padding: "4px 10px", borderRadius: 100, fontSize: 11, fontWeight: 600,
+                  cursor: "pointer", fontFamily: FONT,
+                  border: `1px solid ${C.red}40`, background: C.white, color: C.red,
+                }}
+              >Archive all</button>
+            )}
 
             <div style={{ width: 1, height: 20, background: C.line, margin: "0 4px", flexShrink: 0 }} />
 
@@ -1294,6 +1309,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
 
             return (
               <div key={g.id} onClick={() => onSelectGrant(g.id)}
+                {...(idx === 0 ? { "data-tour": "grant-card" } : {})}
                 style={{
                   display: "flex", alignItems: "center", gap: 14,
                   padding: "12px 16px", borderBottom: `1px solid ${C.line}`,
