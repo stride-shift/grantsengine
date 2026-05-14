@@ -787,7 +787,15 @@ export default function Dashboard({
           where it is — CSS handles the visual reorder. */}
       <div style={{ order: -2 }}>
       {ana && (
-        <Section title="Pipeline Intelligence">
+        <Section
+          title="Pipeline Intelligence"
+          defaultOpen
+          right={
+            <span style={{ fontSize: 10, fontWeight: 600, color: C.t4, letterSpacing: 0.3 }}>
+              Click header to collapse
+            </span>
+          }
+        >
 
           {/* Row A: Secondary KPIs */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
