@@ -1077,13 +1077,13 @@ ${grant.name && grant.name !== grant.funder ? `Grant programme: ${grant.name}` :
 
 CORE TASK: Return a list of 3-6 candidate URLs on the funder's own website. The user will verify each — your job is to give them options, not be perfect with one.
 
-WHAT TO INCLUDE — try to cover these categories:
-1. The funder's homepage (ALWAYS include this — it's the safest fallback).
-2. Their main "about us" or company page.
-3. Their corporate social investment / CSI / sustainability / responsibility page.
-4. Their grants / funding / foundation / community page.
-5. Any "how to apply" or "contact us about funding" page.
-6. Any dedicated application form, RFP, or open call page (if one exists).
+WHAT TO INCLUDE — list MOST SPECIFIC FIRST. The user picks the first one that loads, so the order matters. Prefer pages that get the NPO closer to applying:
+1. **First:** Any dedicated application form, RFP, or open call page (if one exists).
+2. Then: Any "how to apply" or "submission guidelines" or "contact us about funding" page.
+3. Then: Their grants / funding / foundation / community page.
+4. Then: Their corporate social investment / CSI / sustainability / responsibility page.
+5. Then: Their main "about us" or company page (only if nothing more specific is available).
+6. **Last resort, always include:** The funder's homepage as the final fallback.
 
 VALIDATION:
 - Every URL MUST be on the funder's own domain (e.g. momentumgroup.co.za, sasol.com, dgmt.co.za). Subdomains fine.
