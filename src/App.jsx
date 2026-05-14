@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { C, FONT, MONO, injectFonts, applyOrgTheme, resetTheme } from "./theme";
-import { uid, td, dL, addD, effectiveAsk, isUsableUrl, normaliseFunder, grantCompleteness, sanitizeNotes } from "./utils";
+import { uid, td, dL, addD, effectiveAsk, isUsableUrl, isHomepageOnly, normaliseFunder, grantCompleteness, sanitizeNotes } from "./utils";
 import { CAD } from "./data/constants";
 import {
   isLoggedIn, getAuth, setAuth, getCurrentMember, login, logout, setPassword,
@@ -256,19 +256,28 @@ function AppInner() {
   const { runAI, clearUploadsCache } = useAI({ org, profile, team, grants, stages });
 
   // ── Background hygiene job — runs ONCE per (member, org) session after grants load.
-  // Three silent passes, in order:
+  // Four silent passes, in order:
   //   1. Sanitize notes  — strip internal jargon (e.g. "1 x Type 3 cohort with stipends")
   //   2. Dedupe          — same funder = same grant; keep most-complete, archive the rest
-  //   3. URL hygiene     — every active grant gets a working applyUrl, or none. Missing
-  //                        and dead-link (404) URLs trigger an AI search; the result is
-  //                        verified before being saved. Failed URLs are CLEARED.
+  //   3. URL hygiene     — every active grant gets a working applyUrl. Missing URLs,
+  //                        dead links, AND bare-homepage URLs all trigger an AI search.
+  //                        Specific pages (form/info_page/contact) win over homepages.
+  //                        Verified before saving.
+  //   4. Funder brief    — pre-fetch published RFPs for Gov/SETA/International/Foundation
+  //                        grants that don't have one yet.
   // No UI, no progress bar, no buttons. The user just sees the pipeline get cleaner.
+  //
+  // The gate is a ref keyed by (memberId + a version string). Bumping the version
+  // forces a re-run on next page load for everyone, which is what we want after
+  // any change to the URL/brief logic (e.g. the bare-homepage promotion).
+  const HYGIENE_VERSION = "v2-prefer-specific-urls";
   const repairRanForRef = useRef(null);
   useEffect(() => {
     if (!grants || grants.length === 0) return;
     if (!runAI || !currentMember?.id) return;
-    if (repairRanForRef.current === currentMember.id) return;
-    repairRanForRef.current = currentMember.id;
+    const gateKey = `${currentMember.id}|${HYGIENE_VERSION}`;
+    if (repairRanForRef.current === gateKey) return;
+    repairRanForRef.current = gateKey;
 
     const CLOSED = new Set(["won", "lost", "deferred", "archived"]);
     const initialGrants = grants;
@@ -337,7 +346,11 @@ function AppInner() {
       for (let i = 0; i < liveGrants.length; i++) {
         const g = liveGrants[i];
         const current = g.applyUrl;
-        const healthy = current && isUsableUrl(current) && (urlHealth.get(current)?.ok === true);
+        // A "healthy" URL needs to (a) load, (b) not be a grounding redirect, AND
+        // (c) not be a bare funder homepage — bare homepages were the wrong-default
+        // result of the old priority-less verifier and should be re-resolved to a
+        // more specific page (grants page, application form, etc.).
+        const healthy = current && isUsableUrl(current) && !isHomepageOnly(current) && (urlHealth.get(current)?.ok === true);
         if (healthy) continue;
 
         // Ask AI for candidate URLs, try each until one loads.
@@ -403,10 +416,15 @@ function AppInner() {
           }
         } catch { /* swallow */ }
 
-        // If the current URL was bad and we couldn't find a working alternative, clear it.
+        // If we couldn't find a better URL: clear only if the current URL is actually
+        // broken (didn't load). A bare-homepage URL that loads is still better than
+        // nothing, so keep it rather than wiping the field.
         if (!savedNew && current && !healthy) {
-          persist(g.id, { applyUrl: "" });
-          cleared++;
+          const currentLoads = urlHealth.get(current)?.ok === true;
+          if (!currentLoads) {
+            persist(g.id, { applyUrl: "" });
+            cleared++;
+          }
         }
 
         // Rate-limit between AI calls
