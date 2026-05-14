@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { C, FONT } from "../theme";
 import { stepsForTour, markOverviewSeen } from "../data/tourSteps";
 
@@ -73,7 +73,15 @@ function computeTooltipPosition(rect, placement, tooltipW = TOOLTIP_W, tooltipH 
 export default function TourOverlay({ tourId, currentMember, currentView, selectedGrant, onNavigate, onClose }) {
   const role = currentMember?.role || "guest";
   const memberId = currentMember?.id || null;
-  const steps = tourId ? stepsForTour(tourId, role) : [];
+
+  // Memoise the step list so step references are stable across renders.
+  // Without this, `step = steps[stepIdx]` was a new object identity every render,
+  // which made locateTarget's useCallback recreate, which fired the useEffect,
+  // which called locateTarget, which set state, which re-rendered... blink loop.
+  const steps = useMemo(
+    () => (tourId ? stepsForTour(tourId, role) : []),
+    [tourId, role]
+  );
 
   const [stepIdx, setStepIdx] = useState(0);
   const [targetRect, setTargetRect] = useState(null);     // null → no target → show centred modal
@@ -82,6 +90,12 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
   const [contentVisible, setContentVisible] = useState(true); // tooltip content cross-fade
   const targetElRef = useRef(null);
   const trackingRafRef = useRef(null);
+
+  // Mirror prop callbacks into refs so locateTarget doesn't need them as deps.
+  // App.jsx passes inline arrow functions which get a new identity each render —
+  // including them in locateTarget's deps would re-trigger the effect endlessly.
+  const onNavigateRef = useRef(onNavigate);
+  useEffect(() => { onNavigateRef.current = onNavigate; }, [onNavigate]);
 
   const step = steps[stepIdx];
 
@@ -153,8 +167,8 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
     }
 
     // Navigate to the right view first if needed (the polling below will wait for the target to mount)
-    if (step.view && step.view !== currentView && onNavigate) {
-      onNavigate(step.view);
+    if (step.view && step.view !== currentView && onNavigateRef.current) {
+      onNavigateRef.current(step.view);
     }
 
     const el = await waitForTarget(step.target);
@@ -188,7 +202,7 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
       setReady(true);
       setContentVisible(true);
     }
-  }, [tourId, step, currentView, onNavigate, trackRectUntilStable]);
+  }, [tourId, step, currentView, trackRectUntilStable]);
 
   useEffect(() => { locateTarget(); }, [locateTarget]);
 
