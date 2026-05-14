@@ -346,42 +346,54 @@ function AppInner() {
           const raw = await runAI("findApplyUrl", g);
           const txt = String(raw || "");
 
-          // Parse structured candidates
-          let candidates = [];
+          // Parse structured candidates and keep pageType info so we can prefer specific
+          // pages over the homepage when picking the winner.
+          let typedCandidates = []; // [{ url, pageType }, ...]
           try {
             const cleaned = txt.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
             const sIdx = cleaned.indexOf("{"), eIdx = cleaned.lastIndexOf("}");
             if (sIdx >= 0 && eIdx > sIdx) {
               const parsed = JSON.parse(cleaned.slice(sIdx, eIdx + 1));
-              if (Array.isArray(parsed.candidates)) candidates = parsed.candidates.map(c => c.url).filter(Boolean);
-              else if (parsed.url) candidates = [parsed.url];
+              if (Array.isArray(parsed.candidates)) {
+                typedCandidates = parsed.candidates
+                  .filter(c => c.url)
+                  .map(c => ({ url: c.url, pageType: c.pageType || "info_page" }));
+              } else if (parsed.url) {
+                typedCandidates = [{ url: parsed.url, pageType: parsed.pageType || "info_page" }];
+              }
             }
           } catch { /* fall through */ }
 
           // Extract URLs from raw text as fallback
+          const seenUrls = new Set(typedCandidates.map(c => c.url));
           const urlMatches = (txt.match(/https?:\/\/[^\s"'<>)\]]+/gi) || []).map(u => u.replace(/[.,;:)\]}>]+$/, ""));
-          for (const u of urlMatches) if (!candidates.includes(u)) candidates.push(u);
+          for (const u of urlMatches) {
+            if (!seenUrls.has(u)) { typedCandidates.push({ url: u, pageType: "info_page" }); seenUrls.add(u); }
+          }
 
-          // Synthesize funder homepage guesses as ultimate fallback
+          // Synthesize funder homepage guesses as absolute-last-resort fallback
           const slug = (g.funder || "").toLowerCase()
             .replace(/\b(the|foundation|trust|fund|group|company|corporation|corp|inc|ltd|pty|sa|africa)\b/g, "")
             .replace(/[^a-z0-9]/g, "").trim();
           if (slug && slug.length >= 3) {
             for (const u of [`https://www.${slug}.co.za`, `https://${slug}.co.za`, `https://www.${slug}.com`, `https://www.${slug}.org`, `https://www.${slug}.org.za`]) {
-              if (!candidates.includes(u)) candidates.push(u);
+              if (!seenUrls.has(u)) { typedCandidates.push({ url: u, pageType: "homepage" }); seenUrls.add(u); }
             }
           }
 
-          // Filter to usable URLs
-          candidates = candidates.filter(u => isUsableUrl(u));
+          // Filter to usable URLs, then sort by page-type priority so the homepage
+          // is the LAST resort, not the first verified one.
+          typedCandidates = typedCandidates.filter(c => isUsableUrl(c.url));
+          const TYPE_PRIORITY = { form: 0, info_page: 1, contact: 2, homepage: 3 };
+          typedCandidates.sort((a, b) => (TYPE_PRIORITY[a.pageType] ?? 1) - (TYPE_PRIORITY[b.pageType] ?? 1));
 
-          if (candidates.length > 0) {
+          if (typedCandidates.length > 0) {
             try {
-              const check = await verifyUrls(candidates);
+              const check = await verifyUrls(typedCandidates.map(c => c.url));
               const statusMap = new Map((check || []).map(r => [r.url, r]));
-              for (const u of candidates) {
-                if (statusMap.get(u)?.ok === true) {
-                  persist(g.id, { applyUrl: u });
+              for (const c of typedCandidates) {
+                if (statusMap.get(c.url)?.ok === true) {
+                  persist(g.id, { applyUrl: c.url });
                   savedNew = true;
                   fixed++;
                   break;

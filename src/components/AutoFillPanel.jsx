@@ -101,12 +101,18 @@ export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, on
         return true;
       });
 
+      // Sort by page-type priority so the homepage is the LAST resort, not the first
+      // verified one. Without this, every grant's apply link defaulted to the homepage
+      // because homepages always load.
+      const TYPE_PRIORITY = { form: 0, info_page: 1, contact: 2, homepage: 3 };
+      candidates.sort((a, b) => (TYPE_PRIORITY[a.pageType] ?? 1) - (TYPE_PRIORITY[b.pageType] ?? 1));
+
       if (candidates.length === 0) {
         setFindUrlResult({ url: null, note: "AI couldn't find any candidate URLs and we couldn't guess the funder's domain." });
         return;
       }
 
-      // Verify candidates in order — save the FIRST that loads
+      // Verify candidates in priority order — save the highest-priority one that loads
       const verifyRes = await verifyUrls(candidates.map(c => c.url));
       const statusByUrl = new Map((verifyRes || []).map(r => [r.url, r]));
 
