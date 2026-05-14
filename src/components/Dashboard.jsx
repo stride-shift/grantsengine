@@ -438,10 +438,12 @@ export default function Dashboard({
   }, [pipe]);
 
   return (
-    <div style={{ padding: "16px 16px", maxWidth: 1200 }}>
+    {/* Root is a flex column so we can use CSS `order` to put Pipeline Intelligence
+        + Needs Attention at the top visually, without moving 400+ lines of JSX. */}
+    <div style={{ padding: "16px 16px", maxWidth: 1200, display: "flex", flexDirection: "column" }}>
 
       {/* ── Header ── */}
-      <div style={{ marginBottom: 8 }}>
+      <div style={{ marginBottom: 8, order: -3 }}>
         <div style={{ fontSize: 24, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Today</div>
         <div style={{ width: 36, height: 3, background: C.primary, borderRadius: 2, marginTop: 6, marginBottom: 6 }} />
         <div style={{ fontSize: 13, color: C.t4, fontWeight: 400 }}>
@@ -481,6 +483,9 @@ export default function Dashboard({
       )}
 
       {/* ═══════════ 1. URGENT ACTION CARDS ═══════════ */}
+      {/* Wrapped in a div with order: -1 so flexbox renders it after Pipeline Intelligence (order -2)
+          and after the Header (order -3) but before all the other sections (default order 0). */}
+      <div style={{ order: -1 }}>
       {grants.length > 0 && urgentGrants.length > 0 && (
         <>
           <Hd>Needs Attention</Hd>
@@ -525,6 +530,7 @@ export default function Dashboard({
           </div>
         </>
       )}
+      </div>
 
       {grants.length > 0 && (<>
       {/* ═══════════ 2. COMPACT PIPELINE SUMMARY ═══════════ */}
@@ -775,6 +781,11 @@ export default function Dashboard({
       </div>
 
       {/* ═══════════ 3. PIPELINE INTELLIGENCE ═══════════ */}
+      {/* Wrapped with order: -2 so flexbox renders this BEFORE everything else
+          (except Header at -3 and Needs Attention at -1). User wanted this to be
+          the first thing they see when landing on the Dashboard. The JSX stays
+          where it is — CSS handles the visual reorder. */}
+      <div style={{ order: -2 }}>
       {ana && (
         <Section title="Pipeline Intelligence">
 
@@ -1186,6 +1197,7 @@ export default function Dashboard({
           )}
         </Section>
       )}
+      </div>
       </>)}
 
       {/* Minimum-data nudge */}
