@@ -438,9 +438,9 @@ export default function Dashboard({
   }, [pipe]);
 
   return (
-    {/* Root is a flex column so we can use CSS `order` to put Pipeline Intelligence
-        + Needs Attention at the top visually, without moving 400+ lines of JSX. */}
     <div style={{ padding: "16px 16px", maxWidth: 1200, display: "flex", flexDirection: "column" }}>
+      {/* Root is a flex column so we can use CSS `order` to put Pipeline Intelligence
+          + Needs Attention at the top visually, without moving 400+ lines of JSX. */}
 
       {/* ── Header ── */}
       <div style={{ marginBottom: 8, order: -3 }}>
