@@ -285,7 +285,9 @@ function AppInner() {
     const persist = (id, patch) => {
       setGrants(prev => prev.map(x => x.id === id ? { ...x, ...patch } : x));
       const g = initialGrants.find(x => x.id === id) || {};
-      dSave(id, { ...g, ...patch });
+      // silent: true — this is background work, server hiccups shouldn't toast
+      // the user. We log to console instead so failures are still debuggable.
+      dSave(id, { ...g, ...patch }, { silent: true });
     };
 
     (async () => {
@@ -473,20 +475,33 @@ function AppInner() {
   const [saveState, setSaveState] = useState("idle"); // "idle" | "saving" | "saved" | "error"
   const saveStateTimer = useRef(null);
 
-  const dSave = useCallback((grantId, data) => {
+  // Track last error toast time so we don't spam the user with identical messages
+  // from rapid-fire background saves. Suppresses dupes within a 10-second window.
+  const lastErrorToastRef = useRef({ msg: "", at: 0 });
+
+  const dSave = useCallback((grantId, data, opts = {}) => {
+    const { silent = false } = opts;
     clearTimeout(saveTimers.current[grantId]);
     saveTimers.current[grantId] = setTimeout(async () => {
-      setSaveState("saving");
+      if (!silent) setSaveState("saving");
       try {
         await saveGrant(data);
-        setSaveState("saved");
-        clearTimeout(saveStateTimer.current);
-        saveStateTimer.current = setTimeout(() => setSaveState("idle"), 2000);
+        if (!silent) {
+          setSaveState("saved");
+          clearTimeout(saveStateTimer.current);
+          saveStateTimer.current = setTimeout(() => setSaveState("idle"), 2000);
+        }
       } catch (err) {
+        console.error("Save failed:", err.message, "grant:", grantId);
+        if (silent) return; // background work — don't bother the user
         setSaveState("error");
-        console.error("Save failed:", err.message);
-        toast(`Save failed: ${err.message}`, { type: "error", duration: 5000 });
-        // Auto-clear error state after 5s
+        // De-duplicate toasts: same error within 10s gets suppressed
+        const now = Date.now();
+        const last = lastErrorToastRef.current;
+        if (last.msg !== err.message || now - last.at > 10000) {
+          toast(`Save failed: ${err.message}`, { type: "error", duration: 5000 });
+          lastErrorToastRef.current = { msg: err.message, at: now };
+        }
         clearTimeout(saveStateTimer.current);
         saveStateTimer.current = setTimeout(() => setSaveState("idle"), 5000);
       }
