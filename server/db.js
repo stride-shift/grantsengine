@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const { Pool } = pg;
 
 // AI fields stored in the ai_data JSON column
-const AI_KEYS = ['aiDraft','aiDraftAt','draftHistory','aiResearch','aiResearchAt','aiResearchStructured','researchHistory','aiFitscore','aiFitscoreAt','fitscoreHistory','aiFollowup','aiFollowupAt','followupHistory','aiWinloss','aiWinlossAt','aiConceptNote','aiConceptNoteAt','askSource','aiRecommendedAsk','funderBudget','askYears','budgetTable','aiSections','aiSectionsOrder','aiSectionsAt','funderFeedback','funderBrief','includeGlossary','attachedDocs','_archivedFrom','vetting','outstandingActions'];
+const AI_KEYS = ['aiDraft','aiDraftAt','draftHistory','aiResearch','aiResearchAt','aiResearchStructured','researchHistory','aiFitscore','aiFitscoreAt','fitscoreHistory','aiFollowup','aiFollowupAt','followupHistory','aiWinloss','aiWinlossAt','aiConceptNote','aiConceptNoteAt','askSource','aiRecommendedAsk','aiAskReasoning','funderBudget','askYears','budgetTable','aiSections','aiSectionsOrder','aiSectionsAt','funderFeedback','funderBrief','includeGlossary','attachedDocs','_archivedFrom','vetting','outstandingActions','engagementMode','readability','viewLog','acceptsUnsolicited','recurringCycle','clonedFrom','requiredDocs','requiredDocsAt'];
 
 const extractAiData = (grant) => {
   const aiData = {};

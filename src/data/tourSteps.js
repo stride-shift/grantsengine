@@ -69,6 +69,20 @@ const OVERVIEW_STEPS = [
     placement: "right",
   },
   {
+    id: "ov-archive",
+    target: '[data-tour="nav-archive"]',
+    title: "Archive",
+    body: "Every closed proposal — Won, Lost, Deferred, Not Relevant. Search past funder feedback, mine wins for reusable language, and see your win rate at a glance.",
+    placement: "right",
+  },
+  {
+    id: "ov-resources",
+    target: '[data-tour="nav-resources"]',
+    title: "Resources",
+    body: "Curated nonprofit freebies and discounts — Canva, Google Ad Grants, AI credits, cloud hosting, Slack, Figma. Apply directly from the links provided.",
+    placement: "right",
+  },
+  {
     id: "ov-settings",
     target: '[data-tour="nav-settings"]',
     title: "Settings",
@@ -146,8 +160,9 @@ const GRANT_DETAIL_STEPS = [
     id: "gd-funder-feedback",
     target: '[data-tour="funder-feedback"]',
     title: "Funder feedback",
-    body: "If you've heard back from this funder before — a rejection note, meeting outcomes, requested revisions — paste it here. The AI uses it as its most important input and will address every concern raised in the next draft.",
+    body: "Once a grant reaches Submitted or later (or Resubmit), this panel appears. Paste any rejection notes, meeting outcomes, or requested revisions here — the AI uses it as a primary input on the next draft and the Win/Loss analysis. There's also a '✉ Paste email' button that auto-extracts structured feedback from a pasted funder email.",
     placement: "left",
+    showWhen: (grant) => ["submitted", "awaiting", "won", "lost", "resubmit", "deferred"].includes(grant?.stage),
   },
   {
     id: "gd-magic",
@@ -192,6 +207,23 @@ const GRANT_DETAIL_STEPS = [
     body: "Moving a grant past Review to Submitted needs director sign-off. Same for confirming Won or Lost. Approval gates prevent accidental status changes.",
     placement: "bottom",
     roles: ["director", "board", "hop"],
+  },
+  {
+    id: "gd-engagement-mode",
+    target: '[data-tour="workflow-cell"]',
+    title: "Manual engagement mode",
+    body: "Some funders don't accept unsolicited proposals — they need a relationship-first approach. Click 'Switch to manual' here to flip the grant into manual-engagement mode. Proposal AI buttons hide and the next action becomes 'Log next funder touchpoint'.",
+    placement: "top",
+  },
+  {
+    id: "gd-clone",
+    title: "Clone for next cycle",
+    body: "Once a grant is Won, Lost, or Deferred, a blue 'Clone for next cycle' banner appears. One click creates a fresh grant for next year — deadline +1y, last-cycle outcome + feedback carried into notes. Use this on every annual funder (GIDF, DGMT, TK Foundation).",
+  },
+  {
+    id: "gd-ai-reference",
+    title: "Mark winning proposals as AI references",
+    body: "On Won/Lost/Submitted grants with a draft, a star toggle appears: 'Use as AI reference'. Mark your best proposals — the AI studies their tone, structure, and framing on future drafts. Won = 'do this'. Lost = 'avoid this'.",
   },
 ];
 
@@ -327,6 +359,49 @@ const SETTINGS_STEPS = [
   },
 ];
 
+// ─── ARCHIVE TAB TOUR ───
+const ARCHIVE_STEPS = [
+  {
+    id: "ar-intro",
+    title: "Proposal archive",
+    body: "Every closed proposal in one place — Won, Lost, Deferred, and Not Relevant. The Pipeline shows active work; this tab is where you mine the past for what worked.",
+  },
+  {
+    id: "ar-stats",
+    title: "Top tiles",
+    body: "Quick stats: total closed, won/lost counts, win rate, and total raised in ZAR. These update live as you close grants.",
+  },
+  {
+    id: "ar-filters",
+    title: "Filter chips",
+    body: "Switch between All / Won / Lost / Deferred / Not Relevant. The search bar finds across funder name, grant name, notes, and funder feedback — useful when you want to find 'that one rejection from DGMT last year'.",
+  },
+  {
+    id: "ar-draft-badge",
+    title: "Reusable drafts",
+    body: "Rows tagged with a 'DRAFT' pill have proposal text you can mine for reuse. Open one and click '★ Use as AI reference' on Won/Lost grants — the AI then studies it when drafting new proposals.",
+  },
+];
+
+// ─── RESOURCES TAB TOUR ───
+const RESOURCES_STEPS = [
+  {
+    id: "res-intro",
+    title: "Nonprofit resources",
+    body: "Curated freebies, discounts, and ad grants for verified nonprofits. Apply where eligible — most just need proof of NPO/PBO registration.",
+  },
+  {
+    id: "res-categories",
+    title: "Category filters",
+    body: "Filter by AI credits, design tools (Canva, Adobe, Figma), advertising (Google Ad Grants, Microsoft Ads), productivity (Workspace, M365, Slack), cloud (AWS, GCP, Azure), and training. Each chip shows a live count.",
+  },
+  {
+    id: "res-cards",
+    title: "Apply directly",
+    body: "Each card shows what the offer is, who's eligible, and any caveats. Click 'Apply / learn more →' to open the provider's nonprofit page. Most providers verify NPO status via Percent (formerly Goodstack) or TechSoup.",
+  },
+];
+
 /* The tour registry. Each entry: { name, steps }. */
 export const TOURS = {
   overview: { name: "Overview tour", steps: OVERVIEW_STEPS },
@@ -337,14 +412,23 @@ export const TOURS = {
   calendar: { name: "Calendar", steps: CALENDAR_STEPS },
   vetting: { name: "Vetting", steps: VETTING_STEPS },
   funders: { name: "Funders", steps: FUNDERS_STEPS },
+  archive: { name: "Archive", steps: ARCHIVE_STEPS },
+  resources: { name: "Resources", steps: RESOURCES_STEPS },
   settings: { name: "Settings", steps: SETTINGS_STEPS },
 };
 
-/* Build the role-filtered step list for a tour. */
-export const stepsForTour = (tourId, role) => {
+/* Build the role-filtered step list for a tour.
+ * `context` (optional) is passed to each step's `showWhen(context)` predicate,
+ * letting steps skip themselves when their target UI isn't visible
+ * (e.g. funder-feedback only shows on submitted+ grants). */
+export const stepsForTour = (tourId, role, context = null) => {
   const tour = TOURS[tourId];
   if (!tour) return [];
-  return tour.steps.filter(s => !s.roles || s.roles.includes(role));
+  return tour.steps.filter(s => {
+    if (s.roles && !s.roles.includes(role)) return false;
+    if (typeof s.showWhen === "function" && !s.showWhen(context)) return false;
+    return true;
+  });
 };
 
 // ─── Persistence — track which tours each user has seen ───

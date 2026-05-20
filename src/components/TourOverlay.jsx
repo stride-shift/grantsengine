@@ -4,32 +4,24 @@ import { stepsForTour, markOverviewSeen } from "../data/tourSteps";
 
 /* Anchored guided tour with smooth animations.
  *
- * Pass `tourId` (overview, pipeline, grantDetail, etc.) and the overlay
- * looks up the step list, filtered by the current member's role.
- *
- * Each step targets a DOM element via `data-tour="..."`. The overlay dims
- * the rest of the page, draws a glow ring around the target, and floats a
- * tooltip card beside it.
- *
  * Smoothness strategy:
- *  - The ring and tooltip are RENDERED ONCE and persist between steps.
- *    Position transitions via CSS, never unmount/remount → no flicker.
- *  - When a step changes, we trigger a smooth scroll, then poll the
- *    target's getBoundingClientRect via requestAnimationFrame each frame
- *    until it stabilises. The ring follows the target through the scroll.
- *  - Easing uses a cubic-bezier that mirrors macOS motion.
- *  - The tooltip body cross-fades between steps so content doesn't jank.
+ *  - Ring + tooltip are rendered once and persist; position transitions via CSS.
+ *  - Step changes: fade out → instant scroll → set rect once → fade back in.
+ *    No per-frame setState during scroll (that fought the 520ms CSS transitions
+ *    and caused stutter). CSS owns the visual interpolation; React just commits
+ *    the start and end positions.
+ *  - User-driven scroll/resize while a step is active is tracked via rAF-throttled
+ *    listener (one setState per frame max, not per event).
  */
 
 const TARGET_POLL_INTERVAL = 50;   // ms — while waiting for target to mount
 const TARGET_POLL_TIMEOUT  = 4000; // ms — give up if target never appears
-const RECT_STABLE_FRAMES   = 6;    // frames the rect must hold steady before we stop tracking
-const RECT_TRACK_TIMEOUT   = 1000; // ms — max time we'll track scroll
-const RECT_STABLE_TOL      = 1.0;  // px tolerance — anything sub-pixel is jitter, not movement
 const RING_PADDING         = 10;
 const TOOLTIP_W            = 360;
 const TOOLTIP_H_ESTIMATE   = 220;
 const EASE                 = "cubic-bezier(0.32, 0.72, 0, 1)"; // macOS-feel ease
+const FADE_OUT_MS          = 180;  // fade ring + content before jumping
+const FADE_IN_DELAY_MS     = 60;   // small beat after scroll lands before fading back in
 
 // Wait for an element matching selector to appear in the DOM.
 function waitForTarget(selector, timeout = TARGET_POLL_TIMEOUT) {
@@ -78,18 +70,21 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
   // Without this, `step = steps[stepIdx]` was a new object identity every render,
   // which made locateTarget's useCallback recreate, which fired the useEffect,
   // which called locateTarget, which set state, which re-rendered... blink loop.
+  // `selectedGrant` is passed as context so steps can skip themselves when their
+  // target UI isn't visible — e.g. funder-feedback only on submitted+ stages.
   const steps = useMemo(
-    () => (tourId ? stepsForTour(tourId, role) : []),
-    [tourId, role]
+    () => (tourId ? stepsForTour(tourId, role, selectedGrant) : []),
+    [tourId, role, selectedGrant]
   );
 
   const [stepIdx, setStepIdx] = useState(0);
   const [targetRect, setTargetRect] = useState(null);     // null → no target → show centred modal
   const [tooltipPos, setTooltipPos] = useState(null);     // null → don't render yet
   const [ready, setReady] = useState(false);              // first paint done
-  const [contentVisible, setContentVisible] = useState(true); // tooltip content cross-fade
+  const [visible, setVisible] = useState(true);           // ring + content fade together during step transitions
   const targetElRef = useRef(null);
   const trackingRafRef = useRef(null);
+  const repositionRafRef = useRef(null);
 
   // Mirror prop callbacks into refs so locateTarget doesn't need them as deps.
   // App.jsx passes inline arrow functions which get a new identity each render —
@@ -106,63 +101,36 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
       setReady(false);
       setTooltipPos(null);
       setTargetRect(null);
-      setContentVisible(true);
+      setVisible(true);
     }
   }, [tourId]);
 
-  // Track the target rect through any in-flight scroll using rAF.
-  // Stops once the rect is stable for RECT_STABLE_FRAMES consecutive frames,
-  // or after RECT_TRACK_TIMEOUT ms — whichever comes first.
-  const trackRectUntilStable = useCallback((el, placement) => {
-    if (trackingRafRef.current) cancelAnimationFrame(trackingRafRef.current);
-    let lastRect = null;
-    let stableCount = 0;
-    const startTime = performance.now();
-    const tick = () => {
-      const rect = el.getBoundingClientRect();
-      setTargetRect(rect);
-      setTooltipPos(computeTooltipPosition(rect, placement || "right"));
-      const stable = lastRect &&
-        Math.abs(rect.top - lastRect.top) < RECT_STABLE_TOL &&
-        Math.abs(rect.left - lastRect.left) < RECT_STABLE_TOL &&
-        Math.abs(rect.width - lastRect.width) < RECT_STABLE_TOL &&
-        Math.abs(rect.height - lastRect.height) < RECT_STABLE_TOL;
-      if (stable) {
-        stableCount++;
-        if (stableCount >= RECT_STABLE_FRAMES) return; // done — let CSS hold the position
-      } else {
-        stableCount = 0;
-      }
-      lastRect = rect;
-      if (performance.now() - startTime > RECT_TRACK_TIMEOUT) return;
-      trackingRafRef.current = requestAnimationFrame(tick);
-    };
-    trackingRafRef.current = requestAnimationFrame(tick);
-  }, []);
-
-  // Locate the target for the current step.
-  // We read `ready` via a ref instead of the state value because including `ready`
-  // in deps caused a re-render loop: setReady(true) → ready changes → locateTarget
-  // gets a new identity → effect re-runs → setReady(false) → blink.
+  // Read `ready` via a ref instead of state to avoid re-render loops in locateTarget's deps.
   const readyRef = useRef(false);
   useEffect(() => { readyRef.current = ready; }, [ready]);
 
   const locateTarget = useCallback(async () => {
     if (!tourId || !step) return;
 
+    // Cancel any in-flight tracking from the previous step
+    if (trackingRafRef.current) {
+      clearTimeout(trackingRafRef.current);
+      trackingRafRef.current = null;
+    }
+
+    const wasReady = readyRef.current;
+
     // Centred-modal step (no target)
     if (!step.target) {
       targetElRef.current = null;
-      if (trackingRafRef.current) cancelAnimationFrame(trackingRafRef.current);
-      // Only cross-fade if we were already on a step (avoids initial blink on tour open)
-      if (readyRef.current) {
-        setContentVisible(false);
-        await new Promise(r => setTimeout(r, 150));
+      if (wasReady) {
+        setVisible(false);
+        await new Promise(r => setTimeout(r, FADE_OUT_MS));
       }
       setTargetRect(null);
       setTooltipPos(computeTooltipPosition({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 }, "center"));
       setReady(true);
-      setContentVisible(true);
+      setVisible(true);
       return;
     }
 
@@ -174,64 +142,95 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
     const el = await waitForTarget(step.target);
 
     if (el) {
-      // Cross-fade tooltip content out while we transition the position
-      if (readyRef.current) setContentVisible(false);
+      // Open any collapsed <details> ancestors so the target is actually visible.
+      // Sections like Activity / Funder Feedback are wrapped in <details> and would
+      // otherwise have a zero-size rect, falling back to a useless centred modal.
+      let p = el;
+      while (p && p !== document.body) {
+        if (p.tagName === "DETAILS" && !p.open) p.open = true;
+        p = p.parentElement;
+      }
+      // Give the browser one frame to layout the now-open sections
+      await new Promise(r => requestAnimationFrame(() => r()));
+
+      // Fade ring + content out together. Off-screen jumps become invisible;
+      // on-screen moves still feel smooth because CSS interpolates the new top/left.
+      if (wasReady) {
+        setVisible(false);
+        await new Promise(r => setTimeout(r, FADE_OUT_MS));
+      }
 
       targetElRef.current = el;
-      // Smooth scroll the target into the centre of the viewport
-      el.scrollIntoView({ block: "center", behavior: readyRef.current ? "smooth" : "auto" });
+      // INSTANT scroll — no smooth animation fighting our CSS transition.
+      el.scrollIntoView({ block: "center", behavior: "instant" });
 
-      // Give the smooth-scroll one frame to start, then track via rAF until it lands
+      // One frame for the browser to commit the scroll, then read the final rect once.
       await new Promise(r => requestAnimationFrame(() => r()));
-      trackRectUntilStable(el, step.placement);
+      const rect = el.getBoundingClientRect();
+      setTargetRect(rect);
+      setTooltipPos(computeTooltipPosition(rect, step.placement || "right"));
 
-      // Bring tooltip content back in after a short beat
-      setTimeout(() => {
+      // Tiny beat so the new position commits before we fade back in
+      trackingRafRef.current = setTimeout(() => {
         setReady(true);
-        setContentVisible(true);
-      }, 220);
+        setVisible(true);
+        trackingRafRef.current = null;
+      }, FADE_IN_DELAY_MS);
     } else {
       // Target never appeared — show as centred modal
       targetElRef.current = null;
-      if (readyRef.current) {
-        setContentVisible(false);
-        await new Promise(r => setTimeout(r, 150));
+      if (wasReady) {
+        setVisible(false);
+        await new Promise(r => setTimeout(r, FADE_OUT_MS));
       }
       setTargetRect(null);
       setTooltipPos(computeTooltipPosition({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 }, "center"));
       setReady(true);
-      setContentVisible(true);
+      setVisible(true);
     }
-  }, [tourId, step, currentView, trackRectUntilStable]);
+  }, [tourId, step, currentView]);
 
   useEffect(() => { locateTarget(); }, [locateTarget]);
 
-  // Clean up the rAF tracker when the tour closes
+  // Clean up any pending timers on unmount
   useEffect(() => {
-    return () => { if (trackingRafRef.current) cancelAnimationFrame(trackingRafRef.current); };
+    return () => {
+      if (trackingRafRef.current) clearTimeout(trackingRafRef.current);
+      if (repositionRafRef.current) cancelAnimationFrame(repositionRafRef.current);
+    };
   }, []);
 
-  // Reposition on user scroll/resize so the ring tracks the target across the page
+  // Track the target through USER scroll/resize. rAF-throttled so we commit at most
+  // one setState per frame, never N per scroll event.
   useEffect(() => {
     if (!tourId || !targetElRef.current) return;
     const reposition = () => {
-      const el = targetElRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      setTargetRect(rect);
-      setTooltipPos(computeTooltipPosition(rect, step?.placement || "right"));
+      if (repositionRafRef.current) return; // already scheduled this frame
+      repositionRafRef.current = requestAnimationFrame(() => {
+        repositionRafRef.current = null;
+        const el = targetElRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        setTargetRect(rect);
+        setTooltipPos(computeTooltipPosition(rect, step?.placement || "right"));
+      });
     };
     window.addEventListener("scroll", reposition, true);
     window.addEventListener("resize", reposition);
     return () => {
       window.removeEventListener("scroll", reposition, true);
       window.removeEventListener("resize", reposition);
+      if (repositionRafRef.current) {
+        cancelAnimationFrame(repositionRafRef.current);
+        repositionRafRef.current = null;
+      }
     };
   }, [tourId, step]);
 
   const finish = useCallback(() => {
     if (tourId === "overview") markOverviewSeen(memberId, role);
-    if (trackingRafRef.current) cancelAnimationFrame(trackingRafRef.current);
+    if (trackingRafRef.current) clearTimeout(trackingRafRef.current);
+    if (repositionRafRef.current) cancelAnimationFrame(repositionRafRef.current);
     onClose?.();
   }, [tourId, memberId, role, onClose]);
 
@@ -254,49 +253,69 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
 
   return (
     <>
-      {/* Backdrop — only shown when there's NO target (centred modal steps).
-          When a target exists, the ring's own 9999px box-shadow spread does the
-          dimming outside the ring AND keeps the highlighted element fully bright. */}
-      {!hasTarget && (
-        <div
-          style={{
-            position: "fixed", inset: 0, zIndex: 1099,
-            background: "rgba(8, 24, 18, 0.65)",
-            pointerEvents: "auto",
-            opacity: ready ? 1 : 0,
-            transition: `opacity 350ms ${EASE}`,
-          }}
+      {/* Dim backdrop — a single full-viewport SVG that punches a hole at the ring
+          position via mask. This replaces the old 9999px box-shadow trick: that one
+          forced the browser to re-rasterize a viewport-sized shadow on every frame
+          of the pulse, which is what made the whole thing choppy.
+          The SVG rect's x/y/w/h snap to the target instantly (no CSS transition on
+          the hole). The ring fade-out covers any visible snap during step changes. */}
+      <svg
+        style={{
+          position: "fixed", inset: 0, width: "100vw", height: "100vh",
+          zIndex: 1099, pointerEvents: "none",
+          opacity: ready && visible ? 1 : 0,
+          transition: `opacity ${FADE_OUT_MS}ms ${EASE}`,
+        }}
+      >
+        <defs>
+          <mask id="ge-tour-mask" maskUnits="userSpaceOnUse">
+            <rect x="0" y="0" width="100%" height="100%" fill="white" />
+            {hasTarget && (
+              <rect
+                x={ringRect.left}
+                y={ringRect.top}
+                width={ringRect.width}
+                height={ringRect.height}
+                rx={14}
+                ry={14}
+                fill="black"
+              />
+            )}
+          </mask>
+        </defs>
+        <rect
+          x="0" y="0" width="100%" height="100%"
+          fill="rgba(8, 24, 18, 0.65)"
+          mask="url(#ge-tour-mask)"
         />
+      </svg>
+
+      {/* Spotlight ring — purely decorative. Tiny local glow only, no viewport-sized
+          shadow. Position via top/left (small element → cheap repaints). The pulse
+          animates only a small local box-shadow now, so it doesn't repaint the
+          entire viewport on every frame. */}
+      {hasTarget && (
+        <div style={{
+          position: "fixed",
+          top: ringRect.top,
+          left: ringRect.left,
+          width: ringRect.width,
+          height: ringRect.height,
+          borderRadius: 14,
+          zIndex: 1100,
+          pointerEvents: "none",
+          background: "transparent",
+          border: `2px solid ${C.primary}`,
+          boxSizing: "border-box",
+          opacity: ready && visible ? 1 : 0,
+          willChange: "opacity",
+          transition: `opacity ${FADE_OUT_MS}ms ${EASE}`,
+          animation: ready && visible ? "ge-tour-pulse 2.4s ease-in-out infinite" : "none",
+        }} />
       )}
 
-      {/* Spotlight ring — the 9999px box-shadow spread is what dims everything
-          OUTSIDE the ring. The ring element itself is transparent inside.
-          NOTE: box-shadow is NOT in the transition list anymore — it was conflicting
-          with the pulse keyframe animation and causing the ring to flicker. */}
-      <div style={{
-        position: "fixed",
-        top: ringRect ? ringRect.top : -9999,
-        left: ringRect ? ringRect.left : -9999,
-        width: ringRect ? ringRect.width : 0,
-        height: ringRect ? ringRect.height : 0,
-        borderRadius: 14,
-        zIndex: 1100,
-        pointerEvents: "none",
-        background: "transparent",
-        opacity: hasTarget && ready ? 1 : 0,
-        willChange: "top, left, width, height, opacity",
-        transition: `
-          top 520ms ${EASE},
-          left 520ms ${EASE},
-          width 520ms ${EASE},
-          height 520ms ${EASE},
-          opacity 280ms ${EASE}
-        `,
-        animation: hasTarget && ready ? "ge-tour-pulse 2.4s ease-in-out infinite" : "none",
-      }} />
-
       {/* Tooltip card — single persistent element. Position transitions smoothly,
-          content cross-fades when stepIdx changes so text doesn't snap. */}
+          opacity fades with the ring on step changes so nothing pops. */}
       {tooltipPos && (
         <div style={{
           position: "fixed",
@@ -306,20 +325,15 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
           background: C.white, borderRadius: 14,
           boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
           fontFamily: FONT, overflow: "hidden",
-          opacity: ready ? 1 : 0,
+          opacity: ready && visible ? 1 : 0,
           willChange: "top, left, opacity",
           transition: `
             top 520ms ${EASE},
             left 520ms ${EASE},
-            opacity 280ms ${EASE}
+            opacity ${FADE_OUT_MS}ms ${EASE}
           `,
         }}>
-          {/* Inner content cross-fades between steps so the words don't pop */}
-          <div style={{
-            opacity: contentVisible ? 1 : 0,
-            transform: contentVisible ? "translateY(0)" : "translateY(6px)",
-            transition: `opacity 220ms ${EASE}, transform 220ms ${EASE}`,
-          }}>
+          <div>
             {/* Header — step counter */}
             <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{
@@ -394,24 +408,19 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
       )}
 
       <style>{`
+        /* Small local glow only — no viewport-sized shadow.
+           The dim is handled separately by the SVG mask above, so this keyframe
+           only has to repaint a tight area around the ring (cheap). */
         @keyframes ge-tour-pulse {
           0%, 100% {
             box-shadow:
-              0 0 0 3px ${C.primary},
-              0 0 0 6px ${C.white},
-              0 0 0 9px ${C.primary},
-              0 0 0 9999px rgba(8, 24, 18, 0.65),
-              0 0 50px ${C.primary},
-              0 0 90px ${C.primary}90;
+              0 0 0 0 ${C.primary}55,
+              0 0 18px ${C.primary}80;
           }
           50% {
             box-shadow:
-              0 0 0 3px ${C.primary},
-              0 0 0 6px ${C.white},
-              0 0 0 12px ${C.primary},
-              0 0 0 9999px rgba(8, 24, 18, 0.65),
-              0 0 90px ${C.primary},
-              0 0 140px ${C.primary};
+              0 0 0 6px ${C.primary}00,
+              0 0 28px ${C.primary};
           }
         }
       `}</style>

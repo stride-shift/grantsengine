@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { C, FONT, MONO, injectFonts, applyOrgTheme, resetTheme } from "./theme";
-import { uid, td, dL, addD, effectiveAsk, isUsableUrl, isHomepageOnly, normaliseFunder, grantCompleteness, sanitizeNotes } from "./utils";
+import { uid, td, dL, addD, effectiveAsk, isUsableUrl, isHomepageOnly, normaliseFunder, grantCompleteness, sanitizeNotes, detectUnsolicited } from "./utils";
 import { CAD } from "./data/constants";
 import {
   isLoggedIn, getAuth, setAuth, getCurrentMember, login, logout, setPassword,
@@ -21,6 +21,87 @@ import { hasSeenOverview } from "./data/tourSteps";
 /* Context-aware help button. On Dashboard, opens a popover so the user can pick
  * between the nav walkthrough (overview) and the dashboard walkthrough.
  * On every other tab, a single click launches that tab's tour directly. */
+// Sidebar global search — surfaces any grant by funder, name, type or notes.
+// Picking a result opens the grant directly (no detour through the pipeline).
+function GlobalSearch({ grants, query, onQueryChange, onPick }) {
+  const [focused, setFocused] = useState(false);
+  const boxRef = useRef(null);
+
+  useEffect(() => {
+    if (!focused) return;
+    const handler = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setFocused(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [focused]);
+
+  const q = query.trim().toLowerCase();
+  const matches = !q ? [] : grants
+    .filter(g => {
+      if (g.stage === "archived") return false;
+      const hay = `${g.funder || ""} ${g.name || ""} ${g.type || ""} ${g.notes || ""} ${g.market || ""}`.toLowerCase();
+      return hay.includes(q);
+    })
+    .slice(0, 8);
+
+  return (
+    <div ref={boxRef} style={{ padding: "10px 12px 0", position: "relative" }}>
+      <div style={{ position: "relative" }}>
+        <span style={{
+          position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
+          color: "rgba(255,255,255,0.4)", fontSize: 12, pointerEvents: "none",
+        }}>{"⚲"}</span>
+        <input
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          placeholder="Search grants…"
+          style={{
+            width: "100%", boxSizing: "border-box",
+            padding: "8px 10px 8px 28px", fontSize: 12,
+            background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 8, color: "#fff", outline: "none",
+            fontFamily: FONT,
+          }}
+        />
+      </div>
+      {focused && q && (
+        <div style={{
+          position: "absolute", top: "100%", left: 12, right: 12, marginTop: 6,
+          background: "#0e1b2c", border: "1px solid rgba(255,255,255,0.15)",
+          borderRadius: 8, overflow: "hidden", zIndex: 30,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+          maxHeight: 320, overflowY: "auto",
+        }}>
+          {matches.length === 0 ? (
+            <div style={{ padding: "12px 14px", fontSize: 12, color: "rgba(255,255,255,0.45)", fontFamily: FONT }}>
+              No grants match "{query}"
+            </div>
+          ) : matches.map(g => (
+            <button
+              key={g.id}
+              onClick={() => { onPick(g.id); setFocused(false); }}
+              style={{
+                width: "100%", textAlign: "left", padding: "10px 12px",
+                background: "transparent", border: "none", cursor: "pointer",
+                borderBottom: "1px solid rgba(255,255,255,0.06)", fontFamily: FONT,
+                display: "block",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            >
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 2 }}>{g.funder || "(no funder)"}</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)" }}>
+                {g.name || "Untitled"} · {g.stage || "—"}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HelpButton({ currentView, selectedGrant, onLaunch }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -172,6 +253,8 @@ const Admin = lazy(() => import("./components/Admin"));
 const Calendar = lazy(() => import("./components/Calendar"));
 const Vetting = lazy(() => import("./components/Vetting"));
 const DocVault = lazy(() => import("./components/DocVault"));
+const Freebies = lazy(() => import("./components/Freebies"));
+const Archive = lazy(() => import("./components/Archive"));
 
 injectFonts();
 
@@ -199,6 +282,8 @@ const SIDEBAR_ITEMS = [
   { id: "calendar", label: "Calendar", icon: "\u25CB" },
   { id: "docs", label: "Documents", icon: "\u25A1" },
   { id: "funders", label: "Funders", icon: "\u2661" },
+  { id: "archive", label: "Archive", icon: "\u25a4" },
+  { id: "resources", label: "Resources", icon: "\u2606" },
   { id: "settings", label: "Settings", icon: "\u2699" },
 ];
 
@@ -238,6 +323,8 @@ function AppInner() {
   const [view, setView] = useState("dashboard");
   const [sel, setSel] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Global search — sidebar input that surfaces any grant by funder, name, notes, type
+  const [globalQ, setGlobalQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [complianceDocs, setComplianceDocs] = useState([]);
   // Phase 12: which tour (if any) is currently running. null = no tour.
@@ -253,6 +340,30 @@ function AppInner() {
       setActiveTour("overview");
     }
   }, [currentMember?.id, currentMember?.role]);
+
+  // Track grant opens. Records { memberId, at } per view; dedupes so refreshes
+  // and tab-switches within 5 minutes don't spam the log. Tail-capped at 50.
+  const lastViewLogRef = useRef({}); // grantId -> last logged timestamp (for this session)
+  useEffect(() => {
+    if (!sel || !currentMember?.id) return;
+    const now = Date.now();
+    const lastSession = lastViewLogRef.current[sel] || 0;
+    if (now - lastSession < 5 * 60 * 1000) return;
+    lastViewLogRef.current[sel] = now;
+    setGrants(prev => prev.map(g => {
+      if (g.id !== sel) return g;
+      const last = (g.viewLog || []).slice(-1)[0];
+      if (last && last.memberId === currentMember.id && now - new Date(last.at).getTime() < 5 * 60 * 1000) {
+        return g;
+      }
+      const next = [...(g.viewLog || []), { memberId: currentMember.id, at: new Date().toISOString() }].slice(-50);
+      const updated = { ...g, viewLog: next };
+      // Silent persist — view log is observability data, not a meaningful edit
+      try { dSave(g.id, updated, { silent: true }); } catch {}
+      return updated;
+    }));
+  }, [sel, currentMember?.id]);
+
   const { runAI, clearUploadsCache } = useAI({ org, profile, team, grants, stages });
 
   // ── Background hygiene job — runs ONCE per (member, org) session after grants load.
@@ -300,6 +411,44 @@ function AppInner() {
           cleanedNotes++;
         }
       }
+
+      // ─── Pass 1.5: deadline validation (instant) ───
+      // Active grants with a deadline that has already passed by >90 days are
+      // very likely stale — auto-archive with a note in the log so the team can
+      // restore them if needed. Past-deadline grants within 90 days get an
+      // outstanding action surfaced by OutstandingActions; we don't move those.
+      const now = Date.now();
+      let staleArchived = 0;
+      for (const g of initialGrants) {
+        if (CLOSED.has(g.stage)) continue;
+        if (!g.deadline) continue;
+        const d = new Date(g.deadline);
+        if (isNaN(d.getTime())) continue;
+        const daysPast = Math.floor((now - d.getTime()) / 86400000);
+        if (daysPast > 90) {
+          persist(g.id, {
+            stage: "archived",
+            _archivedFrom: g.stage,
+            log: [...(g.log || []), { d: new Date().toISOString().slice(0, 10), t: `Auto-archived: deadline was ${daysPast} days past with stage still ${g.stage}`, by: "system" }],
+          });
+          staleArchived++;
+        }
+      }
+      if (staleArchived > 0) console.log(`[hygiene] auto-archived ${staleArchived} stale (90d+ past deadline) grants`);
+
+      // ─── Pass 1.6: detect "accepts unsolicited proposals" from notes (instant) ───
+      // Only sets the field if it's unset AND we have a strong signal.
+      let unsolicitedSet = 0;
+      for (const g of initialGrants) {
+        if (CLOSED.has(g.stage)) continue;
+        if (g.acceptsUnsolicited === "yes" || g.acceptsUnsolicited === "no") continue;
+        const detected = detectUnsolicited(g);
+        if (detected !== "unknown") {
+          persist(g.id, { acceptsUnsolicited: detected });
+          unsolicitedSet++;
+        }
+      }
+      if (unsolicitedSet > 0) console.log(`[hygiene] detected unsolicited-proposal policy on ${unsolicitedSet} grants`);
 
       // ─── Pass 2: dedupe by normalised funder name (instant) ───
       // For each cluster of active grants sharing a normalised funder, keep the most-
@@ -848,7 +997,7 @@ function AppInner() {
         tourId={activeTour}
         currentMember={currentMember}
         currentView={view}
-        selectedGrant={sel}
+        selectedGrant={sel ? grants.find(g => g.id === sel) : null}
         onNavigate={(v) => setView(v === "grant-detail" ? view : v)}
         onClose={() => setActiveTour(null)}
       />
@@ -898,6 +1047,14 @@ function AppInner() {
             fontSize: 20, cursor: "pointer", padding: 4, display: "none",
           }} className="ge-mobile-header">{"\u2715"}</button>
         </div>
+
+        {/* Global search \u2014 finds any grant by funder, name, type or notes */}
+        <GlobalSearch
+          grants={grants}
+          query={globalQ}
+          onQueryChange={setGlobalQ}
+          onPick={(id) => { setGlobalQ(""); setSel(id); setMobileMenuOpen(false); }}
+        />
 
         {/* Nav items */}
         <div style={{ flex: 1, padding: "14px 10px" }}>
@@ -1022,6 +1179,8 @@ function AppInner() {
             orgName={org?.name || "the organisation"}
             onUpdate={updateGrant}
             onDelete={deleteGrant}
+            onAddGrant={addGrant}
+            onSelectGrant={(id) => setSel(id)}
             onBack={() => setSel(null)}
             onRunAI={runAI}
             onUploadsChanged={(grantId) => { clearUploadsCache(grantId); }}
@@ -1091,6 +1250,15 @@ function AppInner() {
             onNavigate={(v) => { setSel(null); setView(v); }}
             onLaunchTour={setActiveTour}
           />
+        ) : view === "archive" ? (
+          <Archive
+            grants={grants}
+            team={team}
+            stages={stages}
+            onSelectGrant={(id) => setSel(id)}
+          />
+        ) : view === "resources" ? (
+          <Freebies />
         ) : view === "settings" ? (
           <Settings
             org={org}

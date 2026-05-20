@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
 import { Btn, CopyBtn, DownloadBtn } from "./index";
-import { assembleText, effectiveAsk, isAIError, cleanProposalText, validateProposalBreaks } from "../utils";
+import { assembleText, effectiveAsk, isAIError, cleanProposalText, validateProposalBreaks, readabilityScore, readabilityLabel } from "../utils";
 import { buildGlossaryAppendix } from "../data/glossary";
 import { funderStrategy, detectType, PTYPES } from "../data/funderStrategy";
 import SectionCard from "./SectionCard";
@@ -12,17 +12,41 @@ import { analyzeEditInBackground } from "../editLearner";
    Replaces the monolithic Draft Proposal AICard.
 */
 
-// Parse ASK_RECOMMENDATION from a section (typically Budget)
-// Format: ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), [years] year(s), R[total]
-// The year(s) part is optional — defaults to 1
+// Parse the AI's recommended ask + reasoning from a Budget section.
+// Two formats are supported:
+//
+//   1. Generic (any org)  — preferred, works for every client:
+//        RECOMMENDED_ASK: R[amount]
+//        ASK_REASONING: [1-3 sentences explaining why]
+//
+//   2. Legacy d-lab specific — kept for backward compat with existing seeded
+//      grants that may have older ASK_RECOMMENDATION strings in their drafts:
+//        ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), [years] year(s), R[total]
+//
+// Returns { ask, reasoning, years?, mcCount?, typeNum? } or null.
 const extractAskFromText = (text) => {
+  // Generic form first — works for any client without programme-type taxonomy
+  const generic = text.match(/RECOMMENDED_ASK:\s*R\s*([\d,\s]+)/i);
+  if (generic) {
+    const amount = parseInt(generic[1].replace(/[,\s]/g, ''));
+    if (amount > 0) {
+      const reasonMatch = text.match(/ASK_REASONING:\s*([^\n]+(?:\n[^\n]+){0,2})/i);
+      const yearsMatch = text.match(/ASK_YEARS:\s*(\d+)/i);
+      return {
+        ask: amount,
+        reasoning: reasonMatch ? reasonMatch[1].trim() : null,
+        years: yearsMatch ? parseInt(yearsMatch[1]) : 1,
+      };
+    }
+  }
+  // Legacy d-lab form
   const structured = text.match(/ASK_RECOMMENDATION:\s*Type\s*(\d),\s*(\d+)\s*cohort\(s?\),\s*(?:(\d+)\s*year\(s?\),\s*)?R([\d,\s]+)/i);
   if (structured) {
     const typeNum = parseInt(structured[1]);
     const count = parseInt(structured[2]);
     const years = structured[3] ? parseInt(structured[3]) : 1;
     const amount = parseInt(structured[4].replace(/[,\s]/g, ''));
-    if (PTYPES[typeNum] && amount > 0) return { ask: amount, typeNum, mcCount: count, years };
+    if (PTYPES[typeNum] && amount > 0) return { ask: amount, typeNum, mcCount: count, years, reasoning: null };
   }
   return null;
 };
@@ -120,10 +144,30 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
 
   // ── Generate All sections sequentially ──
   const generateAll = useCallback(async () => {
-    if (!researchDone) { onRunResearch?.(); return; }
     if (generatingAllRef.current) return;
     generatingAllRef.current = true;
     setBusy(p => ({ ...p, generateAll: true }));
+
+    // Step 1: run research INLINE if missing — previously this bailed out and the
+    // section loop never resumed once research completed, leaving the user stuck
+    // staring at "Generating proposal…". Now we await it and keep the text in a
+    // local var so every section call can read it without relying on stale
+    // closure values of g.aiResearch.
+    let researchText = (g.aiResearch && !isAIError(g.aiResearch)) ? g.aiResearch : (ai?.research && !isAIError(ai.research) ? ai.research : null);
+    let fitscoreText = (g.aiFitscore && !isAIError(g.aiFitscore)) ? g.aiFitscore : (ai?.fitscore && !isAIError(ai.fitscore) ? ai.fitscore : null);
+    if (!researchText) {
+      setBusy(p => ({ ...p, sections: { ...(p.sections || {}), _research: true } }));
+      try {
+        const r = await onRunAI("research", g);
+        if (!isAIError(r)) {
+          researchText = cleanProposalText(r);
+          onUpdate(g.id, { aiResearch: researchText, aiResearchAt: new Date().toISOString() });
+        }
+      } catch (e) { console.error("Research failed:", e); }
+      setBusy(p => ({ ...p, sections: { ...(p.sections || {}), _research: false } }));
+    }
+    // Use a grant clone with the fresh research so the prompt builder picks it up
+    const gWithResearch = { ...g, aiResearch: researchText || g.aiResearch, aiFitscore: fitscoreText || g.aiFitscore };
 
     let currentSections = { ...(g.aiSections || {}) };
 
@@ -147,15 +191,15 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
           }
         }
 
-        const result = await onRunAI("sectionDraft", g, {
+        const result = await onRunAI("sectionDraft", gWithResearch, {
           sectionName,
           sectionIndex: i,
           totalSections: order.length,
           allSections: order,
           completedSections,
           customInstructions: currentSections[sectionName]?.customInstructions || "",
-          research: ai?.research || null,
-          fitscore: ai?.fitscore || null,
+          research: researchText,
+          fitscore: fitscoreText,
         }, null);
 
         if (!isAIError(result)) {
@@ -209,15 +253,22 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
       aiDraftAt: new Date().toISOString(),
     };
 
-    // Parse ASK_RECOMMENDATION from Budget-like sections
+    // Parse the AI's recommended ask + reasoning from the Budget-like section.
+    // Respect a manual override — if the user set the ask themselves (user-override,
+    // manual, or budget-builder), we don't overwrite the ask. We still record what
+    // the AI would have recommended (+ its reasoning) so the UI can show it as a hint.
     const budgetSection = order.find(n => n.toLowerCase().includes("budget"));
     if (budgetSection && currentSections[budgetSection]?.text) {
       const extracted = extractAskFromText(currentSections[budgetSection].text);
       if (extracted) {
-        updates.ask = extracted.ask;
-        updates.askSource = "ai-draft";
+        const userOverridden = ["user-override", "manual", "budget-builder"].includes(g.askSource);
         updates.aiRecommendedAsk = extracted.ask;
-        if (extracted.years > 1) updates.askYears = extracted.years;
+        if (extracted.reasoning) updates.aiAskReasoning = extracted.reasoning;
+        if (!userOverridden) {
+          updates.ask = extracted.ask;
+          updates.askSource = "ai-draft";
+          if (extracted.years > 1) updates.askYears = extracted.years;
+        }
       }
     }
 
@@ -405,6 +456,22 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
               }} />
             </div>
             {g.aiSectionsAt && <span style={{ fontSize: 10, fontFamily: MONO, color: C.t4 }}>Last full run: {new Date(g.aiSectionsAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}</span>}
+            {/* Readability — Flesch Reading Ease on the assembled proposal.
+                Donor-facing proposals should land in "plain English" or "fairly difficult". */}
+            {assembledText && assembledText.length > 500 && (() => {
+              const score = readabilityScore(assembledText);
+              const meta = readabilityLabel(score);
+              if (score === null || !meta) return null;
+              const toneColor = meta.tone === "ok" ? C.ok : meta.tone === "amber" ? C.amber : C.red;
+              return (
+                <span title={meta.note} style={{
+                  fontSize: 10, fontFamily: MONO, color: toneColor, fontWeight: 700,
+                  padding: "1px 6px", borderRadius: 4, background: `${toneColor}10`,
+                }}>
+                  Readability: {score} · {meta.label}
+                </span>
+              );
+            })()}
           </div>
         </div>
 
@@ -429,6 +496,32 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
                 filename={`${g.name}_proposal`}
                 onDocx={async (text, fn) => { await exportDocx(); }}
               />
+              {/* Glossary toggle — appends a glossary of SA NPO terms / sector
+                  acronyms to the proposal so international or non-specialist
+                  funders aren't tripped up by B-BBEE, POPIA, SETA, etc. */}
+              {(() => {
+                const previewAppendix = assembledText ? buildGlossaryAppendix(assembledText) : "";
+                const hasTerms = !!previewAppendix;
+                const on = !!g.includeGlossary;
+                const disabled = !hasTerms && !on;
+                return (
+                  <button
+                    onClick={() => onUpdate(g.id, { includeGlossary: !on })}
+                    disabled={disabled}
+                    title={!hasTerms && !on ? "No glossary terms detected in this proposal yet." : on ? "Glossary ON — click to remove" : "Append a glossary to this proposal"}
+                    style={{
+                      fontSize: 11, fontWeight: 600,
+                      color: on ? C.white : (disabled ? C.t4 : C.t2),
+                      background: on ? C.primary : C.white,
+                      border: `1px solid ${on ? C.primary : C.line}`,
+                      borderRadius: 6, padding: "5px 12px",
+                      cursor: disabled ? "not-allowed" : "pointer", fontFamily: FONT,
+                      opacity: disabled ? 0.55 : 1,
+                    }}>
+                    ⓘ Glossary{on ? " ✓" : ""}
+                  </button>
+                );
+              })()}
             </>
           )}
           {isGeneratingAll ? (
@@ -520,13 +613,68 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
       })()}
 
       {/* ── Document Preview ── */}
-      {showPreview && assembledText.trim() && (
+      {showPreview && assembledText.trim() && (() => {
+        const fitscoreNum = (() => {
+          if (!g?.aiFitscore) return null;
+          const m = String(g.aiFitscore).match(/SCORE:\s*(\d+)/i);
+          return m ? parseInt(m[1]) : null;
+        })();
+        const wordCount = assembledText.split(/\s+/).filter(Boolean).length;
+        const showTOC = order.filter(n => sections[n]?.text && !isAIError(sections[n].text)).length >= 3;
+        return (
         <div style={{ padding: "0 14px 14px" }}>
           <div style={{
             background: "#fff", borderRadius: 8, border: `1px solid ${C.line}`,
             boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-            maxHeight: "70vh", overflow: "auto",
+            maxHeight: "75vh", overflow: "hidden",
+            display: "flex",
           }}>
+            {/* TOC sidebar — only when proposal has 3+ sections */}
+            {showTOC && (
+              <div style={{ width: 220, borderRight: `1px solid ${C.line}`, overflow: "auto", padding: "16px 0", background: C.warm100, flexShrink: 0 }}>
+                <div style={{ padding: "0 16px 10px", fontSize: 9, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", fontFamily: FONT }}>Contents</div>
+                {order.map((name, i) => {
+                  const section = sections[name];
+                  if (!section?.text || isAIError(section.text)) return null;
+                  return (
+                    <a key={name} href={`#docprev-sec-${i}`}
+                      onClick={e => { e.preventDefault(); document.getElementById(`docprev-sec-${i}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+                      style={{ display: "block", padding: "6px 16px", fontSize: 11, color: C.t2, textDecoration: "none", lineHeight: 1.4, fontFamily: FONT, borderLeft: "2px solid transparent" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderLeftColor = C.primary; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderLeftColor = "transparent"; }}>
+                      <span style={{ fontFamily: MONO, color: C.t4, marginRight: 6 }}>{String(i + 1).padStart(2, "0")}</span>
+                      {name}
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+            {/* Document */}
+            <div style={{ flex: 1, overflow: "auto", minWidth: 0 }}>
+              {/* Sticky metadata bar — funder, ask, deadline, fit score always visible */}
+              <div style={{
+                position: "sticky", top: 0, zIndex: 5,
+                background: "rgba(255,255,255,0.97)", backdropFilter: "blur(8px)",
+                borderBottom: `1px solid ${C.line}`,
+                padding: "10px 24px", fontFamily: FONT,
+                display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", fontSize: 11,
+              }}>
+                <span style={{ color: C.t3 }}>Funder: <strong style={{ color: C.dark }}>{g.funder}</strong></span>
+                {g.ask > 0 && <span style={{ color: C.t3 }}>Ask: <strong style={{ color: C.dark, fontFamily: MONO }}>R{g.ask.toLocaleString()}</strong></span>}
+                {g.deadline && <span style={{ color: C.t3 }}>Deadline: <strong style={{ color: C.dark }}>{new Date(g.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}</strong></span>}
+                <span style={{ color: C.t3, fontFamily: MONO }}>{wordCount.toLocaleString()} words</span>
+                {fitscoreNum !== null && (
+                  <span style={{
+                    marginLeft: "auto",
+                    fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 100,
+                    background: fitscoreNum >= 70 ? `${C.ok}15` : fitscoreNum >= 50 ? `${C.amber}15` : `${C.red}15`,
+                    color: fitscoreNum >= 70 ? C.ok : fitscoreNum >= 50 ? C.amber : C.red,
+                    fontFamily: MONO, letterSpacing: 0.4,
+                  }}>
+                    FIT {fitscoreNum}
+                  </span>
+                )}
+              </div>
             {/* Page-like container */}
             <div style={{
               maxWidth: 700, margin: "0 auto", padding: "48px 56px",
@@ -551,12 +699,33 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
                 )}
               </div>
 
+              {/* Table of contents — printed at the top for long proposals (300+ words) */}
+              {showTOC && wordCount > 800 && (
+                <div style={{ marginBottom: 32, padding: "16px 20px", background: C.warm100, borderRadius: 6, border: `1px solid ${C.line}`, fontFamily: FONT }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 8 }}>Contents</div>
+                  {order.map((name, i) => {
+                    const sec = sections[name];
+                    if (!sec?.text || isAIError(sec.text)) return null;
+                    return (
+                      <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "3px 0", fontSize: 12 }}>
+                        <a href={`#docprev-sec-${i}`}
+                          onClick={e => { e.preventDefault(); document.getElementById(`docprev-sec-${i}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+                          style={{ color: C.dark, textDecoration: "none", fontFamily: FONT }}>
+                          <span style={{ fontFamily: MONO, color: C.t4, marginRight: 8 }}>{String(i + 1).padStart(2, "0")}</span>
+                          {name}
+                        </a>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Sections */}
               {order.map((name, i) => {
                 const section = sections[name];
                 if (!section?.text || isAIError(section.text)) return null;
                 return (
-                  <div key={name} style={{ marginBottom: 28 }}>
+                  <div key={name} id={`docprev-sec-${i}`} style={{ marginBottom: 28, scrollMarginTop: 70 }}>
                     <div style={{
                       fontSize: 15, fontWeight: 700, color: C.dark, fontFamily: FONT,
                       marginBottom: 8, paddingBottom: 4,
@@ -605,9 +774,11 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
                 </div>
               </div>
             </div>
-          </div>
+            </div>{/* end document column */}
+          </div>{/* end flex wrapper */}
         </div>
-      )}
+        );
+      })()}
 
       {/* ── Section Cards (hidden in Full Document view) ── */}
       {!showPreview && <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>

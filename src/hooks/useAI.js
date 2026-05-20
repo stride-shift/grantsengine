@@ -97,11 +97,20 @@ export default function useAI({ org, profile, team, grants, stages }) {
       }
     }
 
-    // Add structured programme costs (useful for proposals, research, and fit scoring)
+    // Add structured programme costs from this org's profile (source of truth
+    // for budgets — the AI uses these instead of any hardcoded template).
+    // Tolerates legacy `desc` field as well as new `description` field.
     const needsOrgContext = ["draft", "sectionDraft", "research", "fitscore", "followup"].includes(type);
     if (profile?.programmes?.length && needsOrgContext) {
-      const progBlock = "=== EXACT PROGRAMME COSTS (use these figures) ===\n" +
-        profile.programmes.map(p => `${p.name}: R${(p.cost || 0).toLocaleString()} — ${p.desc}`).join("\n");
+      const lines = profile.programmes.map(p => {
+        const bits = [`${p.name}: R${(p.cost || 0).toLocaleString()}`];
+        if (p.students) bits.push(`${p.students} students`);
+        if (p.duration) bits.push(p.duration);
+        const desc = p.description || p.desc;
+        if (desc) bits.push(`— ${desc}`);
+        return bits.join(" · ");
+      });
+      const progBlock = "=== PROGRAMMES (this org's source of truth — use these figures when sizing budgets) ===\n" + lines.join("\n");
       profileSections.push(progBlock);
     }
 
@@ -197,13 +206,38 @@ export default function useAI({ org, profile, team, grants, stages }) {
             }
             proposalLibraryCache.current = { proposals: withText, fetchedAt: now };
           }
-          const refProposals = proposalLibraryCache.current.proposals || [];
-          if (refProposals.length > 0) {
+          // Also pull in-app draft references — grants the team has marked as
+          // good examples via the "Use as AI reference" toggle on closed grants.
+          let inAppRefs = [];
+          try {
+            const grantRefData = await kvGet("proposal_grant_references");
+            const grantRefIds = Array.isArray(grantRefData) ? grantRefData : (grantRefData?.value || []);
+            if (grantRefIds.length > 0 && Array.isArray(grants)) {
+              for (const gid of grantRefIds) {
+                const g = grants.find(x => x.id === gid);
+                if (!g) continue;
+                // Prefer aiSections (assembled), fall back to aiDraft
+                let text = "";
+                if (g.aiSections) {
+                  text = Object.values(g.aiSections).map(s => s?.text || "").filter(Boolean).join("\n\n");
+                }
+                if (!text && g.aiDraft) text = g.aiDraft;
+                if (text && text.length > 200) {
+                  const outcomeTag = g.stage === "won" ? "WON" : g.stage === "lost" ? "LOST" : g.stage?.toUpperCase() || "DRAFT";
+                  inAppRefs.push({ name: `${g.funder || "Funder"} — ${g.name || "Untitled"} [${outcomeTag}]`, text });
+                }
+                if (inAppRefs.length >= 4) break;
+              }
+            }
+          } catch { /* in-app refs are non-blocking */ }
+
+          const allRefs = [...refProposals, ...inAppRefs];
+          if (allRefs.length > 0) {
             const proposalBudget = Math.min(6000, remaining - 200);
             const parts = ["=== REFERENCE PROPOSALS (starred by the team as examples of good proposals — match their quality) ===",
-              "Study these proposals carefully. Match their tone, specificity, structure, and voice when writing the new proposal. Pay attention to how they open, how they frame budgets, how they tell the org story, and how they close."];
+              "Study these proposals carefully. Match their tone, specificity, structure, and voice when writing the new proposal. Pay attention to how they open, how they frame budgets, how they tell the org story, and how they close. WON proposals show what works; LOST proposals show what to avoid repeating."];
             let budget = proposalBudget;
-            for (const p of refProposals) {
+            for (const p of allRefs) {
               if (budget <= 0) break;
               const excerpt = p.text.slice(0, Math.min(2500, budget));
               parts.push(`[Reference: ${p.name}]\n${excerpt}`);
@@ -315,6 +349,20 @@ Cost: R${(detectedPt.cost||0).toLocaleString()} | Per student: R${detectedPt.per
       const relNote = fs.returning
         ? `RETURNING FUNDER — this is a partner renewing, not a stranger. Reference the existing relationship with specifics:\n${fs.hook}\nFrame as continuity and deepening, not a new pitch. Show what their previous investment built and what comes next.`
         : `NEW FUNDER — relationship is "${grant.rel || "Cold"}". Make it easy to say yes to a first conversation.`;
+
+      // Detect what's missing from this grant so the AI can call those out
+      // explicitly in the Assumptions section instead of fabricating to fill gaps.
+      const missingFields = [];
+      if (!grant.deadline) missingFields.push("submission deadline not on record");
+      if (!grant.funderBudget || grant.funderBudget <= 0) missingFields.push("funder's typical grant size unknown");
+      if (!grant.aiResearch) missingFields.push("no prior research on this funder");
+      if (!grant.funderBrief) missingFields.push("no funder brief documented");
+      if (!grant.geo || grant.geo.length === 0) missingFields.push("funder's geographic preferences unconfirmed");
+      if (!grant.focus || grant.focus.length === 0) missingFields.push("funder's stated focus areas unconfirmed");
+      if (grant.rel === "Cold" || !grant.rel) missingFields.push("no existing relationship with this funder");
+      const assumptionsNote = missingFields.length > 0
+        ? `\nASSUMPTIONS — KNOWN GAPS (these MUST appear in the Assumptions section, each as a specific bullet stating what was assumed and why):\n${missingFields.map(m => `- ${m}`).join("\n")}\n\nFor each gap, the Assumptions section must:\n1. State the assumption explicitly ("We have assumed X because Y").\n2. Flag the assumption as something that can be confirmed with the funder.\n3. NOT pretend the info is known — better to surface uncertainty than to fabricate.`
+        : "";
       return await api(
         `You write funding proposals for ${orgName}. The organisation's full context — mission, programmes, outcomes, alumni stories, tools, and delivery model — is provided in the user message below. Use that context as your source of truth.
 
@@ -408,6 +456,7 @@ FUNDER ANGLE: Lead with "${fs.lead}"
 OPENING HOOK: ${fs.hook}
 USE THEIR LANGUAGE: ${fs.lang}
 ${relNote}
+${assumptionsNote}
 ${budgetInfo ? `\n${budgetInfo.block}` : ""}
 ${fs.mc ? `MULTI-COHORT: ${fs.mc.count} cohorts requested` : ""}
 
@@ -453,11 +502,13 @@ ADDITIONAL RULES:
 - Do NOT switch to cold, institutional tone after the opening — sustain warmth throughout${priorResearch ? "\nUse the funder intelligence below to tailor tone and emphasis." : ""}${priorFitScore || grant.aiFitscore ? "\nIMPORTANT: A fit score analysis is included below. Use it strategically — lean into the STRENGTHS it identifies, directly address any GAPS or RISKS it flags (turn weaknesses into narrative strengths where possible), and match the emphasis to the alignment areas scored highest." : ""}
 
 BUDGET-ASK CONSISTENCY — THE MOST COMMON ERROR:
-The total amount in your budget table, the amount in the budget narrative, and the ASK_RECOMMENDATION MUST all be the SAME number. ${budgetInfo ? `The confirmed total is R${budgetInfo.total.toLocaleString()}. Use this exact figure everywhere.` : grant.ask > 0 ? `The confirmed ask is R${grant.ask.toLocaleString()}. Use this exact figure everywhere.` : ""}
+The total amount in your budget table, the amount in the budget narrative, and the RECOMMENDED_ASK MUST all be the SAME number. ${budgetInfo ? `The confirmed total is R${budgetInfo.total.toLocaleString()}. Use this exact figure everywhere.` : grant.ask > 0 ? `The confirmed ask is R${grant.ask.toLocaleString()}. Use this exact figure everywhere.` : ""}
 
 ASK RECOMMENDATION — CRITICAL:
-At the very END of your proposal (after all sections), include this structured line on its own line. The system parses it to set the grant ask:
-${bt ? `ASK_RECOMMENDATION: Type ${bt.typeNum}, ${bt.cohorts} cohort(s), ${bt.years || 1} year(s), R${bt.total}` : `ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), [years] year(s), R[total amount as integer with no commas or spaces]`}
+At the very END of your proposal (after all sections), include these three structured lines on their own lines. The system parses them to set the grant ask + show your reasoning:
+RECOMMENDED_ASK: R[total amount as integer with no commas or spaces]
+ASK_YEARS: [number of years over which this amount runs — 1 if single year]
+ASK_REASONING: [1-3 sentences explaining how you arrived at this amount — what scope it funds, why it fits this funder, and what the per-unit logic is. Be concrete and specific to this funder + this organisation. Do NOT reference internal programme type taxonomies — explain in plain terms (e.g. "Funds 60 learners across 2 cohorts over 9 months at R~21k per learner — sits inside the funder's typical R1-2M skills bracket and matches their preferred 9-month intervention length").]
 ${budgetInfo ? `The ask MUST be R${budgetInfo.total.toLocaleString()}. Do NOT change this amount.` : ""}${factGuard}`,
         `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nType: ${grant.type}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: R${(grant.funderBudget || 0).toLocaleString()} — recommend the best programme type and calculate the right ask`}\nFocus: ${(Array.isArray(grant.focus) ? grant.focus : []).join(", ")}\nNotes: ${grant.notes || "None"}${grant.funderBrief ? `\n\n=== FUNDER BRIEF (PRIMARY SOURCE OF TRUTH — paste from funder verbatim) ===\n${grant.funderBrief}\nCRITICAL: This is the funder's own words. Mirror their language, answer every question they ask, and respect every constraint they specify (deadlines, page limits, eligibility, themes). If anything in this brief contradicts other context, the brief wins. Do NOT introduce facts, dates, or programme details that are not in this brief, the grant data, or the organisation context.` : ""}${grant.funderFeedback ? `\n\n=== FUNDER FEEDBACK (from previous application) ===\n${grant.funderFeedback}\nCRITICAL: This is real feedback from the funder. Address every concern raised. If they said the budget was too high, adjust. If they wanted more evidence, provide it. This feedback is your most important input.` : ""}${researchBlock}${fitScoreBlock}`,
         false, 5000
@@ -609,10 +660,14 @@ ${budgetInfo ? `${budgetInfo.block}\nCRITICAL: The budget above is the CONFIRMED
 ${structuredRes?.budgetRange ? `FUNDER BUDGET INTELLIGENCE (from research): ${structuredRes.budgetRange}\n` : ""}
 After the table, weave the numbers into narrative: "For ${perStudentStr} per student — less than a semester at most private colleges — a young person receives ${budgetInfo?.duration || "9 months"} of daily coaching, enterprise software access, ICITP accreditation, and a career launchpad."
 
-ASK RECOMMENDATION — include at the VERY END on its own line:
-${bt ? `ASK_RECOMMENDATION: Type ${bt.typeNum}, ${bt.cohorts} cohort(s), ${bt.years || 1} year(s), R${bt.total}` : `ASK_RECOMMENDATION: Type [1-7], [count] cohort(s), [years] year(s), R[total amount as integer with no commas or spaces]
-Example (single year): ASK_RECOMMENDATION: Type 3, 2 cohort(s), 1 year(s), R2472000
-Example (multi-year): ASK_RECOMMENDATION: Type 1, 3 cohort(s), 3 year(s), R4644000`}`;
+ASK RECOMMENDATION — include these three structured lines at the VERY END, each on its own line. The system parses them:
+RECOMMENDED_ASK: R[total amount as integer with no commas or spaces]
+ASK_YEARS: [number of years — 1 if single year]
+ASK_REASONING: [1-3 sentences explaining how you arrived at this amount — scope, fit with funder, per-unit logic. Plain language, no internal taxonomies.]
+Example:
+RECOMMENDED_ASK: R2472000
+ASK_YEARS: 1
+ASK_REASONING: Funds two cohorts of 20 learners each over 9 months at roughly R62k per learner. Sits inside this funder's typical R2-3M skills bracket and matches their preference for measurable employment outcomes within 12 months.`;
 
       } else if (isProgramme) {
         sectionGuide = `PROGRAMME SECTION INSTRUCTIONS:
@@ -912,6 +967,111 @@ The email should:
 ${fs.returning ? "- RETURNING FUNDER: This is a partner. Reference the relationship warmly — you have shared history." : "- NEW FUNDER: Be respectful and make it easy to say yes to a conversation. Lower the bar: a call, a coffee, not a commitment."}${factGuard}`,
         `Organisation:\n${orgCtx}\n\nGrant: ${grant.name}\nFunder: ${grant.funder}\nStage: ${grant.stage}\n${grant.ask > 0 ? `Ask: R${grant.ask.toLocaleString()}` : `Funder Budget: ~R${(grant.funderBudget || 0).toLocaleString()}`}\nSubmitted: ${grant.subDate || "Not yet"}\nNotes: ${grant.notes || "None"}`,
         false, 1000
+      );
+    }
+    if (type === "extractRequiredDocs") {
+      // Parse the funder brief + research to extract the exact list of documents
+      // the funder expects attached. Returns a structured JSON list so the UI
+      // can render a checklist.
+      const sources = [
+        grant.funderBrief ? `=== FUNDER BRIEF ===\n${grant.funderBrief}` : "",
+        grant.aiResearch ? `=== RESEARCH ===\n${String(grant.aiResearch).slice(0, 4000)}` : "",
+        grant.notes ? `=== TEAM NOTES ===\n${grant.notes}` : "",
+      ].filter(Boolean).join("\n\n");
+      if (!sources.trim()) return JSON.stringify({ documents: [], note: "No brief or research yet — run Funder Research first." });
+      return await api(
+        `You extract the list of documents a funder requires for a grant application.
+
+OUTPUT — return ONLY valid JSON (no markdown, no prose), in this exact shape:
+{
+  "documents": [
+    {"name": "Audited Financial Statements", "required": true, "note": "Last 2 years if available"},
+    {"name": "PBO Certificate", "required": true, "note": ""},
+    {"name": "Board Resolution", "required": false, "note": "Only if requested at next stage"}
+  ],
+  "summary": "1-2 sentence summary of what the funder wants attached"
+}
+
+RULES:
+- Only include documents the FUNDER specifically asks for. Do NOT invent based on what's typical.
+- If the brief just says "submit a proposal", documents = []. Don't pad.
+- Use the funder's exact terms when possible (e.g. "Tax Clearance Certificate" not "tax doc").
+- "required: true" only if the funder uses words like "must include", "required", "mandatory". Otherwise "required: false".
+- The "note" field is for any condition the funder attached (e.g. "Last 3 years", "signed by director").${factGuard}`,
+        sources,
+        false, 1200
+      );
+    }
+    if (type === "extractEmailFeedback") {
+      // Parse a pasted funder email/response and extract structured feedback.
+      // Returns a short, structured summary the team can paste into Funder Feedback.
+      // Input passes via grant.notes (re-used as the pasted text payload).
+      const pasted = (grant.notes || "").trim();
+      if (!pasted || pasted.length < 30) return "Paste the funder's email or response first — at least a few sentences.";
+      return await api(
+        `You extract structured funder feedback from a pasted email or response. The team will paste this output into the "Funder Feedback" field on the grant, then use it to refine their next attempt.
+
+OUTPUT FORMAT (plain text, exactly these labelled sections — skip a section if the email is silent on it):
+
+OUTCOME: [Awarded / Declined / Deferred / Shortlisted / Needs revision / Acknowledged receipt / Other]
+
+SCORE / RANKING: [If the funder shared a score or where you ranked, capture it. Otherwise omit this section.]
+
+KEY REASONS:
+- [reason 1]
+- [reason 2]
+- [reason 3]
+
+WHAT WORKED:
+- [thing the funder explicitly praised]
+
+WHAT DIDN'T:
+- [thing the funder flagged as weak / missing / wrong]
+
+REQUESTED CHANGES:
+- [specific thing they asked you to change for a resubmission]
+
+NEXT STEPS:
+- [what the funder said you should do next]
+- [any deadline they mentioned]
+
+CONTACT: [name and email/phone if mentioned in the email]
+
+RULES:
+- Quote the funder's own words where possible — don't paraphrase into grant-speak.
+- If a section has no content in the email, omit it entirely. Don't write "None" or "N/A".
+- Do NOT invent. If the email is short or vague, the output should be short and vague.
+- Plain text. No markdown. No introduction. Start directly with OUTCOME:.${factGuard}`,
+        `Funder: ${grant.funder}\nGrant: ${grant.name}\n\n=== EMAIL TEXT TO PARSE ===\n${pasted}`,
+        false, 900
+      );
+    }
+    if (type === "extractNotes") {
+      // Pull useful internal-notes intel from uploaded org docs.
+      // The orgCtx already includes uploaded board minutes, past proposals, donor
+      // reports, etc. We just need to ask the model to surface anything specific
+      // to THIS funder that would be useful in the internal notes field.
+      return await api(
+        `You are an analyst surfacing strategically useful internal context about a specific funder.
+
+You have access to ${orgName}'s uploaded documents — board minutes, past proposals, donor reports, contact lists, partnership records. Search them for anything relevant to "${grant.funder}".
+
+OUTPUT — concise bullet points (4-8 max), suitable for pasting into an "Internal Notes" field. Each bullet states ONE fact. Examples of what to surface:
+- Past interactions ("Met Alison at SAGEA breakfast 2023; warm")
+- Decision-makers ("CSI lead is Sipho — Barbara has his number")
+- Preferences ("Prefers multi-year commitments; declines AI-only programmes")
+- History ("Funded R1.2M in 2022; project closed early due to compliance gap")
+- Relationships ("Co-funded with TK Foundation in 2024 — overlap with David's network")
+- Avoidances ("Said no last time because budget was unrealistic")
+
+RULES:
+- One fact per bullet. No generic statements.
+- Cite the source document if helpful (e.g. "[2024 board minutes]").
+- If you find NOTHING about this funder in the uploaded docs, output exactly: "No prior intel on ${grant.funder} in uploaded documents." Do not invent.
+- Do NOT include public-facing info (annual report stats, etc) — only internal/team context.
+- Plain text bullets, no markdown headings.${factGuard}`,
+        `Funder: ${grant.funder}\nType: ${grant.type}\nExisting notes (don't repeat these):\n${grant.notes || "None"}\n\nOrganisation context + uploaded documents:\n${orgCtx}`,
+        false, 800
       );
     }
     if (type === "fitscore") {
