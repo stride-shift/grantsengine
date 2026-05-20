@@ -1,30 +1,41 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import crypto from 'crypto';
 
-let _transport = null;
-
-function getTransport() {
-  if (!_transport) {
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
-    if (!user || !pass) {
-      return null;
-    }
-    _transport = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user, pass },
-    });
+// Env: RESEND_API_KEY (required to send), EMAIL_FROM (verified-domain sender).
+// Missing key → all sends silently no-op (logs only).
+let _resend = null;
+function getResend() {
+  if (!_resend) {
+    const key = process.env.RESEND_API_KEY;
+    if (!key) return null;
+    _resend = new Resend(key);
   }
-  return _transport;
+  return _resend;
 }
 
-// No-op transport when SMTP is not configured — silently drops all emails
-const _noop = { sendMail: async () => ({ messageId: 'noop-smtp-disabled' }) };
+const FROM = process.env.EMAIL_FROM || 'Grants Engine <onboarding@resend.dev>';
 
-// Safe transport getter — always returns something callable, never null
-function safeTransport() {
-  const t = getTransport();
-  return t || _noop;
+async function sendViaResend({ to, subject, html, ics, tag = 'email' }) {
+  if (!to || !subject) { console.warn(`[email] Skipping ${tag}: missing to or subject`); return false; }
+  const client = getResend();
+  if (!client) { console.log(`[email] Would send ${tag} to:`, to, '|', subject, '(RESEND_API_KEY not set)'); return false; }
+  try {
+    const payload = { from: FROM, to: Array.isArray(to) ? to : [to], subject, html };
+    if (ics) {
+      payload.attachments = [{
+        filename: 'invite.ics',
+        content: Buffer.from(ics).toString('base64'),
+        contentType: 'text/calendar; method=PUBLISH; charset=utf-8',
+      }];
+    }
+    const { data, error } = await client.emails.send(payload);
+    if (error) { console.error(`[email] Resend rejected ${tag}:`, error.message || error); return false; }
+    console.log(`[email] ${tag} sent to:`, to, '(id:', data?.id, ')');
+    return true;
+  } catch (e) {
+    console.error(`[email] Resend send failed for ${tag}:`, e.message);
+    return false;
+  }
 }
 
 const STAGE_LABELS = {
@@ -42,8 +53,11 @@ const STAGE_COLORS = {
 const APP_URL = process.env.APP_URL || 'https://grantsengine.vercel.app';
 
 // Supabase public URLs for email assets
-const BG_URL = 'https://ymqejaufpoiaedgjwohe.supabase.co/storage/v1/object/public/logos/email/email-bg.png';
-const GE_LOGO_URL = 'https://ymqejaufpoiaedgjwohe.supabase.co/storage/v1/object/public/logos/email/grants-engine-logo.png';
+// Cache-bust suffix — bumped whenever the logo or bg image is replaced, so
+// Resend and email clients don't keep serving a stale version.
+const ASSET_V = 'v3';
+const BG_URL = `https://ymqejaufpoiaedgjwohe.supabase.co/storage/v1/object/public/logos/email/email-bg.png?${ASSET_V}`;
+const GE_LOGO_URL = `https://ymqejaufpoiaedgjwohe.supabase.co/storage/v1/object/public/logos/email/grants-engine-logo.png?${ASSET_V}`;
 
 /* ── ICS Calendar Helpers ── */
 function icsDate(d) {
@@ -117,231 +131,206 @@ function generateCancelICS({ grantId, sequence = 1 }) {
 }
 
 export const sendStageChangeEmail = async (toEmail, memberName, grantName, funder, fromStage, toStage, movedByName, grantId, deadline) => {
-  const transport = safeTransport();
   const fromLabel = STAGE_LABELS[fromStage] || fromStage;
   const toLabel = STAGE_LABELS[toStage] || toStage;
-  const fromColor = STAGE_COLORS[fromStage] || "#6B7280";
-  const toColor = STAGE_COLORS[toStage] || "#3B4A3F";
   const isWon = toStage === "won";
   const isLost = toStage === "lost";
 
   const subject = isWon ? `Won: ${grantName}` : isLost ? `Lost: ${grantName}` : `${grantName} → ${toLabel}`;
   const grantUrl = grantId ? `${APP_URL}?grant=${grantId}` : APP_URL;
 
-  let contextMsg = `${movedByName || "Someone"} moved this grant forward — it's now ready for qualification review.`;
-  if (isWon) contextMsg = `Congratulations! This grant has been won. Time to celebrate and plan next steps.`;
-  if (isLost) contextMsg = `Unfortunately this grant was not successful. Review feedback and consider reapplying.`;
-  if (toStage === "drafting") contextMsg = `${movedByName || "Someone"} moved this grant forward — it's now ready for draft proposal writing.`;
-  if (toStage === "review") contextMsg = `${movedByName || "Someone"} moved this grant forward — it's now ready for review.`;
-  if (toStage === "submitted") contextMsg = `${movedByName || "Someone"} submitted this grant — track follow-ups with the funder.`;
-  if (toStage === "qualifying") contextMsg = `${movedByName || "Someone"} moved this grant forward — it's now ready for qualification review.`;
+  // Eyebrow, headline + accent vary by outcome
+  const eyebrow = isWon ? `✨ Great news, ${memberName}` : isLost ? `Update for ${memberName}` : `✦ Good news, ${memberName}`;
+  const headlineLead = isWon ? "Your grant was" : isLost ? "Your grant was" : "Your grant just";
+  const headlineAccent = isWon ? "won" : isLost ? "declined" : "moved forward";
+  const statusPill = isWon ? "WON" : isLost ? "CLOSED" : "ACTIVE";
 
-  const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin: 0; padding: 0; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <!-- Outer wrapper with starry background -->
-  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background: #ffffff;">
-    <tr>
-      <td align="center" style="padding: 40px 16px;">
-        <table cellpadding="0" cellspacing="0" border="0" width="480" style="max-width: 480px; background-image: url('${BG_URL}'); background-size: cover; background-position: center; background-color: #0a1628; border-radius: 20px; overflow: hidden;">
-          <tr><td>
+  let noteText = `${movedByName || "Someone"} moved this grant forward — it's now ready for qualification review.`;
+  if (isWon) noteText = `Congratulations! This grant has been won. Time to celebrate and plan next steps.`;
+  else if (isLost) noteText = `This grant was not successful. Review feedback and consider reapplying.`;
+  else if (toStage === "drafting") noteText = `${movedByName || "Someone"} moved this grant forward — it's now ready for draft proposal writing.`;
+  else if (toStage === "review") noteText = `${movedByName || "Someone"} moved this grant forward — it's now ready for review.`;
+  else if (toStage === "submitted") noteText = `${movedByName || "Someone"} submitted this grant — track follow-ups with the funder.`;
+  else if (toStage === "qualifying") noteText = `${movedByName || "Someone"} moved this grant forward — it's now ready for qualification review.`;
 
-            <!-- Header: GE logo -->
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 28px 28px 20px;">
-              <tr>
-                <td style="text-align: center; vertical-align: middle;">
-                  <img src="${GE_LOGO_URL}" alt="Grants Engine" height="80" style="height: 80px; display: block; margin: 0 auto;" />
-                </td>
-              </tr>
-            </table>
+  // Light pastel template (your original design), centered, formal serif,
+  // GE logo at top of header. Used for stage-change emails.
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grants Engine — Grant Update</title>
+</head>
+<body style="margin:0;padding:24px;background:#EDF3F0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
 
-            <!-- Greeting -->
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 12px 28px 8px;">
-              <tr><td>
-                <p style="color: #ffffff; font-size: 16px; margin: 0 0 8px; font-weight: 400;">Hi ${memberName},</p>
-                <p style="color: rgba(255,255,255,0.6); font-size: 14px; margin: 0 0 24px; line-height: 1.5;">
-                  Your grant just progressed in <strong style="color: #ffffff;">Grants Engine</strong> &#10024;
-                </p>
-              </td></tr>
-            </table>
+<div style="width:100%;max-width:560px;margin:0 auto;background:#F7FBF9;border-radius:18px;overflow:hidden;color:#0F2A2E;border:1px solid rgba(0,0,0,0.04);box-shadow:0 20px 60px rgba(20,80,90,0.1);">
 
-            <!-- Grant card (glass effect) -->
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 0 20px;">
-              <tr><td>
-                <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 24px;">
-                  <tr><td>
+  <!-- Header — everything centred -->
+  <div style="padding:20px 44px 60px;text-align:center;background:radial-gradient(ellipse 520px 320px at 85% 15%, rgba(180,230,215,0.7), transparent 65%),radial-gradient(ellipse 420px 280px at 10% 85%, rgba(175,210,240,0.7), transparent 65%),linear-gradient(180deg, #E8F4EF 0%, #DEEDE8 100%);">
+    <img src="${GE_LOGO_URL}" alt="Grants Engine" height="180" style="height:180px;display:block;margin:0 auto 8px;" />
+    <p style="margin:0 0 14px;font-size:11px;color:#2E7A6E;letter-spacing:2.5px;text-transform:uppercase;font-weight:700;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">${eyebrow}</p>
+    <h1 style="margin:0;font-size:32px;font-weight:700;color:#0F2A2E;line-height:1.2;letter-spacing:-0.6px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">${headlineLead} <span style="color:#2E7A8A;">${headlineAccent}</span>.</h1>
+  </div>
 
-                    <!-- Grant name & funder -->
-                    <p style="font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 4px;">${grantName}</p>
-                    <p style="font-size: 13px; color: rgba(255,255,255,0.4); margin: 0 0 22px;">${funder}</p>
+  <!-- Card -->
+  <div style="margin:-32px 32px 0;padding:32px;background:#FFFFFF;border-radius:16px;box-shadow:0 8px 32px rgba(20,80,90,0.08), 0 2px 8px rgba(20,80,90,0.04);border:1px solid rgba(0,0,0,0.03);">
 
-                    <!-- Stage pills -->
-                    <table cellpadding="0" cellspacing="0" border="0" width="100%">
-                      <tr>
-                        <td width="40%" style="text-align: center;">
-                          <div style="display: inline-block; padding: 10px 20px; border: 1px solid ${fromColor}50; border-radius: 20px; background: ${fromColor}15;">
-                            <span style="font-size: 14px; font-weight: 600; color: ${fromColor};">${fromLabel}</span>
-                            <span style="font-size: 11px; color: rgba(255,255,255,0.3); margin-left: 4px;">&#10003;</span>
-                          </div>
-                        </td>
-                        <td width="20%" style="text-align: center;">
-                          <span style="font-size: 18px; color: rgba(255,255,255,0.2);">&#8594;</span>
-                        </td>
-                        <td width="40%" style="text-align: center;">
-                          <div style="display: inline-block; padding: 10px 20px; border: 2px solid ${toColor}80; border-radius: 20px; background: ${toColor}20; box-shadow: 0 0 24px ${toColor}30;">
-                            <span style="font-size: 14px; font-weight: 700; color: ${toColor};">${isWon ? "&#127881; " : ""}${toLabel}</span>
-                          </div>
-                        </td>
-                      </tr>
-                    </table>
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:24px;">
+      <tr>
+        <td style="vertical-align:top;">
+          <p style="margin:0 0 6px;font-size:10px;color:#7A8F92;letter-spacing:1.8px;text-transform:uppercase;font-weight:700;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">Grant</p>
+          <h2 style="margin:0 0 4px;font-size:20px;font-weight:700;color:#0F2A2E;letter-spacing:-0.2px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">${grantName}</h2>
+          <p style="margin:0;font-size:13px;color:#5A7479;font-weight:500;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">${funder}</p>
+        </td>
+        <td style="vertical-align:top;text-align:right;width:90px;">
+          <span style="display:inline-block;padding:6px 12px;background:#E0F2EA;border-radius:100px;border:1px solid rgba(74,155,142,0.3);font-size:10px;font-weight:700;color:#1E5A5F;letter-spacing:1px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">${statusPill}</span>
+        </td>
+      </tr>
+    </table>
 
-                    <!-- Context message -->
-                    <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin: 20px 0 0; line-height: 1.6;">
-                      ${contextMsg}
-                    </p>
+    <!-- Transition row: FROM left-aligned, MOVED centred (arrow + label), TO right-aligned -->
+    <div style="padding:22px 22px;background:#F2F8F5;border-radius:12px;border:1px solid rgba(90,143,184,0.15);">
+      <table cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>
+          <td width="40%" align="left" style="vertical-align:middle;">
+            <p style="margin:0 0 8px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:#4A8F82;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">From</p>
+            <p style="margin:0;font-size:15px;font-weight:600;color:#1E5A5F;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+              <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#7AB8A8;vertical-align:middle;margin-right:10px;"></span>${fromLabel}
+            </p>
+          </td>
+          <td width="20%" align="center" style="vertical-align:middle;">
+            <div style="font-size:18px;color:#4A9BC9;font-weight:600;line-height:1;margin-bottom:4px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">→</div>
+            <div style="font-size:9px;color:#4A9BC9;letter-spacing:1.5px;font-weight:700;text-transform:uppercase;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">moved</div>
+          </td>
+          <td width="40%" align="right" style="vertical-align:middle;">
+            <p style="margin:0 0 8px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:#2E7A9C;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">To</p>
+            <p style="margin:0;font-size:15px;font-weight:600;color:#1E4A6F;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+              ${isWon ? "&#127881; " : ""}${toLabel}<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#5AA8D4;vertical-align:middle;margin-left:10px;"></span>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </div>
 
-                  </td></tr>
-                </table>
-              </td></tr>
-            </table>
+    <!-- Note block -->
+    <div style="margin-top:24px;padding:18px 20px;background:#F7FBF9;border-radius:10px;border-left:3px solid #5BB89A;">
+      <p style="margin:0 0 6px;font-size:10px;color:#4A8F82;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">Note from ${movedByName || "the team"}</p>
+      <p style="margin:0;font-size:14px;color:#1A3D40;line-height:1.6;font-weight:500;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">${noteText}</p>
+    </div>
 
-            <!-- CTA Button -->
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 28px 20px;">
-              <tr><td align="center">
-                <a href="${grantUrl}" style="display: inline-block; padding: 16px 48px; background: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.4); border-radius: 12px; color: #4ADE80; font-size: 15px; font-weight: 700; text-decoration: none; letter-spacing: 0.3px;">
-                  Review Grant in Grants Engine
-                </a>
-              </td></tr>
-            </table>
+    <!-- CTA -->
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:28px;">
+      <tr><td align="center">
+        <a href="${grantUrl}" style="display:inline-block;padding:14px 32px;background:#1E5A5F;color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:700;border-radius:10px;letter-spacing:0.4px;box-shadow:0 4px 16px rgba(30,90,95,0.25);font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">Review grant in Grants Engine →</a>
+      </td></tr>
+    </table>
+  </div>
 
-            <!-- Footer -->
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 8px 28px 32px; background: rgba(0,0,0,0.5);">
-              <tr><td style="text-align: center; padding-top: 16px;">
-                <p style="font-size: 12px; color: rgba(255,255,255,0.45); margin: 0 0 12px; line-height: 1.6;">
-                  If you're assigned to this grant, now's a great time to take the next step.
-                </p>
-                <p style="font-size: 11px; color: rgba(255,255,255,0.4); margin: 0;">
-                  &mdash; Grants Engine
-                </p>
-              </td></tr>
-            </table>
+  <!-- Footer -->
+  <div style="padding:36px 44px 32px;text-align:center;">
+    <p style="margin:0 0 14px;font-size:13px;color:#2E5A5F;line-height:1.6;font-weight:500;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">If you're assigned to this grant, now's a great time to take the next step.</p>
+    <p style="margin:0;font-size:11px;color:#5A8F92;letter-spacing:2px;text-transform:uppercase;font-weight:700;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">— Grants Engine</p>
+  </div>
 
-          </td></tr>
-        </table>
-      </td>
-    </tr>
-  </table>
+</div>
+
 </body>
-</html>
-  `;
+</html>`;
 
-  if (!transport) {
-    console.log('[email] Would send stage change notification to:', toEmail, '|', subject);
-    return;
-  }
-
-  const mailOpts = {
-    from: `Grants Engine <${process.env.SMTP_USER}>`,
-    to: toEmail,
-    subject,
-    html,
-  };
-
-  // Calendar tasks ONLY if deadline exists
-  if (deadline) {
-    const ics = generateGrantICS({
-      grantName, funder, stage: toLabel, deadline,
-      ownerName: memberName, grantUrl, grantId,     });
-    mailOpts.icalEvent = { filename: 'invite.ics', method: 'PUBLISH', content: Buffer.from(ics) };
-  }
-
-  await transport.sendMail(mailOpts);
-  console.log('[email] Stage change notification sent to:', toEmail, deadline ? `(calendar: ${deadline})` : '(no deadline, no calendar)');
+  const ics = deadline
+    ? generateGrantICS({ grantName, funder, stage: toLabel, deadline, ownerName: memberName, grantUrl, grantId })
+    : null;
+  await sendViaResend({ to: toEmail, subject, html, ics, tag: 'stage-change' });
 };
 
-/* ── Shared email shell for simple notification emails ── */
-function simpleEmailHtml({ memberName, headline, body, ctaLabel, ctaUrl, footerMsg }) {
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin: 0; padding: 0; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background: #ffffff;">
-    <tr>
-      <td align="center" style="padding: 40px 16px;">
-        <table cellpadding="0" cellspacing="0" border="0" width="480" style="max-width: 480px; background-image: url('${BG_URL}'); background-size: cover; background-position: center; background-color: #0a1628; border-radius: 20px; overflow: hidden;">
-          <tr><td>
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 28px 28px 20px;">
-              <tr><td style="text-align: center;"><img src="${GE_LOGO_URL}" alt="Grants Engine" height="80" style="height: 80px; display: block; margin: 0 auto;" /></td></tr>
-            </table>
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 12px 28px 8px;">
-              <tr><td>
-                <p style="color: #ffffff; font-size: 16px; margin: 0 0 8px;">Hi ${memberName},</p>
-                <p style="color: rgba(255,255,255,0.6); font-size: 14px; margin: 0 0 24px; line-height: 1.5;">${headline}</p>
-              </td></tr>
-            </table>
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 0 20px;">
-              <tr><td>
-                <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 24px;">
-                  <tr><td>${body}</td></tr>
-                </table>
-              </td></tr>
-            </table>
-            ${ctaLabel ? `
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 28px 20px;">
-              <tr><td align="center">
-                <a href="${ctaUrl}" style="display: inline-block; padding: 16px 48px; background: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.4); border-radius: 12px; color: #4ADE80; font-size: 15px; font-weight: 700; text-decoration: none;">${ctaLabel}</a>
-              </td></tr>
-            </table>` : ''}
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 8px 28px 32px; background: rgba(0,0,0,0.5);">
-              <tr><td style="text-align: center; padding-top: 16px;">
-                <p style="font-size: 12px; color: rgba(255,255,255,0.45); margin: 0 0 12px; line-height: 1.6;">${footerMsg || ''}</p>
-                <p style="font-size: 11px; color: rgba(255,255,255,0.4); margin: 0;">&mdash; Grants Engine</p>
-              </td></tr>
-            </table>
-          </td></tr>
-        </table>
-      </td>
-    </tr>
-  </table>
+/* ── Shared email shell for simple notification emails — light pastel theme.
+ * `eyebrow` is the small uppercase line above the headline (e.g. "GOOD NEWS").
+ * `headline` is the big bold line (no italics, light teal accent allowed inline).
+ * `body` is a free-form HTML block rendered inside the white card. Use the
+ * shell's CSS variables: bodyTextColor #1A3D40, label #4A8F82, soft bg #F7FBF9.
+ */
+function simpleEmailHtml({ memberName, eyebrow, headline, body, ctaLabel, ctaUrl, footerMsg }) {
+  const eyebrowText = eyebrow || `✦ ${memberName || ''}`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grants Engine</title>
+</head>
+<body style="margin:0;padding:24px;background:#EDF3F0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+
+<div style="width:100%;max-width:560px;margin:0 auto;background:#F7FBF9;border-radius:18px;overflow:hidden;color:#0F2A2E;border:1px solid rgba(0,0,0,0.04);box-shadow:0 20px 60px rgba(20,80,90,0.1);">
+
+  <!-- Header -->
+  <div style="padding:20px 44px 60px;text-align:center;background:radial-gradient(ellipse 520px 320px at 85% 15%, rgba(180,230,215,0.7), transparent 65%),radial-gradient(ellipse 420px 280px at 10% 85%, rgba(175,210,240,0.7), transparent 65%),linear-gradient(180deg, #E8F4EF 0%, #DEEDE8 100%);">
+    <img src="${GE_LOGO_URL}" alt="Grants Engine" height="180" style="height:180px;display:block;margin:0 auto 8px;" />
+    <p style="margin:0 0 14px;font-size:11px;color:#2E7A6E;letter-spacing:2.5px;text-transform:uppercase;font-weight:700;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">${eyebrowText}</p>
+    <h1 style="margin:0;font-size:30px;font-weight:700;color:#0F2A2E;line-height:1.2;letter-spacing:-0.6px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">${headline}</h1>
+  </div>
+
+  <!-- White card -->
+  <div style="margin:-32px 32px 0;padding:32px;background:#FFFFFF;border-radius:16px;box-shadow:0 8px 32px rgba(20,80,90,0.08), 0 2px 8px rgba(20,80,90,0.04);border:1px solid rgba(0,0,0,0.03);">
+    ${body}
+    ${ctaLabel ? `
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:28px;">
+      <tr><td align="center">
+        <a href="${ctaUrl}" style="display:inline-block;padding:14px 32px;background:#1E5A5F;color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:700;border-radius:10px;letter-spacing:0.4px;box-shadow:0 4px 16px rgba(30,90,95,0.25);font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">${ctaLabel}</a>
+      </td></tr>
+    </table>` : ''}
+  </div>
+
+  <!-- Footer -->
+  <div style="padding:36px 44px 32px;text-align:center;">
+    ${footerMsg ? `<p style="margin:0 0 14px;font-size:13px;color:#2E5A5F;line-height:1.6;font-weight:500;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">${footerMsg}</p>` : ''}
+    <p style="margin:0;font-size:11px;color:#5A8F92;letter-spacing:2px;text-transform:uppercase;font-weight:700;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">— Grants Engine</p>
+  </div>
+
+</div>
+
 </body>
 </html>`;
 }
 
+/* Helper for building a consistent grant-detail block inside the white card.
+ * Used by every caller of simpleEmailHtml so the funder/grant/stage stack
+ * looks identical across email types. */
+function grantHeaderBlock({ grantName, funder, statusLabel, statusColor = '#1E5A5F', statusBg = '#E0F2EA' }) {
+  return `
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:20px;">
+      <tr>
+        <td style="vertical-align:top;">
+          <p style="margin:0 0 6px;font-size:10px;color:#7A8F92;letter-spacing:1.8px;text-transform:uppercase;font-weight:700;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">Grant</p>
+          <h2 style="margin:0 0 4px;font-size:20px;font-weight:700;color:#0F2A2E;letter-spacing:-0.2px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">${grantName}</h2>
+          <p style="margin:0;font-size:13px;color:#5A7479;font-weight:500;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">${funder || ''}</p>
+        </td>
+        ${statusLabel ? `<td style="vertical-align:top;text-align:right;width:140px;">
+          <span style="display:inline-block;padding:6px 14px;background:${statusBg};border-radius:100px;border:1px solid rgba(74,155,142,0.3);font-size:10px;font-weight:700;color:${statusColor};letter-spacing:0.4px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;white-space:nowrap;">${statusLabel}</span>
+        </td>` : ''}
+      </tr>
+    </table>`;
+}
+
 async function sendEmail(toEmail, subject, html, tag, icsContent) {
-  if (!toEmail || !subject) {
-    console.warn(`[email] Skipping ${tag}: missing toEmail or subject`);
-    return;
-  }
-  const transport = safeTransport();
-  if (!transport) { console.log(`[email] Would send ${tag} to:`, toEmail, '|', subject); return; }
-  const opts = { from: `Grants Engine <${process.env.SMTP_USER}>`, to: toEmail, subject, html: html || '<p>Calendar update</p>' };
-  if (icsContent) {
-    opts.icalEvent = { filename: 'invite.ics', method: 'PUBLISH', content: Buffer.from(icsContent) };
-  }
-  await transport.sendMail(opts);
-  console.log(`[email] ${tag} sent to:`, toEmail);
+  return sendViaResend({ to: toEmail, subject, html: html || '<p>Calendar update</p>', ics: icsContent, tag });
 }
 
 /* ── Grant assigned to someone ── */
 export const sendAssignmentEmail = async (toEmail, memberName, grantName, funder, assignedByName, grantId, deadline, stage) => {
   const grantUrl = grantId ? `${APP_URL}?grant=${grantId}` : APP_URL;
   const stageLabel = STAGE_LABELS[stage] || stage || 'Scouted';
+  const meta = `Stage: ${stageLabel}${deadline ? `  ·  Deadline: ${deadline}` : ''}`;
   const html = simpleEmailHtml({
     memberName,
-    headline: `You've been assigned to a grant in <strong style="color: #ffffff;">Grants Engine</strong>`,
+    eyebrow: `✦ Heads up, ${memberName}`,
+    headline: `A grant has been <span style="color:#2E7A8A;">assigned to you</span>.`,
     body: `
-      <p style="font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 4px;">${grantName}</p>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.4); margin: 0 0 16px;">${funder}</p>
-      <div style="display: inline-block; padding: 8px 16px; border-radius: 20px; background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.4);">
-        <span style="font-size: 13px; font-weight: 600; color: #0EA5E9;">Assigned to you</span>
-      </div>
-      <p style="font-size: 12px; color: rgba(255,255,255,0.4); margin: 12px 0 0;">Stage: ${stageLabel}${deadline ? ` · Deadline: ${deadline}` : ''}</p>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin: 8px 0 0; line-height: 1.6;">
-        ${assignedByName || 'Someone'} assigned this grant to you. Review the details and take the next step.
-      </p>`,
+      ${grantHeaderBlock({ grantName, funder, statusLabel: 'ASSIGNED', statusColor: '#1E5A5F', statusBg: '#E0F2EA' })}
+      <div style="padding:14px 18px;background:#F7FBF9;border-radius:10px;border-left:3px solid #5BB89A;margin-bottom:8px;">
+        <p style="margin:0 0 6px;font-size:10px;color:#4A8F82;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;">${meta}</p>
+        <p style="margin:0;font-size:14px;color:#1A3D40;line-height:1.6;font-weight:500;">${assignedByName || 'Someone'} assigned this grant to you. Review the details and take the next step.</p>
+      </div>`,
     ctaLabel: 'View Grant in Grants Engine',
     ctaUrl: grantUrl,
     footerMsg: "You're receiving this because you've been assigned to this grant.",
@@ -363,16 +352,13 @@ export const sendGrantCreatedEmail = async (toEmail, memberName, grantName, fund
   const grantUrl = grantId ? `${APP_URL}?grant=${grantId}` : APP_URL;
   const html = simpleEmailHtml({
     memberName,
-    headline: `A new grant has been added to <strong style="color: #ffffff;">Grants Engine</strong>`,
+    eyebrow: `✦ New opportunity, ${memberName}`,
+    headline: `A new grant was just <span style="color:#2E7A8A;">added to the pipeline</span>.`,
     body: `
-      <p style="font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 4px;">${grantName}</p>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.4); margin: 0 0 16px;">${funder}</p>
-      <div style="display: inline-block; padding: 8px 16px; border-radius: 20px; background: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.4);">
-        <span style="font-size: 13px; font-weight: 600; color: #4ADE80;">New Grant</span>
-      </div>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin: 16px 0 0; line-height: 1.6;">
-        ${createdByName || 'Someone'} added this grant to the pipeline. Check it out and decide next steps.
-      </p>`,
+      ${grantHeaderBlock({ grantName, funder, statusLabel: 'NEW', statusColor: '#1E5A5F', statusBg: '#E0F2EA' })}
+      <div style="padding:14px 18px;background:#F7FBF9;border-radius:10px;border-left:3px solid #5BB89A;">
+        <p style="margin:0;font-size:14px;color:#1A3D40;line-height:1.6;font-weight:500;">${createdByName || 'Someone'} added this grant to the pipeline. Check it out and decide next steps.</p>
+      </div>`,
     ctaLabel: 'View Grant in Grants Engine',
     ctaUrl: grantUrl,
     footerMsg: "You're receiving this because you're part of the grants team.",
@@ -384,16 +370,13 @@ export const sendGrantCreatedEmail = async (toEmail, memberName, grantName, fund
 export const sendGrantDeletedEmail = async (toEmail, memberName, grantName, funder, deletedByName) => {
   const html = simpleEmailHtml({
     memberName,
-    headline: `A grant has been removed from <strong style="color: #ffffff;">Grants Engine</strong>`,
+    eyebrow: `Update for ${memberName}`,
+    headline: `A grant has been <span style="color:#B43A3A;">removed</span>.`,
     body: `
-      <p style="font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 4px;">${grantName}</p>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.4); margin: 0 0 16px;">${funder}</p>
-      <div style="display: inline-block; padding: 8px 16px; border-radius: 20px; background: rgba(220, 38, 38, 0.15); border: 1px solid rgba(220, 38, 38, 0.4);">
-        <span style="font-size: 13px; font-weight: 600; color: #DC2626;">Deleted</span>
-      </div>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin: 16px 0 0; line-height: 1.6;">
-        ${deletedByName || 'Someone'} removed this grant from the pipeline.
-      </p>`,
+      ${grantHeaderBlock({ grantName, funder, statusLabel: 'DELETED', statusColor: '#B43A3A', statusBg: '#FBE9E9' })}
+      <div style="padding:14px 18px;background:#FBF7F7;border-radius:10px;border-left:3px solid #DC2626;">
+        <p style="margin:0;font-size:14px;color:#1A3D40;line-height:1.6;font-weight:500;">${deletedByName || 'Someone'} removed this grant from the pipeline.</p>
+      </div>`,
     ctaLabel: null,
     ctaUrl: null,
     footerMsg: "You're receiving this because you were the owner of this grant.",
@@ -405,16 +388,13 @@ export const sendGrantDeletedEmail = async (toEmail, memberName, grantName, fund
 export const sendOwnershipRemovedEmail = async (toEmail, memberName, grantName, funder, newOwnerName) => {
   const html = simpleEmailHtml({
     memberName,
-    headline: `You've been removed from a grant in <strong style="color: #ffffff;">Grants Engine</strong>`,
+    eyebrow: `Update for ${memberName}`,
+    headline: `This grant has been <span style="color:#2E7A8A;">reassigned</span>.`,
     body: `
-      <p style="font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 4px;">${grantName}</p>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.4); margin: 0 0 16px;">${funder}</p>
-      <div style="display: inline-block; padding: 8px 16px; border-radius: 20px; background: rgba(156, 163, 175, 0.15); border: 1px solid rgba(156, 163, 175, 0.4);">
-        <span style="font-size: 13px; font-weight: 600; color: #9CA3AF;">Ownership removed</span>
-      </div>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin: 16px 0 0; line-height: 1.6;">
-        This grant has been reassigned${newOwnerName ? ` to ${newOwnerName}` : ''}. You no longer need to action it.
-      </p>`,
+      ${grantHeaderBlock({ grantName, funder, statusLabel: 'REASSIGNED', statusColor: '#5A7479', statusBg: '#EAF0F1' })}
+      <div style="padding:14px 18px;background:#F7FBF9;border-radius:10px;border-left:3px solid #5A7479;">
+        <p style="margin:0;font-size:14px;color:#1A3D40;line-height:1.6;font-weight:500;">This grant has been reassigned${newOwnerName ? ` to <strong>${newOwnerName}</strong>` : ''}. You no longer need to action it.</p>
+      </div>`,
     ctaLabel: null,
     ctaUrl: null,
     footerMsg: "You're receiving this because you were previously the owner of this grant.",
@@ -428,17 +408,14 @@ export const sendDayBeforeEmail = async (toEmail, memberName, grantName, funder,
   const stageLabel = STAGE_LABELS[stage] || stage || '';
   const html = simpleEmailHtml({
     memberName,
-    headline: `<strong style="color: #FBBF24;">${grantName}</strong> closes <strong style="color: #ffffff;">tomorrow</strong>`,
+    eyebrow: `⏰ Heads up, ${memberName}`,
+    headline: `This grant closes <span style="color:#C17817;">tomorrow</span>.`,
     body: `
-      <p style="font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 4px;">${grantName}</p>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.4); margin: 0 0 16px;">${funder}</p>
-      <div style="display: inline-block; padding: 8px 16px; border-radius: 20px; background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.4);">
-        <span style="font-size: 13px; font-weight: 600; color: #FBBF24;">Deadline: ${deadline}</span>
-      </div>
-      <p style="font-size: 12px; color: rgba(255,255,255,0.4); margin: 12px 0 0;">Stage: ${stageLabel}</p>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin: 8px 0 0; line-height: 1.6;">
-        This grant closes tomorrow. Make sure everything is submitted or progressed before the deadline.
-      </p>`,
+      ${grantHeaderBlock({ grantName, funder, statusLabel: `DUE ${deadline}`, statusColor: '#C17817', statusBg: '#FEF5E7' })}
+      <div style="padding:14px 18px;background:#FEF8EE;border-radius:10px;border-left:3px solid #F59E0B;">
+        <p style="margin:0 0 6px;font-size:10px;color:#C17817;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;">Stage: ${stageLabel}</p>
+        <p style="margin:0;font-size:14px;color:#1A3D40;line-height:1.6;font-weight:500;">This grant closes tomorrow. Make sure everything is submitted or progressed before the deadline.</p>
+      </div>`,
     ctaLabel: 'Review Grant Now',
     ctaUrl: grantUrl,
     footerMsg: "You're receiving this because you own this grant and the deadline is tomorrow.",
@@ -452,17 +429,14 @@ export const send2HoursBeforeEmail = async (toEmail, memberName, grantName, fund
   const stageLabel = STAGE_LABELS[stage] || stage || '';
   const html = simpleEmailHtml({
     memberName,
-    headline: `<strong style="color: #DC2626;">${grantName}</strong> closes in <strong style="color: #ffffff;">2 hours</strong>`,
+    eyebrow: `⚠ Final reminder, ${memberName}`,
+    headline: `This grant closes in <span style="color:#B43A3A;">2 hours</span>.`,
     body: `
-      <p style="font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 4px;">${grantName}</p>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.4); margin: 0 0 16px;">${funder}</p>
-      <div style="display: inline-block; padding: 8px 16px; border-radius: 20px; background: rgba(220, 38, 38, 0.15); border: 1px solid rgba(220, 38, 38, 0.4);">
-        <span style="font-size: 13px; font-weight: 600; color: #DC2626;">Closing: ${deadline} at 09:00</span>
-      </div>
-      <p style="font-size: 12px; color: rgba(255,255,255,0.4); margin: 12px 0 0;">Stage: ${stageLabel}</p>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin: 8px 0 0; line-height: 1.6;">
-        Final reminder — this grant closes in 2 hours. Take action now if anything is outstanding.
-      </p>`,
+      ${grantHeaderBlock({ grantName, funder, statusLabel: `CLOSES ${deadline} 09:00`, statusColor: '#B43A3A', statusBg: '#FBE9E9' })}
+      <div style="padding:14px 18px;background:#FBF7F7;border-radius:10px;border-left:3px solid #DC2626;">
+        <p style="margin:0 0 6px;font-size:10px;color:#B43A3A;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;">Stage: ${stageLabel}</p>
+        <p style="margin:0;font-size:14px;color:#1A3D40;line-height:1.6;font-weight:500;">Final reminder — this grant closes in 2 hours. Take action now if anything is outstanding.</p>
+      </div>`,
     ctaLabel: 'Take Action Now',
     ctaUrl: grantUrl,
     footerMsg: "FINAL REMINDER: This grant closes in 2 hours.",
@@ -476,17 +450,14 @@ export const sendDeadlineMissingEmail = async (toEmail, memberName, grantName, f
   const stageLabel = STAGE_LABELS[stage] || stage || '';
   const html = simpleEmailHtml({
     memberName,
-    headline: `<strong style="color: #FBBF24;">${grantName}</strong> has no deadline set`,
+    eyebrow: `Action needed, ${memberName}`,
+    headline: `This grant has <span style="color:#C17817;">no deadline</span> yet.`,
     body: `
-      <p style="font-size: 20px; font-weight: 700; color: #ffffff; margin: 0 0 4px;">${grantName}</p>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.4); margin: 0 0 16px;">${funder}</p>
-      <div style="display: inline-block; padding: 8px 16px; border-radius: 20px; background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.4);">
-        <span style="font-size: 13px; font-weight: 600; color: #FBBF24;">No deadline</span>
-      </div>
-      <p style="font-size: 12px; color: rgba(255,255,255,0.4); margin: 12px 0 0;">Stage: ${stageLabel}</p>
-      <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin: 8px 0 0; line-height: 1.6;">
-        This grant has been assigned to you for over 48 hours but has no deadline. Please add a deadline so reminders can be scheduled.
-      </p>`,
+      ${grantHeaderBlock({ grantName, funder, statusLabel: 'NO DEADLINE', statusColor: '#C17817', statusBg: '#FEF5E7' })}
+      <div style="padding:14px 18px;background:#FEF8EE;border-radius:10px;border-left:3px solid #F59E0B;">
+        <p style="margin:0 0 6px;font-size:10px;color:#C17817;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;">Stage: ${stageLabel}</p>
+        <p style="margin:0;font-size:14px;color:#1A3D40;line-height:1.6;font-weight:500;">This grant has been assigned to you for over 48 hours but has no deadline. Please add a deadline so reminders can be scheduled.</p>
+      </div>`,
     ctaLabel: 'Add Deadline Now',
     ctaUrl: grantUrl,
     footerMsg: "You're receiving this because you own a grant with no deadline.",
@@ -502,94 +473,21 @@ export const sendCalendarCancellation = async (toEmail, grantId) => {
 };
 
 export const sendResetEmail = async (toEmail, resetUrl, memberName) => {
-  const transport = safeTransport();
-
   const subject = 'Reset your Grants Engine password';
-  const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin: 0; padding: 0; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background: #ffffff;">
-    <tr>
-      <td align="center" style="padding: 40px 16px;">
-        <table cellpadding="0" cellspacing="0" border="0" width="480" style="max-width: 480px; background-image: url('${BG_URL}'); background-size: cover; background-position: center; background-color: #0a1628; border-radius: 20px; overflow: hidden;">
-          <tr><td>
-
-            <!-- Header -->
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 28px 28px 20px;">
-              <tr>
-                <td style="text-align: center; vertical-align: middle;">
-                  <img src="${GE_LOGO_URL}" alt="Grants Engine" height="80" style="height: 80px; display: block; margin: 0 auto;" />
-                </td>
-              </tr>
-            </table>
-
-            <!-- Greeting -->
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 12px 28px 8px;">
-              <tr><td>
-                <p style="color: #ffffff; font-size: 16px; margin: 0 0 8px;">Hi ${memberName},</p>
-                <p style="color: rgba(255,255,255,0.6); font-size: 14px; margin: 0 0 24px; line-height: 1.5;">
-                  We received a request to reset your <strong style="color: #fff;">Grants Engine</strong> password.
-                </p>
-              </td></tr>
-            </table>
-
-            <!-- Info card -->
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 0 20px;">
-              <tr><td>
-                <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 24px;">
-                  <tr><td>
-                    <p style="font-size: 17px; font-weight: 700; color: #ffffff; margin: 0 0 10px;">Password Reset</p>
-                    <p style="font-size: 13px; color: rgba(255,255,255,0.5); margin: 0; line-height: 1.6;">
-                      Click the button below to choose a new password. This link expires in <strong style="color: rgba(255,255,255,0.7);">1 hour</strong>.
-                    </p>
-                  </td></tr>
-                </table>
-              </td></tr>
-            </table>
-
-            <!-- CTA -->
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 28px 20px;">
-              <tr><td align="center">
-                <a href="${resetUrl}" style="display: inline-block; padding: 16px 48px; background: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.4); border-radius: 12px; color: #4ADE80; font-size: 15px; font-weight: 700; text-decoration: none;">
-                  Reset Password
-                </a>
-              </td></tr>
-            </table>
-
-            <!-- Footer -->
-            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 8px 28px 32px; background: rgba(0,0,0,0.5);">
-              <tr><td style="text-align: center; padding-top: 16px;">
-                <p style="font-size: 12px; color: rgba(255,255,255,0.45); margin: 0 0 12px; line-height: 1.6;">
-                  If you didn't request this, you can safely ignore this email. Your password won't change.
-                </p>
-                <p style="font-size: 11px; color: rgba(255,255,255,0.4); margin: 0;">
-                  &mdash; Grants Engine
-                </p>
-              </td></tr>
-            </table>
-
-          </td></tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `;
-
-  if (!transport) {
-    console.log('[email] Would send reset email to:', toEmail);
-    console.log('[email] Reset URL:', resetUrl);
-    return;
-  }
-
-  await transport.sendMail({
-    from: `Grants Engine <${process.env.SMTP_USER}>`,
-    to: toEmail,
-    subject,
-    html,
+  const html = simpleEmailHtml({
+    memberName,
+    eyebrow: `Hi ${memberName}`,
+    headline: `Reset your <span style="color:#2E7A8A;">password</span>.`,
+    body: `
+      <div style="padding:18px 20px;background:#F7FBF9;border-radius:10px;border-left:3px solid #5BB89A;">
+        <p style="margin:0 0 6px;font-size:10px;color:#4A8F82;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;">Password Reset</p>
+        <p style="margin:0;font-size:14px;color:#1A3D40;line-height:1.6;font-weight:500;">Click the button below to choose a new password. This link expires in <strong>1 hour</strong>.</p>
+      </div>`,
+    ctaLabel: 'Reset Password',
+    ctaUrl: resetUrl,
+    footerMsg: "If you didn't request this, you can safely ignore this email. Your password won't change.",
   });
-  console.log('[email] Reset email sent to:', toEmail);
+
+  const ok = await sendViaResend({ to: toEmail, subject, html, tag: 'password-reset' });
+  if (!ok) console.log('[email] Reset URL (for manual delivery):', resetUrl);
 };

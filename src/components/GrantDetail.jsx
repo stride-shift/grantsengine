@@ -3,7 +3,7 @@ import { C, FONT, MONO } from "../theme";
 import { fmtK, dL, td, uid, effectiveAsk, grantReadiness, isAIError, parseStructuredResearch, cleanProposalText } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, AICard, stripMd, timeAgo } from "./index";
 import UploadZone from "./UploadZone";
-import { getUploads } from "../api";
+import { getUploads, kvGet, kvSet } from "../api";
 import { detectType, PTYPES, multiCohortInfo, funderStrategy, selectOptimalBudget } from "../data/funderStrategy";
 import { DOCS, DOC_MAP, ORG_DOCS } from "../data/constants";
 import ProposalWorkspace from "./ProposalWorkspace";
@@ -112,25 +112,36 @@ function OutstandingActions({ grant, onUpdate, complianceDocs = [], missingDocs 
   const actions = grant.outstandingActions || [];
   const g = grant;
 
-  // Auto-detected items based on grant state
+  // Auto-detected items based on grant state.
+  // In manual-engagement mode, proposal-specific prompts (draft, ask, docs) are
+  // dropped in favour of relationship touchpoints.
   const autoItems = useMemo(() => {
     const items = [];
+    const isManual = g.engagementMode === "manual";
     if (!g.deadline) items.push({ id: "_no-deadline", text: "Set a deadline", auto: true, priority: "high" });
     else {
       const days = Math.ceil((new Date(g.deadline) - new Date()) / 86400000);
       if (days < 0) items.push({ id: "_overdue", text: `Deadline missed by ${Math.abs(days)} days — resubmit or archive`, auto: true, priority: "high" });
     }
     if (!g.owner || g.owner === "team") items.push({ id: "_no-owner", text: "Assign an owner", auto: true, priority: "high" });
-    if (!g.aiResearch && !["scouted", "vetting"].includes(g.stage)) items.push({ id: "_no-research", text: "Run funder research", auto: true, priority: "medium" });
-    if (!g.aiFitscore) items.push({ id: "_no-fitscore", text: "Run fit score", auto: true, priority: "low" });
-    if (!g.aiDraft && !g.aiSections && ["drafting", "review"].includes(g.stage)) items.push({ id: "_no-draft", text: "Generate proposal draft", auto: true, priority: "high" });
-    if (g.ask === 0 && !["scouted", "vetting"].includes(g.stage)) items.push({ id: "_no-ask", text: "Set ask amount / build budget", auto: true, priority: "medium" });
-    // Missing compliance docs
-    for (const doc of missingDocs) {
-      items.push({ id: `_doc-${doc}`, text: `Upload: ${doc}`, auto: true, priority: "medium" });
+    if (isManual) {
+      // Manual-engagement: nudge toward relationship work, not proposal AI
+      const lastActivity = (g.activityLog || []).slice(-1)[0]?.at;
+      const daysSince = lastActivity ? Math.floor((Date.now() - new Date(lastActivity).getTime()) / 86400000) : null;
+      if (daysSince === null || daysSince > 21) {
+        items.push({ id: "_no-touchpoint", text: "Log next funder touchpoint (call, email, meeting)", auto: true, priority: "high" });
+      }
+    } else {
+      if (!g.aiResearch && !["scouted", "vetting"].includes(g.stage)) items.push({ id: "_no-research", text: "Run funder research", auto: true, priority: "medium" });
+      if (!g.aiFitscore) items.push({ id: "_no-fitscore", text: "Run fit score", auto: true, priority: "low" });
+      if (!g.aiDraft && !g.aiSections && ["drafting", "review"].includes(g.stage)) items.push({ id: "_no-draft", text: "Generate proposal draft", auto: true, priority: "high" });
+      if (g.ask === 0 && !["scouted", "vetting"].includes(g.stage)) items.push({ id: "_no-ask", text: "Set ask amount / build budget", auto: true, priority: "medium" });
+      for (const doc of missingDocs) {
+        items.push({ id: `_doc-${doc}`, text: `Upload: ${doc}`, auto: true, priority: "medium" });
+      }
     }
     return items;
-  }, [g.deadline, g.owner, g.aiResearch, g.aiFitscore, g.aiDraft, g.aiSections, g.ask, g.stage, missingDocs]);
+  }, [g.deadline, g.owner, g.aiResearch, g.aiFitscore, g.aiDraft, g.aiSections, g.ask, g.stage, g.engagementMode, g.activityLog, missingDocs]);
 
   const add = () => {
     if (!newText.trim()) return;
@@ -214,7 +225,7 @@ function OutstandingActions({ grant, onUpdate, complianceDocs = [], missingDocs 
   );
 }
 
-export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], currentMember, orgName = "the organisation", onUpdate, onDelete, onBack, onRunAI, onUploadsChanged, onLaunchTour }) {
+export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], currentMember, orgName = "the organisation", onUpdate, onDelete, onAddGrant, onSelectGrant, onBack, onRunAI, onUploadsChanged, onLaunchTour }) {
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState({});
   const [ai, setAi] = useState(() => ({
@@ -286,6 +297,30 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   const [rollingDice, setRollingDice] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showAutoFill, setShowAutoFill] = useState(false);
+  const [handover, setHandover] = useState(null); // null | { toMember: "id", note: "" }
+  const [emailExtract, setEmailExtract] = useState(null); // null | { pasted: "", extracting: false, result: "" }
+  const [aiAskOpen, setAiAskOpen] = useState(false); // toggles "AI suggests" reasoning popover
+  // Whether THIS grant is marked as an AI reference for future drafts.
+  // Stored in KV under "proposal_grant_references" as an array of grant IDs.
+  const [aiRefIds, setAiRefIds] = useState(null); // null = unloaded, [] = loaded empty
+  useEffect(() => {
+    let cancelled = false;
+    kvGet("proposal_grant_references").then(data => {
+      if (cancelled) return;
+      const arr = Array.isArray(data) ? data : (data?.value || []);
+      setAiRefIds(arr);
+    }).catch(() => { if (!cancelled) setAiRefIds([]); });
+    return () => { cancelled = true; };
+  }, []);
+  const isAiRef = aiRefIds?.includes(grant?.id) || false;
+  const toggleAiRef = () => {
+    if (!grant?.id || aiRefIds === null) return;
+    const next = isAiRef
+      ? aiRefIds.filter(id => id !== grant.id)
+      : [...aiRefIds, grant.id];
+    setAiRefIds(next);
+    kvSet("proposal_grant_references", next).catch(() => setAiRefIds(aiRefIds));
+  };
   const [diceStep, setDiceStep] = useState("");
 
   // Sync AI state when switching between grants
@@ -515,6 +550,87 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
 
   return (
     <div style={{ padding: "16px 16px", maxWidth: 920 }}>
+      {/* Persistent context sidebar — only visible on wide screens (>1320px).
+          Sticky on the right edge with stage, next action, deadline countdown,
+          and quick anchors to the in-page sections. */}
+      <div className="ge-grant-side" style={{
+        position: "fixed", right: 16, top: 80, width: 220, zIndex: 25,
+        background: C.white, border: `1px solid ${C.line}`, borderRadius: 10,
+        boxShadow: "0 2px 10px rgba(0,0,0,0.04)", padding: "12px 12px 10px",
+        fontFamily: FONT,
+      }}>
+        {(() => {
+          const stg = stages.find(s => s.id === g.stage);
+          const dDays = g.deadline ? Math.ceil((new Date(g.deadline) - new Date()) / 86400000) : null;
+          const deadlineColor = dDays === null ? C.t4 : dDays < 0 ? C.red : dDays <= 14 ? C.amber : C.dark;
+          const r = (() => { try { return grantReadiness(g, complianceDocs); } catch { return null; } })();
+          const action = r?.nextAction;
+          const jump = (sel) => { const el = document.querySelector(sel); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); };
+          return (
+            <>
+              <div style={{ fontSize: 9, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 6 }}>Stage</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: stg?.c || C.dark, marginBottom: 10 }}>{stg?.label || g.stage}</div>
+
+              {g.deadline && (
+                <>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Deadline</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: deadlineColor, marginBottom: 10 }}>
+                    {new Date(g.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                    {dDays !== null && dDays >= 0 && <span style={{ color: C.t4, marginLeft: 6, fontWeight: 500 }}>· {dDays}d</span>}
+                    {dDays !== null && dDays < 0 && <span style={{ color: C.red, marginLeft: 6, fontWeight: 500 }}>· {Math.abs(dDays)}d ago</span>}
+                  </div>
+                </>
+              )}
+
+              {r && (
+                <>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Ready</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                    <div style={{ flex: 1, height: 4, background: C.line, borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${r.score}%`, background: r.score >= 80 ? C.ok : r.score >= 40 ? C.amber : C.red, borderRadius: 2 }} />
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, fontFamily: MONO, color: r.score >= 80 ? C.ok : r.score >= 40 ? C.amber : C.red, minWidth: 32, textAlign: "right" }}>{r.score}%</span>
+                  </div>
+                </>
+              )}
+
+              {action && (
+                <>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Next</div>
+                  <div style={{ fontSize: 11, color: C.t1, lineHeight: 1.4, marginBottom: 10 }}>{action}</div>
+                </>
+              )}
+
+              <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 8, marginTop: 4 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 6 }}>Jump to</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {[
+                    { label: "Outstanding actions", sel: '[data-tour="outstanding-actions"]' },
+                    { label: "About this grant", sel: '[data-tour="about-grant"]' },
+                    { label: "Proposal workspace", sel: '[data-tour="proposal-workspace"]' },
+                    { label: "Activity log", sel: '[data-tour="activity-log"]' },
+                  ].map(it => (
+                    <button key={it.sel} onClick={() => jump(it.sel)} style={{
+                      background: "none", border: "none", padding: "4px 6px", textAlign: "left",
+                      fontSize: 11, color: C.t2, cursor: "pointer", fontFamily: FONT,
+                      borderRadius: 4, transition: "background 120ms ease",
+                    }}
+                      onMouseEnter={e => { e.currentTarget.style.background = C.warm100; e.currentTarget.style.color = C.dark; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.t2; }}
+                    >
+                      → {it.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          );
+        })()}
+      </div>
+      <style>{`
+        @media (max-width: 1320px) { .ge-grant-side { display: none !important; } }
+      `}</style>
+
       {/* Breadcrumb trail */}
       <div style={{
         display: "flex", alignItems: "center", gap: 6, marginBottom: 20,
@@ -662,6 +778,138 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           </div>
         );
       })()}
+
+      {/* Engagement mode — "proposal" by default, "manual" for relationship-building grants
+          (e.g. by-invitation-only funders or legacy spreadsheet imports). In manual mode the
+          proposal-generation actions are hidden in favour of relationship tracking. */}
+      {(() => {
+        const mode = g.engagementMode || "proposal";
+        const setMode = (next) => {
+          onUpdate(g.id, {
+            engagementMode: next,
+            activityLog: [
+              ...(g.activityLog || []),
+              { id: Math.random().toString(36).slice(2), text: `Engagement mode set to "${next}"`, at: new Date().toISOString(), kind: "system" },
+            ],
+          });
+        };
+        if (mode === "manual") {
+          return (
+            <div style={{
+              marginBottom: 16, padding: "10px 14px", borderRadius: 10,
+              background: `${C.amber}08`, border: `1px solid ${C.amber}30`,
+              display: "flex", alignItems: "center", gap: 10, fontFamily: FONT,
+            }}>
+              <span style={{ color: C.amber, fontSize: 14, flexShrink: 0 }}>{"✦"}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.amber, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 2 }}>Manual engagement</div>
+                <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.4 }}>
+                  Relationship-building first — no proposal generation. Log touchpoints in Activity.
+                </div>
+              </div>
+              <button onClick={() => setMode("proposal")} style={{
+                background: C.white, border: `1px solid ${C.line}`, borderRadius: 6,
+                padding: "4px 10px", fontSize: 11, fontWeight: 600, color: C.t2,
+                cursor: "pointer", fontFamily: FONT,
+              }}>Switch to proposal mode</button>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      {/* Clone for next cycle — for recurring grants (annual GIDF, DGMT, TK etc),
+          one click creates a fresh grant for next year with deadline + 1y, stage
+          reset to scouted, and previous-cycle context preserved in notes. */}
+      {["won", "lost", "deferred"].includes(g.stage) && onAddGrant && (() => {
+        const clone = () => {
+          if (!onAddGrant) return;
+          const nextDeadline = g.deadline
+            ? (() => { const d = new Date(g.deadline); d.setFullYear(d.getFullYear() + 1); return d.toISOString().slice(0, 10); })()
+            : null;
+          const outcome = g.stage === "won" ? "WON last cycle" : g.stage === "lost" ? "LOST last cycle" : "DEFERRED last cycle";
+          const carriedNotes = `${outcome} (${new Date().toLocaleDateString("en-ZA", { month: "short", year: "numeric" })}). ${g.funderFeedback ? `Funder feedback: ${g.funderFeedback.slice(0, 300)}` : ""}${g.notes ? `\n\nPrevious notes:\n${g.notes}` : ""}`;
+          const cloned = {
+            id: uid(),
+            name: g.name,
+            funder: g.funder,
+            type: g.type,
+            focus: [...(g.focus || [])],
+            geo: [...(g.geo || [])],
+            rel: g.stage === "won" ? "Previous Funder" : g.rel || "Cold",
+            notes: carriedNotes.trim(),
+            deadline: nextDeadline,
+            stage: "scouted",
+            market: g.market || "sa",
+            owner: g.owner || "team",
+            applyUrl: g.applyUrl || "",
+            funderBudget: g.funderBudget || 0,
+            ask: 0, // reset — re-budget for next cycle
+            acceptsUnsolicited: g.acceptsUnsolicited,
+            recurringCycle: (g.recurringCycle || 0) + 1,
+            clonedFrom: g.id,
+            log: [{ d: new Date().toISOString().slice(0, 10), t: `Cloned from previous cycle (${g.stage})`, by: currentMember?.id }],
+          };
+          onAddGrant(cloned);
+          if (onSelectGrant) onSelectGrant(cloned.id);
+        };
+        return (
+          <div style={{
+            marginBottom: 16, padding: "10px 14px", borderRadius: 10,
+            background: `${C.blue}08`, border: `1px solid ${C.blue}25`,
+            display: "flex", alignItems: "center", gap: 10, fontFamily: FONT,
+          }}>
+            <span style={{ fontSize: 16, color: C.blue }}>{"↻"}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.blue, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 2 }}>Recurring opportunity</div>
+              <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.4 }}>
+                Most foundations renew annually. Clone this for next cycle — deadline +1 year, stage reset, last-cycle notes carried forward.
+              </div>
+            </div>
+            <button onClick={clone} style={{
+              background: C.blue, color: C.white, border: "none",
+              borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 600,
+              cursor: "pointer", fontFamily: FONT,
+            }}>
+              Clone for next cycle
+            </button>
+          </div>
+        );
+      })()}
+
+      {/* AI Reference toggle — only shown on closed grants with a draft. Marking a
+          grant as an AI reference means future proposal drafts learn from this one's
+          tone, structure, and framing. Won proposals = "do this"; lost = "avoid this". */}
+      {["won", "lost", "submitted", "awaiting"].includes(g.stage) &&
+       (g.aiDraft || (g.aiSections && Object.keys(g.aiSections).length > 0)) && (
+        <div style={{
+          marginBottom: 16, padding: "10px 14px", borderRadius: 10,
+          background: isAiRef ? `${C.ok}08` : C.warm100,
+          border: `1px solid ${isAiRef ? `${C.ok}30` : C.line}`,
+          display: "flex", alignItems: "center", gap: 10, fontFamily: FONT,
+        }}>
+          <span style={{ fontSize: 16, color: isAiRef ? C.ok : C.t4 }}>{isAiRef ? "★" : "☆"}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: isAiRef ? C.ok : C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 2 }}>
+              {isAiRef ? "AI reference proposal" : "Reference library"}
+            </div>
+            <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.4 }}>
+              {isAiRef
+                ? `Future drafts will study this proposal — its tone, structure, and how it framed ${g.funder || "the funder"}. Toggle off to remove from the reference set.`
+                : "Mark as a reference so future proposal drafts learn from this one's tone, structure, and framing."}
+            </div>
+          </div>
+          <button onClick={toggleAiRef} disabled={aiRefIds === null} style={{
+            background: isAiRef ? C.white : C.primary,
+            color: isAiRef ? C.t2 : C.white,
+            border: `1px solid ${isAiRef ? C.line : C.primary}`,
+            borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 600,
+            cursor: aiRefIds === null ? "wait" : "pointer", fontFamily: FONT,
+          }}>
+            {isAiRef ? "Remove" : "Use as reference"}
+          </button>
+        </div>
+      )}
 
       <Card accent={stg?.c || C.t4} style={{ marginBottom: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
@@ -856,7 +1104,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               const hasDetail = desc || accessText || g.deadline || geoList.length > 0 || g.applyUrl || submissionMethod;
               if (!hasDetail) return null;
               return (
-                <div style={{
+                <div data-tour="about-grant" style={{
                   marginBottom: 16, padding: "14px 16px",
                   background: C.white, borderRadius: 10, border: `1px solid ${C.primary}20`,
                 }}>
@@ -886,6 +1134,28 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                         <div style={{ fontSize: 11, color: C.t3, lineHeight: 1.4 }}>{submissionMethod.desc}</div>
                       </div>
                     )}
+                    {/* Unsolicited-proposals policy — auto-detected from notes via detectUnsolicited.
+                        Click cycles yes → no → unknown so users can override the auto-detection. */}
+                    {(() => {
+                      const policy = g.acceptsUnsolicited || "unknown";
+                      const next = policy === "unknown" ? "yes" : policy === "yes" ? "no" : "unknown";
+                      const label = policy === "yes" ? "✓ Accepts unsolicited" : policy === "no" ? "✗ By invitation only" : "Unknown";
+                      const color = policy === "yes" ? C.ok : policy === "no" ? C.red : C.t3;
+                      return (
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Accepts unsolicited</div>
+                          <button
+                            onClick={() => onUpdate(g.id, { acceptsUnsolicited: next })}
+                            title="Click to change. Auto-detected from notes; you can override."
+                            style={{
+                              background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: FONT,
+                              fontSize: 13, color, fontWeight: 600, textAlign: "left",
+                            }}>
+                            {label}
+                          </button>
+                        </div>
+                      );
+                    })()}
                     {accessText && (
                       <div>
                         <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>How to apply</div>
@@ -927,6 +1197,34 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               <div>
                 <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Type</div>
                 <TypeBadge type={g.type} />
+              </div>
+              {/* Workflow — proposal generation (default) vs manual engagement */}
+              <div data-tour="workflow-cell">
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 4 }}>Workflow</div>
+                {(() => {
+                  const mode = g.engagementMode || "proposal";
+                  const next = mode === "manual" ? "proposal" : "manual";
+                  const switchMode = () => onUpdate(g.id, {
+                    engagementMode: next,
+                    activityLog: [
+                      ...(g.activityLog || []),
+                      { id: Math.random().toString(36).slice(2), text: `Engagement mode set to "${next}"`, at: new Date().toISOString(), kind: "system" },
+                    ],
+                  });
+                  return (
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: mode === "manual" ? C.amber : C.dark }}>
+                        {mode === "manual" ? "Manual engagement" : "Proposal generation"}
+                      </div>
+                      <button onClick={switchMode} style={{
+                        background: "none", border: "none", padding: 0, marginTop: 2,
+                        fontSize: 10, color: C.t4, cursor: "pointer", textDecoration: "underline", fontFamily: FONT,
+                      }}>
+                        Switch to {mode === "manual" ? "proposal" : "manual"}
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
               {/* Relationship */}
               <div>
@@ -1000,33 +1298,94 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               </div>
             )}
 
-            {/* ── Funder Intelligence — AI research, full or expandable ── */}
+            {/* ── Funder Intelligence — AI research, structured if possible ──
+                Prefers aiResearchStructured (parsed JSON with labelled fields);
+                falls back to parsing on the fly; last resort is raw text. */}
             {resDone && ai.research && (() => {
-              const lines = ai.research.split("\n").filter(l => l.trim().length > 10);
-              const shortText = lines.slice(0, 5).join("\n").substring(0, 600);
-              const fullText = lines.join("\n");
-              const isLong = fullText.length > 600;
-              const displayText = showFullResearch ? fullText : shortText;
+              // Detect if the displayed text looks like raw JSON (the previous bug
+              // was that AI-returned JSON without rawText fell through and showed
+              // as a key-value blob). Try to parse it into labelled fields here.
+              const raw = String(ai.research);
+              let structured = g.aiResearchStructured || null;
+              if (!structured && (raw.trim().startsWith("{") || /"[a-zA-Z]+":\s*"/.test(raw.slice(0, 200)))) {
+                try {
+                  const first = raw.indexOf("{"), last = raw.lastIndexOf("}");
+                  if (first >= 0 && last > first) {
+                    const parsed = JSON.parse(raw.slice(first, last + 1));
+                    if (parsed && typeof parsed === "object") structured = parsed;
+                  }
+                } catch { /* fall through to raw render */ }
+              }
+              const FIELD_LABELS = {
+                budgetRange: "Typical grant size",
+                recentGrants: "Recent grants",
+                contacts: "Contacts",
+                priorities: "Funding priorities",
+                applicationProcess: "How to apply",
+                strategy: "Recommended angle",
+                doorOpener: "Door opener",
+                relationshipLeverage: "Relationship leverage",
+              };
+              const fields = structured
+                ? Object.entries(structured).filter(([k, v]) => k !== "rawText" && typeof v === "string" && v.trim().length > 0 && FIELD_LABELS[k])
+                : null;
               return (
                 <div style={{
                   marginBottom: 14, padding: "14px 16px", borderRadius: 10,
                   background: C.primarySoft, border: `1px solid ${C.primary}20`,
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: C.primary, letterSpacing: 0.8, textTransform: "uppercase" }}>Funder Intelligence</div>
                     <div style={{ fontSize: 10, color: C.t4 }}>AI-generated research</div>
                   </div>
-                  <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.6, whiteSpace: "pre-line" }}>
-                    {displayText}{!showFullResearch && isLong ? "..." : ""}
-                  </div>
-                  {isLong && (
-                    <button onClick={() => setShowFullResearch(p => !p)} style={{
-                      marginTop: 8, background: "none", border: "none", color: C.primary,
-                      fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: FONT,
-                    }}>
-                      {showFullResearch ? "Show less" : "Show full research →"}
-                    </button>
-                  )}
+                  {fields && fields.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {fields.map(([key, val]) => (
+                        <div key={key}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 3 }}>
+                            {FIELD_LABELS[key]}
+                          </div>
+                          <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.6 }}>{val}</div>
+                        </div>
+                      ))}
+                      {structured.rawText && showFullResearch && (
+                        <div style={{ paddingTop: 10, borderTop: `1px solid ${C.primary}20`, marginTop: 4 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4 }}>Full narrative</div>
+                          <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.6, whiteSpace: "pre-line" }}>{structured.rawText}</div>
+                        </div>
+                      )}
+                      {structured.rawText && (
+                        <button onClick={() => setShowFullResearch(p => !p)} style={{
+                          alignSelf: "flex-start", marginTop: 2, background: "none", border: "none", color: C.primary,
+                          fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: FONT,
+                        }}>
+                          {showFullResearch ? "Hide full narrative" : "Show full narrative →"}
+                        </button>
+                      )}
+                    </div>
+                  ) : (() => {
+                    // Last-resort raw render (when we can't parse anything structured)
+                    const lines = raw.split("\n").filter(l => l.trim().length > 10);
+                    const shortText = lines.slice(0, 5).join("\n").substring(0, 600);
+                    const fullText = lines.join("\n");
+                    const isLong = fullText.length > 600;
+                    const displayText = showFullResearch ? fullText : shortText;
+                    return (
+                      <>
+                        <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.6, whiteSpace: "pre-line" }}>
+                          {displayText}{!showFullResearch && isLong ? "..." : ""}
+                        </div>
+                        {isLong && (
+                          <button onClick={() => setShowFullResearch(p => !p)} style={{
+                            marginTop: 8, background: "none", border: "none", color: C.primary,
+                            fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: FONT,
+                          }}>
+                            {showFullResearch ? "Show less" : "Show full research →"}
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               );
             })()}
@@ -1070,9 +1429,33 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             <div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.6, textTransform: "uppercase" }}>Internal Notes</div>
-                <div style={{ fontSize: 11, color: C.t4 }}>
+                <div style={{ fontSize: 11, color: C.t4, flex: 1, minWidth: 0 }}>
                   Only your team sees this. The funder never does. Use it for strategy thoughts, who-knows-who, "why we said no last time", or anything you want the next person opening this grant to know.
                 </div>
+                <button
+                  onClick={async () => {
+                    setBusy(p => ({ ...p, extractNotes: true }));
+                    try {
+                      const r = await onRunAI("extractNotes", g);
+                      if (r && !isAIError(r)) {
+                        const stamp = new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+                        const block = `\n\n— From documents (${stamp}) —\n${r.trim()}`;
+                        up("notes", (g.notes || "") + block);
+                      }
+                    } catch (err) { console.error("Extract notes failed:", err); }
+                    setBusy(p => ({ ...p, extractNotes: false }));
+                  }}
+                  disabled={busy.extractNotes}
+                  title="Pull internal-notes intel from uploaded documents (board minutes, past proposals, donor reports)"
+                  style={{
+                    fontSize: 10, fontWeight: 600, padding: "3px 8px",
+                    background: busy.extractNotes ? C.warm100 : C.white,
+                    border: `1px solid ${C.line}`, borderRadius: 6, color: C.t2,
+                    cursor: busy.extractNotes ? "wait" : "pointer", fontFamily: FONT,
+                    whiteSpace: "nowrap", flexShrink: 0,
+                  }}>
+                  {busy.extractNotes ? "Reading docs…" : "✨ Extract from documents"}
+                </button>
               </div>
               <textarea
                 value={g.notes || ""}
@@ -1159,7 +1542,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               );
             })() : askIsSet ? (
               <>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                   <div style={{ fontSize: 22, fontWeight: 800, fontFamily: MONO, color: C.primary }}>{fmtK(g.ask)}</div>
                   {(g.askYears || (g.budgetTable?.years)) > 1 && (
                     <span style={{ fontSize: 12, fontWeight: 600, color: C.t3 }}>
@@ -1167,6 +1550,39 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                       <span style={{ fontFamily: MONO, fontWeight: 700, color: C.t2, marginLeft: 6 }}>
                         (R{Math.round(g.ask / (g.askYears || g.budgetTable?.years || 1)).toLocaleString()}/yr)
                       </span>
+                    </span>
+                  )}
+                  {/* AI suggestion hint — only shows when user manually set the ask AND AI's
+                      recommendation differs. Reasoning comes from the AI itself (aiAskReasoning),
+                      not from any hardcoded programme-type detection — this works for any org. */}
+                  {isManual && g.aiRecommendedAsk > 0 && g.aiRecommendedAsk !== g.ask && (
+                    <span style={{ position: "relative", display: "inline-block" }}>
+                      <button onClick={() => setAiAskOpen(o => !o)} title="Click to see AI's reasoning"
+                        style={{ fontSize: 10, fontWeight: 700, color: C.ok, background: C.ok + "12", border: `1px solid ${C.ok}30`, borderRadius: 100, padding: "2px 8px", cursor: "pointer", fontFamily: FONT, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        ✨ AI suggests R{(g.aiRecommendedAsk / 1000).toFixed(0)}K
+                        <span style={{ fontSize: 9, opacity: 0.6 }}>{aiAskOpen ? "▲" : "▼"}</span>
+                      </button>
+                      {aiAskOpen && (
+                        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 50, background: C.white, border: `1px solid ${C.line}`, borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 14, width: 300, fontFamily: FONT }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: C.ok, letterSpacing: 0.6, textTransform: "uppercase" }}>AI recommendation</div>
+                            <button onClick={() => setAiAskOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: C.t4, padding: 0, lineHeight: 1 }}>×</button>
+                          </div>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: C.ok, fontFamily: MONO, marginBottom: 8 }}>R{g.aiRecommendedAsk.toLocaleString()}</div>
+                          <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.5, marginBottom: 10 }}>
+                            {g.aiAskReasoning
+                              ? g.aiAskReasoning
+                              : "Inferred from the funder's typical grant size, your organisation's context, and the grant brief. Run AI Draft to refresh the reasoning."}
+                          </div>
+                          <div style={{ fontSize: 11, color: C.t3, marginBottom: 10, paddingTop: 8, borderTop: `1px solid ${C.line}` }}>
+                            You set <strong style={{ color: C.purple, fontFamily: MONO }}>R{g.ask.toLocaleString()}</strong> manually. Your number wins — the proposal draft uses it.
+                          </div>
+                          <button onClick={() => { up("ask", g.aiRecommendedAsk); up("askSource", "ai-draft"); setAiAskOpen(false); }}
+                            style={{ fontSize: 11, fontWeight: 700, color: C.white, background: C.ok, border: "none", borderRadius: 6, padding: "6px 12px", cursor: "pointer", fontFamily: FONT, width: "100%" }}>
+                            Use AI's recommendation instead
+                          </button>
+                        </div>
+                      )}
                     </span>
                   )}
                 </div>
@@ -1253,6 +1669,10 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 style={{ fontSize: 14, fontWeight: 600, color: C.dark, border: "none", background: "transparent", fontFamily: FONT, cursor: "pointer", width: "100%" }}>
                 {team.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
+              <button onClick={() => setHandover({ toMember: g.owner === "team" ? (team.find(t => t.id !== "team")?.id || "") : g.owner, note: "" })}
+                style={{ background: "none", border: "none", padding: 0, marginTop: 4, fontSize: 10, color: C.t4, cursor: "pointer", textDecoration: "underline", fontFamily: FONT }}>
+                Hand over with note →
+              </button>
             </Field>
             <Field label="Priority">
               <select value={g.pri} onChange={e => up("pri", parseInt(e.target.value))}
@@ -2054,6 +2474,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 </div>
               </Card>
             )}
+            <div data-tour="proposal-workspace" />
             <ProposalWorkspace
               grant={g}
               ai={ai}
@@ -2408,15 +2829,28 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       {(showAll || isClosedStage || g.stage === "resubmit") && (
         <SectionWrap title="Funder Feedback" defaultOpen={isClosedStage || g.stage === "resubmit"}>
           <Card pad="0" style={{ overflow: "hidden" }}>
-            <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}` }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: C.t2, marginBottom: 4 }}>
-                {g.stage === "won" ? "What did the funder say when they awarded the grant?" :
-                 g.stage === "resubmit" ? "What feedback did the funder give? This feeds into the revised proposal." :
-                 "What feedback did the funder give? This helps improve future proposals to this funder."}
+            <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "flex-start", gap: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.t2, marginBottom: 4 }}>
+                  {g.stage === "won" ? "What did the funder say when they awarded the grant?" :
+                   g.stage === "resubmit" ? "What feedback did the funder give? This feeds into the revised proposal." :
+                   "What feedback did the funder give? This helps improve future proposals to this funder."}
+                </div>
+                <div style={{ fontSize: 11, color: C.t4 }}>
+                  Paste rejection letters, call notes, or any feedback received. This is injected into the {g.stage === "won" ? "win" : "loss"} analysis and future proposals to {g.funder || "this funder"}.
+                </div>
               </div>
-              <div style={{ fontSize: 11, color: C.t4 }}>
-                Paste rejection letters, call notes, or any feedback received. This is injected into the {g.stage === "won" ? "win" : "loss"} analysis and future proposals to {g.funder || "this funder"}.
-              </div>
+              <button
+                onClick={() => setEmailExtract({ pasted: "", extracting: false, result: "" })}
+                title="Paste a raw funder email — AI will extract the outcome, key reasons, what worked / didn't, and next steps."
+                style={{
+                  fontSize: 11, fontWeight: 600, color: C.primary,
+                  background: C.white, border: `1px solid ${C.primary}40`,
+                  borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontFamily: FONT,
+                  whiteSpace: "nowrap", flexShrink: 0,
+                }}>
+                ✉ Paste email
+              </button>
             </div>
             <textarea
               value={g.funderFeedback || ""}
@@ -2476,6 +2910,46 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       {/* Activity — always visible, open in LATE/CLOSED */}
       <SectionWrap title="Activity" defaultOpen={isLate || isClosed}>
         <div data-tour="activity-log">
+        {/* Recently viewed — passive observability so the team can see who's been
+            looking at this grant. Powered by g.viewLog (dedupes within 5 min). */}
+        {(g.viewLog || []).length > 0 && (() => {
+          const recent = [...(g.viewLog || [])].slice(-6).reverse();
+          const seen = new Set();
+          const uniq = recent.filter(v => {
+            if (seen.has(v.memberId)) return false;
+            seen.add(v.memberId);
+            return true;
+          });
+          return (
+            <div style={{
+              padding: "8px 12px", marginBottom: 8, background: C.warm100,
+              border: `1px solid ${C.line}`, borderRadius: 8,
+              display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: C.t3,
+            }}>
+              <span style={{ fontWeight: 600, color: C.t4, letterSpacing: 0.4, textTransform: "uppercase", fontSize: 9 }}>Recently viewed</span>
+              <div style={{ display: "flex", gap: -4 }}>
+                {uniq.map((v, i) => {
+                  const member = team.find(t => t.id === v.memberId);
+                  if (!member) return null;
+                  const when = new Date(v.at);
+                  const ago = Math.floor((Date.now() - when.getTime()) / 86400000);
+                  const agoLabel = ago === 0 ? "today" : ago === 1 ? "yesterday" : `${ago}d ago`;
+                  return (
+                    <span key={v.at} title={`${member.name} · ${agoLabel}`} style={{
+                      width: 22, height: 22, borderRadius: "50%",
+                      background: member.c || C.t3, color: C.white,
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 9, fontWeight: 700, marginLeft: i === 0 ? 0 : -6,
+                      border: `2px solid ${C.warm100}`,
+                    }}>
+                      {member.ini || member.name?.slice(0, 2)}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
         <Card pad="0" style={{ overflow: "hidden" }}>
           {(g.log || []).slice().reverse().map((entry, i, arr) => (
             <ActivityRow key={i} date={entry.d} text={entry.t} by={entry.by} team={team} isLast={i === arr.length - 1} />
@@ -2513,8 +2987,197 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             setShowAutoFill(false);
             up("stage", "submitted");
           }}
+          // Auto-trigger the full Make-the-Magic-Happen flow when AutoFill opens
+          // and there's no proposal yet. ProposalWorkspace picks up rollingDice
+          // via its autoGenerate prop and generates every section in the background;
+          // the AutoFill preview refreshes as sections complete.
+          onTriggerMagic={() => {
+            if (!rollingDice) {
+              setRollingDice(true);
+              setDiceStep("Generating proposal…");
+            }
+          }}
+          generatingProposal={rollingDice}
+          generatingStep={diceStep}
         />
       )}
+
+      {/* Hand-over dialog — formal reassignment with a note. The note lands in the
+          activity log so the new owner sees the context (deadline, current state,
+          what's outstanding, why it's being handed over). */}
+      {handover && (() => {
+        const fromMember = team.find(t => t.id === g.owner);
+        const toMember = team.find(t => t.id === handover.toMember);
+        const confirm = () => {
+          const fromLabel = fromMember?.name || g.owner || "Unassigned";
+          const toLabel = toMember?.name || handover.toMember;
+          const noteText = handover.note.trim();
+          const logEntry = noteText
+            ? `Handed over from ${fromLabel} to ${toLabel} — ${noteText}`
+            : `Handed over from ${fromLabel} to ${toLabel}`;
+          onUpdate(g.id, {
+            owner: handover.toMember,
+            log: [...(g.log || []), { d: new Date().toISOString().slice(0, 10), t: logEntry, by: currentMember?.id }],
+          });
+          if (g.deadline && fromMember?.id !== handover.toMember) {
+            import("../api").then(({ reassignGcal }) => {
+              reassignGcal(g.id, g.owner, handover.toMember, g).catch(() => {});
+            });
+          }
+          setHandover(null);
+        };
+        return (
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 200,
+            background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center",
+          }} onClick={() => setHandover(null)}>
+            <div style={{
+              background: C.white, borderRadius: 12, padding: "24px 28px", width: 480, maxWidth: "calc(100vw - 32px)",
+              boxShadow: "0 16px 48px rgba(0,0,0,0.2)", fontFamily: FONT,
+            }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: C.dark, marginBottom: 6 }}>Hand over this grant</div>
+              <div style={{ fontSize: 12, color: C.t3, marginBottom: 16 }}>
+                The handover note will be added to the activity log so the new owner has full context.
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>From</div>
+                <div style={{ fontSize: 13, color: C.dark, fontWeight: 600 }}>{fromMember?.name || g.owner || "Unassigned"}</div>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>To</div>
+                <select value={handover.toMember} onChange={e => setHandover({ ...handover, toMember: e.target.value })}
+                  style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: `1px solid ${C.line}`, borderRadius: 6, fontFamily: FONT }}>
+                  {team.filter(t => t.id !== "team" || g.owner === "team").map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Handover note</div>
+                <textarea
+                  value={handover.note}
+                  onChange={e => setHandover({ ...handover, note: e.target.value })}
+                  rows={4}
+                  placeholder="e.g. Going on leave 5 May – 2 Jun. Draft is in review with Director. Budget signed off. Funder expecting submission by end-May."
+                  style={{
+                    width: "100%", padding: "10px 12px", fontSize: 13, fontFamily: FONT,
+                    border: `1px solid ${C.line}`, borderRadius: 6, resize: "vertical", lineHeight: 1.4,
+                    boxSizing: "border-box", outline: "none",
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                <button onClick={() => setHandover(null)} style={{
+                  padding: "8px 16px", fontSize: 13, fontWeight: 600, color: C.t2,
+                  background: C.white, border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", fontFamily: FONT,
+                }}>Cancel</button>
+                <button onClick={confirm}
+                  disabled={!handover.toMember || handover.toMember === g.owner}
+                  style={{
+                    padding: "8px 16px", fontSize: 13, fontWeight: 700, color: C.white,
+                    background: (!handover.toMember || handover.toMember === g.owner) ? C.t4 : C.primary,
+                    border: "none", borderRadius: 6,
+                    cursor: (!handover.toMember || handover.toMember === g.owner) ? "not-allowed" : "pointer",
+                    fontFamily: FONT,
+                  }}>Hand over</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Paste-email feedback extractor — funder emails get parsed into structured
+          OUTCOME / KEY REASONS / WHAT WORKED / WHAT DIDN'T / NEXT STEPS the team
+          can review before saving to Funder Feedback. */}
+      {emailExtract && (() => {
+        const run = async () => {
+          if (!emailExtract.pasted.trim() || emailExtract.extracting) return;
+          setEmailExtract({ ...emailExtract, extracting: true });
+          try {
+            const r = await onRunAI("extractEmailFeedback", { ...g, notes: emailExtract.pasted });
+            setEmailExtract(prev => prev ? { ...prev, extracting: false, result: r || "" } : null);
+          } catch (err) {
+            setEmailExtract(prev => prev ? { ...prev, extracting: false, result: `Extraction failed: ${err.message}` } : null);
+          }
+        };
+        const save = () => {
+          if (!emailExtract.result) return;
+          const stamp = new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+          const block = `${g.funderFeedback ? g.funderFeedback + "\n\n— " : "— "}From email (${stamp}) —\n${emailExtract.result.trim()}`;
+          up("funderFeedback", block);
+          setEmailExtract(null);
+        };
+        return (
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 200,
+            background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center",
+          }} onClick={() => setEmailExtract(null)}>
+            <div style={{
+              background: C.white, borderRadius: 12, padding: "24px 28px", width: 600, maxWidth: "calc(100vw - 32px)",
+              maxHeight: "90vh", overflowY: "auto",
+              boxShadow: "0 16px 48px rgba(0,0,0,0.2)", fontFamily: FONT,
+            }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: C.dark, marginBottom: 6 }}>Extract funder feedback from email</div>
+              <div style={{ fontSize: 12, color: C.t3, marginBottom: 14 }}>
+                Paste the funder's response below. AI extracts the outcome, key reasons, what worked, what didn't, and next steps in a structured format.
+              </div>
+
+              <textarea
+                value={emailExtract.pasted}
+                onChange={e => setEmailExtract({ ...emailExtract, pasted: e.target.value })}
+                placeholder="Paste the full funder email here…"
+                rows={8}
+                style={{
+                  width: "100%", padding: "10px 12px", fontSize: 13, fontFamily: FONT,
+                  border: `1px solid ${C.line}`, borderRadius: 6, resize: "vertical", lineHeight: 1.4,
+                  boxSizing: "border-box", outline: "none", marginBottom: 12,
+                }}
+              />
+
+              {emailExtract.result && (
+                <div style={{
+                  background: C.warm100, border: `1px solid ${C.line}`, borderRadius: 8,
+                  padding: 12, fontSize: 12, color: C.t1, lineHeight: 1.6, marginBottom: 12,
+                  whiteSpace: "pre-wrap", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                  maxHeight: 280, overflowY: "auto",
+                }}>
+                  {emailExtract.result}
+                </div>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                <button onClick={() => setEmailExtract(null)} style={{
+                  padding: "8px 16px", fontSize: 13, fontWeight: 600, color: C.t2,
+                  background: C.white, border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", fontFamily: FONT,
+                }}>Cancel</button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={run}
+                    disabled={!emailExtract.pasted.trim() || emailExtract.extracting}
+                    style={{
+                      padding: "8px 16px", fontSize: 13, fontWeight: 600, color: C.t2,
+                      background: C.white, border: `1px solid ${C.line}`, borderRadius: 6,
+                      cursor: (!emailExtract.pasted.trim() || emailExtract.extracting) ? "not-allowed" : "pointer",
+                      fontFamily: FONT,
+                    }}>
+                    {emailExtract.extracting ? "Extracting…" : emailExtract.result ? "Re-extract" : "Extract"}
+                  </button>
+                  <button onClick={save}
+                    disabled={!emailExtract.result || emailExtract.extracting}
+                    style={{
+                      padding: "8px 16px", fontSize: 13, fontWeight: 700, color: C.white,
+                      background: !emailExtract.result ? C.t4 : C.primary,
+                      border: "none", borderRadius: 6,
+                      cursor: !emailExtract.result ? "not-allowed" : "pointer",
+                      fontFamily: FONT,
+                    }}>Save to feedback</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {showSubmitModal && (
         <div style={{

@@ -81,6 +81,271 @@ function ChangePassword({ memberId, slug }) {
   );
 }
 
+/* Editable knowledge base for the org profile.
+ *
+ * Why this exists: the AI uses these fields as its source of truth for every
+ * proposal, fit score, and budget. Hardcoded programme templates would lock
+ * the app to one org — this lets each client define their own programmes,
+ * costs, tone, and history so the AI infers everything from their own data.
+ */
+function KnowledgeBaseEditor({ profile, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = () => {
+    setDraft({
+      mission: profile.mission || "",
+      programmes: Array.isArray(profile.programmes) ? [...profile.programmes] : [],
+      tone: profile.tone || "",
+      anti_patterns: profile.anti_patterns || "",
+      past_funders: profile.past_funders || "",
+      impact_stats: profile.impact_stats || {},
+      context_slim: profile.context_slim || "",
+      context_full: profile.context_full || "",
+    });
+    setEditing(true);
+  };
+
+  const cancel = () => { setDraft(null); setEditing(false); };
+
+  const save = async () => {
+    if (!onSave || !draft) return;
+    setSaving(true);
+    try {
+      await onSave(draft);
+      setEditing(false);
+      setDraft(null);
+    } catch (e) {
+      console.error("Failed to save profile:", e);
+      alert("Failed to save: " + e.message);
+    }
+    setSaving(false);
+  };
+
+  // ── Read-only view ──
+  if (!editing) {
+    const programmes = Array.isArray(profile.programmes) ? profile.programmes : [];
+    const stats = profile.impact_stats || {};
+    return (
+      <div style={{ marginBottom: 16 }}>
+        <div style={{
+          fontSize: 11, fontWeight: 700, color: C.t3, textTransform: "uppercase",
+          letterSpacing: 0.8, marginBottom: 8, display: "flex", alignItems: "center", gap: 6,
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: profile.mission ? C.ok : C.amber }} />
+          Knowledge Base
+          <span style={{ fontSize: 10, fontWeight: 500, color: C.t4, textTransform: "none", letterSpacing: 0 }}>
+            — AI uses this to write every proposal
+          </span>
+          <button onClick={startEdit} style={{
+            marginLeft: "auto", fontSize: 11, fontWeight: 600, color: C.primary,
+            background: C.primarySoft, border: "none", borderRadius: 6,
+            padding: "4px 12px", cursor: "pointer", fontFamily: FONT,
+          }}>Edit</button>
+        </div>
+        <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden" }}>
+          <KBField label="Mission" value={profile.mission} empty="Add a 1-2 sentence statement of who you are and what you do." />
+          <KBField
+            label={`Programmes (${programmes.length})`}
+            empty="Add the programme types you deliver — name, cost, students, duration. The AI uses these to size every budget."
+            value={programmes.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {programmes.map((p, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ padding: "3px 8px", fontSize: 11, background: C.primarySoft, color: C.primary, borderRadius: 6, fontWeight: 600 }}>
+                      {p.name || "(unnamed)"}
+                    </span>
+                    {p.cost > 0 && <span style={{ fontSize: 11, color: C.t3, fontFamily: MONO }}>R{Number(p.cost).toLocaleString()}</span>}
+                    {p.students && <span style={{ fontSize: 11, color: C.t3 }}>· {p.students} students</span>}
+                    {p.duration && <span style={{ fontSize: 11, color: C.t3 }}>· {p.duration}</span>}
+                    {p.description && <span style={{ fontSize: 11, color: C.t4, flex: 1 }}>— {p.description}</span>}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          />
+          {(stats.completion_rate != null || stats.employment_rate != null || stats.learners_trained != null) && (
+            <KBField label="Impact stats" value={
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                {stats.completion_rate != null && <span><strong style={{ color: C.ok }}>{Math.round(stats.completion_rate * 100)}%</strong> Completion</span>}
+                {stats.employment_rate != null && <span><strong style={{ color: C.primary }}>{Math.round(stats.employment_rate * 100)}%</strong> Employment</span>}
+                {stats.learners_trained != null && <span><strong style={{ color: C.dark }}>{stats.learners_trained}+</strong> Learners trained</span>}
+              </div>
+            } />
+          )}
+          <KBField label="Tone" value={profile.tone} empty="How proposals should sound — warm, formal, founder-led, evidence-first, etc." />
+          <KBField label="Anti-patterns" value={profile.anti_patterns} empty="Phrases or framings the AI should NEVER use (e.g. 'imagine a world where', 'leverage synergies')." />
+          <KBField label="Past funders" value={profile.past_funders} empty="Comma-separated list of organisations that have funded you before — gives AI context on what works." />
+          <KBField label="Extended context" value={profile.context_slim} mono empty="A longer org description the AI can reference. Paste your boilerplate org bio, theory of change, signature stories." last />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Edit view ──
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{
+        fontSize: 11, fontWeight: 700, color: C.t3, textTransform: "uppercase",
+        letterSpacing: 0.8, marginBottom: 8, display: "flex", alignItems: "center", gap: 6,
+      }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.amber }} />
+        Knowledge Base (editing)
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          <button onClick={cancel} style={{
+            fontSize: 11, fontWeight: 600, color: C.t3, background: "none",
+            border: `1px solid ${C.line}`, borderRadius: 6, padding: "4px 12px",
+            cursor: "pointer", fontFamily: FONT,
+          }}>Cancel</button>
+          <button onClick={save} disabled={saving} style={{
+            fontSize: 11, fontWeight: 700, color: C.white,
+            background: saving ? C.t4 : C.primary, border: "none",
+            borderRadius: 6, padding: "4px 14px", cursor: saving ? "wait" : "pointer", fontFamily: FONT,
+          }}>{saving ? "Saving…" : "Save changes"}</button>
+        </div>
+      </div>
+      <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+        <EditField label="Mission" hint="One or two sentences. Who you are, what you do, who you serve.">
+          <textarea value={draft.mission} onChange={e => setDraft(d => ({ ...d, mission: e.target.value }))}
+            rows={3} style={kbInputStyle} placeholder="e.g. We train unemployed youth in AI-native digital skills…" />
+        </EditField>
+
+        <ProgrammesEditor programmes={draft.programmes} onChange={list => setDraft(d => ({ ...d, programmes: list }))} />
+
+        <EditField label="Impact stats" hint="Completion rate, employment rate, learners trained — used as proof points.">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+            <PctInput label="Completion %" value={draft.impact_stats?.completion_rate}
+              onChange={v => setDraft(d => ({ ...d, impact_stats: { ...(d.impact_stats || {}), completion_rate: v } }))} />
+            <PctInput label="Employment %" value={draft.impact_stats?.employment_rate}
+              onChange={v => setDraft(d => ({ ...d, impact_stats: { ...(d.impact_stats || {}), employment_rate: v } }))} />
+            <NumInput label="Learners trained" value={draft.impact_stats?.learners_trained}
+              onChange={v => setDraft(d => ({ ...d, impact_stats: { ...(d.impact_stats || {}), learners_trained: v } }))} />
+          </div>
+        </EditField>
+
+        <EditField label="Tone" hint="How the AI should write — warm, formal, founder-led, technical, etc.">
+          <textarea value={draft.tone} onChange={e => setDraft(d => ({ ...d, tone: e.target.value }))}
+            rows={2} style={kbInputStyle} placeholder="e.g. Warm and confident. A founder who knows the work; avoid corporate buzz-words." />
+        </EditField>
+
+        <EditField label="Anti-patterns" hint="Phrases or framings the AI must NEVER use.">
+          <textarea value={draft.anti_patterns} onChange={e => setDraft(d => ({ ...d, anti_patterns: e.target.value }))}
+            rows={2} style={kbInputStyle} placeholder="e.g. 'Imagine a world where', 'leverage synergies', stat-only openings…" />
+        </EditField>
+
+        <EditField label="Past funders" hint="Comma-separated. Helps AI lean on continuity language for returning funders.">
+          <textarea value={draft.past_funders} onChange={e => setDraft(d => ({ ...d, past_funders: e.target.value }))}
+            rows={2} style={kbInputStyle} placeholder="e.g. GIDF, DG Murray Trust, TK Foundation, CCBA Foundation" />
+        </EditField>
+
+        <EditField label="Extended context" hint="Longer org bio, theory of change, signature stories. Injected into every AI prompt as background.">
+          <textarea value={draft.context_slim} onChange={e => setDraft(d => ({ ...d, context_slim: e.target.value }))}
+            rows={10} style={{ ...kbInputStyle, fontFamily: MONO, fontSize: 11 }}
+            placeholder="Paste org description, programme details, alumni stories — anything the AI should always have access to." />
+          <div style={{ fontSize: 10, color: C.t4, marginTop: 4 }}>
+            {(draft.context_slim || "").length.toLocaleString()} characters — keep under 8,000 to leave room for funder-specific context.
+          </div>
+        </EditField>
+      </div>
+    </div>
+  );
+}
+
+const kbInputStyle = {
+  width: "100%", padding: "8px 10px", fontSize: 12, lineHeight: 1.5,
+  border: `1px solid ${C.line}`, borderRadius: 6, outline: "none",
+  resize: "vertical", boxSizing: "border-box", fontFamily: FONT,
+};
+
+function EditField({ label, hint, children }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: C.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 }}>{label}</div>
+      {hint && <div style={{ fontSize: 11, color: C.t4, marginBottom: 6 }}>{hint}</div>}
+      {children}
+    </div>
+  );
+}
+
+function KBField({ label, value, empty, mono, last }) {
+  const hasValue = !!value && (typeof value !== "string" || value.trim().length > 0);
+  return (
+    <div style={{ padding: "10px 14px", borderBottom: last ? "none" : `1px solid ${C.line}` }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{label}</div>
+      {hasValue ? (
+        typeof value === "string"
+          ? <div style={{ fontSize: 12, color: C.t1, lineHeight: 1.5, fontFamily: mono ? MONO : FONT, whiteSpace: mono ? "pre-wrap" : "normal" }}>{value}</div>
+          : value
+      ) : (
+        <div style={{ fontSize: 11, color: C.t4, fontStyle: "italic" }}>{empty || "Not set"}</div>
+      )}
+    </div>
+  );
+}
+
+function PctInput({ label, value, onChange }) {
+  const v = value != null ? Math.round(value * 100) : "";
+  return (
+    <label style={{ display: "block" }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, marginBottom: 4 }}>{label}</div>
+      <input type="number" min={0} max={100} value={v}
+        onChange={e => { const n = parseInt(e.target.value); onChange(isNaN(n) ? null : Math.max(0, Math.min(100, n)) / 100); }}
+        style={{ ...kbInputStyle, width: "100%" }} />
+    </label>
+  );
+}
+
+function NumInput({ label, value, onChange }) {
+  return (
+    <label style={{ display: "block" }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, marginBottom: 4 }}>{label}</div>
+      <input type="number" min={0} value={value != null ? value : ""}
+        onChange={e => { const n = parseInt(e.target.value); onChange(isNaN(n) ? null : n); }}
+        style={{ ...kbInputStyle, width: "100%" }} />
+    </label>
+  );
+}
+
+function ProgrammesEditor({ programmes, onChange }) {
+  const update = (i, patch) => onChange(programmes.map((p, j) => j === i ? { ...p, ...patch } : p));
+  const remove = (i) => onChange(programmes.filter((_, j) => j !== i));
+  const add = () => onChange([...programmes, { name: "", cost: 0, students: "", duration: "", description: "" }]);
+
+  return (
+    <EditField
+      label={`Programmes (${programmes.length})`}
+      hint="The AI uses these to size every budget recommendation. Add the programme types you actually deliver — name, full cost, expected enrolment, duration."
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {programmes.map((p, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 2fr 30px", gap: 6, alignItems: "start" }}>
+            <input value={p.name || ""} onChange={e => update(i, { name: e.target.value })}
+              placeholder="Programme name" style={kbInputStyle} />
+            <input type="number" min={0} value={p.cost || ""} onChange={e => update(i, { cost: parseInt(e.target.value) || 0 })}
+              placeholder="Cost (R)" style={{ ...kbInputStyle, fontFamily: MONO }} />
+            <input value={p.students || ""} onChange={e => update(i, { students: e.target.value })}
+              placeholder="Students" style={kbInputStyle} />
+            <input value={p.duration || ""} onChange={e => update(i, { duration: e.target.value })}
+              placeholder="Duration (e.g. 9 months)" style={kbInputStyle} />
+            <input value={p.description || ""} onChange={e => update(i, { description: e.target.value })}
+              placeholder="Short description (optional)" style={kbInputStyle} />
+            <button onClick={() => remove(i)} title="Remove programme" style={{
+              background: "none", border: "none", color: C.t4, cursor: "pointer",
+              fontSize: 14, padding: 0, fontFamily: FONT,
+            }}>×</button>
+          </div>
+        ))}
+        <button onClick={add} style={{
+          alignSelf: "flex-start", fontSize: 11, fontWeight: 600, color: C.primary,
+          background: C.primarySoft, border: "none", borderRadius: 6,
+          padding: "5px 12px", cursor: "pointer", fontFamily: FONT,
+        }}>+ Add programme</button>
+      </div>
+    </EditField>
+  );
+}
+
 export default function Settings({ org, profile, team, currentMember, complianceDocs = [], onUpsertCompDoc, onUpdateProfile, onUpdateOrg, onLogout, onLaunchTour }) {
   const [serverStatus, setServerStatus] = useState(null);
   const [uploads, setUploads] = useState([]);
@@ -411,91 +676,11 @@ export default function Settings({ org, profile, team, currentMember, compliance
           Everything below feeds into all AI-generated proposals, funder research, and scout results.
         </div>
 
-        {/* Org Context (from profile) */}
-        {profile && (profile.mission || profile.context_slim) && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{
-              fontSize: 11, fontWeight: 700, color: C.t3, textTransform: "uppercase",
-              letterSpacing: 0.8, marginBottom: 8, display: "flex", alignItems: "center", gap: 6,
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.ok }} />
-              Org Context (auto-loaded)
-            </div>
-            <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden" }}>
-              {/* Mission */}
-              {profile.mission && (
-                <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.line}` }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 }}>Mission</div>
-                  <div style={{ fontSize: 12, color: C.t1, lineHeight: 1.5 }}>{profile.mission}</div>
-                </div>
-              )}
-              {/* Programmes */}
-              {profile.programmes && profile.programmes.length > 0 && (
-                <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.line}` }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>Programmes ({profile.programmes.length})</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                    {profile.programmes.map((p, i) => (
-                      <span key={i} style={{
-                        padding: "3px 8px", fontSize: 11, background: C.primarySoft, color: C.primary,
-                        borderRadius: 6, fontWeight: 600,
-                      }}>
-                        {p.name}{p.cost ? ` · R${(p.cost/1000).toFixed(0)}K` : ""}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {/* Impact Stats */}
-              {profile.impact_stats && (
-                <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.line}` }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>Impact</div>
-                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                    {profile.impact_stats.completion_rate != null && (
-                      <div><span style={{ fontSize: 16, fontWeight: 800, color: C.ok }}>{Math.round(profile.impact_stats.completion_rate * 100)}%</span><div style={{ fontSize: 10, color: C.t4 }}>Completion</div></div>
-                    )}
-                    {profile.impact_stats.employment_rate != null && (
-                      <div><span style={{ fontSize: 16, fontWeight: 800, color: C.primary }}>{Math.round(profile.impact_stats.employment_rate * 100)}%</span><div style={{ fontSize: 10, color: C.t4 }}>Employment</div></div>
-                    )}
-                    {profile.impact_stats.learners_trained != null && (
-                      <div><span style={{ fontSize: 16, fontWeight: 800, color: C.dark }}>{profile.impact_stats.learners_trained}+</span><div style={{ fontSize: 10, color: C.t4 }}>Learners trained</div></div>
-                    )}
-                  </div>
-                </div>
-              )}
-              {/* Tone + Anti-patterns */}
-              <div style={{ display: "flex" }}>
-                {profile.tone && (
-                  <div style={{ flex: 1, padding: "10px 14px", borderRight: profile.anti_patterns ? `1px solid ${C.line}` : "none" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 }}>Tone</div>
-                    <div style={{ fontSize: 11, color: C.t2, lineHeight: 1.5 }}>{profile.tone}</div>
-                  </div>
-                )}
-                {profile.anti_patterns && (
-                  <div style={{ flex: 1, padding: "10px 14px" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 }}>Anti-patterns</div>
-                    <div style={{ fontSize: 11, color: C.t2, lineHeight: 1.5 }}>{profile.anti_patterns}</div>
-                  </div>
-                )}
-              </div>
-              {/* Past Funders */}
-              {profile.past_funders && (
-                <div style={{ padding: "10px 14px", borderTop: `1px solid ${C.line}` }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 4 }}>Past Funders</div>
-                  <div style={{ fontSize: 11, color: C.t2 }}>{profile.past_funders}</div>
-                </div>
-              )}
-              {/* Context size indicator */}
-              <div style={{ padding: "8px 14px", background: C.warm100, display: "flex", alignItems: "center", gap: 6, borderTop: `1px solid ${C.line}` }}>
-                <span style={{ fontSize: 10, color: C.ok, fontWeight: 700 }}>AI CONTEXT</span>
-                <span style={{ fontSize: 10, color: C.t4 }}>
-                  {profile.context_slim ? `${(profile.context_slim.length / 1000).toFixed(1)}K chars (slim)` : ""}
-                  {profile.context_full ? ` · ${(profile.context_full.length / 1000).toFixed(1)}K chars (full)` : ""}
-                  {" — injected into every AI prompt"}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Knowledge Base — editable. AI uses this + uploaded documents as the
+            source of truth when generating proposals, fit scores, and budgets.
+            No hardcoded programme templates — every recommendation comes from
+            what's defined here + the document vault. */}
+        <KnowledgeBaseEditor profile={profile || {}} onSave={onUpdateProfile} />
 
         {/* Uploaded Documents */}
         <div style={{

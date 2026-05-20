@@ -3,27 +3,42 @@ import { DOCS, DOC_MAP, GATES } from "./data/constants";
 import { applyGlossary } from "./data/glossary";
 
 // ── Parse structured research JSON from AI response ──
+// Accepts the AI output in three formats, in order of preference:
+//   1. Pure JSON
+//   2. JSON fenced in ```json ... ```
+//   3. JSON-with-prose (extract first { … last })
+// Returns the parsed object even when `rawText` is missing — earlier versions
+// required it, which caused JSON without rawText to fall back to raw display
+// (showing key-value syntax to the user).
+const RESEARCH_FIELDS = ["budgetRange", "recentGrants", "contacts", "priorities", "applicationProcess", "strategy", "doorOpener", "relationshipLeverage", "rawText"];
+const looksLikeResearch = (o) => o && typeof o === "object" && RESEARCH_FIELDS.some(f => typeof o[f] === "string");
+const synthesizeRawText = (o) => {
+  if (!o || typeof o !== "object") return "";
+  if (typeof o.rawText === "string" && o.rawText.trim()) return o.rawText;
+  return RESEARCH_FIELDS
+    .filter(f => f !== "rawText" && typeof o[f] === "string" && o[f].trim())
+    .map(f => `${o[f]}`)
+    .join("\n\n");
+};
+
 export const parseStructuredResearch = (raw) => {
   if (!raw || typeof raw !== "string") return null;
-  try {
-    const parsed = JSON.parse(raw.trim());
-    if (parsed && typeof parsed === "object" && parsed.rawText) return parsed;
-  } catch { /* fall through */ }
-  try {
+  const tryParse = (str) => {
+    try { return JSON.parse(str.trim()); } catch { return null; }
+  };
+  let parsed = tryParse(raw);
+  if (!looksLikeResearch(parsed)) {
     const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fenced) {
-      const parsed = JSON.parse(fenced[1].trim());
-      if (parsed && typeof parsed === "object" && parsed.rawText) return parsed;
-    }
-  } catch { /* fall through */ }
-  try {
+    if (fenced) parsed = tryParse(fenced[1]);
+  }
+  if (!looksLikeResearch(parsed)) {
     const first = raw.indexOf("{"), last = raw.lastIndexOf("}");
-    if (first >= 0 && last > first) {
-      const parsed = JSON.parse(raw.slice(first, last + 1));
-      if (parsed && typeof parsed === "object" && parsed.rawText) return parsed;
-    }
-  } catch { /* fall through */ }
-  return null;
+    if (first >= 0 && last > first) parsed = tryParse(raw.slice(first, last + 1));
+  }
+  if (!looksLikeResearch(parsed)) return null;
+  // Ensure rawText is always present so downstream code can rely on it
+  if (!parsed.rawText || !parsed.rawText.trim()) parsed.rawText = synthesizeRawText(parsed);
+  return parsed;
 };
 
 // ── Post-processing filter for banned phrases that the AI ignores ──
@@ -283,6 +298,113 @@ export const addD = (date, n) => { const d = new Date(date); d.setDate(d.getDate
 export const cp = t => {
   try { navigator.clipboard.writeText(t); }
   catch { const a = document.createElement("textarea"); a.value = t; document.body.appendChild(a); a.select(); document.execCommand("copy"); document.body.removeChild(a); }
+};
+
+// Classify the funder's submission channel so the UI can pick the right action.
+// Returns an object: { method, recipient, label, desc } where method is one of:
+//   "invitation" — by invitation only / closed call (no public channel)
+//   "email"      — email submission (recipient is the parsed email if found)
+//   "form"       — online form / portal
+//   "loi"        — letter of inquiry first
+//   "physical"   — physical / postal delivery
+//   "relationship" — relationship-first (no public submission channel)
+//   "unknown"    — no clear signal
+export const detectSubmissionMethod = (grant) => {
+  const blob = `${grant?.notes || ""} ${grant?.aiResearch || ""} ${grant?.funderBrief || ""}`.toLowerCase();
+  const emailMatch = `${grant?.notes || ""}\n${grant?.funderBrief || ""}`.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+  const recipient = emailMatch ? emailMatch[0] : null;
+
+  if (/\b(by invitation|invitation only|invited only|not accepting unsolicited|closed call)\b/.test(blob)) {
+    return { method: "invitation", recipient: null, label: "By invitation only", desc: "This funder doesn't accept unsolicited applications." };
+  }
+  if (/\b(online portal|online form|application form|submission portal|apply online|web form|e-form|form online)\b/.test(blob)) {
+    return { method: "form", recipient: null, label: "Online application form", desc: "Fill the funder's form on their site." };
+  }
+  if (/\b(letter of inquiry|\bloi\b)\b/.test(blob)) {
+    return { method: "loi", recipient, label: "Letter of inquiry first", desc: "Send a short pitch first; full proposal only on invitation." };
+  }
+  if (recipient || /\b(email|e-mail|enquiry|inquiry)\b/.test(blob)) {
+    return { method: "email", recipient, label: "Email submission", desc: `Email the proposal directly${recipient ? ` to ${recipient}` : " to the funder's contact"}.` };
+  }
+  if (/\b(post(ed)?|postal|courier|in person|hand-?deliver|physical)\b/.test(blob)) {
+    return { method: "physical", recipient: null, label: "Paper / posted submission", desc: "This funder needs a physical copy delivered or posted." };
+  }
+  if (/\b(relationship first|warm intro|approach via|approach through|contact us first)\b/.test(blob)) {
+    return { method: "relationship", recipient: null, label: "Relationship-first", desc: "Make contact before sending anything formal." };
+  }
+  return { method: "unknown", recipient: null, label: null, desc: null };
+};
+
+// Detect whether a funder accepts unsolicited proposals based on the grant's
+// notes blob (which often quotes the funder's site). Returns:
+//   "yes"     — accepts open applications
+//   "no"      — by-invitation-only / closed call / not accepting
+//   "unknown" — no clear signal
+// Conservative — only returns yes/no on strong evidence.
+export const detectUnsolicited = (grant) => {
+  const blob = `${grant?.notes || ""} ${grant?.aiResearch || ""} ${grant?.funderBrief || ""}`.toLowerCase();
+  if (!blob.trim()) return "unknown";
+  const negPatterns = [
+    /by\s+invitation\s+only/,
+    /invitation[-\s]?only/,
+    /\bunsolicited[^.\n]{0,40}(not\s+accept|declined|rejected|will\s+not\s+be\s+considered)/,
+    /\b(does\s+not|do\s+not|don'?t)\s+accept[^.\n]{0,40}unsolicited/,
+    /closed\s+call/,
+    /by\s+nomination\s+only/,
+    /by\s+referral\s+only/,
+    /\bnot\s+accepting\s+applications/,
+  ];
+  for (const re of negPatterns) if (re.test(blob)) return "no";
+  const posPatterns = [
+    /\bunsolicited\s+(proposals?|applications?)\s+(welcome|accepted|considered|encouraged)/,
+    /\b(open|rolling)\s+(call|application|submission)/,
+    /\bapply\s+(online|here|via\s+our\s+portal)/,
+    /\baccept\s+applications\s+(year[-\s]?round|on\s+a\s+rolling\s+basis)/,
+  ];
+  for (const re of posPatterns) if (re.test(blob)) return "yes";
+  return "unknown";
+};
+
+// ── Readability scoring ──
+// Flesch Reading Ease: 0 (very hard, post-grad) → 100 (very easy, 5th grade).
+// Donor-facing proposals should land 50-70 (plain English, "fairly difficult"-ish).
+// Below 30 = bureaucratic grant-speak. Above 80 = too simple for a sophisticated funder.
+const countSyllables = (word) => {
+  word = word.toLowerCase().replace(/[^a-z]/g, "");
+  if (!word) return 0;
+  if (word.length <= 3) return 1;
+  word = word.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, "").replace(/^y/, "");
+  const m = word.match(/[aeiouy]{1,2}/g);
+  return m ? m.length : 1;
+};
+export const readabilityScore = (text) => {
+  if (!text || typeof text !== "string") return null;
+  // Strip markdown, code fences, tables — they skew the score
+  const clean = text
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/\|[^\n]*\|/g, " ")
+    .replace(/[#*_>`~\[\]()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (clean.length < 100) return null;
+  const sentences = clean.split(/[.!?]+\s/).filter(s => s.trim().length > 0);
+  const words = clean.split(/\s+/).filter(w => /[a-zA-Z]/.test(w));
+  if (sentences.length === 0 || words.length === 0) return null;
+  let syllables = 0;
+  for (const w of words) syllables += countSyllables(w);
+  const wordsPerSentence = words.length / sentences.length;
+  const syllablesPerWord = syllables / words.length;
+  // Flesch Reading Ease formula
+  const score = 206.835 - 1.015 * wordsPerSentence - 84.6 * syllablesPerWord;
+  return Math.round(Math.max(0, Math.min(100, score)));
+};
+export const readabilityLabel = (score) => {
+  if (score === null || score === undefined) return null;
+  if (score >= 80) return { label: "Very easy", note: "May read as too casual for sophisticated funders", tone: "amber" };
+  if (score >= 60) return { label: "Plain English", note: "Clear and accessible — funder-friendly", tone: "ok" };
+  if (score >= 45) return { label: "Fairly difficult", note: "Standard donor-facing register", tone: "ok" };
+  if (score >= 30) return { label: "Difficult", note: "Bureaucratic — consider simplifying", tone: "amber" };
+  return { label: "Very difficult", note: "Reads as grant-speak — needs editing", tone: "red" };
 };
 
 // ── Grant Readiness Score ──
