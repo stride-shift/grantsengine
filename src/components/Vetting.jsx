@@ -23,6 +23,20 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState("");
+  // Inline URL edit — only one grant can be in edit mode at a time. Saving via
+  // onUpdateGrant(applyUrl) propagates the change everywhere (grant detail,
+  // pipeline cards, autofill, calendar invites — they all read g.applyUrl).
+  const [editingUrlFor, setEditingUrlFor] = useState(null);
+  const [editUrlValue, setEditUrlValue] = useState("");
+  const startUrlEdit = (g) => { setEditingUrlFor(g.id); setEditUrlValue(g.applyUrl || ""); };
+  const cancelUrlEdit = () => { setEditingUrlFor(null); setEditUrlValue(""); };
+  const saveUrlEdit = (grantId) => {
+    const v = editUrlValue.trim();
+    if (v && !/^https?:\/\//i.test(v)) { alert("URL must start with http:// or https://"); return; }
+    onUpdateGrant(grantId, { applyUrl: v });
+    setEditingUrlFor(null);
+    setEditUrlValue("");
+  };
 
   // Grants in scouted or vetting stage
   const vettingGrants = useMemo(() => {
@@ -315,13 +329,39 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
                         <span style={{ fontSize: 13 }}>{vetting.urlVerified ? "✓" : "🔗"}</span>
                         Link works
                       </button>
-                      {g.applyUrl ? (
-                        <a href={g.applyUrl} target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: 11, color: C.blue, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 400 }}>
-                          {g.applyUrl} ↗
-                        </a>
+                      {editingUrlFor === g.id ? (
+                        <div style={{ display: "flex", gap: 4, flex: 1, alignItems: "center" }}>
+                          <input type="url" value={editUrlValue} autoFocus
+                            onChange={e => setEditUrlValue(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter") saveUrlEdit(g.id); if (e.key === "Escape") cancelUrlEdit(); }}
+                            placeholder="https://funder.example.com/apply"
+                            style={{ flex: 1, padding: "4px 8px", fontSize: 11, border: `1px solid ${C.primary}40`, borderRadius: 4, fontFamily: MONO, outline: "none" }} />
+                          <button onClick={() => saveUrlEdit(g.id)}
+                            style={{ fontSize: 10, fontWeight: 700, color: C.white, background: C.primary, border: "none", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontFamily: FONT }}>Save</button>
+                          <button onClick={cancelUrlEdit}
+                            style={{ fontSize: 10, fontWeight: 600, color: C.t3, background: "none", border: `1px solid ${C.line}`, borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontFamily: FONT }}>×</button>
+                        </div>
+                      ) : g.applyUrl ? (
+                        <>
+                          <a href={g.applyUrl} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: 11, color: C.blue, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 360 }}>
+                            {g.applyUrl} ↗
+                          </a>
+                          <button onClick={() => startUrlEdit(g)} title="Edit URL"
+                            style={{ fontSize: 10, fontWeight: 600, color: C.t4, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, padding: "0 4px" }}
+                            onMouseEnter={e => e.currentTarget.style.color = C.primary}
+                            onMouseLeave={e => e.currentTarget.style.color = C.t4}>
+                            ✎ edit
+                          </button>
+                        </>
                       ) : (
-                        <span style={{ fontSize: 11, color: C.t4, fontStyle: "italic" }}>No apply URL</span>
+                        <>
+                          <span style={{ fontSize: 11, color: C.t4, fontStyle: "italic" }}>No apply URL</span>
+                          <button onClick={() => startUrlEdit(g)}
+                            style={{ fontSize: 10, fontWeight: 700, color: C.primary, background: `${C.primary}12`, border: `1px solid ${C.primary}30`, borderRadius: 4, padding: "3px 10px", cursor: "pointer", fontFamily: FONT }}>
+                            + Add URL
+                          </button>
+                        </>
                       )}
                     </div>
 
