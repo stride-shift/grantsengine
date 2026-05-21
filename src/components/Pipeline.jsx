@@ -627,6 +627,27 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             <option value="">Pick...</option>
             {(team || []).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
+          <div style={{ width: 1, height: 20, background: C.line }} />
+          {/* Bulk archive — moves selected grants to "Not Relevant".
+              Reversible: archived grants can be restored via the showArchived
+              toggle + stage change. Confirmation prompt to prevent fat-finger. */}
+          <button onClick={() => {
+            const n = selectedIds.size;
+            if (!window.confirm(`Archive ${n} grant${n === 1 ? "" : "s"} to "Not Relevant"? They'll still be searchable and you can restore them later.`)) return;
+            for (const id of selectedIds) {
+              const g = grants.find(x => x.id === id);
+              onUpdateGrant(id, { stage: "archived", _archivedFrom: g?.stage || null });
+            }
+            setSelectedIds(new Set());
+          }}
+            style={{
+              padding: "3px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700,
+              background: C.t4, color: C.white, border: "none",
+              cursor: "pointer", fontFamily: FONT,
+            }}
+            title="Move selected grants to Not Relevant (archived, but searchable)">
+            ▤ Archive
+          </button>
           <div style={{ marginLeft: "auto" }} />
           <button onClick={() => setSelectedIds(new Set())}
             style={{ fontSize: 11, color: C.t4, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, fontWeight: 600 }}>Cancel</button>
