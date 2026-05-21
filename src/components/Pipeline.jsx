@@ -1329,21 +1329,30 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             const closedDaysAgo = g.log?.slice().reverse().find(l => l.t?.toLowerCase().includes("closed") || l.t?.toLowerCase().includes("archived"));
 
             return (
-              <div key={g.id} onClick={() => onSelectGrant(g.id)}
+              <div key={g.id} onClick={() => {
+                  // In batch mode, clicking the row toggles selection instead of
+                  // opening the grant. The entire row is the hit target so users
+                  // don't have to aim for the small checkbox.
+                  if (batchAction) {
+                    setSelectedIds(prev => { const n = new Set(prev); n.has(g.id) ? n.delete(g.id) : n.add(g.id); return n; });
+                  } else {
+                    onSelectGrant(g.id);
+                  }
+                }}
                 {...(idx === 0 ? { "data-tour": "grant-card" } : {})}
                 style={{
                   display: "flex", alignItems: "center", gap: 14,
                   padding: "12px 16px", borderBottom: `1px solid ${C.line}`,
                   cursor: "pointer", transition: "background 0.15s",
+                  background: batchAction && selectedIds.has(g.id) ? `${C.primary}10` : "transparent",
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = C.hover}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                onMouseEnter={e => { if (!(batchAction && selectedIds.has(g.id))) e.currentTarget.style.background = C.hover; }}
+                onMouseLeave={e => { e.currentTarget.style.background = batchAction && selectedIds.has(g.id) ? `${C.primary}10` : "transparent"; }}>
 
                 {/* Select checkbox (batch mode) */}
                 {batchAction && (
-                  <input type="checkbox" checked={selectedIds.has(g.id)}
-                    onChange={e => { e.stopPropagation(); setSelectedIds(prev => { const n = new Set(prev); n.has(g.id) ? n.delete(g.id) : n.add(g.id); return n; }); }}
-                    style={{ cursor: "pointer", flexShrink: 0 }} />
+                  <input type="checkbox" checked={selectedIds.has(g.id)} readOnly
+                    style={{ cursor: "pointer", flexShrink: 0, pointerEvents: "none" }} />
                 )}
 
                 {/* Owner avatar */}
