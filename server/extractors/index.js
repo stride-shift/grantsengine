@@ -11,33 +11,47 @@ function getExcelJS() { return _ExcelJS || (_ExcelJS = require('exceljs')); }
  * Extract text from a file buffer based on MIME type.
  * Returns { text, error } — text is null on failure.
  */
-// Gemini vision fallback for scanned PDFs and images
-async function extractWithGemini(buffer, mimeType) {
-  const apiKey = process.env.GEMINI_API_KEY;
+// OpenAI vision fallback for scanned PDFs and images
+async function extractWithVision(buffer, mimeType) {
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
+
+  // gpt-4o-mini supports images directly. For PDFs, OpenAI accepts them via the
+  // Responses API with input_file — but Chat Completions only handles image_url.
+  // Easiest: send as a data URL for images; PDFs fall through unless we render them.
+  if (!mimeType?.startsWith('image/')) {
+    // PDFs as base64 data URL aren't reliably accepted by chat completions vision —
+    // skip the vision fallback for PDFs and rely on pdf-parse upstream.
+    return null;
+  }
 
   try {
     const base64 = buffer.toString('base64');
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-    const response = await fetch(url, {
+    const dataUrl = `data:${mimeType};base64,${base64}`;
+    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
       body: JSON.stringify({
-        contents: [{
+        model,
+        max_tokens: 8000,
+        messages: [{
           role: 'user',
-          parts: [
-            { inlineData: { mimeType, data: base64 } },
-            { text: 'Extract ALL text from this document. Return the full text content exactly as it appears — every heading, paragraph, bullet point, table, and number. Do not summarize. Do not add commentary. Just return the raw text.' },
+          content: [
+            { type: 'text', text: 'Extract ALL text from this document. Return the full text content exactly as it appears — every heading, paragraph, bullet point, table, and number. Do not summarize. Do not add commentary. Just return the raw text.' },
+            { type: 'image_url', image_url: { url: dataUrl } },
           ],
         }],
-        generationConfig: { maxOutputTokens: 8000 },
       }),
     });
     const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.filter(p => p.text).map(p => p.text).join('\n\n');
+    const text = data.choices?.[0]?.message?.content;
     return text?.trim() || null;
   } catch (err) {
-    console.error('[Gemini extraction] Failed:', err.message);
+    console.error('[OpenAI vision extraction] Failed:', err.message);
     return null;
   }
 }
@@ -54,22 +68,22 @@ export async function extractText(buffer, mimeType, originalName) {
       } catch (pdfErr) {
         console.log('[Extraction] pdf-parse failed:', pdfErr.message);
       }
-      // If pdf-parse got nothing or failed, try Gemini vision
+      // If pdf-parse got nothing or failed, try vision OCR
       if (!text || text.length < 50) {
-        console.log('[Extraction] PDF text empty/short, trying Gemini vision...');
-        const geminiText = await extractWithGemini(buffer, mimeType);
-        if (geminiText && geminiText.length > 50) {
-          console.log(`[Extraction] Gemini extracted ${geminiText.length} chars from PDF`);
-          return { text: geminiText, error: null };
+        console.log('[Extraction] PDF text empty/short, trying vision OCR...');
+        const ocrText = await extractWithVision(buffer, mimeType);
+        if (ocrText && ocrText.length > 50) {
+          console.log(`[Extraction] Vision OCR extracted ${ocrText.length} chars from PDF`);
+          return { text: ocrText, error: null };
         }
       }
       return { text, error: text ? null : 'Could not extract text from PDF' };
     }
 
-    // Images — use Gemini vision for OCR
+    // Images — use vision model for OCR
     if (mimeType?.startsWith('image/')) {
-      const geminiText = await extractWithGemini(buffer, mimeType);
-      return { text: geminiText || null, error: geminiText ? null : 'Image OCR failed' };
+      const ocrText = await extractWithVision(buffer, mimeType);
+      return { text: ocrText || null, error: ocrText ? null : 'Image OCR failed' };
     }
 
     // DOCX
@@ -130,7 +144,7 @@ export async function extractText(buffer, mimeType, originalName) {
       return { text: buffer.toString('utf-8').trim(), error: null };
     }
 
-    // Images already handled above via Gemini vision
+    // Images already handled above via vision OCR
 
     // Unknown type
     return { text: null, error: `Unsupported file type: ${mimeType}` };

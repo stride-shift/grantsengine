@@ -7,7 +7,7 @@
  */
 
 import { scoutPrompt } from '../../src/prompts.js';
-import { callGemini } from '../routes/ai.js';
+import { callOpenAI } from '../routes/ai.js';
 import { getAllOrgs, getGrants, upsertGrant, logAgentRun, getOrgProfile } from '../db.js';
 import crypto from 'crypto';
 
@@ -111,8 +111,8 @@ export async function runAutoScout() {
   const start = Date.now();
   console.log(`[Scout] Starting automated scout at ${new Date().toISOString()}`);
 
-  if (!process.env.GEMINI_API_KEY) {
-    console.warn('[Scout] No GEMINI_API_KEY — skipping');
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn('[Scout] No OPENAI_API_KEY — skipping');
     return;
   }
 
@@ -162,12 +162,12 @@ async function scoutForOrg(org) {
 
     let text;
     try {
-      text = await callGemini(prompt.system, prompt.user, {
+      text = await callOpenAI(prompt.system, prompt.user, {
         search: prompt.search,
         maxTokens: prompt.maxTok,
       });
     } catch (err) {
-      console.error(`[Scout] ${org.slug}/${market}: Gemini call failed:`, err.message);
+      console.error(`[Scout] ${org.slug}/${market}: OpenAI call failed:`, err.message);
       continue;
     }
 
