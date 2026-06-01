@@ -57,7 +57,7 @@ d-lab NPC (The Field Lab NPC) trains unemployed South African youth in AI-native
 ## Tech Stack
 - React 18 (no TypeScript yet)
 - Vite for dev/build
-- Google Gemini API (`gemini-2.0-flash`) — proxied through Express backend (`server/routes/ai.js`)
+- OpenAI API (`gpt-4o-mini` default; `gpt-4o` for web-search calls via the Responses API) — proxied through Express backend (`server/routes/ai.js`)
 - Express 5 backend on port 3001 with Supabase PostgreSQL
 - Helmet, CORS, express-rate-limit for security
 - No CSS framework — all inline styles using design tokens from `src/theme.js`

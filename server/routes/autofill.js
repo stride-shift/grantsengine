@@ -10,11 +10,39 @@ const router = Router();
 const orgAuth = [resolveOrg, requireAuth];
 const w = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
-// ── Gemini helper for form detection from HTML ──
-async function detectFormFromHTML(url, html) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
+// ── OpenAI JSON helper ──
+async function callOpenAIJson(systemPrompt, userMessage, maxTokens) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
+  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`OpenAI API error: ${err.slice(0, 300)}`);
+  }
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
+// ── OpenAI helper for form detection from HTML ──
+async function detectFormFromHTML(url, html) {
   const systemPrompt = `You analyse HTML of grant application pages and extract form field information.
 
 Return ONLY a JSON object with this exact structure:
@@ -45,23 +73,7 @@ Rules:
 - If the page is not a form (just info/PDF download), set formType accordingly`;
 
   const userMessage = `URL: ${url}\n\nHTML (truncated to 40k chars):\n${(html || '').slice(0, 40000)}`;
-
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-      generationConfig: { maxOutputTokens: 4000, responseMimeType: 'application/json' },
-    }),
-  });
-
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Gemini API error: ${err.slice(0, 300)}`);
-  }
-  const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.filter(p => p.text).map(p => p.text).join('');
+  const text = await callOpenAIJson(systemPrompt, userMessage, 4000);
   try {
     return JSON.parse(text);
   } catch {
@@ -69,23 +81,22 @@ Rules:
   }
 }
 
-// ── Gemini helper for field-to-data mapping ──
+// ── OpenAI helper for field-to-data mapping ──
 async function mapFieldsToData(fields, context) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
-
   const systemPrompt = `You map form fields to organisation/grant data for auto-fill.
 
-Given a list of form fields and available data, return ONLY a JSON array:
-[
-  {
-    "fieldName": "exact field name from input",
-    "suggestedValue": "The value to fill in",
-    "source": "org_profile | grant | compliance | ai_draft | owner | empty",
-    "confidence": "high" | "medium" | "low",
-    "notes": "Why this value was chosen, or 'requires manual input' if unclear"
-  }
-]
+Given a list of form fields and available data, return ONLY a JSON object with a "mappings" key containing an array:
+{
+  "mappings": [
+    {
+      "fieldName": "exact field name from input",
+      "suggestedValue": "The value to fill in",
+      "source": "org_profile | grant | compliance | ai_draft | owner | empty",
+      "confidence": "high" | "medium" | "low",
+      "notes": "Why this value was chosen, or 'requires manual input' if unclear"
+    }
+  ]
+}
 
 Rules:
 - For empty fields (user must fill manually), set suggestedValue: "" and confidence: "low"
@@ -97,25 +108,10 @@ Rules:
 - For fields requiring programme descriptions, write 2-3 sentences pulled from the provided aiDraft/aiSections`;
 
   const userMessage = `FORM FIELDS:\n${JSON.stringify(fields, null, 2)}\n\nAVAILABLE DATA:\n${JSON.stringify(context, null, 2)}`;
-
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: 'user', parts: [{ text: userMessage }] }],
-      generationConfig: { maxOutputTokens: 6000, responseMimeType: 'application/json' },
-    }),
-  });
-
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Gemini mapping error: ${err.slice(0, 300)}`);
-  }
-  const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.filter(p => p.text).map(p => p.text).join('');
+  const text = await callOpenAIJson(systemPrompt, userMessage, 6000);
   try {
-    return JSON.parse(text);
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : (parsed.mappings || []);
   } catch {
     return [];
   }

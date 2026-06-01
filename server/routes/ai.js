@@ -4,53 +4,42 @@ import { resolveOrg } from '../middleware/org.js';
 import { logAgentRun } from '../db.js';
 
 const router = Router();
-const GEMINI_MODEL = 'gemini-2.0-flash';
-const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const SEARCH_MODEL = process.env.OPENAI_SEARCH_MODEL || 'gpt-4o';
+const OPENAI_CHAT_URL = 'https://api.openai.com/v1/chat/completions';
+const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 
 function getApiKey() {
-  return process.env.GEMINI_API_KEY;
+  return process.env.OPENAI_API_KEY;
 }
 
-// ── Call Gemini API ──
-async function callGeminiAPI(apiKey, { system, messages, max_tokens, search = false }) {
-  const url = `${GEMINI_API_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
-
-  // Convert messages to Gemini format
-  const contents = [];
-  if (system) {
-    // Gemini uses systemInstruction for system prompts
-  }
+// ── Chat completions: standard text generation ──
+async function callChatCompletions(apiKey, { system, messages, max_tokens, model, responseJson }) {
+  const openaiMessages = [];
+  if (system) openaiMessages.push({ role: 'system', content: system });
   for (const msg of (messages || [])) {
-    contents.push({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }],
+    openaiMessages.push({
+      role: msg.role === 'model' ? 'assistant' : msg.role,
+      content: msg.content,
     });
   }
 
   const body = {
-    contents,
-    generationConfig: {
-      maxOutputTokens: max_tokens || 1500,
-    },
+    model: model || DEFAULT_MODEL,
+    messages: openaiMessages,
+    max_tokens: max_tokens || 1500,
   };
-
-  // System instruction (Gemini 1.5+ / 2.0 supports this)
-  if (system) {
-    body.systemInstruction = { parts: [{ text: system }] };
-  }
-
-  // Google Search grounding — enables real-time web search
-  if (search) {
-    body.tools = [{ google_search: {} }];
-  }
+  if (responseJson) body.response_format = { type: 'json_object' };
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120_000);
-
   try {
-    const response = await fetch(url, {
+    const response = await fetch(OPENAI_CHAT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -62,120 +51,195 @@ async function callGeminiAPI(apiKey, { system, messages, max_tokens, search = fa
   }
 }
 
-// ── Extract text from Gemini response ──
-function extractGeminiText(data) {
-  const parts = data.candidates?.[0]?.content?.parts || [];
-  return parts.filter(p => p.text).map(p => p.text).join('\n\n') || '';
+// ── Responses API: chat with built-in web_search tool ──
+async function callResponsesWithSearch(apiKey, { system, user, max_tokens, model }) {
+  const input = [];
+  if (system) input.push({ role: 'system', content: system });
+  input.push({ role: 'user', content: user });
+
+  const body = {
+    model: model || SEARCH_MODEL,
+    input,
+    tools: [{ type: 'web_search_preview' }],
+    max_output_tokens: max_tokens || 4000,
+  };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 180_000);
+  try {
+    const response = await fetch(OPENAI_RESPONSES_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    return response;
+  } catch (err) {
+    clearTimeout(timeout);
+    throw err;
+  }
 }
 
-// ── Extract grounding metadata from Gemini response ──
-function extractGroundingMetadata(data) {
-  const meta = data.candidates?.[0]?.groundingMetadata;
-  if (!meta) return null;
-  const sources = meta.groundingChunks?.map(c => ({
-    url: c.web?.uri || null,
-    title: c.web?.title || null,
-  })).filter(s => s.url) || [];
+// ── Extract text from Chat Completions response ──
+function extractChatText(data) {
+  return data.choices?.[0]?.message?.content || '';
+}
+
+// ── Extract text + sources from Responses API output ──
+function extractResponsesText(data) {
+  if (data.output_text) return data.output_text;
+  const parts = [];
+  for (const item of (data.output || [])) {
+    if (item.type === 'message' && Array.isArray(item.content)) {
+      for (const c of item.content) {
+        if (c.type === 'output_text' && c.text) parts.push(c.text);
+      }
+    }
+  }
+  return parts.join('\n\n');
+}
+
+function extractResponsesSources(data) {
+  const sources = [];
+  const seen = new Set();
+  for (const item of (data.output || [])) {
+    if (item.type === 'message' && Array.isArray(item.content)) {
+      for (const c of item.content) {
+        for (const ann of (c.annotations || [])) {
+          if (ann.type === 'url_citation' && ann.url && !seen.has(ann.url)) {
+            seen.add(ann.url);
+            sources.push({ url: ann.url, title: ann.title || null });
+          }
+        }
+      }
+    }
+  }
   return sources.length > 0 ? sources : null;
 }
 
 // ── Standalone caller for server-side jobs (no Express req/res) ──
-export async function callGemini(system, user, { search = false, maxTokens = 1500 } = {}) {
+export async function callOpenAI(system, user, { search = false, maxTokens = 1500 } = {}) {
   const apiKey = getApiKey();
-  if (!apiKey) throw new Error('No GEMINI_API_KEY configured');
+  if (!apiKey) throw new Error('No OPENAI_API_KEY configured');
 
-  const response = await callGeminiAPI(apiKey, {
+  if (search) {
+    const response = await callResponsesWithSearch(apiKey, { system, user, max_tokens: maxTokens });
+    if (!response.ok) {
+      const errText = await response.text();
+      let msg = `OpenAI API error (${response.status})`;
+      try { msg = JSON.parse(errText).error?.message || msg; } catch {}
+      throw new Error(msg);
+    }
+    const data = await response.json();
+    return extractResponsesText(data);
+  }
+
+  const response = await callChatCompletions(apiKey, {
     system,
     messages: [{ role: 'user', content: user }],
     max_tokens: maxTokens,
-    search,
   });
 
   if (!response.ok) {
     const errText = await response.text();
-    let msg = `Gemini API error (${response.status})`;
+    let msg = `OpenAI API error (${response.status})`;
     try { msg = JSON.parse(errText).error?.message || msg; } catch {}
     throw new Error(msg);
   }
 
   const data = await response.json();
-  return extractGeminiText(data);
+  return extractChatText(data);
 }
 
-// ── Standalone caller that also returns grounding sources ──
-export async function callGeminiWithGrounding(system, user, { maxTokens = 4000 } = {}) {
+// ── Standalone caller that also returns web search sources ──
+export async function callOpenAIWithSearch(system, user, { maxTokens = 4000 } = {}) {
   const apiKey = getApiKey();
-  if (!apiKey) throw new Error('No GEMINI_API_KEY configured');
+  if (!apiKey) throw new Error('No OPENAI_API_KEY configured');
 
-  const response = await callGeminiAPI(apiKey, {
-    system,
-    messages: [{ role: 'user', content: user }],
-    max_tokens: maxTokens,
-    search: true,
-  });
-
+  const response = await callResponsesWithSearch(apiKey, { system, user, max_tokens: maxTokens });
   if (!response.ok) {
     const errText = await response.text();
-    let msg = `Gemini API error (${response.status})`;
+    let msg = `OpenAI API error (${response.status})`;
     try { msg = JSON.parse(errText).error?.message || msg; } catch {}
     throw new Error(msg);
   }
 
   const data = await response.json();
   return {
-    text: extractGeminiText(data),
-    sources: extractGroundingMetadata(data),
+    text: extractResponsesText(data),
+    sources: extractResponsesSources(data),
   };
 }
 
-// POST /api/org/:slug/ai/messages — proxied Gemini API call (authenticated)
+// POST /api/org/:slug/ai/messages — proxied OpenAI API call (authenticated)
 router.post('/org/:slug/ai/messages', resolveOrg, requireAuth, async (req, res) => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    return res.status(500).json({ error: { message: 'No GEMINI_API_KEY configured. Add GEMINI_API_KEY to your environment variables.' } });
+    return res.status(500).json({ error: { message: 'No OPENAI_API_KEY configured. Add OPENAI_API_KEY to your environment variables.' } });
   }
 
   const start = Date.now();
   try {
     const { _agent_type, _grant_id, model: _model, tools: _tools, ...apiBody } = req.body;
 
-    // Extract search flag from request — enables Google Search grounding
+    // Extract search flag from request — enables OpenAI web_search via Responses API
     const useSearch = apiBody.search === true;
     delete apiBody.search;
 
-    const response = await callGeminiAPI(apiKey, {
-      system: apiBody.system,
-      messages: apiBody.messages,
-      max_tokens: apiBody.max_tokens,
-      search: useSearch,
-    });
-    const rawData = await response.text();
-    const duration = Date.now() - start;
+    let text, sources = null, usage = { input_tokens: 0, output_tokens: 0 };
 
-    if (!response.ok) {
-      let errMsg = `Gemini API error (${response.status})`;
-      try { errMsg = JSON.parse(rawData).error?.message || errMsg; } catch {}
-      res.status(response.status).json({ error: { message: errMsg } });
-      return;
+    if (useSearch) {
+      const userContent = (apiBody.messages || []).map(m => m.content).join('\n\n');
+      const response = await callResponsesWithSearch(apiKey, {
+        system: apiBody.system,
+        user: userContent,
+        max_tokens: apiBody.max_tokens,
+      });
+      const rawData = await response.text();
+      if (!response.ok) {
+        let errMsg = `OpenAI API error (${response.status})`;
+        try { errMsg = JSON.parse(rawData).error?.message || errMsg; } catch {}
+        return res.status(response.status).json({ error: { message: errMsg } });
+      }
+      const parsed = JSON.parse(rawData);
+      text = extractResponsesText(parsed);
+      sources = extractResponsesSources(parsed);
+      usage = {
+        input_tokens: parsed.usage?.input_tokens || 0,
+        output_tokens: parsed.usage?.output_tokens || 0,
+      };
+    } else {
+      const response = await callChatCompletions(apiKey, {
+        system: apiBody.system,
+        messages: apiBody.messages,
+        max_tokens: apiBody.max_tokens,
+      });
+      const rawData = await response.text();
+      if (!response.ok) {
+        let errMsg = `OpenAI API error (${response.status})`;
+        try { errMsg = JSON.parse(rawData).error?.message || errMsg; } catch {}
+        return res.status(response.status).json({ error: { message: errMsg } });
+      }
+      const parsed = JSON.parse(rawData);
+      text = extractChatText(parsed);
+      usage = {
+        input_tokens: parsed.usage?.prompt_tokens || 0,
+        output_tokens: parsed.usage?.completion_tokens || 0,
+      };
     }
 
-    const parsed = JSON.parse(rawData);
-    const text = extractGeminiText(parsed);
-    const sources = extractGroundingMetadata(parsed);
+    const duration = Date.now() - start;
 
     // Normalize response to match frontend expectations (Anthropic-style format)
     const normalizedResponse = {
       content: [{ type: 'text', text }],
-      usage: {
-        input_tokens: parsed.usageMetadata?.promptTokenCount || 0,
-        output_tokens: parsed.usageMetadata?.candidatesTokenCount || 0,
-      },
+      usage,
     };
-
-    // Attach grounding sources if available
-    if (sources) {
-      normalizedResponse.grounding_sources = sources;
-    }
+    if (sources) normalizedResponse.grounding_sources = sources;
 
     // Log the agent run for audit
     try {

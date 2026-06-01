@@ -118,28 +118,43 @@ router.post('/org/:slug/uploads/youtube', ...orgAuth, async (req, res) => {
       return res.status(400).json({ error: 'Valid YouTube URL required' });
     }
 
-    // Use Gemini API with Google Search grounding to summarize the video
-    const apiKey = process.env.GEMINI_API_KEY;
+    // Use OpenAI Responses API with web_search to summarize the video
+    const apiKey = process.env.OPENAI_API_KEY;
     let extractedText = null;
 
     if (apiKey) {
       try {
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-        const response = await fetch(geminiUrl, {
+        const model = process.env.OPENAI_SEARCH_MODEL || 'gpt-4o';
+        const response = await fetch('https://api.openai.com/v1/responses', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
           body: JSON.stringify({
-            contents: [{
+            model,
+            input: [{
               role: 'user',
-              parts: [{ text: `Summarize this YouTube video in detail for use as context in grant proposal writing. Extract key points, themes, data, statistics, and notable quotes. Be thorough and specific. URL: ${url}` }],
+              content: `Summarize this YouTube video in detail for use as context in grant proposal writing. Extract key points, themes, data, statistics, and notable quotes. Be thorough and specific. URL: ${url}`,
             }],
-            tools: [{ google_search: {} }],
-            generationConfig: { maxOutputTokens: 2000 },
+            tools: [{ type: 'web_search_preview' }],
+            max_output_tokens: 2000,
           }),
         });
         const data = await response.json();
-        const texts = data.candidates?.[0]?.content?.parts?.filter(p => p.text).map(p => p.text).filter(Boolean);
-        extractedText = texts?.length ? texts.join('\n\n') : null;
+        if (data.output_text) {
+          extractedText = data.output_text;
+        } else {
+          const parts = [];
+          for (const item of (data.output || [])) {
+            if (item.type === 'message' && Array.isArray(item.content)) {
+              for (const c of item.content) {
+                if (c.type === 'output_text' && c.text) parts.push(c.text);
+              }
+            }
+          }
+          extractedText = parts.length ? parts.join('\n\n') : null;
+        }
       } catch (err) {
         console.error('YouTube summary extraction failed:', err.message);
       }
