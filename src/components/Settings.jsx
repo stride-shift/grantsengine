@@ -60,12 +60,12 @@ function ChangePassword({ memberId, slug }) {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-      <input type="password" value={pw} onChange={e => setPw(e.target.value)}
+      <input type="password" aria-label="New password" value={pw} onChange={e => setPw(e.target.value)}
         placeholder="New password" style={{
           width: 120, padding: "5px 10px", fontSize: 12, borderRadius: 8,
           border: `1px solid ${C.line}`, outline: "none", fontFamily: FONT,
         }} />
-      <input type="password" value={pw2} onChange={e => setPw2(e.target.value)}
+      <input type="password" aria-label="Confirm new password" value={pw2} onChange={e => setPw2(e.target.value)}
         placeholder="Confirm" style={{
           width: 100, padding: "5px 10px", fontSize: 12, borderRadius: 8,
           border: `1px solid ${C.line}`, outline: "none", fontFamily: FONT,
@@ -207,7 +207,7 @@ function KnowledgeBaseEditor({ profile, onSave }) {
       </div>
       <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 14 }}>
         <EditField label="Mission" hint="One or two sentences. Who you are, what you do, who you serve.">
-          <textarea value={draft.mission} onChange={e => setDraft(d => ({ ...d, mission: e.target.value }))}
+          <textarea aria-label="Mission" value={draft.mission} onChange={e => setDraft(d => ({ ...d, mission: e.target.value }))}
             rows={3} style={kbInputStyle} placeholder="e.g. We train unemployed youth in AI-native digital skills…" />
         </EditField>
 
@@ -225,22 +225,22 @@ function KnowledgeBaseEditor({ profile, onSave }) {
         </EditField>
 
         <EditField label="Tone" hint="How the AI should write — warm, formal, founder-led, technical, etc.">
-          <textarea value={draft.tone} onChange={e => setDraft(d => ({ ...d, tone: e.target.value }))}
+          <textarea aria-label="Tone" value={draft.tone} onChange={e => setDraft(d => ({ ...d, tone: e.target.value }))}
             rows={2} style={kbInputStyle} placeholder="e.g. Warm and confident. A founder who knows the work; avoid corporate buzz-words." />
         </EditField>
 
         <EditField label="Anti-patterns" hint="Phrases or framings the AI must NEVER use.">
-          <textarea value={draft.anti_patterns} onChange={e => setDraft(d => ({ ...d, anti_patterns: e.target.value }))}
+          <textarea aria-label="Anti-patterns" value={draft.anti_patterns} onChange={e => setDraft(d => ({ ...d, anti_patterns: e.target.value }))}
             rows={2} style={kbInputStyle} placeholder="e.g. 'Imagine a world where', 'leverage synergies', stat-only openings…" />
         </EditField>
 
         <EditField label="Past funders" hint="Comma-separated. Helps AI lean on continuity language for returning funders.">
-          <textarea value={draft.past_funders} onChange={e => setDraft(d => ({ ...d, past_funders: e.target.value }))}
+          <textarea aria-label="Past funders" value={draft.past_funders} onChange={e => setDraft(d => ({ ...d, past_funders: e.target.value }))}
             rows={2} style={kbInputStyle} placeholder="e.g. GIDF, DG Murray Trust, TK Foundation, CCBA Foundation" />
         </EditField>
 
         <EditField label="Extended context" hint="Longer org bio, theory of change, signature stories. Injected into every AI prompt as background.">
-          <textarea value={draft.context_slim} onChange={e => setDraft(d => ({ ...d, context_slim: e.target.value }))}
+          <textarea aria-label="Extended context" value={draft.context_slim} onChange={e => setDraft(d => ({ ...d, context_slim: e.target.value }))}
             rows={10} style={{ ...kbInputStyle, fontFamily: MONO, fontSize: 11 }}
             placeholder="Paste org description, programme details, alumni stories — anything the AI should always have access to." />
           <div style={{ fontSize: 10, color: C.t4, marginTop: 4 }}>
@@ -605,9 +605,9 @@ export default function Settings({ org, profile, team, currentMember, compliance
           <div>
             <div style={{ fontSize: 11, color: C.t4, fontWeight: 600, marginBottom: 6 }}>Primary Colour</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="color" value={brandPrimary} onChange={e => setBrandPrimary(e.target.value)}
+              <input type="color" aria-label="Primary colour picker" value={brandPrimary} onChange={e => setBrandPrimary(e.target.value)}
                 style={{ width: 40, height: 40, border: `2px solid ${C.line}`, borderRadius: 10, cursor: "pointer", padding: 2 }} />
-              <input type="text" value={brandPrimary} onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBrandPrimary(e.target.value); }}
+              <input type="text" aria-label="Primary colour hex value" value={brandPrimary} onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBrandPrimary(e.target.value); }}
                 style={{ width: 80, fontSize: 12, padding: "6px 8px", borderRadius: 8, border: `1px solid ${C.line}`, fontFamily: MONO, textTransform: "uppercase" }} />
               <div style={{ width: 24, height: 24, borderRadius: 6, background: brandPrimary, border: `1px solid ${C.line}` }} />
             </div>
@@ -615,9 +615,9 @@ export default function Settings({ org, profile, team, currentMember, compliance
           <div>
             <div style={{ fontSize: 11, color: C.t4, fontWeight: 600, marginBottom: 6 }}>Accent Colour</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="color" value={brandAccent} onChange={e => setBrandAccent(e.target.value)}
+              <input type="color" aria-label="Accent colour picker" value={brandAccent} onChange={e => setBrandAccent(e.target.value)}
                 style={{ width: 40, height: 40, border: `2px solid ${C.line}`, borderRadius: 10, cursor: "pointer", padding: 2 }} />
-              <input type="text" value={brandAccent} onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBrandAccent(e.target.value); }}
+              <input type="text" aria-label="Accent colour hex value" value={brandAccent} onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBrandAccent(e.target.value); }}
                 style={{ width: 80, fontSize: 12, padding: "6px 8px", borderRadius: 8, border: `1px solid ${C.line}`, fontFamily: MONO, textTransform: "uppercase" }} />
               <div style={{ width: 24, height: 24, borderRadius: 6, background: brandAccent, border: `1px solid ${C.line}` }} />
             </div>
@@ -878,6 +878,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
                                   <div style={{ fontSize: 11, color: C.t4, fontWeight: 600, marginBottom: 4 }}>Expiry Date</div>
                                   <input
                                     type="date"
+                                    aria-label={`${d.name} expiry date`}
                                     value={getEditField(d.id, "expiry")}
                                     onChange={e => setEditField(d.id, "expiry", e.target.value)}
                                     style={{
@@ -891,6 +892,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
                                 <div style={{ fontSize: 11, color: C.t4, fontWeight: 600, marginBottom: 4 }}>Notes</div>
                                 <input
                                   type="text"
+                                  aria-label={`${d.name} notes`}
                                   value={getEditField(d.id, "notes")}
                                   onChange={e => setEditField(d.id, "notes", e.target.value)}
                                   placeholder="e.g. Renewed via SARS eFiling"

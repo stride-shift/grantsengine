@@ -15,7 +15,8 @@ setInterval(() => {
 }, EVICT_INTERVAL_MS);
 
 export const requireAuth = async (req, res, next) => {
-  const token = req.headers.authorization?.replace('Bearer ', '') || req.query.token;
+  // Bearer header only — query-string tokens leak into logs, history and Referer.
+  const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) {
     return res.status(401).json({ error: 'Authentication required' });
   }

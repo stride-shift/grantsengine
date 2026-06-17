@@ -34,7 +34,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
   fileFilter: (req, file, cb) => {
-    const allowed = [
+    const allowedMime = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/msword',
@@ -43,10 +43,13 @@ const upload = multer({
       'text/csv', 'text/plain', 'text/markdown',
       'image/jpeg', 'image/png', 'image/gif', 'image/webp',
     ];
-    if (allowed.includes(file.mimetype) || file.originalname.match(/\.(txt|md|csv|doc|docx|xlsx|xls|pdf)$/i)) {
+    const allowedExt = /\.(txt|md|csv|doc|docx|xlsx|xls|pdf|jpg|jpeg|png|gif|webp)$/i;
+    // Require BOTH a known mimetype AND a matching extension — the client controls
+    // each independently, so an OR check would let arbitrary files through.
+    if (allowedMime.includes(file.mimetype) && allowedExt.test(file.originalname)) {
       cb(null, true);
     } else {
-      cb(new Error(`File type not supported: ${file.mimetype}`));
+      cb(new Error(`File type not supported: ${file.mimetype} (${file.originalname})`));
     }
   },
 });

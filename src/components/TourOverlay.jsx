@@ -234,6 +234,25 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
     onClose?.();
   }, [tourId, memberId, role, onClose]);
 
+  // Escape key closes the tour.
+  useEffect(() => {
+    if (!tourId) return;
+    const onKey = (e) => { if (e.key === "Escape") finish(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tourId, finish]);
+
+  // Move initial focus to the tooltip dialog once it first becomes ready.
+  const dialogRef = useRef(null);
+  const focusedRef = useRef(false);
+  useEffect(() => { focusedRef.current = false; }, [tourId]);
+  useEffect(() => {
+    if (ready && tooltipPos && !focusedRef.current && dialogRef.current) {
+      dialogRef.current.focus();
+      focusedRef.current = true;
+    }
+  }, [ready, tooltipPos]);
+
   const next = () => {
     if (stepIdx >= steps.length - 1) finish();
     else setStepIdx(stepIdx + 1);
@@ -317,14 +336,20 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
       {/* Tooltip card — single persistent element. Position transitions smoothly,
           opacity fades with the ring on step changes so nothing pops. */}
       {tooltipPos && (
-        <div style={{
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={step?.title ? `Tour step: ${step.title}` : "Guided tour"}
+          tabIndex={-1}
+          style={{
           position: "fixed",
           top: tooltipPos.top, left: tooltipPos.left,
           width: TOOLTIP_W, maxWidth: "calc(100vw - 32px)",
           zIndex: 1101,
           background: C.white, borderRadius: 14,
           boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
-          fontFamily: FONT, overflow: "hidden",
+          fontFamily: FONT, overflow: "hidden", outline: "none",
           opacity: ready && visible ? 1 : 0,
           willChange: "top, left, opacity",
           transition: `
@@ -345,10 +370,10 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
                   <span style={{ marginLeft: 8, color: C.t4, fontWeight: 600 }}>· {role}</span>
                 )}
               </div>
-              <button onClick={finish} style={{
+              <button onClick={finish} aria-label="Close tour" style={{
                 fontSize: 18, color: C.t4, background: "none", border: "none",
                 cursor: "pointer", padding: 0, lineHeight: 1, fontFamily: FONT,
-              }}>×</button>
+              }}><span aria-hidden="true">×</span></button>
             </div>
 
             {/* Body */}
@@ -399,7 +424,7 @@ export default function TourOverlay({ tourId, currentMember, currentView, select
                 }}
                   onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = `0 4px 14px ${C.primary}60`; }}
                   onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = `0 2px 8px ${C.primary}40`; }}>
-                  {last ? "Done" : "Next"} {!last && <span style={{ fontSize: 14 }}>→</span>}
+                  {last ? "Done" : "Next"} {!last && <span aria-hidden="true" style={{ fontSize: 14 }}>→</span>}
                 </button>
               </div>
             </div>

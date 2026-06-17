@@ -2,6 +2,7 @@ import express from 'express';
 import { chromium } from 'playwright';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import { assertSafeUrl } from './ssrfGuard.js';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -98,6 +99,9 @@ async function fillFields(page, fieldMappings) {
 app.post('/fill', requireServiceKey, async (req, res) => {
   const { jobId, orgId, url, credentials, fieldMappings } = req.body;
   if (!jobId || !url) return res.status(400).json({ error: 'jobId and url required' });
+
+  try { await assertSafeUrl(url); }
+  catch (e) { return res.status(400).json({ error: `Blocked URL: ${e.message}` }); }
 
   const sessionId = crypto.randomBytes(16).toString('hex');
   console.log(`[Fill] Starting job ${jobId} → session ${sessionId} → ${url}`);
@@ -219,6 +223,94 @@ app.post('/cancel', requireServiceKey, async (req, res) => {
     sessions.delete(sessionId);
   }
   res.json({ ok: true });
+});
+
+// ── POST /scrape — load a page and return its visible text + anchor links ──
+// Used by the grant scraper to pull raw content for AI parsing. Pure extraction.
+app.post('/scrape', requireServiceKey, async (req, res) => {
+  const { url, maxChars = 24000 } = req.body || {};
+  if (!url) return res.status(400).json({ error: 'url required' });
+
+  try { await assertSafeUrl(url); }
+  catch (e) { return res.status(400).json({ error: `Blocked URL: ${e.message}` }); }
+
+  console.log(`[Scrape] ${url}`);
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+
+    const pageText = (await page.innerText('body').catch(() => '')).slice(0, maxChars);
+    const rawLinks = await page.$$eval('a[href]', (els) =>
+      els.map((a) => ({ href: a.href, text: (a.textContent || '').trim().slice(0, 120) }))
+    ).catch(() => []);
+
+    // Dedupe to http(s) links only
+    const seen = new Set();
+    const links = [];
+    for (const l of rawLinks) {
+      if (l.href && /^https?:\/\//.test(l.href) && !seen.has(l.href)) {
+        seen.add(l.href);
+        links.push(l);
+      }
+    }
+
+    res.json({ url, pageText, links: links.slice(0, 300) });
+  } catch (err) {
+    console.error('[Scrape] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+  }
+});
+
+// ── POST /verify-link — check that one or more URLs resolve to a live page ──
+// Body: { url } for a single check (returns one object) or { urls: [...] } (returns { results }).
+app.post('/verify-link', requireServiceKey, async (req, res) => {
+  const single = req.body?.url;
+  const batch = Array.isArray(req.body?.urls) ? req.body.urls : null;
+  const urls = batch || (single ? [single] : []);
+  if (urls.length === 0) return res.status(400).json({ error: 'url or urls required' });
+
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext();
+    const results = [];
+    for (const u of urls) {
+      try { await assertSafeUrl(u); }
+      catch (e) {
+        results.push({ url: u, ok: false, status: 0, finalUrl: null, title: null, error: `Blocked URL: ${e.message}` });
+        continue;
+      }
+      const page = await context.newPage();
+      try {
+        const response = await page.goto(u, { waitUntil: 'domcontentloaded', timeout: 20000 });
+        const status = response ? response.status() : 0;
+        const title = await page.title().catch(() => '');
+        results.push({
+          url: u,
+          ok: status >= 200 && status < 400,
+          status,
+          finalUrl: page.url(),
+          title: (title || '').slice(0, 200),
+        });
+      } catch (err) {
+        results.push({ url: u, ok: false, status: 0, finalUrl: null, title: null, error: err.message });
+      } finally {
+        await page.close().catch(() => {});
+      }
+    }
+    res.json(batch ? { results } : results[0]);
+  } catch (err) {
+    console.error('[VerifyLink] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+  }
 });
 
 app.listen(PORT, () => {

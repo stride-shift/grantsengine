@@ -7,3 +7,5 @@ dist/
 .env
 .env.save
 .claude/
+mcp.json
+playwright-service/node_modules/

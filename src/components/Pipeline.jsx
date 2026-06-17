@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmtK, dL, uid, td, effectiveAsk, grantReadiness } from "../utils";
+import { fmtK, dL, uid, td, effectiveAsk, grantReadiness, isAIError } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "./index";
 import { detectType, PTYPES } from "../data/funderStrategy";
 import { GATES, ROLES } from "../data/constants";
@@ -368,20 +368,27 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
     if (active.length === 0) return;
     setScoringAll(true);
     setScoreProgress({ done: 0, total: active.length, current: "" });
+    let ok = 0, failed = 0;
     for (let i = 0; i < active.length; i++) {
       const g = active[i];
       setScoreProgress({ done: i, total: active.length, current: g.funder });
       try {
         const r = await onRunAI("fitscore", g);
-        if (r && !r.startsWith?.("Error")) {
+        if (r && !isAIError(r)) {
           onUpdateGrant(g.id, { aiFitscore: r, aiFitscoreAt: new Date().toISOString() });
+          ok++;
+        } else {
+          failed++;
+          console.warn(`Fit score failed for ${g.name}:`, r);
         }
       } catch (e) {
+        failed++;
         console.error(`Fit score failed for ${g.name}:`, e);
       }
     }
     setScoreProgress({ done: active.length, total: active.length, current: "" });
     setScoringAll(false);
+    onToast?.(`Scored ${ok} of ${active.length}${failed ? ` (${failed} failed)` : ""}`, { type: failed ? "error" : "success" });
   };
 
   const activeStages = STAGES.filter(s => !CLOSED_STAGES.includes(s.id));
@@ -562,19 +569,21 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             {ownerNames.map(oid => {
               const m = getMember(oid);
               const active = activeFilters.has(`owner:${oid}`);
+              const cIdx = m?.name ? m.name.charCodeAt(0) % AVATAR_COLORS.length : AVATAR_COLORS.length - 1;
+              const ac = AVATAR_COLORS[cIdx];
               return (
                 <button key={oid} onClick={() => toggleFilter(`owner:${oid}`)} title={m?.name || oid}
                   style={{
                     width: 28, height: 28, borderRadius: "50%", padding: 0,
                     border: active ? `2px solid ${C.dark}` : `2px solid transparent`,
-                    background: m?.c || C.t4,
+                    background: ac.accent,
                     color: "#fff",
                     cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 10, fontWeight: 700, fontFamily: FONT, transition: "all 0.15s",
                     opacity: active ? 1 : 0.5,
-                    boxShadow: active ? `0 0 0 2px ${C.white}, 0 0 0 4px ${m?.c || C.primary}` : "none",
+                    boxShadow: active ? `0 0 0 2px ${C.white}, 0 0 0 4px ${ac.accent}` : "none",
                   }}>
-                  {m?.ini || oid.slice(0, 2).toUpperCase()}
+                  {m?.initials || (m?.name ? m.name.slice(0, 2).toUpperCase() : oid.slice(0, 2).toUpperCase())}
                 </button>
               );
             })}
@@ -711,6 +720,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                   setUrlBusy(true);
                   try {
                     const r = await onRunAI("urlextract", { name: "", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "Cold", notes: "", deadline: null, stage: "scouted" }, urlInput.trim());
+                    if (isAIError(r)) { onToast?.(r, { type: "error" }); setUrlBusy(false); return; }
                     const parsed = JSON.parse(r);
                     const fBudget = parsed.ask || 0;
                     const g = {
@@ -742,6 +752,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
               setUrlBusy(true);
               try {
                 const r = await onRunAI("urlextract", { name: "", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "Cold", notes: "", deadline: null, stage: "scouted" }, urlInput.trim());
+                if (isAIError(r)) { onToast?.(r, { type: "error" }); setUrlBusy(false); return; }
                 const parsed = JSON.parse(r);
                 const fBudget = parsed.ask || 0;
                 const g = {

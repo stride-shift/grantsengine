@@ -30,7 +30,7 @@ export async function runDeadlineReminders() {
 
         // ── Grants WITH a deadline: day-before + 2-hours-before ──
         if (g.deadline) {
-          const deadlineDate = new Date(g.deadline + 'T09:00:00');
+          const deadlineDate = new Date(g.deadline + 'T09:00:00+02:00');
           const hoursUntil = (deadlineDate.getTime() - now.getTime()) / 3600000;
 
           // Day-before: 23-25 hour window
@@ -66,8 +66,10 @@ export async function runDeadlineReminders() {
 
         // ── Grants WITHOUT a deadline: nudge after 48 hours ──
         if (!g.deadline) {
-          // Use the first log entry date as creation/assignment time
-          const createdDate = g.log?.[0]?.d;
+          // Use the first log entry date as creation/assignment time;
+          // grants created via POST/UI start with an empty log, so fall back
+          // to the DB row timestamps (snake_case from Postgres).
+          const createdDate = g.log?.[0]?.d || g.created_at || g.updated_at;
           if (!createdDate) continue;
 
           const createdTime = new Date(createdDate).getTime();

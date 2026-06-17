@@ -105,16 +105,29 @@ router.post('/org/:slug/gcal/disconnect', ...orgAuth, async (req, res) => {
 });
 
 function makeEventId(grantId) {
-  return 'ge' + (grantId || '').replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 20);
+  // Google custom event IDs must be base32hex: chars a-v and 0-9 only (w/x/y/z disallowed).
+  // Map each char of the lowercased id into that alphabet so any id scheme stays valid.
+  const B32 = 'abcdefghijklmnopqrstuv';
+  const cleaned = (grantId || '').replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 20);
+  const safe = cleaned.replace(/[w-z]/g, (c) => B32[c.charCodeAt(0) % B32.length]);
+  return 'ge' + safe;
+}
+
+// Google treats all-day end.date as EXCLUSIVE, so end must be the day AFTER start.
+function nextDay(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
 }
 
 function buildEvent(grant) {
   const askStr = grant.ask ? ` | Ask: R${Number(grant.ask).toLocaleString()}` : '';
+  const startDate = (grant.deadline || '').slice(0, 10);
   return {
     summary: `DEADLINE: ${grant.name} (${grant.funder})`,
     description: `Stage: ${grant.stage || 'active'}${askStr}\nOwner: ${grant.owner || 'team'}${grant.applyUrl ? `\nApply: ${grant.applyUrl}` : ''}`,
-    start: { date: (grant.deadline || '').slice(0, 10) },
-    end: { date: (grant.deadline || '').slice(0, 10) },
+    start: { date: startDate },
+    end: { date: nextDay(startDate) },
     reminders: {
       useDefault: false,
       overrides: [
@@ -135,6 +148,8 @@ async function upsertEvent(accessToken, grantId, event) {
   const body = { ...event, id: eventId };
   const ins = await calendarApi(accessToken, 'POST', '/calendars/primary/events', body);
   if (ins.ok) return 'created';
+  console.error(`[GCal] upsert failed for ${grantId}: update ${upd.status} / insert ${ins.status}`,
+    JSON.stringify(ins.data?.error || upd.data?.error || null));
   return 'error';
 }
 

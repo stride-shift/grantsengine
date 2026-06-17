@@ -25,13 +25,25 @@ function pool() {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error('DATABASE_URL not set');
     const parsed = new URL(url);
+    // TLS: if a CA cert is supplied (PGSSLROOTCERT path or SUPABASE_CA_CERT PEM),
+    // verify the server certificate properly. Otherwise fall back to an encrypted-
+    // but-unverified connection (Supabase default) so existing deploys keep working.
+    let ssl = false;
+    if (url.includes('supabase') || process.env.PGSSLMODE === 'require') {
+      const caPem = process.env.SUPABASE_CA_CERT
+        || (process.env.PGSSLROOTCERT && fs.existsSync(process.env.PGSSLROOTCERT)
+            ? fs.readFileSync(process.env.PGSSLROOTCERT, 'utf8')
+            : null);
+      ssl = caPem ? { ca: caPem, rejectUnauthorized: true } : { rejectUnauthorized: false };
+      if (!caPem) console.warn('[db] TLS certificate verification disabled — set SUPABASE_CA_CERT or PGSSLROOTCERT to enable it.');
+    }
     _pool = new Pool({
       user: decodeURIComponent(parsed.username),
       password: decodeURIComponent(parsed.password),
       host: parsed.hostname,
       port: parseInt(parsed.port) || 5432,
       database: parsed.pathname.slice(1),
-      ssl: url.includes('supabase') ? { rejectUnauthorized: false } : false,
+      ssl,
     });
   }
   return _pool;
@@ -244,6 +256,8 @@ export const getGrants = async (orgId) => {
     applyUrl: row.apply_url,
     market: row.market || 'sa',
     source: row.source || 'scout',
+    created_at: row.created_at,
+    updated_at: row.updated_at,
     ...safeJSON(row.ai_data, {}),
   }));
 };

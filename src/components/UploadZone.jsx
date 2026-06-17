@@ -84,7 +84,8 @@ export default function UploadZone({ uploads = [], grantId, onUploadsChange, lab
     setYtBusy(false);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id, name) => {
+    if (!window.confirm(`Delete "${name || "this file"}"? This cannot be undone.`)) return;
     try {
       await apiDeleteUpload(id);
       onUploadsChange();
@@ -99,10 +100,20 @@ export default function UploadZone({ uploads = [], grantId, onUploadsChange, lab
 
       {/* Drop zone */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Drop files here or press Enter to browse"
+        aria-disabled={uploading}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
         onClick={() => !uploading && inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === " ") && !uploading) {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
         style={{
           padding: uploading ? "18px 24px" : "28px 24px",
           textAlign: "center",
@@ -148,6 +159,7 @@ export default function UploadZone({ uploads = [], grantId, onUploadsChange, lab
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <input
           type="text"
+          aria-label="YouTube URL"
           value={ytUrl}
           onChange={(e) => setYtUrl(e.target.value)}
           placeholder="Paste YouTube URL..."
@@ -170,9 +182,9 @@ export default function UploadZone({ uploads = [], grantId, onUploadsChange, lab
           fontSize: 12, marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center",
         }}>
           <span>{error}</span>
-          <button onClick={() => setError(null)} style={{
+          <button onClick={() => setError(null)} aria-label="Dismiss error" style={{
             background: "none", border: "none", color: C.red, cursor: "pointer", fontSize: 14, padding: "0 4px",
-          }}>{"\u2715"}</button>
+          }}><span aria-hidden="true">{"\u2715"}</span></button>
         </div>
       )}
 
@@ -185,7 +197,7 @@ export default function UploadZone({ uploads = [], grantId, onUploadsChange, lab
               borderBottom: i < uploads.length - 1 ? `1px solid ${C.line}` : "none",
             }}>
               {/* Type icon */}
-              <span style={{
+              <span aria-hidden="true" style={{
                 fontSize: 14, color: C.white, fontWeight: 700,
                 width: 28, height: 28, borderRadius: 6,
                 background: typeColor(u.mime_type),
@@ -227,7 +239,7 @@ export default function UploadZone({ uploads = [], grantId, onUploadsChange, lab
 
               {/* Delete */}
               <button
-                onClick={() => handleDelete(u.id)}
+                onClick={() => handleDelete(u.id, u.original_name)}
                 style={{
                   background: "none", border: "none", color: C.t4, fontSize: 14,
                   cursor: "pointer", padding: "4px 8px", borderRadius: 4,
@@ -235,9 +247,10 @@ export default function UploadZone({ uploads = [], grantId, onUploadsChange, lab
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = C.red; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = C.t4; }}
+                aria-label="Delete upload"
                 title="Delete upload"
               >
-                {"\u2715"}
+                <span aria-hidden="true">{"\u2715"}</span>
               </button>
             </div>
           ))}

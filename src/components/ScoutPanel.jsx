@@ -691,13 +691,13 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                         {s.inPipeline && !s.added && (
                           <span style={{ fontSize: 10, fontWeight: 700, color: C.white, background: C.primary, padding: "2px 8px", borderRadius: 100, letterSpacing: 0.2 }}
                             title="This funder is already in your pipeline">
-                            \u25cf Already tracking
+                            {"\u25cf"} Already tracking
                           </span>
                         )}
                         {s.genericLink && (
                           <span style={{ fontSize: 9, fontWeight: 600, color: C.amber, background: C.amberSoft, padding: "1px 6px", borderRadius: 100 }}
                             title="URL points only to the funder homepage \u2014 AI did not find a specific application page">
-                            \u26a0 generic link
+                            {"\u26a0"} generic link
                           </span>
                         )}
                         {isRejected && <span style={{ fontSize: 10, fontWeight: 600, color: C.t4, background: C.raised, padding: "1px 7px", borderRadius: 100 }}>Rejected</span>}

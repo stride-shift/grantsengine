@@ -8,6 +8,8 @@
 
 import { scoutPrompt } from '../../src/prompts.js';
 import { callOpenAI } from '../routes/ai.js';
+import { SOURCES } from '../scraper/sources.js';
+import { scrapeGrants } from '../scraper/scrapeGrants.js';
 import { getAllOrgs, getGrants, upsertGrant, logAgentRun, getOrgProfile } from '../db.js';
 import crypto from 'crypto';
 
@@ -29,7 +31,7 @@ function parseScoutResults(text) {
 }
 
 // ── Calculate fit score (same logic as frontend) ──
-function calcScoutFitScore(s) {
+export function calcScoutFitScore(s) {
   let score = 40;
   const goodFocus = ['Youth Employment', 'Digital Skills', 'AI/4IR', 'Education', 'STEM', 'Work Readiness'];
   const focusHits = (s.focus || []).filter(f => goodFocus.includes(f)).length;
@@ -65,13 +67,13 @@ const SCOUT_TYPE_MAP = {
   tech: 'Tech Company',
 };
 
-function mapType(rawType) {
+export function mapType(rawType) {
   const key = Object.keys(SCOUT_TYPE_MAP).find(k => (rawType || '').toLowerCase().includes(k));
   return SCOUT_TYPE_MAP[key] || 'Foundation';
 }
 
 // ── Build a grant object from scout result ──
-function scoutResultToGrant(s) {
+export function scoutResultToGrant(s) {
   const funderBudget = Number(s.funderBudget || s.ask) || 0;
   const accessLine = s.access ? `\nAccess: ${s.access}${s.accessNote ? ' — ' + s.accessNote : ''}` : '';
   const notes = `${s.reason || ''}${s.url ? '\nApply: ' + s.url : ''}${accessLine}`;
@@ -95,7 +97,7 @@ function scoutResultToGrant(s) {
     hrs: 0,
     notes,
     market: scoutedMarket,
-    log: [{ d: td(), t: `Auto-scouted · funder budget R${funderBudget.toLocaleString()}${s.access ? ` · ${s.access}` : ''} · fit ${s.fitScore || '?'}%` }],
+    log: [{ d: td(), t: `Auto-scouted${s.sourceKey ? ` via ${s.sourceKey}` : ''} · funder budget R${funderBudget.toLocaleString()}${s.access ? ` · ${s.access}` : ''} · fit ${s.fitScore || '?'}%` }],
     on: '',
     of: [],
     owner: 'team',
@@ -111,8 +113,8 @@ export async function runAutoScout() {
   const start = Date.now();
   console.log(`[Scout] Starting automated scout at ${new Date().toISOString()}`);
 
-  if (!process.env.OPENAI_API_KEY) {
-    console.warn('[Scout] No OPENAI_API_KEY — skipping');
+  if (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+    console.warn('[Scout] No OPENAI_API_KEY or ANTHROPIC_API_KEY — skipping');
     return;
   }
 
@@ -124,9 +126,14 @@ export async function runAutoScout() {
     return;
   }
 
+  // Scrape real sources once (grant-database APIs + RSS feeds + funder pages),
+  // then share the results across all orgs — each org scores/dedupes its own.
+  // Parsing uses Claude Haiku when ANTHROPIC_API_KEY is set, else OpenAI.
+  const scraped = await scrapeAllSources();
+
   for (const org of orgs) {
     try {
-      await scoutForOrg(org);
+      await scoutForOrg(org, scraped);
     } catch (err) {
       console.error(`[Scout] Failed for org ${org.slug}:`, err.message);
     }
@@ -135,7 +142,22 @@ export async function runAutoScout() {
   console.log(`[Scout] Completed in ${((Date.now() - start) / 1000).toFixed(1)}s`);
 }
 
-async function scoutForOrg(org) {
+// ── Scrape every configured source; tolerate per-source failures ──
+async function scrapeAllSources() {
+  const all = [];
+  for (const source of SOURCES) {
+    try {
+      const { found, grants } = await scrapeGrants(source);
+      console.log(`[Scout] scraper:${source.key}: ${found} found, ${grants.length} usable`);
+      all.push(...grants);
+    } catch (err) {
+      console.error(`[Scout] scraper:${source.key} failed:`, err.message);
+    }
+  }
+  return all;
+}
+
+async function scoutForOrg(org, scraped = []) {
   const CLOSED = ['won', 'lost', 'deferred', 'archived'];
 
   // 1. Load existing grants + org profile for context
@@ -150,62 +172,72 @@ async function scoutForOrg(org) {
     orgContext = profile?.context_slim || profile?.mission || org.name || "";
   } catch { /* profile not set — use empty context */ }
 
-  // 2. Run scout for both markets
-  const markets = ['sa', 'global'];
   let totalAdded = 0;
   let totalFound = 0;
+  const seenNames = new Set(grants.map(g => `${(g.funder || '').toLowerCase()}::${(g.name || '').toLowerCase()}`));
 
-  for (const market of markets) {
-    console.log(`[Scout] ${org.slug}: searching ${market} market...`);
-
-    const prompt = scoutPrompt({ existingFunders, market, orgContext });
-
-    let text;
-    try {
-      text = await callOpenAI(prompt.system, prompt.user, {
-        search: prompt.search,
-        maxTokens: prompt.maxTok,
-      });
-    } catch (err) {
-      console.error(`[Scout] ${org.slug}/${market}: OpenAI call failed:`, err.message);
-      continue;
-    }
-
-    const parsed = parseScoutResults(text);
-    if (!parsed || parsed.length === 0) {
-      console.log(`[Scout] ${org.slug}/${market}: no results parsed`);
-      continue;
-    }
-
-    totalFound += parsed.length;
-
-    // 3. Score and filter — only auto-add High fit (score >= 65)
-    const scored = parsed.map(s => ({ ...s, fitScore: calcScoutFitScore(s) }));
-    const highFit = scored.filter(s => s.fitScore >= 65);
-    const existing = grants.map(g => (g.funder || '').toLowerCase());
-
-    for (const s of highFit) {
-      // Skip duplicates — same funder already in pipeline
-      if (existing.includes((s.funder || '').toLowerCase())) {
-        console.log(`[Scout] ${org.slug}: skip ${s.funder} (already in pipeline)`);
+  // Auto-add High fit (score >= 65). Dedupe at the (funder, name) level via
+  // seenNames — NOT at the funder level, so renewal/new opportunities from a
+  // funder already in the pipeline (the bread-and-butter for a returning-funder
+  // NPO) still come through. Only an exact funder+name repeat is suppressed.
+  const addHighFit = async (scored, label) => {
+    for (const s of scored.filter(x => x.fitScore >= 65)) {
+      const funderKey = (s.funder || '').toLowerCase();
+      const nameKey = `${funderKey}::${(s.name || '').toLowerCase()}`;
+      if (seenNames.has(nameKey)) {
+        console.log(`[Scout] ${org.slug}: skip ${s.funder} — "${s.name}" (already in pipeline)`);
         continue;
       }
-
       const grant = scoutResultToGrant(s);
       try {
         await upsertGrant(org.id, grant);
-        existing.push((s.funder || '').toLowerCase()); // prevent dupes within same run
+        seenNames.add(nameKey);
         totalAdded++;
-        console.log(`[Scout] ${org.slug}: added "${s.name}" from ${s.funder} (fit: ${s.fitScore}%)`);
+        console.log(`[Scout] ${org.slug}: added "${s.name}" from ${s.funder} (fit: ${s.fitScore}%, ${label})`);
       } catch (err) {
         console.error(`[Scout] ${org.slug}: failed to add ${s.name}:`, err.message);
       }
     }
-
-    // Log medium-fit as info
     const medFit = scored.filter(s => s.fitScore >= 40 && s.fitScore < 65);
     if (medFit.length > 0) {
-      console.log(`[Scout] ${org.slug}/${market}: ${medFit.length} medium-fit results not auto-added: ${medFit.map(s => s.funder).join(', ')}`);
+      console.log(`[Scout] ${org.slug}/${label}: ${medFit.length} medium-fit results not auto-added: ${medFit.map(s => s.funder).join(', ')}`);
+    }
+  };
+
+  // 2. Scraped sources first — real listings from grant APIs/feeds (already scored)
+  if (scraped.length > 0) {
+    totalFound += scraped.length;
+    await addHighFit(scraped, 'scraper');
+  }
+
+  // 3. AI web-search scout for both markets
+  const markets = ['sa', 'global'];
+  if (process.env.OPENAI_API_KEY) {
+    for (const market of markets) {
+      console.log(`[Scout] ${org.slug}: searching ${market} market...`);
+
+      const prompt = scoutPrompt({ existingFunders, market, orgContext });
+
+      let text;
+      try {
+        text = await callOpenAI(prompt.system, prompt.user, {
+          search: prompt.search,
+          maxTokens: prompt.maxTok,
+        });
+      } catch (err) {
+        console.error(`[Scout] ${org.slug}/${market}: OpenAI call failed:`, err.message);
+        continue;
+      }
+
+      const parsed = parseScoutResults(text);
+      if (!parsed || parsed.length === 0) {
+        console.log(`[Scout] ${org.slug}/${market}: no results parsed`);
+        continue;
+      }
+
+      totalFound += parsed.length;
+      const scored = parsed.map(s => ({ ...s, fitScore: calcScoutFitScore(s) }));
+      await addHighFit(scored, market);
     }
   }
 
@@ -214,7 +246,7 @@ async function scoutForOrg(org) {
     await logAgentRun(org.id, {
       agent_type: 'auto-scout',
       grant_id: null,
-      prompt_summary: `Nightly auto-scout: ${markets.join('+')} markets`,
+      prompt_summary: `Nightly auto-scout: ${SOURCES.length} scraper sources + ${markets.join('+')} markets`,
       result_summary: `Found ${totalFound}, added ${totalAdded} high-fit opportunities`,
       tokens_in: 0,
       tokens_out: 0,

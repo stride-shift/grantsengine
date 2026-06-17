@@ -6,13 +6,17 @@
   "scripts": {
     "dev": "concurrently -n server,vite -c blue,green \"node server/index.js\" \"vite\"",
     "build": "vite build",
-    "start": "mkdir -p data && NODE_ENV=production node server/index.js",
+    "start": "cross-env NODE_ENV=production node server/index.js",
     "seed": "node server/seed.js",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
   },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.102.0",
     "@supabase/supabase-js": "^2.95.3",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
@@ -22,12 +26,10 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "file-saver": "^2.0.5",
-    "framer-motion": "^12.38.0",
     "google-auth-library": "^10.6.2",
     "gsap": "^3.14.2",
     "helmet": "^8.1.0",
     "mammoth": "^1.11.0",
-    "motion": "^12.38.0",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
     "pdf-parse": "^2.4.5",
@@ -39,6 +41,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^5.2.0",
     "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
     "vite": "^7.3.3",
     "vitest": "^4.0.18"
   }

@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { C, FONT, MONO, injectFonts, applyOrgTheme, resetTheme } from "./theme";
-import { uid, td, dL, addD, effectiveAsk, isUsableUrl, isHomepageOnly, normaliseFunder, grantCompleteness, sanitizeNotes, detectUnsolicited } from "./utils";
+import { uid, td, dL, addD, effectiveAsk, isUsableUrl, isHomepageOnly, normaliseFunder, grantCompleteness, sanitizeNotes, detectUnsolicited, isAIError } from "./utils";
 import { CAD } from "./data/constants";
 import {
   isLoggedIn, getAuth, setAuth, getCurrentMember, login, logout, setPassword,
-  memberLogin, memberSetPassword,
+  memberLogin,
   getGrants, saveGrant, addGrant as apiAddGrant, removeGrant,
   getTeam, getProfile, getPipelineConfig, getOrg, updateOrg as apiUpdateOrg, checkHealth, api, verifyUrls,
   getCompliance, updateComplianceDoc, createComplianceDoc,
@@ -362,6 +362,10 @@ function AppInner() {
       try { dSave(g.id, updated, { silent: true }); } catch {}
       return updated;
     }));
+    // `grants` is intentionally omitted: the effect is gated to fire only on
+    // grant-open (sel) / member change, and reads grants via the functional
+    // setGrants updater — adding it would re-log on every unrelated grant edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel, currentMember?.id]);
 
   const { runAI, clearUploadsCache } = useAI({ org, profile, team, grants, stages });
@@ -392,13 +396,20 @@ function AppInner() {
 
     const CLOSED = new Set(["won", "lost", "deferred", "archived"]);
     const initialGrants = grants;
+    // Local mutable working copy so that successive passes touching the same
+    // grant accumulate their patches in the server payload. Building the payload
+    // from the frozen initialGrants snapshot would let a later pass clobber an
+    // earlier pass's fields server-side. (The UI already merges correctly via
+    // the functional setGrants below.)
+    const working = new Map(initialGrants.map(g => [g.id, { ...g }]));
 
     const persist = (id, patch) => {
       setGrants(prev => prev.map(x => x.id === id ? { ...x, ...patch } : x));
-      const g = initialGrants.find(x => x.id === id) || {};
+      const merged = { ...(working.get(id) || initialGrants.find(x => x.id === id) || {}), ...patch };
+      working.set(id, merged);
       // silent: true — this is background work, server hiccups shouldn't toast
       // the user. We log to console instead so failures are still debuggable.
-      dSave(id, { ...g, ...patch }, { silent: true });
+      dSave(id, merged, { silent: true });
     };
 
     (async () => {
@@ -508,6 +519,7 @@ function AppInner() {
         let savedNew = false;
         try {
           const raw = await runAI("findApplyUrl", g);
+          if (isAIError(raw)) { await new Promise(r => setTimeout(r, 4500)); continue; }
           const txt = String(raw || "");
 
           // Parse structured candidates and keep pageType info so we can prefer specific
@@ -596,6 +608,7 @@ function AppInner() {
         const g = grantsNeedingBrief[i];
         try {
           const raw = await runAI("fetchFunderBrief", g);
+          if (isAIError(raw)) { await new Promise(r => setTimeout(r, 4500)); continue; }
           const txt = String(raw || "").replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
           const sIdx = txt.indexOf("{"), eIdx = txt.lastIndexOf("}");
           let parsed = null;
@@ -777,14 +790,9 @@ function AppInner() {
     setNeedsPassword(false);
   };
 
-  const handleMemberLogin = async (memberId, password, isSetPassword = false) => {
-    if (isSetPassword) {
-      const data = await memberSetPassword(orgSlug, memberId, password);
-      setCurrentMember(data.member);
-    } else {
-      const data = await memberLogin(orgSlug, memberId, password);
-      setCurrentMember(data.member);
-    }
+  const handleMemberLogin = async (memberId, password) => {
+    const data = await memberLogin(orgSlug, memberId, password);
+    setCurrentMember(data.member);
     setAuthed(true);
     setLoggingIn(false);
     setNeedsPassword(false);

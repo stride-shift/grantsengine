@@ -34,12 +34,12 @@ export const C = {
   greenSoft: "#EDF5F0",
   greenBorder: "#4A7C5980",
 
-  // ── Text (WCAG AA contrast-safe on #F8FAF8 and #FFFFFF) ──
+  // ── Text (t1–t4 are AA contrast-safe for text on #F8FAF8 and #FFFFFF) ──
   dark: "#111111",
   t1: "#1C1C1C",
   t2: "#4B5563",
   t3: "#6B7280",
-  t4: "#9CA3AF",
+  t4: "#6B7280",
 
   // ── Semantic ──
   red: "#DC2626",

@@ -1,7 +1,7 @@
 # CLAUDE.md — Project Context for Claude Code
 
 ## What This Is
-d-lab Grant Engine v14 — a React app for managing a grant funding pipeline for d-lab NPC, a South African youth skills NPO. It uses the Anthropic Claude API for AI-powered proposal drafting, funder research, grant scouting, and pipeline intelligence.
+d-lab Grant Engine v14 — a React app for managing a grant funding pipeline for d-lab NPC, a South African youth skills NPO. It uses the OpenAI API (proxied through the Express backend) for AI-powered proposal drafting, funder research, grant scouting, and pipeline intelligence. The server-side grant scraper additionally uses the Anthropic Claude API (Claude Haiku) for parsing/verification.
 
 ## Organisation Context
 d-lab NPC (The Field Lab NPC) trains unemployed South African youth in AI-native digital skills. Key stats: 92% completion rate (vs 55% sector average), 85% employment within 3 months, 8 programme types from R199K to R5M. See `src/data/context.js` for the full organisational profile used in AI prompts.
@@ -89,7 +89,7 @@ All prompts follow these principles:
 ## Data Flow
 1. On load: fetch grants from Supabase via Express API (`GET /api/org/:slug/grants`)
 2. Any mutation: `up(id, changes)` → `PUT /api/org/:slug/grants/:id` → Supabase
-3. AI calls: `api(system, user, search, maxTokens)` → Express proxy → Gemini API → rendered in UI
+3. AI calls: `api(system, user, search, maxTokens)` → Express proxy (`server/routes/ai.js`) → OpenAI API (Chat Completions, or the Responses API with `web_search` when `search` is true) → normalised to Anthropic-style `{ content: [...] }` → rendered in UI
 4. Scout results: JSON array → parsed → shown as cards with "+ Add" buttons → new grant created via API
 5. Context flow: `context.js` (CTX/CTX_SLIM) + `funderStrategy.js` + server profile → injected into every AI prompt as `orgCtx`
 

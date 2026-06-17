@@ -59,8 +59,12 @@ export function ToastProvider({ children }) {
               undo: { bg: C.amberSoft, border: C.amber, icon: "↩", color: C.amber },
             }[t.type] || { bg: C.warm200, border: C.t4, icon: "•", color: C.t2 };
 
+            const isError = t.type === "error";
             return (
-              <div key={t.id} style={{
+              <div key={t.id}
+                role={isError ? "alert" : "status"}
+                aria-live={isError ? "assertive" : "polite"}
+                style={{
                 display: "flex", alignItems: "center", gap: 10,
                 padding: "10px 14px", borderRadius: 8,
                 background: palette.bg, border: `1px solid ${palette.border}30`,
@@ -68,7 +72,7 @@ export function ToastProvider({ children }) {
                 pointerEvents: "auto", fontFamily: FONT,
                 animation: "ge-toast-in 0.25s ease-out",
               }}>
-                <span style={{
+                <span aria-hidden="true" style={{
                   width: 22, height: 22, borderRadius: 6, flexShrink: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   background: palette.border + "18", color: palette.color,
@@ -89,10 +93,11 @@ export function ToastProvider({ children }) {
                   </button>
                 )}
                 <button onClick={() => dismiss(t.id)}
+                  aria-label="Dismiss"
                   style={{
                     background: "none", border: "none", color: C.t4, fontSize: 14,
                     cursor: "pointer", padding: "2px 4px", lineHeight: 1, flexShrink: 0,
-                  }}>×</button>
+                  }}><span aria-hidden="true">×</span></button>
               </div>
             );
           })}

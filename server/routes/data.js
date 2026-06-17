@@ -305,8 +305,8 @@ router.put('/org/:slug/kv/:key', ...orgAuth, w(async (req, res) => {
 // The feed is public per org slug — no secrets in grant data exposed (just names, funders, deadlines)
 
 function formatICSDate(dateStr) {
-  // Convert YYYY-MM-DD to ICS date format (YYYYMMDD) — all-day event at 9am
-  const d = new Date(dateStr + 'T09:00:00');
+  // Convert YYYY-MM-DD to ICS date format (YYYYMMDD) — all-day event at 9am SAST
+  const d = new Date(dateStr + 'T09:00:00+02:00');
   if (isNaN(d.getTime())) return null;
   return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 }

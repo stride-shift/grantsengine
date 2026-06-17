@@ -231,7 +231,7 @@ export default function useAI({ org, profile, team, grants, stages }) {
             }
           } catch { /* in-app refs are non-blocking */ }
 
-          const allRefs = [...refProposals, ...inAppRefs];
+          const allRefs = [...(proposalLibraryCache.current.proposals || []), ...inAppRefs];
           if (allRefs.length > 0) {
             const proposalBudget = Math.min(6000, remaining - 200);
             const parts = ["=== REFERENCE PROPOSALS (starred by the team as examples of good proposals — match their quality) ===",
@@ -249,7 +249,7 @@ export default function useAI({ org, profile, team, grants, stages }) {
               remaining -= block.length;
             }
           }
-        } catch { /* Proposal library fetch is non-blocking */ }
+        } catch (e) { console.warn('[useAI] reference proposal injection failed:', e?.message); /* non-blocking */ }
       }
 
       // Org-level knowledge base (fills remaining space)
@@ -594,7 +594,7 @@ ${budgetInfo ? `The ask MUST be R${budgetInfo.total.toLocaleString()}. Do NOT ch
       const bodyWords = totalWords - coverWords - execSummaryWords - budgetWords - appendixWords;
       const perBodySection = Math.max(200, Math.round(bodyWords / Math.max(bodySectionCount, 1)));
       const wordLimit = isCover ? coverWords : isExecSummary ? execSummaryWords : isBudget ? budgetWords : isAppendix ? appendixWords : perBodySection;
-      const promptWords = Math.round(wordLimit * 2); // ask for 2x — Gemini severely undershoots word targets
+      const promptWords = Math.round(wordLimit * 1.15); // small headroom — OpenAI tracks word targets reasonably well
       const minParas = wordLimit < 250 ? 2 : wordLimit < 400 ? 3 : wordLimit < 600 ? 4 : 5;
       const paraGuide = `EXACTLY ${minParas} paragraphs, each paragraph MUST be 80-120 words (${minParas * 100} words total). Count your paragraphs before finishing.`;
 
@@ -1192,7 +1192,7 @@ WHAT TO LOOK FOR — in order of preference:
 4. Their funding-priorities / grants-programme overview page.
 
 RULES:
-- ONLY use information you find on the funder's OWN domain or an official partner site this session via Google Search.
+- ONLY use information you find on the funder's OWN domain or an official partner site this session via web search.
 - Do NOT invent or paraphrase. Extract the funder's own wording verbatim.
 - Skip news articles, third-party blog posts, Wikipedia, LinkedIn, and grants directories.
 - If the funder has no published brief, return brief: null with a note explaining what you searched.
@@ -1247,8 +1247,8 @@ WHAT TO INCLUDE — list MOST SPECIFIC FIRST. The user picks the first one that 
 
 VALIDATION:
 - Every URL MUST be on the funder's own domain (e.g. momentumgroup.co.za, sasol.com, dgmt.co.za). Subdomains fine.
-- Every URL MUST be a real link you found via Google Search in this session.
-- NEVER return a Google redirect URL (vertexaisearch.cloud.google.com, google.com/url?, /grounding-api-redirect/). Resolve to the FINAL destination URL only.
+- Every URL MUST be a real link you found via web search in this session.
+- Return the final destination URL, not a search-engine redirect URL.
 - ALWAYS include the funder's homepage as one candidate. Even if you also find specific pages.
 
 WRITE NOTES IN PLAIN ENGLISH. No jargon, no acronyms without explanation. Each note should be 1 short sentence saying what the page is.
@@ -1289,8 +1289,8 @@ WHAT TO LOOK FOR — in order of preference:
 
 VALIDATION:
 - The URL MUST be on the funder's own domain. Subdomains and deep paths are fine.
-- The URL MUST be a real link you found via Google Search in this session.
-- NEVER return a Google redirect URL (vertexaisearch.cloud.google.com, google.com/url?, /grounding-api-redirect/). Return the FINAL destination URL only.
+- The URL MUST be a real link you found via web search in this session.
+- Return the final destination URL, not a search-engine redirect URL.
 - If you found a useful page but it's not a literal application form, still return it. The user can navigate from there. A real page is always more useful than null.
 
 WRITE THE NOTE IN PLAIN ENGLISH. No internal jargon, no acronyms without explanation. Say what the page IS in language a first-time user would understand. Examples:

@@ -117,19 +117,14 @@ export const memberLogin = async (slug, memberId, password) => {
   return data;
 };
 
+// Authenticated password set/change (self or director). First-time setup for a
+// member with no password uses the emailed reset link instead (see requestPasswordReset).
 export const memberSetPassword = async (slug, memberId, password) => {
-  const res = await fetch(`/api/org/${slug}/auth/member-set-password`, {
+  const res = await f('/auth/member-set-password', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ memberId, password }),
   });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Failed to set password');
-  }
-  const data = await res.json();
-  setAuth(data.token, slug, data.member);
-  return data;
+  return res.json();
 };
 
 export const getTeamPublic = async (slug) => {
@@ -154,21 +149,6 @@ export const getAdminActivity = async (memberId = null, limit = 100) => {
   const qs = memberId ? `?member_id=${memberId}&limit=${limit}` : `?limit=${limit}`;
   const res = await f(`/admin/activity${qs}`);
   return res.json();
-};
-
-export const forgotPassword = async (slug, memberId, adminKey, newPassword) => {
-  const res = await fetch(`/api/org/${slug}/auth/forgot-password`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ memberId, adminKey, newPassword }),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Password reset failed');
-  }
-  const data = await res.json();
-  setAuth(data.token, slug, data.member);
-  return data;
 };
 
 export const requestPasswordReset = async (slug, memberId) => {
@@ -406,7 +386,7 @@ export const api = async (sys, usr, search = false, maxTok = 1500) => {
         messages: [{ role: 'user', content: usr }],
       };
       if (sys) body.system = sys;
-      if (search) body.search = true; // Enable Google Search grounding on Gemini
+      if (search) body.search = true; // Enable web-search grounding (OpenAI Responses API)
 
       const res = await f('/ai/messages', {
         method: 'POST',
@@ -422,10 +402,10 @@ export const api = async (sys, usr, search = false, maxTok = 1500) => {
         continue;
       }
 
-      // Overloaded — retry with backoff
-      if (res.status === 529 && attempt < MAX_RETRIES) {
+      // Overloaded / transient server errors — retry with backoff
+      if ((res.status === 529 || res.status === 500 || res.status === 502 || res.status === 503) && attempt < MAX_RETRIES) {
         const wait = 15 * (attempt + 1);
-        console.log(`API overloaded (529) — retrying in ${wait}s (attempt ${attempt + 1}/${MAX_RETRIES})`);
+        console.log(`API ${res.status} — retrying in ${wait}s (attempt ${attempt + 1}/${MAX_RETRIES})`);
         await new Promise(r => setTimeout(r, wait * 1000));
         continue;
       }

@@ -31,8 +31,11 @@ const logoUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Only image files are allowed'));
+    // SVG is rejected: it can carry inline <script> and the logos bucket is PUBLIC,
+    // which would be stored XSS served from the app's own storage domain.
+    const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Only PNG, JPEG, GIF or WebP images are allowed'));
   },
 });
 
@@ -89,7 +92,7 @@ router.get('/org/:slug', resolveOrg, requireAuth, (req, res) => {
   res.json(req.org);
 });
 
-router.put('/org/:slug', resolveOrg, requireAuth, w(async (req, res) => {
+router.put('/org/:slug', resolveOrg, requireAuth, requireDirector, w(async (req, res) => {
   await updateOrg(req.orgId, req.body);
   res.json({ ok: true });
 }));
@@ -105,7 +108,7 @@ router.get('/org/:slug/profile', resolveOrg, requireAuth, w(async (req, res) => 
   });
 }));
 
-router.put('/org/:slug/profile', resolveOrg, requireAuth, w(async (req, res) => {
+router.put('/org/:slug/profile', resolveOrg, requireAuth, requireDirector, w(async (req, res) => {
   await updateOrgProfile(req.orgId, req.body);
   res.json({ ok: true });
 }));
@@ -123,7 +126,7 @@ router.get('/org/:slug/config', resolveOrg, requireAuth, w(async (req, res) => {
   });
 }));
 
-router.put('/org/:slug/config', resolveOrg, requireAuth, w(async (req, res) => {
+router.put('/org/:slug/config', resolveOrg, requireAuth, requireDirector, w(async (req, res) => {
   await updateOrgConfig(req.orgId, req.body);
   res.json({ ok: true });
 }));
@@ -175,7 +178,7 @@ router.get('/org/:slug/pipeline-config', resolveOrg, requireAuth, w(async (req, 
   });
 }));
 
-router.put('/org/:slug/pipeline-config', resolveOrg, requireAuth, w(async (req, res) => {
+router.put('/org/:slug/pipeline-config', resolveOrg, requireAuth, requireDirector, w(async (req, res) => {
   await upsertPipelineConfig(req.orgId, req.body);
   res.json({ ok: true });
 }));
@@ -189,7 +192,7 @@ router.put('/org/:slug/logo', resolveOrg, requireAuth, logoUpload.single('logo')
     const storage = getLogoStorage();
     if (!storage) return res.status(500).json({ error: 'Storage not configured' });
 
-    const rawExt = (req.file.originalname.match(/\.(png|jpg|jpeg|gif|webp|svg)$/i)?.[1] || 'png').toLowerCase();
+    const rawExt = (req.file.originalname.match(/\.(png|jpg|jpeg|gif|webp)$/i)?.[1] || 'png').toLowerCase();
     const filename = `${crypto.randomBytes(8).toString('hex')}.${rawExt}`;
     const storagePath = `${req.orgId}/${filename}`;
 

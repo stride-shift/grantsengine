@@ -2,7 +2,7 @@
    Grant Engine — AI Prompt Templates
 
    `scoutPrompt` and `scoutBriefPrompt` are active — used by Pipeline.jsx and server/jobs/scout.js.
-   All other AI prompts live inline in App.jsx (draft, research, fit score,
+   All other AI prompts live inline in src/hooks/useAI.js (draft, research, fit score,
    follow-up, review, brief, report, conference, URL extract, full application).
    ═══════════════════════════════════════ */
 
@@ -108,7 +108,7 @@ ${m.searchFocus}
 ${m.marketRule}
 
 CRITICAL — SEARCH-GROUNDED RESULTS ONLY:
-You have access to Google Search. You MUST use it to find REAL, CURRENTLY ACTIVE grant opportunities. Do NOT return opportunities from your training data or memory alone — every result must be something you found or verified via web search in this session. If you cannot find evidence that a grant opportunity exists and is currently open, DO NOT include it.
+You have access to web search. You MUST use it to find REAL, CURRENTLY ACTIVE grant opportunities. Do NOT return opportunities from your training data or memory alone — every result must be something you found or verified via web search in this session. If you cannot find evidence that a grant opportunity exists and is currently open, DO NOT include it.
 
 CRITICAL — NEVER FABRICATE DEADLINES OR DATA:
 - "deadline": MUST come from the funder's own webpage. If you cannot find an explicit deadline on the funder's site or in an authoritative source, set deadline to null. NEVER guess, estimate, infer, or write a plausible-sounding date based on "typical" funding cycles.

@@ -75,7 +75,7 @@ const Page = ({ children, onLogoClick }) => (
 );
 
 export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassword }) {
-  const [step, setStep] = useState("pick"); // pick | password | set-password | forgot | sent | reset
+  const [step, setStep] = useState("pick"); // pick | password | setup | forgot | sent | reset
   const [members, setMembers] = useState([]);
   const [selected, setSelected] = useState(null);
   const [pw, setPw] = useState("");
@@ -119,7 +119,9 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
     setPw("");
     setPw2("");
     setErr("");
-    setStep(m.hasPassword ? "password" : "set-password");
+    // First-time members set their password via an emailed link, not inline
+    // (prevents anyone from claiming a passwordless account).
+    setStep(m.hasPassword ? "password" : "setup");
   };
 
   const submitPassword = async (e) => {
@@ -129,20 +131,6 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
     setErr("");
     try {
       await onMemberLogin(selected.id, pw);
-    } catch (ex) {
-      setErr(ex.message);
-    }
-    setBusy(false);
-  };
-
-  const submitSetPassword = async (e) => {
-    e.preventDefault();
-    if (!pw || pw.length < 6) { setErr("Password must be at least 6 characters"); return; }
-    if (pw !== pw2) { setErr("Passwords don't match"); return; }
-    setBusy(true);
-    setErr("");
-    try {
-      await onMemberLogin(selected.id, pw, true); // true = set password first
     } catch (ex) {
       setErr(ex.message);
     }
@@ -280,8 +268,8 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
       )}
 
       {/* ── Step 3: Set password (first time) ── */}
-      {step === "set-password" && selected && (
-        <Card width={380}>
+      {step === "setup" && selected && (
+        <Card width={400}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
             <button onClick={() => goBack()} style={{
               background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.5)", padding: 0,
@@ -292,34 +280,29 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
               <div style={{ fontSize: 11, color: "#4ADE80", fontWeight: 600 }}>Set up your login</div>
             </div>
           </div>
-          <form onSubmit={submitSetPassword}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 6 }}>
-              Choose a password
-            </label>
-            <input
-              type="password" value={pw} onChange={e => setPw(e.target.value)}
-              placeholder="At least 6 characters" autoFocus
-              className={inputClassName}
-              style={{ ...inputStyle, marginBottom: 12 }}
-              onFocus={focusBorder}
-              onBlur={blurBorder}
-            />
-            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 6 }}>
-              Confirm password
-            </label>
-            <input
-              type="password" value={pw2} onChange={e => setPw2(e.target.value)}
-              placeholder="Type it again"
-              className={inputClassName}
-              style={{ ...inputStyle, marginBottom: 16 }}
-              onFocus={focusBorder}
-              onBlur={blurBorder}
-            />
-            {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
-            <Btn onClick={submitSetPassword} disabled={busy || !pw || !pw2} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
-              {busy ? "Setting up..." : "Set Password & Sign In"}
-            </Btn>
-          </form>
+          {selected.hasEmail ? (
+            <>
+              <div style={{
+                background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "14px 16px", marginBottom: 18,
+                fontSize: 13, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, border: "1px solid rgba(255,255,255,0.08)",
+              }}>
+                To keep your account secure, we'll email you a one-time link to set your password.
+                {(selected.maskedEmail || selected.email) && <> Sent to <strong>{maskEmail(selected.maskedEmail || selected.email)}</strong>.</>}
+              </div>
+              {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
+              <Btn onClick={sendResetLink} disabled={busy} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
+                {busy ? "Sending..." : "Email me a setup link"}
+              </Btn>
+            </>
+          ) : (
+            <div style={{
+              background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: "14px 16px",
+              fontSize: 13, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, border: "1px solid rgba(255,255,255,0.08)",
+            }}>
+              There's no email on file for your account yet, so we can't send a setup link.
+              Ask a director to set up your login, then come back to sign in.
+            </div>
+          )}
         </Card>
       )}
       {/* ── Step 4: Forgot password — send reset link ── */}

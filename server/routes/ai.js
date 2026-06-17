@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { resolveOrg } from '../middleware/org.js';
 import { logAgentRun } from '../db.js';
+import { assertSafeUrl } from '../lib/ssrfGuard.js';
 
 const router = Router();
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
@@ -11,6 +12,21 @@ const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 
 function getApiKey() {
   return process.env.OPENAI_API_KEY;
+}
+
+// Fetch that retries transient OpenAI failures (429 + 5xx) with backoff.
+// Used by the standalone server-side callers (scout, scraper) which previously
+// had no retry — a single 429 would silently drop a whole scout market.
+async function fetchWithRetry(url, opts, { retries = 3 } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    const response = await fetch(url, opts);
+    if (response.ok || (response.status !== 429 && response.status < 500) || attempt >= retries) {
+      return response;
+    }
+    const wait = Math.min(30_000, 2_000 * (attempt + 1) * (attempt + 1));
+    console.warn(`[OpenAI] ${response.status} — retrying in ${wait / 1000}s (attempt ${attempt + 1}/${retries})`);
+    await new Promise(r => setTimeout(r, wait));
+  }
 }
 
 // ── Chat completions: standard text generation ──
@@ -34,7 +50,7 @@ async function callChatCompletions(apiKey, { system, messages, max_tokens, model
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120_000);
   try {
-    const response = await fetch(OPENAI_CHAT_URL, {
+    const response = await fetchWithRetry(OPENAI_CHAT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -67,7 +83,7 @@ async function callResponsesWithSearch(apiKey, { system, user, max_tokens, model
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 180_000);
   try {
-    const response = await fetch(OPENAI_RESPONSES_URL, {
+    const response = await fetchWithRetry(OPENAI_RESPONSES_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -173,6 +189,59 @@ export async function callOpenAIWithSearch(system, user, { maxTokens = 4000 } = 
     text: extractResponsesText(data),
     sources: extractResponsesSources(data),
   };
+}
+
+// ── Standalone Claude (Anthropic) caller for the grant scraper ──
+// Uses Claude Haiku 4.5. When `search` is true the web_search server tool is
+// enabled so Claude can confirm facts/links and won't return what it can't verify.
+// Lazy-imports the SDK so this module still loads if the dep isn't installed yet.
+const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5';
+
+let _anthropicClient = null;
+async function getAnthropic() {
+  if (_anthropicClient) return _anthropicClient;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('No ANTHROPIC_API_KEY configured');
+  let Anthropic;
+  try {
+    ({ default: Anthropic } = await import('@anthropic-ai/sdk'));
+  } catch {
+    throw new Error('@anthropic-ai/sdk is not installed — run `npm install`');
+  }
+  _anthropicClient = new Anthropic({ apiKey });
+  return _anthropicClient;
+}
+
+function extractClaudeText(message) {
+  return (message.content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('\n')
+    .trim();
+}
+
+export async function callClaude(system, user, { search = false, maxTokens = 4000 } = {}) {
+  const client = await getAnthropic();
+  // allowed_callers 'direct': Haiku doesn't support programmatic tool calling,
+  // so the web_search tool must be restricted to model-initiated calls.
+  const tools = search ? [{ type: 'web_search_20260209', name: 'web_search', allowed_callers: ['direct'] }] : undefined;
+
+  const messages = [{ role: 'user', content: user }];
+  let message;
+  // Server-side tool loops can return stop_reason "pause_turn" when they hit the
+  // internal iteration cap — re-send to resume. Cap continuations to avoid loops.
+  for (let i = 0; i < 5; i++) {
+    message = await client.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: maxTokens,
+      system,
+      messages,
+      ...(tools ? { tools } : {}),
+    });
+    if (message.stop_reason !== 'pause_turn') break;
+    messages.push({ role: 'assistant', content: message.content });
+  }
+  return extractClaudeText(message);
 }
 
 // POST /api/org/:slug/ai/messages — proxied OpenAI API call (authenticated)
@@ -317,6 +386,12 @@ router.post('/org/:slug/ai/verify-urls', resolveOrg, requireAuth, async (req, re
 
   const results = await Promise.all(
     urls.slice(0, 20).map(async (url) => {
+      // SSRF guard: never let a user-supplied URL reach internal/metadata hosts
+      try {
+        await assertSafeUrl(url);
+      } catch (e) {
+        return { url, status: 0, ok: false, reason: 'blocked', error: e.message };
+      }
       // Try GET first — many servers (esp. Cloudflare-fronted) treat HEAD weirdly
       let attempt = await fetchWithTimeout(url, 'GET');
       // If GET fails, fall back to HEAD (some servers explicitly block GET to bots)

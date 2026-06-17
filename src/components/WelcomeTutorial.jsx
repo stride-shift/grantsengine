@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { C, FONT } from "../theme";
 
 /* WelcomeTutorial — first-time onboarding walkthrough.
@@ -70,9 +70,20 @@ export const resetTutorial = () => {
 
 export default function WelcomeTutorial({ open, onClose }) {
   const [step, setStep] = useState(0);
+  const dialogRef = useRef(null);
 
   useEffect(() => {
     if (open) setStep(0);
+  }, [open]);
+
+  // Escape to close + move initial focus to the dialog on open.
+  useEffect(() => {
+    if (!open) return;
+    dialogRef.current?.focus();
+    const onKey = (e) => { if (e.key === "Escape") finish(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   if (!open) return null;
@@ -91,10 +102,16 @@ export default function WelcomeTutorial({ open, onClose }) {
       display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
       fontFamily: FONT,
     }}>
-      <div style={{
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={s.title}
+        tabIndex={-1}
+        style={{
         background: C.white, borderRadius: 16, width: "100%", maxWidth: 520,
         boxShadow: "0 24px 60px rgba(0,0,0,0.35)",
-        overflow: "hidden",
+        overflow: "hidden", outline: "none",
       }}>
         {/* Progress bar */}
         <div style={{ height: 4, background: C.line }}>
@@ -107,7 +124,7 @@ export default function WelcomeTutorial({ open, onClose }) {
 
         {/* Body */}
         <div style={{ padding: "32px 32px 24px" }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>{s.icon}</div>
+          <div aria-hidden="true" style={{ fontSize: 40, marginBottom: 16 }}>{s.icon}</div>
           <div style={{
             fontSize: 22, fontWeight: 800, color: C.dark, marginBottom: 10, letterSpacing: -0.3,
           }}>{s.title}</div>

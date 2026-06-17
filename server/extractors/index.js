@@ -47,6 +47,11 @@ async function extractWithVision(buffer, mimeType) {
         }],
       }),
     });
+    if (!response.ok) {
+      const errBody = await response.text().catch(() => '');
+      console.error('[extractWithVision] OpenAI error', response.status, errBody.slice(0, 500));
+      return null;
+    }
     const data = await response.json();
     const text = data.choices?.[0]?.message?.content;
     return text?.trim() || null;

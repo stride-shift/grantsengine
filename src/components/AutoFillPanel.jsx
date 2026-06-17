@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { C, FONT, MONO } from "../theme";
 import { Btn } from "./index";
 import { detectForm, updateAutofillMappings, runAutofill, submitAutofill, verifyUrls, getUploads, uploadFile, getAuth, deleteUpload } from "../api";
-import { detectSubmissionMethod, assembleText } from "../utils";
+import { detectSubmissionMethod, assembleText, isAIError } from "../utils";
 import { DOCS } from "../data/constants";
 import { buildGlossaryAppendix } from "../data/glossary";
 
@@ -115,6 +115,7 @@ export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, on
     setExtractingDocs(true);
     try {
       const raw = await onRunAI("extractRequiredDocs", grant);
+      if (isAIError(raw)) { console.warn("extractRequiredDocs:", raw); setRequiredDocs([]); return; }
       const txt = String(raw || "");
       const cleaned = txt.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
       const start = cleaned.indexOf("{"), end = cleaned.lastIndexOf("}");
@@ -305,6 +306,7 @@ export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, on
     setFindingUrl(true); setError(""); setFindUrlResult(null);
     try {
       const raw = await onRunAI("findApplyUrl", grant);
+      if (isAIError(raw)) { setError(raw); return; }
       const txt = String(raw || "");
 
       // 1. Try to parse structured candidates from JSON
@@ -438,7 +440,8 @@ export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, on
   useEffect(() => {
     // Only auto-analyse if explicitly form-based AND we already have a URL.
     if (grant?.applyUrl && !job && isFormBased) handleDetect();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grant?.applyUrl, isFormBased]);
 
   // We DO NOT auto-trigger the URL search anymore. The user can click "Find
   // apply link" as an explicit action — automatic searches were misfiring on

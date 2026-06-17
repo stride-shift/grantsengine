@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { resolveOrg } from '../middleware/org.js';
+import { assertSafeUrl } from '../lib/ssrfGuard.js';
 import {
   getGrantById, getOrgProfile, getComplianceDocs,
   createAutofillJob, getAutofillJob, updateAutofillJob, getAutofillJobsByGrant,
@@ -173,6 +174,8 @@ router.post('/org/:slug/grants/:id/detect-form', ...orgAuth, w(async (req, res) 
   let fetchError = null;
   let finalUrl = applicationUrl;
   try {
+    // SSRF guard: the apply URL comes from grant data — never fetch internal hosts
+    await assertSafeUrl(applicationUrl);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
     const pageResponse = await fetch(applicationUrl, {

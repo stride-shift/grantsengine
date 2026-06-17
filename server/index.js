@@ -54,15 +54,17 @@ app.listen(PORT, async () => {
     try {
       const { runSeed } = await import('./seed-fn.js');
       await runSeed();
-      console.log('Auto-seed complete. Login: /org/dlab with password: dlab2026');
+      console.log('Auto-seed complete. Login at /org/dlab (seed credentials are in server/seed-fn.js — change them after first login).');
     } catch (e) {
       console.error('Auto-seed failed:', e.message);
       console.log('Run manually: node server/seed.js');
     }
   }
 
-  // ── Nightly auto-scout: midnight SAST (UTC+2 = 22:00 UTC) ──
-  cron.schedule('0 22 * * *', async () => {
+  // ── Nightly auto-scout: midnight SAST ──
+  // NB: in-process cron only runs on a long-lived host. On Vercel (the canonical
+  // deploy target) scheduling comes from vercel.json "crons" → /api/cron/* instead.
+  cron.schedule('0 0 * * *', async () => {
     console.log('[Cron] Nightly auto-scout triggered');
     try {
       await runAutoScout();
