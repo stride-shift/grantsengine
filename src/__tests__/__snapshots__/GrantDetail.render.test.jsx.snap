@@ -1,0 +1,4361 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`GrantDetail — closed stage (won), guards ActivityRow + closed branches > DOM snapshot — won (golden master) 1`] = `
+<div>
+  <div
+    style="padding: 16px; max-width: 920px;"
+  >
+    <div
+      class="ge-grant-side"
+      style="position: fixed; right: 16px; top: 80px; width: 220px; z-index: 25; background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); padding: 12px 12px 10px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+    >
+      <div
+        style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 6px;"
+      >
+        Stage
+      </div>
+      <div
+        style="font-size: 13px; font-weight: 700; color: rgb(16, 185, 129); margin-bottom: 10px;"
+      >
+        Won
+      </div>
+      <div
+        style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+      >
+        Ready
+      </div>
+      <div
+        style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px;"
+      >
+        <div
+          style="flex: 1 1 0%; height: 4px; background: rgb(226, 230, 226); border-radius: 2px; overflow: hidden;"
+        >
+          <div
+            style="height: 100%; width: 20%; background: rgb(220, 38, 38); border-radius: 2px;"
+          />
+        </div>
+        <span
+          style="font-size: 11px; font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(220, 38, 38); min-width: 32px; text-align: right;"
+        >
+          20
+          %
+        </span>
+      </div>
+      <div
+        style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+      >
+        Next
+      </div>
+      <div
+        style="font-size: 11px; color: rgb(28, 28, 28); line-height: 1.4; margin-bottom: 10px;"
+      >
+        Grant secured
+      </div>
+      <div
+        style="border-top: 1px solid rgb(226, 230, 226); padding-top: 8px; margin-top: 4px;"
+      >
+        <div
+          style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 6px;"
+        >
+          Jump to
+        </div>
+        <div
+          style="display: flex; flex-direction: column; gap: 4px;"
+        >
+          <button
+            style="background: none; border: medium; padding: 4px 6px; text-align: left; font-size: 11px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 4px; transition: background 120ms ease;"
+          >
+            → 
+            Outstanding actions
+          </button>
+          <button
+            style="background: none; border: medium; padding: 4px 6px; text-align: left; font-size: 11px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 4px; transition: background 120ms ease;"
+          >
+            → 
+            About this grant
+          </button>
+          <button
+            style="background: none; border: medium; padding: 4px 6px; text-align: left; font-size: 11px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 4px; transition: background 120ms ease;"
+          >
+            → 
+            Proposal workspace
+          </button>
+          <button
+            style="background: none; border: medium; padding: 4px 6px; text-align: left; font-size: 11px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 4px; transition: background 120ms ease;"
+          >
+            → 
+            Activity log
+          </button>
+        </div>
+      </div>
+    </div>
+    <style>
+      
+        @media (max-width: 1320px) { .ge-grant-side { display: none !important; } }
+      
+    </style>
+    <div
+      style="display: flex; align-items: center; gap: 6px; margin-bottom: 20px; font-size: 13px; color: rgb(107, 114, 128); font-weight: 500;"
+    >
+      <button
+        style="background: none; border: medium; color: rgb(107, 114, 128); font-size: 13px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; display: flex; align-items: center; gap: 4px; transition: color 0.15s ease; padding: 0px;"
+      >
+        ←
+         Pipeline
+      </button>
+      <span
+        style="color: rgb(107, 114, 128);"
+      >
+        /
+      </span>
+      <span
+        style="display: flex; align-items: center; gap: 5px;"
+      >
+        <span
+          style="width: 7px; height: 7px; border-radius: 50%; background: rgb(16, 185, 129); flex-shrink: 0;"
+        />
+        <span
+          style="color: rgb(75, 85, 99); font-weight: 600;"
+        >
+          Won
+        </span>
+      </span>
+      <span
+        style="color: rgb(107, 114, 128);"
+      >
+        /
+      </span>
+      <span
+        style="color: rgb(17, 17, 17); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 400px;"
+      >
+        FET Programme
+      </span>
+    </div>
+    <div
+      style="height: 48px; margin-bottom: 8px;"
+    />
+    <div
+      class="ge-grant-stickybar"
+      style="position: fixed; top: 0px; left: 240px; right: 0px; z-index: 30; background: rgb(255, 255, 255); border-bottom: 1px solid rgb(226, 230, 226); box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 10px 24px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 8px; flex: 1 1 0%; min-width: 0px;"
+      >
+        <span
+          style="width: 8px; height: 8px; border-radius: 50%; background: rgb(16, 185, 129); flex-shrink: 0;"
+        />
+        <span
+          style="font-size: 13px; font-weight: 700; color: rgb(17, 17, 17); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+        >
+          FET Programme
+        </span>
+      </div>
+      <div
+        style="display: flex; align-items: center; gap: 14px; font-size: 12px;"
+      >
+        <div
+          data-tour="stage-button"
+          style="display: inline-flex; align-items: baseline; gap: 4px;"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Stage
+          </span>
+          <span
+            style="color: rgb(16, 185, 129); font-weight: 700;"
+          >
+            Won
+          </span>
+        </div>
+        <span
+          style="color: rgb(226, 230, 226);"
+        >
+          ·
+        </span>
+        <div
+          style="display: inline-flex; align-items: baseline; gap: 4px;"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Ask
+          </span>
+          <span
+            style="font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; font-weight: 700; color: rgb(17, 17, 17);"
+          >
+            R1.08M
+          </span>
+        </div>
+        <span
+          style="color: rgb(226, 230, 226);"
+        >
+          ·
+        </span>
+        <div
+          style="display: inline-flex; align-items: baseline; gap: 4px;"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Owner
+          </span>
+          <span
+            style="color: rgb(75, 85, 99); font-weight: 600;"
+          >
+            Alison Jacobson
+          </span>
+        </div>
+        <span
+          style="color: rgb(226, 230, 226);"
+        >
+          ·
+        </span>
+        <div
+          style="display: inline-flex; align-items: baseline; gap: 4px;"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Deadline
+          </span>
+          <span
+            style="color: rgb(107, 114, 128); font-weight: 600;"
+          >
+            No deadline
+          </span>
+        </div>
+        <span
+          style="color: rgb(226, 230, 226);"
+        >
+          ·
+        </span>
+        <button
+          style="background: none; border: medium; padding: 0px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; display: inline-flex; align-items: baseline; gap: 4px;"
+          title="Jump to outstanding actions"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Ready
+          </span>
+          <span
+            style="color: rgb(220, 38, 38); font-weight: 700; font-size: 12px;"
+          >
+            20
+            %
+          </span>
+        </button>
+      </div>
+    </div>
+    <div
+      style="margin-bottom: 16px; padding: 10px 14px; border-radius: 10px; background: rgba(22, 163, 74, 0.03); border: 1px solid rgba(22, 163, 74, 0.145); display: flex; align-items: center; gap: 10px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+    >
+      <span
+        style="color: rgb(22, 163, 74); font-size: 14px; font-weight: 700; flex-shrink: 0;"
+      >
+        ✓
+      </span>
+      <div
+        style="flex: 1 1 0%; min-width: 0px;"
+      >
+        <div
+          style="font-size: 10px; font-weight: 700; color: rgb(22, 163, 74); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 2px;"
+        >
+          What now?
+        </div>
+        <div
+          style="font-size: 13px; color: rgb(17, 17, 17); font-weight: 500; line-height: 1.4;"
+        >
+          Grant secured
+        </div>
+      </div>
+    </div>
+    <div
+      style="margin-bottom: 16px; padding: 10px 14px; border-radius: 10px; background: rgba(37, 99, 235, 0.03); border: 1px solid rgba(37, 99, 235, 0.145); display: flex; align-items: center; gap: 10px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+    >
+      <span
+        style="font-size: 16px; color: rgb(37, 99, 235);"
+      >
+        ↻
+      </span>
+      <div
+        style="flex: 1 1 0%; min-width: 0px;"
+      >
+        <div
+          style="font-size: 10px; font-weight: 700; color: rgb(37, 99, 235); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 2px;"
+        >
+          Recurring opportunity
+        </div>
+        <div
+          style="font-size: 12px; color: rgb(75, 85, 99); line-height: 1.4;"
+        >
+          Most foundations renew annually. Clone this for next cycle — deadline +1 year, stage reset, last-cycle notes carried forward.
+        </div>
+      </div>
+      <button
+        style="background: rgb(37, 99, 235); color: rgb(255, 255, 255); border: medium; border-radius: 6px; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+      >
+        Clone for next cycle
+      </button>
+    </div>
+    <div
+      style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); margin-bottom: 24px;"
+    >
+      <div
+        style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;"
+      >
+        <div>
+          <div
+            style="font-size: 22px; font-weight: 800; color: rgb(17, 17, 17); margin-bottom: 4px; letter-spacing: -0.5px; line-height: 1.2;"
+          >
+            FET Programme
+          </div>
+          <div
+            style="font-size: 14px; color: rgb(75, 85, 99); font-weight: 500; margin-bottom: 8px;"
+          >
+            DGMT
+          </div>
+          <div
+            style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;"
+          >
+            <span
+              style="padding: 2px 8px; font-size: 10px; font-weight: 700; color: rgb(37, 99, 235); background: rgb(239, 246, 255); border-radius: 20px; white-space: nowrap; letter-spacing: 0.4px;"
+            >
+              Foundation
+            </span>
+            <button
+              style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; cursor: pointer; border: 1px solid rgb(226, 230, 226); font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+              title="Toggle South Africa / Global"
+            >
+              🇿🇦 SA
+            </button>
+          </div>
+        </div>
+        <div
+          style="display: flex; gap: 8px; flex-shrink: 0; position: relative;"
+        >
+          <button
+            style="padding: 7px 14px; border: medium; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: rgb(74, 124, 89); color: rgb(255, 255, 255); box-shadow: 0 1px 4px #4A7C5933;"
+          >
+            ⚡
+             Auto-fill
+          </button>
+          <button
+            style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: rgb(107, 114, 128); font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: background 0.15s ease;"
+            title="More actions"
+          >
+            ⋯
+          </button>
+        </div>
+      </div>
+    </div>
+    <div
+      style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); margin-bottom: 20px;"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;"
+      >
+        <div
+          style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.2px; text-transform: uppercase;"
+        >
+          About This Opportunity
+        </div>
+      </div>
+      <div
+        style="margin-bottom: 16px;"
+      >
+        <div
+          style="font-size: 15px; font-weight: 700; color: rgb(17, 17, 17); line-height: 1.4; margin-bottom: 8px;"
+        >
+          Youth transition from education to employment — a system that converts R61,800 per learner into 85% employment
+        </div>
+        <div
+          style="font-size: 13px; color: rgb(75, 85, 99); line-height: 1.65; letter-spacing: -0.1px;"
+        >
+          DGMT champions systemic change in how young South Africans transition from learning to earning. d-lab has built a replicable transition system — 92% completion, 85% employment within 3 months, partner-delivery across 4 provinces, proprietary AI tools that change the economics of training. This is a proof engagement: 2 cohorts, 40 learners, measurable outcomes within 12 months.
+        </div>
+      </div>
+      <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px 20px; margin-bottom: 16px; padding: 14px 16px; border-radius: 10px; background: rgb(245, 247, 245); border: 1px solid rgb(226, 230, 226);"
+      >
+        <div>
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Type
+          </div>
+          <span
+            style="padding: 2px 8px; font-size: 10px; font-weight: 700; color: rgb(37, 99, 235); background: rgb(239, 246, 255); border-radius: 20px; white-space: nowrap; letter-spacing: 0.4px;"
+          >
+            Foundation
+          </span>
+        </div>
+        <div
+          data-tour="workflow-cell"
+        >
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Workflow
+          </div>
+          <div>
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              Proposal generation
+            </div>
+            <button
+              style="background: none; border: medium; padding: 0px; margin-top: 2px; font-size: 10px; color: rgb(107, 114, 128); cursor: pointer; text-decoration: underline; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+            >
+              Switch to 
+              manual
+            </button>
+          </div>
+        </div>
+        <div>
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Relationship
+          </div>
+          <div
+            style="font-size: 13px; font-weight: 600; color: rgb(75, 85, 99);"
+          >
+            Cold
+          </div>
+        </div>
+        <div>
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Source
+          </div>
+          <div
+            style="font-size: 13px; font-weight: 600; color: rgb(75, 85, 99);"
+          >
+            Scout
+          </div>
+        </div>
+        <div>
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Programme
+          </div>
+          <div
+            style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+          >
+            Type 
+            4
+          </div>
+        </div>
+        <div
+          style="grid-column: 1 / -1;"
+        >
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Focus Areas
+          </div>
+          <div
+            style="display: flex; flex-wrap: wrap; gap: 4px;"
+          >
+            <span
+              style="font-size: 12px; color: rgb(107, 114, 128); font-style: italic;"
+            >
+              Not set
+            </span>
+          </div>
+        </div>
+      </div>
+      <div
+        style="margin-bottom: 14px;"
+      >
+        <div
+          style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+        >
+          Funder Language
+        </div>
+        <div
+          style="font-size: 12px; color: rgb(75, 85, 99); line-height: 1.5; font-style: italic;"
+        >
+          systems thinking · transition outcomes · evidence-based · conversion gap · replicable
+        </div>
+      </div>
+      <div
+        style="margin-bottom: 14px;"
+      >
+        <div
+          style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 6px;"
+        >
+          Proposal Structure
+        </div>
+        <div
+          style="display: flex; flex-wrap: wrap; gap: 4px;"
+        >
+          <span
+            style="padding: 2px 8px; font-size: 11px; background: rgb(232, 236, 232); color: rgb(75, 85, 99); border-radius: 4px; font-weight: 500;"
+          >
+            1
+            . 
+            Cover Letter
+          </span>
+          <span
+            style="padding: 2px 8px; font-size: 11px; background: rgb(232, 236, 232); color: rgb(75, 85, 99); border-radius: 4px; font-weight: 500;"
+          >
+            2
+            . 
+            Executive Summary
+          </span>
+          <span
+            style="padding: 2px 8px; font-size: 11px; background: rgb(232, 236, 232); color: rgb(75, 85, 99); border-radius: 4px; font-weight: 500;"
+          >
+            3
+            . 
+            Theory of Change
+          </span>
+          <span
+            style="padding: 2px 8px; font-size: 11px; background: rgb(232, 236, 232); color: rgb(75, 85, 99); border-radius: 4px; font-weight: 500;"
+          >
+            4
+            . 
+            Evidence Base
+          </span>
+          <span
+            style="padding: 2px 8px; font-size: 11px; background: rgb(232, 236, 232); color: rgb(75, 85, 99); border-radius: 4px; font-weight: 500;"
+          >
+            5
+            . 
+            Budget
+          </span>
+          <span
+            style="padding: 2px 8px; font-size: 11px; background: rgb(232, 236, 232); color: rgb(75, 85, 99); border-radius: 4px; font-weight: 500;"
+          >
+            6
+            . 
+            Sustainability
+          </span>
+          <span
+            style="padding: 2px 8px; font-size: 11px; background: rgb(232, 236, 232); color: rgb(75, 85, 99); border-radius: 4px; font-weight: 500;"
+          >
+            7
+            . 
+            Appendices
+          </span>
+        </div>
+      </div>
+      <div>
+        <div
+          style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;"
+        >
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase;"
+          >
+            Internal Notes
+          </div>
+          <div
+            style="font-size: 11px; color: rgb(107, 114, 128); flex: 1 1 0%; min-width: 0px;"
+          >
+            Only your team sees this. The funder never does. Use it for strategy thoughts, who-knows-who, "why we said no last time", or anything you want the next person opening this grant to know.
+          </div>
+          <button
+            style="font-size: 10px; font-weight: 600; padding: 3px 8px; background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); border-radius: 6px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; white-space: nowrap; flex-shrink: 0;"
+            title="Pull internal-notes intel from uploaded documents (board minutes, past proposals, donor reports)"
+          >
+            ✨ Extract from documents
+          </button>
+        </div>
+        <textarea
+          placeholder="e.g. 'Alison met their CSI lead at the SAGEA breakfast. They prefer multi-year commitments. Decision-maker is Sipho — Barbara has his number.'"
+          style="width: 100%; min-height: 48px; padding: 8px 10px; font-size: 12px; line-height: 1.5; color: rgb(75, 85, 99); border: 1px solid rgb(226, 230, 226); border-radius: 8px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; resize: vertical; outline: none; box-sizing: border-box; background: rgb(255, 255, 255); transition: border-color 0.15s;"
+        />
+      </div>
+    </div>
+    <div
+      style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px;"
+    >
+      <div
+        style="display: flex; gap: 14px; align-items: stretch;"
+      >
+        <div
+          style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); flex: 1 1 0%;"
+        >
+          <div
+            style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;"
+          >
+            <div>
+              <div
+                style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+              >
+                Ask
+              </div>
+              <span />
+            </div>
+          </div>
+          <div
+            style="display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;"
+          >
+            <div
+              style="font-size: 22px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(74, 124, 89);"
+            >
+              R1.1M
+            </div>
+          </div>
+          <div
+            style="display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;"
+          >
+            <div
+              style="display: flex; align-items: center; gap: 4px;"
+            >
+              <span
+                style="font-size: 10px; font-weight: 700; color: rgb(255, 255, 255); background: rgb(22, 163, 74); padding: 1px 6px; border-radius: 4px;"
+              >
+                T
+                4
+              </span>
+              <span
+                style="font-size: 10px; color: rgb(107, 114, 128);"
+              >
+                FET High School Programme
+              </span>
+            </div>
+            <button
+              style="font-size: 12px; color: rgb(107, 114, 128); background: none; border: medium; cursor: pointer; padding: 0px; line-height: 1;"
+              title="Edit ask amount"
+            >
+              ✎
+            </button>
+          </div>
+        </div>
+      </div>
+      <div
+        style="padding: 12px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226);"
+      >
+        <div
+          style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;"
+        >
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Stage
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 6px;"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(16, 185, 129); flex-shrink: 0;"
+              />
+              <select
+                style="font-size: 14px; font-weight: 600; color: rgb(16, 185, 129); border: medium; background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; flex: 1 1 0%;"
+              >
+                <option
+                  value="scouted"
+                >
+                  Scouted
+                </option>
+                <option
+                  value="vetting"
+                >
+                  Vetting
+                </option>
+                <option
+                  value="qualifying"
+                >
+                  Qualifying
+                </option>
+                <option
+                  value="drafting"
+                >
+                  Drafting
+                </option>
+                <option
+                  value="review"
+                >
+                  Review
+                </option>
+                <option
+                  value="submitted"
+                >
+                  Submitted
+                </option>
+                <option
+                  value="awaiting"
+                >
+                  Awaiting
+                </option>
+                <option
+                  value="won"
+                >
+                  Won
+                </option>
+                <option
+                  value="lost"
+                >
+                  Lost
+                </option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Owner
+            </div>
+            <select
+              style="font-size: 14px; font-weight: 600; color: rgb(17, 17, 17); border: medium; background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; width: 100%;"
+            >
+              <option
+                value="team"
+              >
+                Unassigned
+              </option>
+              <option
+                value="ali"
+              >
+                Alison Jacobson
+              </option>
+              <option
+                value="dir"
+              >
+                David Kramer
+              </option>
+            </select>
+            <button
+              style="background: none; border: medium; padding: 0px; margin-top: 4px; font-size: 10px; color: rgb(107, 114, 128); cursor: pointer; text-decoration: underline; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+            >
+              Hand over with note →
+            </button>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Priority
+            </div>
+            <select
+              style="font-size: 14px; font-weight: 600; color: rgb(17, 17, 17); border: medium; background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; width: 100%;"
+            >
+              <option
+                value="5"
+              >
+                5
+                 
+                (Highest)
+              </option>
+              <option
+                value="4"
+              >
+                4
+                 
+              </option>
+              <option
+                value="3"
+              >
+                3
+                 
+              </option>
+              <option
+                value="2"
+              >
+                2
+                 
+              </option>
+              <option
+                value="1"
+              >
+                1
+                 
+                (Lowest)
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 8px 12px; border-radius: 8px; background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);"
+    >
+      <div
+        style="flex: 1 1 0%; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; animation: none;"
+      >
+        <span
+          style="width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+        >
+          1
+        </span>
+        <div
+          style="flex: 1 1 0%; text-align: left;"
+        >
+          <div
+            style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128);"
+          >
+            Fit Score
+          </div>
+        </div>
+      </div>
+      <div
+        style="flex: 1 1 0%; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; animation: none;"
+      >
+        <span
+          style="width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+        >
+          2
+        </span>
+        <div
+          style="flex: 1 1 0%; text-align: left;"
+        >
+          <div
+            style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128);"
+          >
+            Research
+          </div>
+        </div>
+      </div>
+      <div
+        style="flex: 1 1 0%; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; animation: none;"
+      >
+        <span
+          style="width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+        >
+          3
+        </span>
+        <div
+          style="flex: 1 1 0%; text-align: left;"
+        >
+          <div
+            style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128);"
+          >
+            Budget
+          </div>
+        </div>
+      </div>
+      <div
+        style="flex: 1 1 0%; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; animation: none;"
+      >
+        <span
+          style="width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+        >
+          4
+        </span>
+        <div
+          style="flex: 1 1 0%; text-align: left;"
+        >
+          <div
+            style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128);"
+          >
+            Draft
+          </div>
+        </div>
+      </div>
+    </div>
+    <details
+      open=""
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Grant Profile
+      </summary>
+      <div
+        style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226);"
+      >
+        <div
+          style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 20px;"
+        >
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Funder Type
+            </div>
+            <div
+              style="margin-top: 4px;"
+            >
+              <span
+                style="padding: 2px 8px; font-size: 10px; font-weight: 700; color: rgb(37, 99, 235); background: rgb(239, 246, 255); border-radius: 20px; white-space: nowrap; letter-spacing: 0.4px;"
+              >
+                Foundation
+              </span>
+            </div>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Relationship
+            </div>
+            <div
+              style="font-size: 13px; color: rgb(17, 17, 17); font-weight: 500;"
+            >
+              Cold
+            </div>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Hours Invested
+            </div>
+            <div
+              style="font-size: 13px; color: rgb(17, 17, 17); font-weight: 500;"
+            >
+              0
+              h
+            </div>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Deadline
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 6px;"
+            >
+              <input
+                style="font-size: 13px; border: 1px solid rgb(226, 230, 226); border-radius: 8px; padding: 5px 10px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; margin-top: 2px;"
+                type="date"
+                value=""
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        style="margin-top: 14px;"
+      >
+        <div
+          style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226);"
+        >
+          <div
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;"
+          >
+            <div>
+              <div
+                style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128); margin-bottom: 8px;"
+              >
+                Focus Areas
+              </div>
+              <div
+                style="display: flex; flex-wrap: wrap; gap: 4px;"
+              >
+                <span
+                  style="font-size: 12px; color: rgb(107, 114, 128);"
+                >
+                  No focus areas set
+                </span>
+              </div>
+            </div>
+            <div>
+              <div
+                style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128); margin-bottom: 8px;"
+              >
+                Geography
+              </div>
+              <div
+                style="display: flex; flex-wrap: wrap; gap: 4px;"
+              >
+                <span
+                  style="font-size: 12px; color: rgb(107, 114, 128);"
+                >
+                  No geography set
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+    <details
+      open=""
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Funder Feedback
+      </summary>
+      <div
+        style="padding: 0px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); overflow: hidden;"
+      >
+        <div
+          style="padding: 12px 14px; border-bottom: 1px solid rgb(226, 230, 226); display: flex; align-items: flex-start; gap: 12px;"
+        >
+          <div
+            style="flex: 1 1 0%; min-width: 0px;"
+          >
+            <div
+              style="font-size: 12px; font-weight: 600; color: rgb(75, 85, 99); margin-bottom: 4px;"
+            >
+              What did the funder say when they awarded the grant?
+            </div>
+            <div
+              style="font-size: 11px; color: rgb(107, 114, 128);"
+            >
+              Paste rejection letters, call notes, or any feedback received. This is injected into the 
+              win
+               analysis and future proposals to 
+              DGMT
+              .
+            </div>
+          </div>
+          <button
+            style="font-size: 11px; font-weight: 600; color: rgb(74, 124, 89); background: rgb(255, 255, 255); border: 1px solid rgba(74, 124, 89, 0.25); border-radius: 6px; padding: 5px 12px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; white-space: nowrap; flex-shrink: 0;"
+            title="Paste a raw funder email — AI will extract the outcome, key reasons, what worked / didn't, and next steps."
+          >
+            ✉ Paste email
+          </button>
+        </div>
+        <textarea
+          placeholder="e.g. "Board was impressed by the AI tools angle. Asked about scaling to other provinces.""
+          style="width: 100%; min-height: 80px; padding: 14px; font-size: 13px; line-height: 1.7; border: medium; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; resize: vertical; outline: none; box-sizing: border-box; background: transparent;"
+        />
+      </div>
+    </details>
+    <details
+      open=""
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Win Analysis
+      </summary>
+      <div
+        style="background: rgb(255, 255, 255); border-radius: 10px; margin-bottom: 0px; border: 1px solid transparent; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); transition: all 0.25s ease; overflow: hidden;"
+      >
+        <div
+          style="padding: 14px 16px 12px; display: flex; align-items: center; gap: 10px;"
+        >
+          <div
+            style="width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: rgb(237, 245, 240); color: rgb(74, 124, 89); transition: all 0.25s ease; animation: none;"
+          >
+            ✓
+          </div>
+          <div
+            style="flex: 1 1 0%; min-width: 0px;"
+          >
+            <div
+              style="font-size: 13px; font-weight: 700; color: rgb(17, 17, 17); letter-spacing: -0.2px;"
+            >
+              Win Analysis
+            </div>
+            <div
+              style="font-size: 12px; color: rgb(107, 114, 128); line-height: 1.4; margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"
+            >
+              Understand what worked and how to leverage this win for future applications
+            </div>
+          </div>
+          <div
+            style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;"
+          >
+            <button
+              style="padding: 7px 16px; border: medium; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: rgb(74, 124, 89); color: rgb(255, 255, 255); box-shadow: 0 1px 4px #4A7C5933; flex-shrink: 0;"
+            >
+              Run
+            </button>
+          </div>
+        </div>
+      </div>
+    </details>
+    <details
+      open=""
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Activity
+      </summary>
+      <div
+        data-tour="activity-log"
+      >
+        <div
+          style="padding: 0px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); overflow: hidden;"
+        >
+          <div
+            class="ge-hover-slide"
+            style="display: flex; gap: 10px; padding: 8px 14px; border-bottom: 1px solid rgb(226, 230, 226); align-items: center; background: transparent;"
+          >
+            <span
+              style="font-size: 11px; color: rgb(107, 114, 128); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; min-width: 80px;"
+            >
+              2026-03-01
+            </span>
+            <span
+              style="font-size: 13px; color: rgb(28, 28, 28); flex: 1 1 0%;"
+            >
+              Marked won
+            </span>
+            <span
+              style="font-size: 10px; font-weight: 700; color: rgb(255, 255, 255); background: rgb(16, 185, 129); padding: 2px 8px; border-radius: 100px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+              title="by David Kramer"
+            >
+              DK
+            </span>
+          </div>
+          <div
+            class="ge-hover-slide"
+            style="display: flex; gap: 10px; padding: 8px 14px; border-bottom: medium; align-items: center; background: transparent;"
+          >
+            <span
+              style="font-size: 11px; color: rgb(107, 114, 128); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; min-width: 80px;"
+            >
+              2026-01-15
+            </span>
+            <span
+              style="font-size: 13px; color: rgb(28, 28, 28); flex: 1 1 0%;"
+            >
+              Grant created
+            </span>
+            <span
+              style="font-size: 10px; font-weight: 700; color: rgb(255, 255, 255); background: rgb(59, 130, 246); padding: 2px 8px; border-radius: 100px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+              title="by Alison Jacobson"
+            >
+              AJ
+            </span>
+          </div>
+        </div>
+      </div>
+    </details>
+    <div
+      style="text-align: center; margin-top: 8px; margin-bottom: 24px;"
+    >
+      <button
+        style="font-size: 12px; font-weight: 600; color: rgb(107, 114, 128); background: none; border: 1px solid rgb(226, 230, 226); border-radius: 8px; padding: 6px 16px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: color 0.15s ease;"
+      >
+        Show all sections
+      </button>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`GrantDetail — early stage (scouted) > DOM snapshot — early stage (golden master) 1`] = `
+<div>
+  <div
+    style="padding: 16px; max-width: 920px;"
+  >
+    <div
+      class="ge-grant-side"
+      style="position: fixed; right: 16px; top: 80px; width: 220px; z-index: 25; background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); padding: 12px 12px 10px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+    >
+      <div
+        style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 6px;"
+      >
+        Stage
+      </div>
+      <div
+        style="font-size: 13px; font-weight: 700; color: rgb(59, 130, 246); margin-bottom: 10px;"
+      >
+        Scouted
+      </div>
+      <div
+        style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+      >
+        Deadline
+      </div>
+      <div
+        style="font-size: 12px; font-weight: 600; color: rgb(17, 17, 17); margin-bottom: 10px;"
+      >
+        30 Sept
+        <span
+          style="color: rgb(107, 114, 128); margin-left: 6px; font-weight: 500;"
+        >
+          · 
+          104
+          d
+        </span>
+      </div>
+      <div
+        style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+      >
+        Ready
+      </div>
+      <div
+        style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px;"
+      >
+        <div
+          style="flex: 1 1 0%; height: 4px; background: rgb(226, 230, 226); border-radius: 2px; overflow: hidden;"
+        >
+          <div
+            style="height: 100%; width: 30%; background: rgb(220, 38, 38); border-radius: 2px;"
+          />
+        </div>
+        <span
+          style="font-size: 11px; font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(220, 38, 38); min-width: 32px; text-align: right;"
+        >
+          30
+          %
+        </span>
+      </div>
+      <div
+        style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+      >
+        Next
+      </div>
+      <div
+        style="font-size: 11px; color: rgb(28, 28, 28); line-height: 1.4; margin-bottom: 10px;"
+      >
+        Run Fit Score to evaluate this opportunity
+      </div>
+      <div
+        style="border-top: 1px solid rgb(226, 230, 226); padding-top: 8px; margin-top: 4px;"
+      >
+        <div
+          style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 6px;"
+        >
+          Jump to
+        </div>
+        <div
+          style="display: flex; flex-direction: column; gap: 4px;"
+        >
+          <button
+            style="background: none; border: medium; padding: 4px 6px; text-align: left; font-size: 11px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 4px; transition: background 120ms ease;"
+          >
+            → 
+            Outstanding actions
+          </button>
+          <button
+            style="background: none; border: medium; padding: 4px 6px; text-align: left; font-size: 11px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 4px; transition: background 120ms ease;"
+          >
+            → 
+            About this grant
+          </button>
+          <button
+            style="background: none; border: medium; padding: 4px 6px; text-align: left; font-size: 11px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 4px; transition: background 120ms ease;"
+          >
+            → 
+            Proposal workspace
+          </button>
+          <button
+            style="background: none; border: medium; padding: 4px 6px; text-align: left; font-size: 11px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 4px; transition: background 120ms ease;"
+          >
+            → 
+            Activity log
+          </button>
+        </div>
+      </div>
+    </div>
+    <style>
+      
+        @media (max-width: 1320px) { .ge-grant-side { display: none !important; } }
+      
+    </style>
+    <div
+      style="display: flex; align-items: center; gap: 6px; margin-bottom: 20px; font-size: 13px; color: rgb(107, 114, 128); font-weight: 500;"
+    >
+      <button
+        style="background: none; border: medium; color: rgb(107, 114, 128); font-size: 13px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; display: flex; align-items: center; gap: 4px; transition: color 0.15s ease; padding: 0px;"
+      >
+        ←
+         Pipeline
+      </button>
+      <span
+        style="color: rgb(107, 114, 128);"
+      >
+        /
+      </span>
+      <span
+        style="display: flex; align-items: center; gap: 5px;"
+      >
+        <span
+          style="width: 7px; height: 7px; border-radius: 50%; background: rgb(59, 130, 246); flex-shrink: 0;"
+        />
+        <span
+          style="color: rgb(75, 85, 99); font-weight: 600;"
+        >
+          Scouted
+        </span>
+      </span>
+      <span
+        style="color: rgb(107, 114, 128);"
+      >
+        /
+      </span>
+      <span
+        style="color: rgb(17, 17, 17); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 400px;"
+      >
+        Youth Skills 2026
+      </span>
+    </div>
+    <div
+      style="height: 48px; margin-bottom: 8px;"
+    />
+    <div
+      class="ge-grant-stickybar"
+      style="position: fixed; top: 0px; left: 240px; right: 0px; z-index: 30; background: rgb(255, 255, 255); border-bottom: 1px solid rgb(226, 230, 226); box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 10px 24px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 8px; flex: 1 1 0%; min-width: 0px;"
+      >
+        <span
+          style="width: 8px; height: 8px; border-radius: 50%; background: rgb(59, 130, 246); flex-shrink: 0;"
+        />
+        <span
+          style="font-size: 13px; font-weight: 700; color: rgb(17, 17, 17); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+        >
+          Youth Skills 2026
+        </span>
+      </div>
+      <div
+        style="display: flex; align-items: center; gap: 14px; font-size: 12px;"
+      >
+        <div
+          data-tour="stage-button"
+          style="display: inline-flex; align-items: baseline; gap: 4px;"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Stage
+          </span>
+          <span
+            style="color: rgb(59, 130, 246); font-weight: 700;"
+          >
+            Scouted
+          </span>
+        </div>
+        <span
+          style="color: rgb(226, 230, 226);"
+        >
+          ·
+        </span>
+        <div
+          style="display: inline-flex; align-items: baseline; gap: 4px;"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Ask
+          </span>
+          <span
+            style="font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; font-weight: 700; color: rgb(17, 17, 17);"
+          >
+            R4.97M
+          </span>
+        </div>
+        <span
+          style="color: rgb(226, 230, 226);"
+        >
+          ·
+        </span>
+        <div
+          style="display: inline-flex; align-items: baseline; gap: 4px;"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Owner
+          </span>
+          <span
+            style="color: rgb(75, 85, 99); font-weight: 600;"
+          >
+            Alison Jacobson
+          </span>
+        </div>
+        <span
+          style="color: rgb(226, 230, 226);"
+        >
+          ·
+        </span>
+        <div
+          style="display: inline-flex; align-items: baseline; gap: 4px;"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Deadline
+          </span>
+          <span
+            style="color: rgb(75, 85, 99); font-weight: 600;"
+          >
+            104d left
+          </span>
+        </div>
+        <span
+          style="color: rgb(226, 230, 226);"
+        >
+          ·
+        </span>
+        <button
+          style="background: none; border: medium; padding: 0px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; display: inline-flex; align-items: baseline; gap: 4px;"
+          title="Jump to outstanding actions"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Ready
+          </span>
+          <span
+            style="color: rgb(220, 38, 38); font-weight: 700; font-size: 12px;"
+          >
+            30
+            %
+          </span>
+        </button>
+      </div>
+    </div>
+    <div
+      style="margin-bottom: 16px; padding: 10px 14px; border-radius: 10px; background: rgba(37, 99, 235, 0.03); border: 1px solid rgba(37, 99, 235, 0.145); display: flex; align-items: center; gap: 10px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+    >
+      <span
+        style="color: rgb(37, 99, 235); font-size: 14px; font-weight: 700; flex-shrink: 0;"
+      >
+        ▸
+      </span>
+      <div
+        style="flex: 1 1 0%; min-width: 0px;"
+      >
+        <div
+          style="font-size: 10px; font-weight: 700; color: rgb(37, 99, 235); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 2px;"
+        >
+          What now?
+        </div>
+        <div
+          style="font-size: 13px; color: rgb(17, 17, 17); font-weight: 500; line-height: 1.4;"
+        >
+          Run Fit Score to evaluate this opportunity
+        </div>
+      </div>
+    </div>
+    <div
+      style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); margin-bottom: 24px;"
+    >
+      <div
+        style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;"
+      >
+        <div>
+          <div
+            style="font-size: 22px; font-weight: 800; color: rgb(17, 17, 17); margin-bottom: 4px; letter-spacing: -0.5px; line-height: 1.2;"
+          >
+            Youth Skills 2026
+          </div>
+          <div
+            style="font-size: 14px; color: rgb(75, 85, 99); font-weight: 500; margin-bottom: 8px;"
+          >
+            GIDF
+          </div>
+          <div
+            style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;"
+          >
+            <span
+              style="padding: 2px 8px; font-size: 10px; font-weight: 700; color: rgb(37, 99, 235); background: rgb(239, 246, 255); border-radius: 20px; white-space: nowrap; letter-spacing: 0.4px;"
+            >
+              Foundation
+            </span>
+            <button
+              style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; cursor: pointer; border: 1px solid rgb(226, 230, 226); font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+              title="Toggle South Africa / Global"
+            >
+              🇿🇦 SA
+            </button>
+            <span
+              style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; font-size: 11px; font-weight: 600; color: rgb(22, 163, 74); background: rgb(232, 236, 232); border-radius: 20px; animation: none; white-space: nowrap; letter-spacing: 0.1px;"
+            >
+              <span
+                style="opacity: 0.7; margin-right: 2px;"
+              >
+                30 Sept
+                 
+                ·
+              </span>
+              104d
+            </span>
+          </div>
+        </div>
+        <div
+          style="display: flex; gap: 8px; flex-shrink: 0; position: relative;"
+        >
+          <button
+            style="padding: 7px 14px; border: medium; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: rgb(74, 124, 89); color: rgb(255, 255, 255); box-shadow: 0 1px 4px #4A7C5933;"
+          >
+            ⚡
+             Auto-fill
+          </button>
+          <button
+            style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: rgb(107, 114, 128); font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: background 0.15s ease;"
+            title="More actions"
+          >
+            ⋯
+          </button>
+        </div>
+      </div>
+    </div>
+    <div
+      style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); margin-bottom: 20px;"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;"
+      >
+        <div
+          style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.2px; text-transform: uppercase;"
+        >
+          About This Opportunity
+        </div>
+      </div>
+      <div
+        data-tour="about-grant"
+        style="margin-bottom: 16px; padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; border: 1px solid rgba(74, 124, 89, 0.125);"
+      >
+        <div
+          style="font-size: 10px; font-weight: 700; color: rgb(74, 124, 89); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 10px;"
+        >
+          About this grant
+        </div>
+        <div
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 18px;"
+        >
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 2px;"
+            >
+              Deadline
+            </div>
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              30 Sept 2026
+              <span
+                style="margin-left: 6px; color: rgb(107, 114, 128); font-weight: 500;"
+              >
+                (
+                104d
+                )
+              </span>
+            </div>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 2px;"
+            >
+              Accepts unsolicited
+            </div>
+            <button
+              style="background: none; border: medium; padding: 0px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; color: rgb(107, 114, 128); font-weight: 600; text-align: left;"
+              title="Click to change. Auto-detected from notes; you can override."
+            >
+              Unknown
+            </button>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 2px;"
+            >
+              Market
+            </div>
+            <div
+              style="font-size: 13px; color: rgb(75, 85, 99);"
+            >
+              South Africa
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px 20px; margin-bottom: 16px; padding: 14px 16px; border-radius: 10px; background: rgb(245, 247, 245); border: 1px solid rgb(226, 230, 226);"
+      >
+        <div>
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Type
+          </div>
+          <span
+            style="padding: 2px 8px; font-size: 10px; font-weight: 700; color: rgb(37, 99, 235); background: rgb(239, 246, 255); border-radius: 20px; white-space: nowrap; letter-spacing: 0.4px;"
+          >
+            Foundation
+          </span>
+        </div>
+        <div
+          data-tour="workflow-cell"
+        >
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Workflow
+          </div>
+          <div>
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              Proposal generation
+            </div>
+            <button
+              style="background: none; border: medium; padding: 0px; margin-top: 2px; font-size: 10px; color: rgb(107, 114, 128); cursor: pointer; text-decoration: underline; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+            >
+              Switch to 
+              manual
+            </button>
+          </div>
+        </div>
+        <div>
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Relationship
+          </div>
+          <div
+            style="font-size: 13px; font-weight: 600; color: rgb(75, 85, 99);"
+          >
+            Cold
+          </div>
+        </div>
+        <div>
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Source
+          </div>
+          <div
+            style="font-size: 13px; font-weight: 600; color: rgb(75, 85, 99);"
+          >
+            Scout
+          </div>
+        </div>
+        <div>
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Programme
+          </div>
+          <div
+            style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+          >
+            Type 
+            2
+          </div>
+        </div>
+        <div
+          style="grid-column: 1 / -1;"
+        >
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Focus Areas
+          </div>
+          <div
+            style="display: flex; flex-wrap: wrap; gap: 4px;"
+          >
+            <span
+              style="font-size: 12px; color: rgb(107, 114, 128); font-style: italic;"
+            >
+              Not set
+            </span>
+          </div>
+        </div>
+      </div>
+      <div
+        style="padding: 14px 16px; border-radius: 10px; margin-bottom: 14px; background: rgb(254, 245, 231); border: 1px solid rgba(193, 120, 23, 0.125);"
+      >
+        <div
+          style="font-size: 12px; color: rgb(193, 120, 23); font-weight: 600;"
+        >
+          No funder intelligence yet — run Funder Research to generate insights about 
+          GIDF
+          .
+        </div>
+      </div>
+      <div>
+        <div
+          style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;"
+        >
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase;"
+          >
+            Internal Notes
+          </div>
+          <div
+            style="font-size: 11px; color: rgb(107, 114, 128); flex: 1 1 0%; min-width: 0px;"
+          >
+            Only your team sees this. The funder never does. Use it for strategy thoughts, who-knows-who, "why we said no last time", or anything you want the next person opening this grant to know.
+          </div>
+          <button
+            style="font-size: 10px; font-weight: 600; padding: 3px 8px; background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); border-radius: 6px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; white-space: nowrap; flex-shrink: 0;"
+            title="Pull internal-notes intel from uploaded documents (board minutes, past proposals, donor reports)"
+          >
+            ✨ Extract from documents
+          </button>
+        </div>
+        <textarea
+          placeholder="e.g. 'Alison met their CSI lead at the SAGEA breakfast. They prefer multi-year commitments. Decision-maker is Sipho — Barbara has his number.'"
+          style="width: 100%; min-height: 48px; padding: 8px 10px; font-size: 12px; line-height: 1.5; color: rgb(75, 85, 99); border: 1px solid rgb(226, 230, 226); border-radius: 8px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; resize: vertical; outline: none; box-sizing: border-box; background: rgb(255, 255, 255); transition: border-color 0.15s;"
+        />
+      </div>
+    </div>
+    <div
+      style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px;"
+    >
+      <div
+        style="display: flex; gap: 14px; align-items: stretch;"
+      >
+        <div
+          style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); flex: 1 1 0%;"
+        >
+          <div
+            style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;"
+          >
+            <div>
+              <div
+                style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+              >
+                Ask
+              </div>
+              <span />
+            </div>
+          </div>
+          <div
+            style="display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;"
+          >
+            <div
+              style="font-size: 22px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(74, 124, 89);"
+            >
+              R5.0M
+            </div>
+          </div>
+          <div
+            style="display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;"
+          >
+            <div
+              style="display: flex; align-items: center; gap: 4px;"
+            >
+              <span
+                style="font-size: 10px; font-weight: 700; color: rgb(255, 255, 255); background: rgb(22, 163, 74); padding: 1px 6px; border-radius: 4px;"
+              >
+                T
+                2
+              </span>
+              <span
+                style="font-size: 10px; color: rgb(107, 114, 128);"
+              >
+                Standard Cohort
+              </span>
+            </div>
+            <button
+              style="font-size: 12px; color: rgb(107, 114, 128); background: none; border: medium; cursor: pointer; padding: 0px; line-height: 1;"
+              title="Edit ask amount"
+            >
+              ✎
+            </button>
+          </div>
+        </div>
+      </div>
+      <div
+        style="padding: 12px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226);"
+      >
+        <div
+          style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;"
+        >
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Stage
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 6px;"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(59, 130, 246); flex-shrink: 0;"
+              />
+              <select
+                style="font-size: 14px; font-weight: 600; color: rgb(59, 130, 246); border: medium; background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; flex: 1 1 0%;"
+              >
+                <option
+                  value="scouted"
+                >
+                  Scouted
+                </option>
+                <option
+                  value="vetting"
+                >
+                  Vetting
+                </option>
+                <option
+                  value="qualifying"
+                >
+                  Qualifying
+                </option>
+                <option
+                  value="drafting"
+                >
+                  Drafting
+                </option>
+                <option
+                  value="review"
+                >
+                  Review
+                </option>
+                <option
+                  value="submitted"
+                >
+                  Submitted
+                </option>
+                <option
+                  value="awaiting"
+                >
+                  Awaiting
+                </option>
+                <option
+                  value="won"
+                >
+                  Won
+                </option>
+                <option
+                  value="lost"
+                >
+                  Lost
+                </option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Owner
+            </div>
+            <select
+              style="font-size: 14px; font-weight: 600; color: rgb(17, 17, 17); border: medium; background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; width: 100%;"
+            >
+              <option
+                value="team"
+              >
+                Unassigned
+              </option>
+              <option
+                value="ali"
+              >
+                Alison Jacobson
+              </option>
+              <option
+                value="dir"
+              >
+                David Kramer
+              </option>
+            </select>
+            <button
+              style="background: none; border: medium; padding: 0px; margin-top: 4px; font-size: 10px; color: rgb(107, 114, 128); cursor: pointer; text-decoration: underline; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+            >
+              Hand over with note →
+            </button>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Priority
+            </div>
+            <select
+              style="font-size: 14px; font-weight: 600; color: rgb(17, 17, 17); border: medium; background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; width: 100%;"
+            >
+              <option
+                value="5"
+              >
+                5
+                 
+                (Highest)
+              </option>
+              <option
+                value="4"
+              >
+                4
+                 
+              </option>
+              <option
+                value="3"
+              >
+                3
+                 
+              </option>
+              <option
+                value="2"
+              >
+                2
+                 
+              </option>
+              <option
+                value="1"
+              >
+                1
+                 
+                (Lowest)
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      style="margin-bottom: 16px; padding: 8px 14px; border-radius: 8px; background: rgb(245, 247, 245); border: 1px solid rgb(226, 230, 226);"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;"
+      >
+        <span
+          style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128);"
+        >
+          Readiness
+        </span>
+        <span
+          style="font-size: 14px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(220, 38, 38);"
+        >
+          30
+          %
+        </span>
+        <div
+          style="flex: 1 1 0%; height: 4px; border-radius: 2px; background: rgb(226, 230, 226); overflow: hidden;"
+        >
+          <div
+            style="height: 100%; width: 30%; background: rgb(220, 38, 38); border-radius: 2px; transition: width 0.4s ease;"
+          />
+        </div>
+        <span
+          style="font-size: 10px; font-weight: 600; color: rgb(193, 120, 23); background: rgb(254, 245, 231); padding: 2px 8px; border-radius: 6px; white-space: nowrap;"
+          title="9 docs missing, No fit score, No research, No draft"
+        >
+          4
+           missing
+        </span>
+      </div>
+      <div
+        style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500;"
+      >
+        Next: 
+        Run Fit Score to evaluate this opportunity
+      </div>
+    </div>
+    <div
+      data-tour="funder-brief"
+      style="margin-bottom: 10px; padding: 10px 12px; border-radius: 10px; background: rgb(248, 250, 248); border: 1px solid rgb(226, 230, 226);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; gap: 8px; flex-wrap: wrap;"
+      >
+        <div
+          style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+        >
+          Funder brief (optional)
+        </div>
+        <div
+          style="display: flex; align-items: center; gap: 8px;"
+        >
+          <button
+            style="font-size: 10px; font-weight: 700; color: rgb(74, 124, 89); background: none; border: 1px solid rgba(74, 124, 89, 0.25); border-radius: 5px; padding: 4px 10px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+            title="Re-run the AI search for the funder's published RFP / brief. Overwrites the current text."
+          >
+            ↻ Re-fetch
+          </button>
+          <span
+            style="font-size: 10px; color: rgb(107, 114, 128);"
+          >
+            AI auto-fills on open · edit freely
+          </span>
+        </div>
+      </div>
+      <div
+        style="font-size: 11px; color: rgb(107, 114, 128); line-height: 1.5; margin-bottom: 8px; padding: 6px 10px; background: rgba(107, 114, 128, 0.03); border-radius: 6px; border-left: 2px solid rgba(107, 114, 128, 0.25);"
+      >
+        <strong
+          style="color: rgb(75, 85, 99);"
+        >
+          Optional.
+        </strong>
+         Most 
+        foundation
+         funders don't publish a formal RFP — they take inquiries via email or relationship. If you DO have a written brief (from a meeting, an email, or their site), paste it below. Otherwise leave blank.
+      </div>
+      <textarea
+        placeholder="Optional. If the funder has emailed you a brief, sent funding criteria, or you have meeting notes from them, paste the text here."
+        rows="4"
+        style="width: 100%; font-size: 12px; line-height: 1.5; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; color: rgb(17, 17, 17); background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); border-radius: 6px; padding: 8px 10px; resize: vertical; outline: none; box-sizing: border-box; transition: background 0.2s, border-color 0.2s;"
+      />
+      <div
+        data-tour="apply-url"
+        style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgb(226, 230, 226);"
+      >
+        <div
+          style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 8px;"
+        >
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.5px;"
+          >
+            Apply link
+          </div>
+          <button
+            style="font-size: 10px; font-weight: 700; color: rgb(74, 124, 89); background: none; border: 1px solid rgba(74, 124, 89, 0.25); border-radius: 5px; padding: 3px 9px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+            title="Search the funder's website for the actual application page"
+          >
+            Search for the link
+          </button>
+        </div>
+        <div
+          style="display: flex; gap: 6px; align-items: center;"
+        >
+          <input
+            placeholder="Paste the funder's apply page link here — or click Search to find it"
+            style="flex: 1 1 0%; font-size: 12px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; color: rgb(17, 17, 17); background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); border-radius: 6px; padding: 6px 10px; outline: none;"
+            type="url"
+            value=""
+          />
+        </div>
+      </div>
+    </div>
+    <label
+      style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; background: rgb(248, 250, 248); border: 1px solid rgb(226, 230, 226); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+    >
+      <input
+        style="margin-top: 2px; accent-color: rgb(74, 124, 89); cursor: pointer;"
+        type="checkbox"
+      />
+      <div
+        style="flex: 1 1 0%; min-width: 0px;"
+      >
+        <div
+          style="font-size: 12px; font-weight: 600; color: rgb(75, 85, 99);"
+        >
+          Include a glossary appendix in the proposal
+        </div>
+        <div
+          style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 2px; line-height: 1.4;"
+        >
+          Adds a final "Glossary" section that defines every acronym and sector term used (B-BBEE, NQF, SAQA, FET, ICITP, PBO…). Helpful for international funders or readers new to the SA NPO landscape.
+        </div>
+      </div>
+    </label>
+    <button
+      data-tour="make-magic"
+      style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 20px; margin-bottom: 10px; border-radius: 12px; background: linear-gradient(135deg, rgb(109, 40, 217), rgb(8, 145, 178), rgb(74, 124, 89)); color: rgb(255, 255, 255); border: medium; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; font-weight: 700; letter-spacing: -0.2px; box-shadow: 0 4px 20px rgba(109,40,217,0.25), 0 2px 8px rgba(8,145,178,0.15); opacity: 1; transition: all 0.3s ease; animation: ge-shimmer 3s ease-in-out infinite;"
+    >
+      <svg
+        fill="none"
+        height="20"
+        style="animation: ge-bounce-subtle 2s ease-in-out infinite;"
+        viewBox="0 0 24 24"
+        width="20"
+      >
+        <path
+          d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+          fill="rgba(255,255,255,0.2)"
+          stroke="currentColor"
+          stroke-width="1.5"
+        />
+        <path
+          d="M20 3v4M22 5h-4"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-width="1.5"
+        />
+      </svg>
+      <span>
+        Make the Magic Happen
+      </span>
+    </button>
+    <button
+      data-tour="concept-note"
+      style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 16px; margin-bottom: 10px; border-radius: 10px; background: rgb(255, 255, 255); color: rgb(109, 40, 217); border: 1px solid rgba(109, 40, 217, 0.25); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; font-weight: 600; opacity: 1;"
+      title="Generate a 1-2 page concept note — the short pitch you send to test interest before submitting a full proposal"
+    >
+      <span
+        style="font-size: 13px;"
+      >
+        📝
+      </span>
+      <span>
+        Generate concept note (pre-proposal pitch)
+      </span>
+    </button>
+    <div
+      style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 8px 12px; border-radius: 8px; background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);"
+    >
+      <div
+        style="flex: 1 1 0%; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; animation: none;"
+      >
+        <span
+          style="width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+        >
+          1
+        </span>
+        <div
+          style="flex: 1 1 0%; text-align: left;"
+        >
+          <div
+            style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128);"
+          >
+            Fit Score
+          </div>
+        </div>
+      </div>
+      <div
+        style="flex: 1 1 0%; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; animation: none;"
+      >
+        <span
+          style="width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+        >
+          2
+        </span>
+        <div
+          style="flex: 1 1 0%; text-align: left;"
+        >
+          <div
+            style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128);"
+          >
+            Research
+          </div>
+        </div>
+      </div>
+      <div
+        style="flex: 1 1 0%; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; animation: none;"
+      >
+        <span
+          style="width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+        >
+          3
+        </span>
+        <div
+          style="flex: 1 1 0%; text-align: left;"
+        >
+          <div
+            style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128);"
+          >
+            Budget
+          </div>
+        </div>
+      </div>
+      <div
+        style="flex: 1 1 0%; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; animation: none;"
+      >
+        <span
+          style="width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+        >
+          4
+        </span>
+        <div
+          style="flex: 1 1 0%; text-align: left;"
+        >
+          <div
+            style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128);"
+          >
+            Draft
+          </div>
+        </div>
+      </div>
+    </div>
+    <details
+      open=""
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Grant Profile
+      </summary>
+      <div
+        style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226);"
+      >
+        <div
+          style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 20px;"
+        >
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Funder Type
+            </div>
+            <div
+              style="margin-top: 4px;"
+            >
+              <span
+                style="padding: 2px 8px; font-size: 10px; font-weight: 700; color: rgb(37, 99, 235); background: rgb(239, 246, 255); border-radius: 20px; white-space: nowrap; letter-spacing: 0.4px;"
+              >
+                Foundation
+              </span>
+            </div>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Relationship
+            </div>
+            <div
+              style="font-size: 13px; color: rgb(17, 17, 17); font-weight: 500;"
+            >
+              Cold
+            </div>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Hours Invested
+            </div>
+            <div
+              style="font-size: 13px; color: rgb(17, 17, 17); font-weight: 500;"
+            >
+              0
+              h
+            </div>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Deadline
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 6px;"
+            >
+              <input
+                style="font-size: 13px; border: 1px solid rgb(226, 230, 226); border-radius: 8px; padding: 5px 10px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; margin-top: 2px;"
+                type="date"
+                value="2026-09-30"
+              />
+              <button
+                style="font-size: 12px; background: none; border: 1px solid rgb(226, 230, 226); border-radius: 6px; padding: 4px 8px; cursor: pointer; color: rgb(107, 114, 128); font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+                title="Download calendar invite"
+              >
+                📅
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        style="margin-top: 14px;"
+      >
+        <div
+          style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226);"
+        >
+          <div
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;"
+          >
+            <div>
+              <div
+                style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128); margin-bottom: 8px;"
+              >
+                Focus Areas
+              </div>
+              <div
+                style="display: flex; flex-wrap: wrap; gap: 4px;"
+              >
+                <span
+                  style="font-size: 12px; color: rgb(107, 114, 128);"
+                >
+                  No focus areas set
+                </span>
+              </div>
+            </div>
+            <div>
+              <div
+                style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128); margin-bottom: 8px;"
+              >
+                Geography
+              </div>
+              <div
+                style="display: flex; flex-wrap: wrap; gap: 4px;"
+              >
+                <span
+                  style="font-size: 12px; color: rgb(107, 114, 128);"
+                >
+                  No geography set
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+    <details
+      open=""
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Fit Score
+      </summary>
+      <div
+        style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); margin-bottom: 12px; border: 1px solid rgb(226, 230, 226);"
+      >
+        <div
+          style="width: 48px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: rgb(243, 240, 255); color: rgb(109, 40, 217); font-size: 18px; animation: none;"
+        >
+          ★
+        </div>
+        <div
+          style="flex: 1 1 0%;"
+        >
+          <div
+            style="font-size: 14px; font-weight: 700; color: rgb(17, 17, 17);"
+          >
+            Fit Score
+          </div>
+          <div
+            style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 2px;"
+          >
+            AI assesses how well this grant matches the organisation's profile
+          </div>
+        </div>
+        <button
+          style="padding: 7px 16px; border: medium; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: rgb(74, 124, 89); color: rgb(255, 255, 255); box-shadow: 0 1px 4px #4A7C5933;"
+        >
+          Score
+        </button>
+      </div>
+    </details>
+    <details
+      open=""
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Funder Research
+      </summary>
+      <div
+        style="background: rgb(255, 255, 255); border-radius: 10px; margin-bottom: 0px; border: 1px solid transparent; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); transition: all 0.25s ease; overflow: hidden;"
+      >
+        <div
+          style="padding: 14px 16px 12px; display: flex; align-items: center; gap: 10px;"
+        >
+          <div
+            style="width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: rgb(237, 245, 240); color: rgb(74, 124, 89); transition: all 0.25s ease; animation: none;"
+          >
+            1
+          </div>
+          <div
+            style="flex: 1 1 0%; min-width: 0px;"
+          >
+            <div
+              style="font-size: 13px; font-weight: 700; color: rgb(17, 17, 17); letter-spacing: -0.2px;"
+            >
+              Funder Research
+            </div>
+            <div
+              style="font-size: 12px; color: rgb(107, 114, 128); line-height: 1.4; margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"
+            >
+              Search the web for this funder's priorities, recent grants, and what they look for in applications
+            </div>
+          </div>
+          <div
+            style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;"
+          >
+            <button
+              style="padding: 7px 16px; border: medium; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: rgb(74, 124, 89); color: rgb(255, 255, 255); box-shadow: 0 1px 4px #4A7C5933; flex-shrink: 0;"
+            >
+              Run
+            </button>
+          </div>
+        </div>
+      </div>
+    </details>
+    <details
+      open=""
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Outstanding Actions
+        6 actions
+      </summary>
+      <div
+        style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226);"
+      >
+        <div
+          data-tour="outstanding-actions"
+        >
+          <div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: transparent;"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(107, 114, 128); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Run fit score
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(107, 114, 128); font-weight: 600; flex-shrink: 0;"
+              >
+                low
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 245, 231, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(193, 120, 23); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Upload: PBO Certificate
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(193, 120, 23); font-weight: 600; flex-shrink: 0;"
+              >
+                medium
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 245, 231, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(193, 120, 23); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Upload: NPO Registration
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(193, 120, 23); font-weight: 600; flex-shrink: 0;"
+              >
+                medium
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 245, 231, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(193, 120, 23); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Upload: Tax Clearance (SARS)
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(193, 120, 23); font-weight: 600; flex-shrink: 0;"
+              >
+                medium
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 245, 231, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(193, 120, 23); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Upload: Audited Financials
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(193, 120, 23); font-weight: 600; flex-shrink: 0;"
+              >
+                medium
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 245, 231, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(193, 120, 23); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Upload: Organisation Profile
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(193, 120, 23); font-weight: 600; flex-shrink: 0;"
+              >
+                medium
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 245, 231, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(193, 120, 23); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Upload: Board Resolution
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(193, 120, 23); font-weight: 600; flex-shrink: 0;"
+              >
+                medium
+              </span>
+            </div>
+            <div
+              style="display: flex; gap: 8px; margin-top: 8px;"
+            >
+              <input
+                placeholder="Add a custom action..."
+                style="flex: 1 1 0%; padding: 7px 10px; font-size: 12px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border: 1px solid rgb(226, 230, 226); border-radius: 6px; outline: none;"
+                value=""
+              />
+              <button
+                disabled=""
+                style="padding: 6px 14px; border: 1px solid rgb(226, 230, 226); font-size: 11px; font-weight: 600; cursor: not-allowed; opacity: 0.4; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: transparent; color: rgb(75, 85, 99);"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+    <details
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Activity
+      </summary>
+      <div
+        data-tour="activity-log"
+      >
+        <div
+          style="padding: 0px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); overflow: hidden;"
+        >
+          <div
+            class="ge-hover-slide"
+            style="display: flex; gap: 10px; padding: 8px 14px; border-bottom: 1px solid rgb(226, 230, 226); align-items: center; background: transparent;"
+          >
+            <span
+              style="font-size: 11px; color: rgb(107, 114, 128); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; min-width: 80px;"
+            >
+              2026-02-01
+            </span>
+            <span
+              style="font-size: 13px; color: rgb(28, 28, 28); flex: 1 1 0%;"
+            >
+              Moved to vetting
+            </span>
+            <span
+              style="font-size: 10px; font-weight: 700; color: rgb(255, 255, 255); background: rgb(16, 185, 129); padding: 2px 8px; border-radius: 100px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+              title="by David Kramer"
+            >
+              DK
+            </span>
+          </div>
+          <div
+            class="ge-hover-slide"
+            style="display: flex; gap: 10px; padding: 8px 14px; border-bottom: medium; align-items: center; background: transparent;"
+          >
+            <span
+              style="font-size: 11px; color: rgb(107, 114, 128); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; min-width: 80px;"
+            >
+              2026-01-15
+            </span>
+            <span
+              style="font-size: 13px; color: rgb(28, 28, 28); flex: 1 1 0%;"
+            >
+              Grant created
+            </span>
+            <span
+              style="font-size: 10px; font-weight: 700; color: rgb(255, 255, 255); background: rgb(59, 130, 246); padding: 2px 8px; border-radius: 100px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+              title="by Alison Jacobson"
+            >
+              AJ
+            </span>
+          </div>
+        </div>
+      </div>
+    </details>
+    <div
+      style="text-align: center; margin-top: 8px; margin-bottom: 24px;"
+    >
+      <button
+        style="font-size: 12px; font-weight: 600; color: rgb(107, 114, 128); background: none; border: 1px solid rgb(226, 230, 226); border-radius: 8px; padding: 6px 16px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: color 0.15s ease;"
+      >
+        Show all sections
+      </button>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`GrantDetail — middle stage (drafting), guards Card/Field/Hd + child stubs > DOM snapshot — drafting (golden master) 1`] = `
+<div>
+  <div
+    style="padding: 16px; max-width: 920px;"
+  >
+    <div
+      class="ge-grant-side"
+      style="position: fixed; right: 16px; top: 80px; width: 220px; z-index: 25; background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); padding: 12px 12px 10px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+    >
+      <div
+        style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 6px;"
+      >
+        Stage
+      </div>
+      <div
+        style="font-size: 13px; font-weight: 700; color: rgb(245, 158, 11); margin-bottom: 10px;"
+      >
+        Drafting
+      </div>
+      <div
+        style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+      >
+        Deadline
+      </div>
+      <div
+        style="font-size: 12px; font-weight: 600; color: rgb(17, 17, 17); margin-bottom: 10px;"
+      >
+        15 Aug
+        <span
+          style="color: rgb(107, 114, 128); margin-left: 6px; font-weight: 500;"
+        >
+          · 
+          58
+          d
+        </span>
+      </div>
+      <div
+        style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+      >
+        Ready
+      </div>
+      <div
+        style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px;"
+      >
+        <div
+          style="flex: 1 1 0%; height: 4px; background: rgb(226, 230, 226); border-radius: 2px; overflow: hidden;"
+        >
+          <div
+            style="height: 100%; width: 30%; background: rgb(220, 38, 38); border-radius: 2px;"
+          />
+        </div>
+        <span
+          style="font-size: 11px; font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(220, 38, 38); min-width: 32px; text-align: right;"
+        >
+          30
+          %
+        </span>
+      </div>
+      <div
+        style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+      >
+        Next
+      </div>
+      <div
+        style="font-size: 11px; color: rgb(28, 28, 28); line-height: 1.4; margin-bottom: 10px;"
+      >
+        Generate a draft proposal
+      </div>
+      <div
+        style="border-top: 1px solid rgb(226, 230, 226); padding-top: 8px; margin-top: 4px;"
+      >
+        <div
+          style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 6px;"
+        >
+          Jump to
+        </div>
+        <div
+          style="display: flex; flex-direction: column; gap: 4px;"
+        >
+          <button
+            style="background: none; border: medium; padding: 4px 6px; text-align: left; font-size: 11px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 4px; transition: background 120ms ease;"
+          >
+            → 
+            Outstanding actions
+          </button>
+          <button
+            style="background: none; border: medium; padding: 4px 6px; text-align: left; font-size: 11px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 4px; transition: background 120ms ease;"
+          >
+            → 
+            About this grant
+          </button>
+          <button
+            style="background: none; border: medium; padding: 4px 6px; text-align: left; font-size: 11px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 4px; transition: background 120ms ease;"
+          >
+            → 
+            Proposal workspace
+          </button>
+          <button
+            style="background: none; border: medium; padding: 4px 6px; text-align: left; font-size: 11px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 4px; transition: background 120ms ease;"
+          >
+            → 
+            Activity log
+          </button>
+        </div>
+      </div>
+    </div>
+    <style>
+      
+        @media (max-width: 1320px) { .ge-grant-side { display: none !important; } }
+      
+    </style>
+    <div
+      style="display: flex; align-items: center; gap: 6px; margin-bottom: 20px; font-size: 13px; color: rgb(107, 114, 128); font-weight: 500;"
+    >
+      <button
+        style="background: none; border: medium; color: rgb(107, 114, 128); font-size: 13px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; display: flex; align-items: center; gap: 4px; transition: color 0.15s ease; padding: 0px;"
+      >
+        ←
+         Pipeline
+      </button>
+      <span
+        style="color: rgb(107, 114, 128);"
+      >
+        /
+      </span>
+      <span
+        style="display: flex; align-items: center; gap: 5px;"
+      >
+        <span
+          style="width: 7px; height: 7px; border-radius: 50%; background: rgb(245, 158, 11); flex-shrink: 0;"
+        />
+        <span
+          style="color: rgb(75, 85, 99); font-weight: 600;"
+        >
+          Drafting
+        </span>
+      </span>
+      <span
+        style="color: rgb(107, 114, 128);"
+      >
+        /
+      </span>
+      <span
+        style="color: rgb(17, 17, 17); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 400px;"
+      >
+        Corporate Accelerator
+      </span>
+    </div>
+    <div
+      style="height: 48px; margin-bottom: 8px;"
+    />
+    <div
+      class="ge-grant-stickybar"
+      style="position: fixed; top: 0px; left: 240px; right: 0px; z-index: 30; background: rgb(255, 255, 255); border-bottom: 1px solid rgb(226, 230, 226); box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 10px 24px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 8px; flex: 1 1 0%; min-width: 0px;"
+      >
+        <span
+          style="width: 8px; height: 8px; border-radius: 50%; background: rgb(245, 158, 11); flex-shrink: 0;"
+        />
+        <span
+          style="font-size: 13px; font-weight: 700; color: rgb(17, 17, 17); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+        >
+          Corporate Accelerator
+        </span>
+      </div>
+      <div
+        style="display: flex; align-items: center; gap: 14px; font-size: 12px;"
+      >
+        <div
+          data-tour="stage-button"
+          style="display: inline-flex; align-items: baseline; gap: 4px;"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Stage
+          </span>
+          <span
+            style="color: rgb(245, 158, 11); font-weight: 700;"
+          >
+            Drafting
+          </span>
+        </div>
+        <span
+          style="color: rgb(226, 230, 226);"
+        >
+          ·
+        </span>
+        <div
+          style="display: inline-flex; align-items: baseline; gap: 4px;"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Ask
+          </span>
+          <span
+            style="font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; font-weight: 700; color: rgb(17, 17, 17);"
+          >
+            R0.65M
+          </span>
+        </div>
+        <span
+          style="color: rgb(226, 230, 226);"
+        >
+          ·
+        </span>
+        <div
+          style="display: inline-flex; align-items: baseline; gap: 4px;"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Owner
+          </span>
+          <span
+            style="color: rgb(75, 85, 99); font-weight: 600;"
+          >
+            Alison Jacobson
+          </span>
+        </div>
+        <span
+          style="color: rgb(226, 230, 226);"
+        >
+          ·
+        </span>
+        <div
+          style="display: inline-flex; align-items: baseline; gap: 4px;"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Deadline
+          </span>
+          <span
+            style="color: rgb(75, 85, 99); font-weight: 600;"
+          >
+            58d left
+          </span>
+        </div>
+        <span
+          style="color: rgb(226, 230, 226);"
+        >
+          ·
+        </span>
+        <button
+          style="background: none; border: medium; padding: 0px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; display: inline-flex; align-items: baseline; gap: 4px;"
+          title="Jump to outstanding actions"
+        >
+          <span
+            style="font-size: 9px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+          >
+            Ready
+          </span>
+          <span
+            style="color: rgb(220, 38, 38); font-weight: 700; font-size: 12px;"
+          >
+            30
+            %
+          </span>
+        </button>
+      </div>
+    </div>
+    <div
+      style="margin-bottom: 16px; padding: 10px 14px; border-radius: 10px; background: rgba(74, 124, 89, 0.03); border: 1px solid rgba(74, 124, 89, 0.145); display: flex; align-items: center; gap: 10px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+    >
+      <span
+        style="color: rgb(74, 124, 89); font-size: 14px; font-weight: 700; flex-shrink: 0;"
+      >
+        ▸
+      </span>
+      <div
+        style="flex: 1 1 0%; min-width: 0px;"
+      >
+        <div
+          style="font-size: 10px; font-weight: 700; color: rgb(74, 124, 89); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 2px;"
+        >
+          What now?
+        </div>
+        <div
+          style="font-size: 13px; color: rgb(17, 17, 17); font-weight: 500; line-height: 1.4;"
+        >
+          Generate a draft proposal
+        </div>
+      </div>
+    </div>
+    <div
+      style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); margin-bottom: 24px;"
+    >
+      <div
+        style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;"
+      >
+        <div>
+          <div
+            style="font-size: 22px; font-weight: 800; color: rgb(17, 17, 17); margin-bottom: 4px; letter-spacing: -0.5px; line-height: 1.2;"
+          >
+            Corporate Accelerator
+          </div>
+          <div
+            style="font-size: 14px; color: rgb(75, 85, 99); font-weight: 500; margin-bottom: 8px;"
+          >
+            CCBA
+          </div>
+          <div
+            style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;"
+          >
+            <span
+              style="padding: 2px 8px; font-size: 10px; font-weight: 700; color: rgb(37, 99, 235); background: rgb(239, 246, 255); border-radius: 20px; white-space: nowrap; letter-spacing: 0.4px;"
+            >
+              Foundation
+            </span>
+            <button
+              style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; cursor: pointer; border: 1px solid rgb(226, 230, 226); font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+              title="Toggle South Africa / Global"
+            >
+              🇿🇦 SA
+            </button>
+            <span
+              style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; font-size: 11px; font-weight: 600; color: rgb(22, 163, 74); background: rgb(232, 236, 232); border-radius: 20px; animation: none; white-space: nowrap; letter-spacing: 0.1px;"
+            >
+              <span
+                style="opacity: 0.7; margin-right: 2px;"
+              >
+                15 Aug
+                 
+                ·
+              </span>
+              58d
+            </span>
+          </div>
+        </div>
+        <div
+          style="display: flex; gap: 8px; flex-shrink: 0; position: relative;"
+        >
+          <button
+            style="padding: 7px 14px; border: medium; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: rgb(74, 124, 89); color: rgb(255, 255, 255); box-shadow: 0 1px 4px #4A7C5933;"
+          >
+            ⚡
+             Auto-fill
+          </button>
+          <button
+            style="width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: rgb(107, 114, 128); font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: background 0.15s ease;"
+            title="More actions"
+          >
+            ⋯
+          </button>
+        </div>
+      </div>
+    </div>
+    <div
+      style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); margin-bottom: 20px;"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px;"
+      >
+        <div
+          style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.2px; text-transform: uppercase;"
+        >
+          About This Opportunity
+        </div>
+      </div>
+      <div
+        data-tour="about-grant"
+        style="margin-bottom: 16px; padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; border: 1px solid rgba(74, 124, 89, 0.125);"
+      >
+        <div
+          style="font-size: 10px; font-weight: 700; color: rgb(74, 124, 89); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 10px;"
+        >
+          About this grant
+        </div>
+        <div
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 18px;"
+        >
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 2px;"
+            >
+              Deadline
+            </div>
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              15 Aug 2026
+              <span
+                style="margin-left: 6px; color: rgb(107, 114, 128); font-weight: 500;"
+              >
+                (
+                58d
+                )
+              </span>
+            </div>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 2px;"
+            >
+              Accepts unsolicited
+            </div>
+            <button
+              style="background: none; border: medium; padding: 0px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; color: rgb(107, 114, 128); font-weight: 600; text-align: left;"
+              title="Click to change. Auto-detected from notes; you can override."
+            >
+              Unknown
+            </button>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 2px;"
+            >
+              Market
+            </div>
+            <div
+              style="font-size: 13px; color: rgb(75, 85, 99);"
+            >
+              South Africa
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px 20px; margin-bottom: 16px; padding: 14px 16px; border-radius: 10px; background: rgb(245, 247, 245); border: 1px solid rgb(226, 230, 226);"
+      >
+        <div>
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Type
+          </div>
+          <span
+            style="padding: 2px 8px; font-size: 10px; font-weight: 700; color: rgb(37, 99, 235); background: rgb(239, 246, 255); border-radius: 20px; white-space: nowrap; letter-spacing: 0.4px;"
+          >
+            Foundation
+          </span>
+        </div>
+        <div
+          data-tour="workflow-cell"
+        >
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Workflow
+          </div>
+          <div>
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              Proposal generation
+            </div>
+            <button
+              style="background: none; border: medium; padding: 0px; margin-top: 2px; font-size: 10px; color: rgb(107, 114, 128); cursor: pointer; text-decoration: underline; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+            >
+              Switch to 
+              manual
+            </button>
+          </div>
+        </div>
+        <div>
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Relationship
+          </div>
+          <div
+            style="font-size: 13px; font-weight: 600; color: rgb(22, 163, 74);"
+          >
+            ✓ Returning
+          </div>
+        </div>
+        <div>
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Source
+          </div>
+          <div
+            style="font-size: 13px; font-weight: 600; color: rgb(75, 85, 99);"
+          >
+            Scout
+          </div>
+        </div>
+        <div>
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Programme
+          </div>
+          <div
+            style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+          >
+            Type 
+            5
+          </div>
+        </div>
+        <div
+          style="grid-column: 1 / -1;"
+        >
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 4px;"
+          >
+            Focus Areas
+          </div>
+          <div
+            style="display: flex; flex-wrap: wrap; gap: 4px;"
+          >
+            <span
+              style="font-size: 12px; color: rgb(107, 114, 128); font-style: italic;"
+            >
+              Not set
+            </span>
+          </div>
+        </div>
+      </div>
+      <div
+        style="padding: 14px 16px; border-radius: 10px; margin-bottom: 14px; background: rgb(254, 245, 231); border: 1px solid rgba(193, 120, 23, 0.125);"
+      >
+        <div
+          style="font-size: 12px; color: rgb(193, 120, 23); font-weight: 600;"
+        >
+          No funder intelligence yet — run Funder Research to generate insights about 
+          CCBA
+          .
+        </div>
+      </div>
+      <div>
+        <div
+          style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;"
+        >
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.6px; text-transform: uppercase;"
+          >
+            Internal Notes
+          </div>
+          <div
+            style="font-size: 11px; color: rgb(107, 114, 128); flex: 1 1 0%; min-width: 0px;"
+          >
+            Only your team sees this. The funder never does. Use it for strategy thoughts, who-knows-who, "why we said no last time", or anything you want the next person opening this grant to know.
+          </div>
+          <button
+            style="font-size: 10px; font-weight: 600; padding: 3px 8px; background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); border-radius: 6px; color: rgb(75, 85, 99); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; white-space: nowrap; flex-shrink: 0;"
+            title="Pull internal-notes intel from uploaded documents (board minutes, past proposals, donor reports)"
+          >
+            ✨ Extract from documents
+          </button>
+        </div>
+        <textarea
+          placeholder="e.g. 'Alison met their CSI lead at the SAGEA breakfast. They prefer multi-year commitments. Decision-maker is Sipho — Barbara has his number.'"
+          style="width: 100%; min-height: 48px; padding: 8px 10px; font-size: 12px; line-height: 1.5; color: rgb(75, 85, 99); border: 1px solid rgb(226, 230, 226); border-radius: 8px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; resize: vertical; outline: none; box-sizing: border-box; background: rgb(255, 255, 255); transition: border-color 0.15s;"
+        />
+      </div>
+    </div>
+    <div
+      style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px;"
+    >
+      <div
+        style="display: flex; gap: 14px; align-items: stretch;"
+      >
+        <div
+          style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); flex: 1 1 0%;"
+        >
+          <div
+            style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;"
+          >
+            <div>
+              <div
+                style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+              >
+                Ask
+              </div>
+              <span />
+            </div>
+          </div>
+          <div
+            style="display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;"
+          >
+            <div
+              style="font-size: 22px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(74, 124, 89);"
+            >
+              R651K
+            </div>
+          </div>
+          <div
+            style="display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;"
+          >
+            <div
+              style="display: flex; align-items: center; gap: 4px;"
+            >
+              <span
+                style="font-size: 10px; font-weight: 700; color: rgb(255, 255, 255); background: rgb(22, 163, 74); padding: 1px 6px; border-radius: 4px;"
+              >
+                T
+                5
+              </span>
+              <span
+                style="font-size: 10px; color: rgb(107, 114, 128);"
+              >
+                Corporate Programme (CCBA-style)
+              </span>
+            </div>
+            <button
+              style="font-size: 12px; color: rgb(107, 114, 128); background: none; border: medium; cursor: pointer; padding: 0px; line-height: 1;"
+              title="Edit ask amount"
+            >
+              ✎
+            </button>
+          </div>
+        </div>
+      </div>
+      <div
+        style="padding: 12px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226);"
+      >
+        <div
+          style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;"
+        >
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Stage
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 6px;"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(245, 158, 11); flex-shrink: 0;"
+              />
+              <select
+                style="font-size: 14px; font-weight: 600; color: rgb(245, 158, 11); border: medium; background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; flex: 1 1 0%;"
+              >
+                <option
+                  value="scouted"
+                >
+                  Scouted
+                </option>
+                <option
+                  value="vetting"
+                >
+                  Vetting
+                </option>
+                <option
+                  value="qualifying"
+                >
+                  Qualifying
+                </option>
+                <option
+                  value="drafting"
+                >
+                  Drafting
+                </option>
+                <option
+                  value="review"
+                >
+                  Review
+                </option>
+                <option
+                  value="submitted"
+                >
+                  Submitted
+                </option>
+                <option
+                  value="awaiting"
+                >
+                  Awaiting
+                </option>
+                <option
+                  value="won"
+                >
+                  Won
+                </option>
+                <option
+                  value="lost"
+                >
+                  Lost
+                </option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Owner
+            </div>
+            <select
+              style="font-size: 14px; font-weight: 600; color: rgb(17, 17, 17); border: medium; background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; width: 100%;"
+            >
+              <option
+                value="team"
+              >
+                Unassigned
+              </option>
+              <option
+                value="ali"
+              >
+                Alison Jacobson
+              </option>
+              <option
+                value="dir"
+              >
+                David Kramer
+              </option>
+            </select>
+            <button
+              style="background: none; border: medium; padding: 0px; margin-top: 4px; font-size: 10px; color: rgb(107, 114, 128); cursor: pointer; text-decoration: underline; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+            >
+              Hand over with note →
+            </button>
+          </div>
+          <div>
+            <div
+              style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+            >
+              Priority
+            </div>
+            <select
+              style="font-size: 14px; font-weight: 600; color: rgb(17, 17, 17); border: medium; background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; width: 100%;"
+            >
+              <option
+                value="5"
+              >
+                5
+                 
+                (Highest)
+              </option>
+              <option
+                value="4"
+              >
+                4
+                 
+              </option>
+              <option
+                value="3"
+              >
+                3
+                 
+              </option>
+              <option
+                value="2"
+              >
+                2
+                 
+              </option>
+              <option
+                value="1"
+              >
+                1
+                 
+                (Lowest)
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      style="margin-bottom: 16px; padding: 8px 14px; border-radius: 8px; background: rgb(245, 247, 245); border: 1px solid rgb(226, 230, 226);"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;"
+      >
+        <span
+          style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128);"
+        >
+          Readiness
+        </span>
+        <span
+          style="font-size: 14px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(220, 38, 38);"
+        >
+          30
+          %
+        </span>
+        <div
+          style="flex: 1 1 0%; height: 4px; border-radius: 2px; background: rgb(226, 230, 226); overflow: hidden;"
+        >
+          <div
+            style="height: 100%; width: 30%; background: rgb(220, 38, 38); border-radius: 2px; transition: width 0.4s ease;"
+          />
+        </div>
+        <span
+          style="font-size: 10px; font-weight: 600; color: rgb(193, 120, 23); background: rgb(254, 245, 231); padding: 2px 8px; border-radius: 6px; white-space: nowrap;"
+          title="9 docs missing, No fit score, No research, No draft"
+        >
+          4
+           missing
+        </span>
+      </div>
+      <div
+        style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500;"
+      >
+        Next: 
+        Generate a draft proposal
+      </div>
+    </div>
+    <div
+      data-tour="funder-brief"
+      style="margin-bottom: 10px; padding: 10px 12px; border-radius: 10px; background: rgb(248, 250, 248); border: 1px solid rgb(226, 230, 226);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; gap: 8px; flex-wrap: wrap;"
+      >
+        <div
+          style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.6px;"
+        >
+          Funder brief (optional)
+        </div>
+        <div
+          style="display: flex; align-items: center; gap: 8px;"
+        >
+          <button
+            style="font-size: 10px; font-weight: 700; color: rgb(74, 124, 89); background: none; border: 1px solid rgba(74, 124, 89, 0.25); border-radius: 5px; padding: 4px 10px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+            title="Re-run the AI search for the funder's published RFP / brief. Overwrites the current text."
+          >
+            ↻ Re-fetch
+          </button>
+          <span
+            style="font-size: 10px; color: rgb(107, 114, 128);"
+          >
+            AI auto-fills on open · edit freely
+          </span>
+        </div>
+      </div>
+      <div
+        style="font-size: 11px; color: rgb(107, 114, 128); line-height: 1.5; margin-bottom: 8px; padding: 6px 10px; background: rgba(107, 114, 128, 0.03); border-radius: 6px; border-left: 2px solid rgba(107, 114, 128, 0.25);"
+      >
+        <strong
+          style="color: rgb(75, 85, 99);"
+        >
+          Optional.
+        </strong>
+         Most 
+        foundation
+         funders don't publish a formal RFP — they take inquiries via email or relationship. If you DO have a written brief (from a meeting, an email, or their site), paste it below. Otherwise leave blank.
+      </div>
+      <textarea
+        placeholder="Optional. If the funder has emailed you a brief, sent funding criteria, or you have meeting notes from them, paste the text here."
+        rows="4"
+        style="width: 100%; font-size: 12px; line-height: 1.5; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; color: rgb(17, 17, 17); background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); border-radius: 6px; padding: 8px 10px; resize: vertical; outline: none; box-sizing: border-box; transition: background 0.2s, border-color 0.2s;"
+      />
+      <div
+        data-tour="apply-url"
+        style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgb(226, 230, 226);"
+      >
+        <div
+          style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 8px;"
+        >
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); text-transform: uppercase; letter-spacing: 0.5px;"
+          >
+            Apply link
+          </div>
+          <button
+            style="font-size: 10px; font-weight: 700; color: rgb(74, 124, 89); background: none; border: 1px solid rgba(74, 124, 89, 0.25); border-radius: 5px; padding: 3px 9px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+            title="Search the funder's website for the actual application page"
+          >
+            Search for the link
+          </button>
+        </div>
+        <div
+          style="display: flex; gap: 6px; align-items: center;"
+        >
+          <input
+            placeholder="Paste the funder's apply page link here — or click Search to find it"
+            style="flex: 1 1 0%; font-size: 12px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; color: rgb(17, 17, 17); background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); border-radius: 6px; padding: 6px 10px; outline: none;"
+            type="url"
+            value=""
+          />
+        </div>
+      </div>
+    </div>
+    <label
+      style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; background: rgb(248, 250, 248); border: 1px solid rgb(226, 230, 226); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+    >
+      <input
+        style="margin-top: 2px; accent-color: rgb(74, 124, 89); cursor: pointer;"
+        type="checkbox"
+      />
+      <div
+        style="flex: 1 1 0%; min-width: 0px;"
+      >
+        <div
+          style="font-size: 12px; font-weight: 600; color: rgb(75, 85, 99);"
+        >
+          Include a glossary appendix in the proposal
+        </div>
+        <div
+          style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 2px; line-height: 1.4;"
+        >
+          Adds a final "Glossary" section that defines every acronym and sector term used (B-BBEE, NQF, SAQA, FET, ICITP, PBO…). Helpful for international funders or readers new to the SA NPO landscape.
+        </div>
+      </div>
+    </label>
+    <button
+      data-tour="make-magic"
+      style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 20px; margin-bottom: 10px; border-radius: 12px; background: linear-gradient(135deg, rgb(109, 40, 217), rgb(8, 145, 178), rgb(74, 124, 89)); color: rgb(255, 255, 255); border: medium; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; font-weight: 700; letter-spacing: -0.2px; box-shadow: 0 4px 20px rgba(109,40,217,0.25), 0 2px 8px rgba(8,145,178,0.15); opacity: 1; transition: all 0.3s ease; animation: ge-shimmer 3s ease-in-out infinite;"
+    >
+      <svg
+        fill="none"
+        height="20"
+        style="animation: ge-bounce-subtle 2s ease-in-out infinite;"
+        viewBox="0 0 24 24"
+        width="20"
+      >
+        <path
+          d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+          fill="rgba(255,255,255,0.2)"
+          stroke="currentColor"
+          stroke-width="1.5"
+        />
+        <path
+          d="M20 3v4M22 5h-4"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-width="1.5"
+        />
+      </svg>
+      <span>
+        Make the Magic Happen
+      </span>
+    </button>
+    <button
+      data-tour="concept-note"
+      style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 16px; margin-bottom: 10px; border-radius: 10px; background: rgb(255, 255, 255); color: rgb(109, 40, 217); border: 1px solid rgba(109, 40, 217, 0.25); cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; font-weight: 600; opacity: 1;"
+      title="Generate a 1-2 page concept note — the short pitch you send to test interest before submitting a full proposal"
+    >
+      <span
+        style="font-size: 13px;"
+      >
+        📝
+      </span>
+      <span>
+        Generate concept note (pre-proposal pitch)
+      </span>
+    </button>
+    <div
+      style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 8px 12px; border-radius: 8px; background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);"
+    >
+      <div
+        style="flex: 1 1 0%; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; animation: none;"
+      >
+        <span
+          style="width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+        >
+          1
+        </span>
+        <div
+          style="flex: 1 1 0%; text-align: left;"
+        >
+          <div
+            style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128);"
+          >
+            Fit Score
+          </div>
+        </div>
+      </div>
+      <div
+        style="flex: 1 1 0%; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; animation: none;"
+      >
+        <span
+          style="width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+        >
+          2
+        </span>
+        <div
+          style="flex: 1 1 0%; text-align: left;"
+        >
+          <div
+            style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128);"
+          >
+            Research
+          </div>
+        </div>
+      </div>
+      <div
+        style="flex: 1 1 0%; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; animation: none;"
+      >
+        <span
+          style="width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+        >
+          3
+        </span>
+        <div
+          style="flex: 1 1 0%; text-align: left;"
+        >
+          <div
+            style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128);"
+          >
+            Budget
+          </div>
+        </div>
+      </div>
+      <div
+        style="flex: 1 1 0%; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgb(226, 230, 226); background: transparent; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; animation: none;"
+      >
+        <span
+          style="width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+        >
+          4
+        </span>
+        <div
+          style="flex: 1 1 0%; text-align: left;"
+        >
+          <div
+            style="font-size: 11px; font-weight: 600; color: rgb(107, 114, 128);"
+          >
+            Draft
+          </div>
+        </div>
+      </div>
+    </div>
+    <details
+      open=""
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Fit Score
+      </summary>
+      <div
+        style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); margin-bottom: 12px; border: 1px solid rgb(226, 230, 226);"
+      >
+        <div
+          style="width: 48px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: rgb(243, 240, 255); color: rgb(109, 40, 217); font-size: 18px; animation: none;"
+        >
+          ★
+        </div>
+        <div
+          style="flex: 1 1 0%;"
+        >
+          <div
+            style="font-size: 14px; font-weight: 700; color: rgb(17, 17, 17);"
+          >
+            Fit Score
+          </div>
+          <div
+            style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 2px;"
+          >
+            AI assesses how well this grant matches the organisation's profile
+          </div>
+        </div>
+        <button
+          style="padding: 7px 16px; border: medium; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: rgb(74, 124, 89); color: rgb(255, 255, 255); box-shadow: 0 1px 4px #4A7C5933;"
+        >
+          Score
+        </button>
+      </div>
+    </details>
+    <details
+      open=""
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Funder Research
+      </summary>
+      <div
+        style="background: rgb(255, 255, 255); border-radius: 10px; margin-bottom: 0px; border: 1px solid transparent; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); transition: all 0.25s ease; overflow: hidden;"
+      >
+        <div
+          style="padding: 14px 16px 12px; display: flex; align-items: center; gap: 10px;"
+        >
+          <div
+            style="width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: rgb(237, 245, 240); color: rgb(74, 124, 89); transition: all 0.25s ease; animation: none;"
+          >
+            1
+          </div>
+          <div
+            style="flex: 1 1 0%; min-width: 0px;"
+          >
+            <div
+              style="font-size: 13px; font-weight: 700; color: rgb(17, 17, 17); letter-spacing: -0.2px;"
+            >
+              Funder Research
+            </div>
+            <div
+              style="font-size: 12px; color: rgb(107, 114, 128); line-height: 1.4; margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"
+            >
+              Search the web for this funder's priorities, recent grants, and what they look for in applications
+            </div>
+          </div>
+          <div
+            style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;"
+          >
+            <button
+              style="padding: 7px 16px; border: medium; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: rgb(74, 124, 89); color: rgb(255, 255, 255); box-shadow: 0 1px 4px #4A7C5933; flex-shrink: 0;"
+            >
+              Run
+            </button>
+          </div>
+        </div>
+      </div>
+    </details>
+    <div
+      data-tour="budget-section"
+    >
+      <details
+        open=""
+        style="margin-bottom: 12px;"
+      >
+        <summary
+          style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+        >
+          Budget
+        </summary>
+        <div
+          data-testid="budget-builder-stub"
+        />
+      </details>
+    </div>
+    <div>
+      <details
+        open=""
+        style="margin-bottom: 12px;"
+      >
+        <summary
+          style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+        >
+          Write Proposal
+        </summary>
+        <div
+          data-tour="proposal-workspace"
+        />
+        <div
+          data-testid="proposal-workspace-stub"
+        />
+      </details>
+    </div>
+    <details
+      open=""
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Outstanding Actions
+        8 actions
+      </summary>
+      <div
+        style="padding: 16px 20px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226);"
+      >
+        <div
+          data-tour="outstanding-actions"
+        >
+          <div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 245, 231, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(193, 120, 23); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Run funder research
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(193, 120, 23); font-weight: 600; flex-shrink: 0;"
+              >
+                medium
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: transparent;"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(107, 114, 128); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Run fit score
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(107, 114, 128); font-weight: 600; flex-shrink: 0;"
+              >
+                low
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 242, 242, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(220, 38, 38); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Generate proposal draft
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(220, 38, 38); font-weight: 600; flex-shrink: 0;"
+              >
+                high
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 245, 231, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(193, 120, 23); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Upload: PBO Certificate
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(193, 120, 23); font-weight: 600; flex-shrink: 0;"
+              >
+                medium
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 245, 231, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(193, 120, 23); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Upload: NPO Registration
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(193, 120, 23); font-weight: 600; flex-shrink: 0;"
+              >
+                medium
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 245, 231, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(193, 120, 23); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Upload: Tax Clearance (SARS)
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(193, 120, 23); font-weight: 600; flex-shrink: 0;"
+              >
+                medium
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 245, 231, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(193, 120, 23); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Upload: Audited Financials
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(193, 120, 23); font-weight: 600; flex-shrink: 0;"
+              >
+                medium
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 245, 231, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(193, 120, 23); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Upload: Organisation Profile
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(193, 120, 23); font-weight: 600; flex-shrink: 0;"
+              >
+                medium
+              </span>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid rgb(226, 230, 226); border-radius: 4px; background: rgba(254, 245, 231, 0.25);"
+            >
+              <span
+                style="width: 8px; height: 8px; border-radius: 50%; background: rgb(193, 120, 23); flex-shrink: 0;"
+              />
+              <span
+                style="flex: 1 1 0%; font-size: 13px; color: rgb(17, 17, 17);"
+              >
+                Upload: Board Resolution
+              </span>
+              <span
+                style="font-size: 9px; color: rgb(193, 120, 23); font-weight: 600; flex-shrink: 0;"
+              >
+                medium
+              </span>
+            </div>
+            <div
+              style="display: flex; gap: 8px; margin-top: 8px;"
+            >
+              <input
+                placeholder="Add a custom action..."
+                style="flex: 1 1 0%; padding: 7px 10px; font-size: 12px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border: 1px solid rgb(226, 230, 226); border-radius: 6px; outline: none;"
+                value=""
+              />
+              <button
+                disabled=""
+                style="padding: 6px 14px; border: 1px solid rgb(226, 230, 226); font-size: 11px; font-weight: 600; cursor: not-allowed; opacity: 0.4; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: transparent; color: rgb(75, 85, 99);"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+    <details
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Follow-up Email
+      </summary>
+      <div
+        style="background: rgb(255, 255, 255); border-radius: 10px; margin-bottom: 0px; border: 1px solid transparent; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); transition: all 0.25s ease; overflow: hidden;"
+      >
+        <div
+          style="padding: 14px 16px 12px; display: flex; align-items: center; gap: 10px;"
+        >
+          <div
+            style="width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: rgb(237, 245, 240); color: rgb(74, 124, 89); transition: all 0.25s ease; animation: none;"
+          >
+            3
+          </div>
+          <div
+            style="flex: 1 1 0%; min-width: 0px;"
+          >
+            <div
+              style="font-size: 13px; font-weight: 700; color: rgb(17, 17, 17); letter-spacing: -0.2px;"
+            >
+              Follow-up Email
+            </div>
+            <div
+              style="font-size: 12px; color: rgb(107, 114, 128); line-height: 1.4; margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"
+            >
+              Draft a follow-up email appropriate to the grant stage and funder
+            </div>
+          </div>
+          <div
+            style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;"
+          >
+            <button
+              style="padding: 7px 16px; border: medium; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: rgb(74, 124, 89); color: rgb(255, 255, 255); box-shadow: 0 1px 4px #4A7C5933; flex-shrink: 0;"
+            >
+              Run
+            </button>
+          </div>
+        </div>
+      </div>
+    </details>
+    <details
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Docs (0/9)
+      </summary>
+      <div
+        style="height: 4px; background: rgb(226, 230, 226); border-radius: 2px; overflow: hidden; margin-bottom: 10px;"
+      >
+        <div
+          style="height: 100%; width: 0%; background: rgb(74, 124, 89); border-radius: 2px; transition: width 0.3s ease;"
+        />
+      </div>
+      <div
+        style="font-size: 11px; color: rgb(107, 114, 128); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;"
+      >
+        Tick documents to attach to this submission
+        <div
+          style="flex: 1 1 0%;"
+        />
+        <button
+          style="font-size: 10px; font-weight: 700; color: rgb(74, 124, 89); background: none; border: 1px solid rgba(74, 124, 89, 0.19); border-radius: 5px; padding: 3px 9px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+          title="Tick every document that has a valid org-level upload, plus all grant-specific items"
+        >
+          ✓ Attach all suggested
+        </button>
+      </div>
+      <div
+        style="padding: 0px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); overflow: hidden; margin-bottom: 12px;"
+      >
+        <div
+          class="ge-hover-slide"
+          style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid rgb(226, 230, 226); background: transparent; cursor: pointer; transition: background 0.15s;"
+        >
+          <div
+            style="width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; border: 2px solid rgb(226, 230, 226); background: transparent; display: flex; align-items: center; justify-content: center; transition: all 0.15s;"
+          />
+          <span
+            style="width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: rgb(220, 38, 38); background: rgb(254, 242, 242); flex-shrink: 0;"
+          >
+            ✗
+          </span>
+          <div
+            style="flex: 1 1 0%; min-width: 0px;"
+          >
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              PBO Certificate
+            </div>
+            <div
+              style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+            >
+              Public Benefit Organisation approval letter from SARS
+            </div>
+          </div>
+          <span
+            style="font-size: 11px; font-weight: 600; color: rgb(220, 38, 38); white-space: nowrap;"
+          >
+            Missing
+          </span>
+        </div>
+        <div
+          class="ge-hover-slide"
+          style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid rgb(226, 230, 226); background: transparent; cursor: pointer; transition: background 0.15s;"
+        >
+          <div
+            style="width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; border: 2px solid rgb(226, 230, 226); background: transparent; display: flex; align-items: center; justify-content: center; transition: all 0.15s;"
+          />
+          <span
+            style="width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: rgb(220, 38, 38); background: rgb(254, 242, 242); flex-shrink: 0;"
+          >
+            ✗
+          </span>
+          <div
+            style="flex: 1 1 0%; min-width: 0px;"
+          >
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              NPO Registration
+            </div>
+            <div
+              style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+            >
+              Department of Social Development NPO certificate (273-412 NPO)
+            </div>
+          </div>
+          <span
+            style="font-size: 11px; font-weight: 600; color: rgb(220, 38, 38); white-space: nowrap;"
+          >
+            Missing
+          </span>
+        </div>
+        <div
+          class="ge-hover-slide"
+          style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid rgb(226, 230, 226); background: transparent; cursor: pointer; transition: background 0.15s;"
+        >
+          <div
+            style="width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; border: 2px solid rgb(226, 230, 226); background: transparent; display: flex; align-items: center; justify-content: center; transition: all 0.15s;"
+          />
+          <span
+            style="width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: rgb(220, 38, 38); background: rgb(254, 242, 242); flex-shrink: 0;"
+          >
+            ✗
+          </span>
+          <div
+            style="flex: 1 1 0%; min-width: 0px;"
+          >
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              Tax Clearance (SARS)
+            </div>
+            <div
+              style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+            >
+              Valid SARS Tax Compliance Status (TCS) pin or certificate
+            </div>
+          </div>
+          <span
+            style="font-size: 11px; font-weight: 600; color: rgb(220, 38, 38); white-space: nowrap;"
+          >
+            Missing
+          </span>
+        </div>
+        <div
+          class="ge-hover-slide"
+          style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid rgb(226, 230, 226); background: transparent; cursor: pointer; transition: background 0.15s;"
+        >
+          <div
+            style="width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; border: 2px solid rgb(226, 230, 226); background: transparent; display: flex; align-items: center; justify-content: center; transition: all 0.15s;"
+          />
+          <span
+            style="width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: rgb(220, 38, 38); background: rgb(254, 242, 242); flex-shrink: 0;"
+          >
+            ✗
+          </span>
+          <div
+            style="flex: 1 1 0%; min-width: 0px;"
+          >
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              Audited Financials
+            </div>
+            <div
+              style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+            >
+              Latest independently audited annual financial statements
+            </div>
+          </div>
+          <span
+            style="font-size: 11px; font-weight: 600; color: rgb(220, 38, 38); white-space: nowrap;"
+          >
+            Missing
+          </span>
+        </div>
+        <div
+          class="ge-hover-slide"
+          style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid rgb(226, 230, 226); background: transparent; cursor: pointer; transition: background 0.15s;"
+        >
+          <div
+            style="width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; border: 2px solid rgb(226, 230, 226); background: transparent; display: flex; align-items: center; justify-content: center; transition: all 0.15s;"
+          />
+          <span
+            style="width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: rgb(220, 38, 38); background: rgb(254, 242, 242); flex-shrink: 0;"
+          >
+            ✗
+          </span>
+          <div
+            style="flex: 1 1 0%; min-width: 0px;"
+          >
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              Organisation Profile
+            </div>
+            <div
+              style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+            >
+              Organisation overview, history, mission, team, and track record
+            </div>
+          </div>
+          <span
+            style="font-size: 11px; font-weight: 600; color: rgb(220, 38, 38); white-space: nowrap;"
+          >
+            Missing
+          </span>
+        </div>
+        <div
+          class="ge-hover-slide"
+          style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: medium; background: transparent; cursor: pointer; transition: background 0.15s;"
+        >
+          <div
+            style="width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; border: 2px solid rgb(226, 230, 226); background: transparent; display: flex; align-items: center; justify-content: center; transition: all 0.15s;"
+          />
+          <span
+            style="width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: rgb(220, 38, 38); background: rgb(254, 242, 242); flex-shrink: 0;"
+          >
+            ✗
+          </span>
+          <div
+            style="flex: 1 1 0%; min-width: 0px;"
+          >
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              Board Resolution
+            </div>
+            <div
+              style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+            >
+              Signed board resolution authorising grant applications
+            </div>
+          </div>
+          <span
+            style="font-size: 11px; font-weight: 600; color: rgb(220, 38, 38); white-space: nowrap;"
+          >
+            Missing
+          </span>
+        </div>
+      </div>
+      <div
+        style="padding: 0px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); overflow: hidden;"
+      >
+        <div
+          class="ge-hover-slide"
+          style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid rgb(226, 230, 226); background: transparent; cursor: pointer; transition: background 0.15s;"
+        >
+          <div
+            style="width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; border: 2px solid rgb(226, 230, 226); background: transparent; display: flex; align-items: center; justify-content: center; transition: all 0.15s;"
+          />
+          <span
+            style="width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: rgb(107, 114, 128); background: rgb(241, 244, 241); flex-shrink: 0;"
+          >
+            ○
+          </span>
+          <div
+            style="flex: 1 1 0%;"
+          >
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              Programme Description
+            </div>
+          </div>
+          <span
+            style="font-size: 11px; color: rgb(107, 114, 128);"
+          >
+            Prepare for submission
+          </span>
+        </div>
+        <div
+          class="ge-hover-slide"
+          style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid rgb(226, 230, 226); background: transparent; cursor: pointer; transition: background 0.15s;"
+        >
+          <div
+            style="width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; border: 2px solid rgb(226, 230, 226); background: transparent; display: flex; align-items: center; justify-content: center; transition: all 0.15s;"
+          />
+          <span
+            style="width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: rgb(107, 114, 128); background: rgb(241, 244, 241); flex-shrink: 0;"
+          >
+            ○
+          </span>
+          <div
+            style="flex: 1 1 0%;"
+          >
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              Detailed Budget
+            </div>
+          </div>
+          <span
+            style="font-size: 11px; color: rgb(107, 114, 128);"
+          >
+            Prepare for submission
+          </span>
+        </div>
+        <div
+          class="ge-hover-slide"
+          style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: medium; background: transparent; cursor: pointer; transition: background 0.15s;"
+        >
+          <div
+            style="width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; border: 2px solid rgb(226, 230, 226); background: transparent; display: flex; align-items: center; justify-content: center; transition: all 0.15s;"
+          />
+          <span
+            style="width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: rgb(107, 114, 128); background: rgb(241, 244, 241); flex-shrink: 0;"
+          >
+            ○
+          </span>
+          <div
+            style="flex: 1 1 0%;"
+          >
+            <div
+              style="font-size: 13px; font-weight: 600; color: rgb(17, 17, 17);"
+            >
+              Outcomes Framework
+            </div>
+          </div>
+          <span
+            style="font-size: 11px; color: rgb(107, 114, 128);"
+          >
+            Prepare for submission
+          </span>
+        </div>
+      </div>
+    </details>
+    <details
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Attachments
+      </summary>
+      <div
+        data-testid="uploadzone-stub"
+      />
+      <div
+        style="margin-top: 10px; padding: 10px 12px; background: rgb(245, 247, 245); border-radius: 8px; font-size: 11px; color: rgb(107, 114, 128); line-height: 1.6;"
+      >
+        <div
+          style="display: flex; align-items: center; gap: 6px; margin-bottom: 0px;"
+        >
+          <span
+            style="font-size: 13px;"
+          >
+            ⚙
+          </span>
+          <strong
+            style="color: rgb(75, 85, 99);"
+          >
+            AI Context Sources
+          </strong>
+        </div>
+        <div>
+          Upload RFPs, funder guidelines, or reference docs. Extracted text feeds into AI proposals for this grant.
+        </div>
+      </div>
+    </details>
+    <details
+      style="margin-bottom: 12px;"
+    >
+      <summary
+        style="font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase; cursor: pointer; padding: 8px 0px; user-select: none; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgb(226, 230, 226); margin-bottom: 10px;"
+      >
+        Activity
+      </summary>
+      <div
+        data-tour="activity-log"
+      >
+        <div
+          style="padding: 0px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); overflow: hidden;"
+        >
+          <div
+            class="ge-hover-slide"
+            style="display: flex; gap: 10px; padding: 8px 14px; border-bottom: 1px solid rgb(226, 230, 226); align-items: center; background: transparent;"
+          >
+            <span
+              style="font-size: 11px; color: rgb(107, 114, 128); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; min-width: 80px;"
+            >
+              2026-02-01
+            </span>
+            <span
+              style="font-size: 13px; color: rgb(28, 28, 28); flex: 1 1 0%;"
+            >
+              Moved to vetting
+            </span>
+            <span
+              style="font-size: 10px; font-weight: 700; color: rgb(255, 255, 255); background: rgb(16, 185, 129); padding: 2px 8px; border-radius: 100px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+              title="by David Kramer"
+            >
+              DK
+            </span>
+          </div>
+          <div
+            class="ge-hover-slide"
+            style="display: flex; gap: 10px; padding: 8px 14px; border-bottom: medium; align-items: center; background: transparent;"
+          >
+            <span
+              style="font-size: 11px; color: rgb(107, 114, 128); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; min-width: 80px;"
+            >
+              2026-01-15
+            </span>
+            <span
+              style="font-size: 13px; color: rgb(28, 28, 28); flex: 1 1 0%;"
+            >
+              Grant created
+            </span>
+            <span
+              style="font-size: 10px; font-weight: 700; color: rgb(255, 255, 255); background: rgb(59, 130, 246); padding: 2px 8px; border-radius: 100px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+              title="by Alison Jacobson"
+            >
+              AJ
+            </span>
+          </div>
+        </div>
+      </div>
+    </details>
+    <div
+      style="text-align: center; margin-top: 8px; margin-bottom: 24px;"
+    >
+      <button
+        style="font-size: 12px; font-weight: 600; color: rgb(107, 114, 128); background: none; border: 1px solid rgb(226, 230, 226); border-radius: 8px; padding: 6px 16px; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: color 0.15s ease;"
+      >
+        Show all sections
+      </button>
+    </div>
+  </div>
+</div>
+`;
