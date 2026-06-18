@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
+import { fmtR } from "../utils";
 import { Btn, CopyBtn, AILoadingPanel, stripMd, timeAgo } from "./index";
 
 /* ── Render section content with markdown table + stat-callout support ── */
@@ -163,7 +164,6 @@ function RenderContent({ text }) {
 /* ── Inline budget table ── */
 function BudgetTable({ bt }) {
   if (!bt?.items?.length) return null;
-  const fmtR = (n) => `R${(n || 0).toLocaleString()}`;
   const totalStudents = (bt.cohorts || 1) * (bt.studentsPerCohort || 0);
   const isMultiCohort = bt.cohorts > 1;
 

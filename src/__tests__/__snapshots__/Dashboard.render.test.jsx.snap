@@ -1,0 +1,1269 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Dashboard — empty state > DOM snapshot — empty state (golden master) 1`] = `
+<div>
+  <div
+    style="padding: 16px; max-width: 1200px; display: flex; flex-direction: column;"
+  >
+    <div
+      style="margin-bottom: 8px; order: -3;"
+    >
+      <div
+        style="font-size: 24px; font-weight: 800; color: rgb(17, 17, 17); letter-spacing: -0.5px;"
+      >
+        Today
+      </div>
+      <div
+        style="width: 36px; height: 3px; background: rgb(74, 124, 89); border-radius: 2px; margin-top: 6px; margin-bottom: 6px;"
+      />
+      <div
+        style="font-size: 13px; color: rgb(107, 114, 128); font-weight: 400;"
+      >
+        Thursday, 18 June 2026
+        <span
+          style="margin-left: 8px; color: rgb(107, 114, 128); font-weight: 500;"
+        >
+          d-lab NPC
+        </span>
+      </div>
+    </div>
+    <div
+      style="display: flex; align-items: center; justify-content: center; min-height: 420px;"
+    >
+      <div
+        style="max-width: 520px; width: 100%; text-align: center;"
+      >
+        <div
+          style="width: 72px; height: 72px; border-radius: 16px; margin: 0px auto 20px; background: linear-gradient(135deg, rgb(243, 240, 255) 0%, rgb(239, 246, 255) 100%); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(109, 40, 217, 0.082);"
+        >
+          <span
+            style="font-size: 32px;"
+          >
+            ☉
+          </span>
+        </div>
+        <div
+          style="font-size: 20px; font-weight: 800; color: rgb(17, 17, 17); margin-bottom: 8px; letter-spacing: -0.3px;"
+        >
+          Welcome to Grants Engine
+        </div>
+        <div
+          style="font-size: 13px; color: rgb(107, 114, 128); line-height: 1.6; max-width: 400px; margin: 0px auto 24px;"
+        >
+          Start by scouting for grant opportunities. AI will find funders matched to your organisation profile.
+        </div>
+        <button
+          style="font-size: 14px; padding: 10px 28px; border-radius: 8px; border: medium; background: linear-gradient(135deg, rgb(109, 40, 217) 0%, rgba(37, 99, 235, 0.867) 100%); color: rgb(255, 255, 255); font-weight: 700; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; box-shadow: 0 4px 14px #6D28D930;"
+        >
+          Go to Pipeline →
+        </button>
+      </div>
+    </div>
+    <div
+      style="order: -1;"
+    />
+  </div>
+</div>
+`;
+
+exports[`Dashboard — populated > DOM snapshot — populated dashboard (golden master) 1`] = `
+<div>
+  <div
+    style="padding: 16px; max-width: 1200px; display: flex; flex-direction: column;"
+  >
+    <div
+      style="margin-bottom: 8px; order: -3;"
+    >
+      <div
+        style="font-size: 24px; font-weight: 800; color: rgb(17, 17, 17); letter-spacing: -0.5px;"
+      >
+        Today
+      </div>
+      <div
+        style="width: 36px; height: 3px; background: rgb(74, 124, 89); border-radius: 2px; margin-top: 6px; margin-bottom: 6px;"
+      />
+      <div
+        style="font-size: 13px; color: rgb(107, 114, 128); font-weight: 400;"
+      >
+        Thursday, 18 June 2026
+        <span
+          style="margin-left: 8px; color: rgb(107, 114, 128); font-weight: 500;"
+        >
+          d-lab NPC
+        </span>
+      </div>
+    </div>
+    <div
+      style="order: -1;"
+    >
+      <div
+        style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; margin-top: 24px;"
+      >
+        <div
+          style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase;"
+        >
+          Needs Attention
+        </div>
+      </div>
+      <div
+        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-bottom: 8px;"
+      >
+        <div
+          class="ge-hover-lift"
+          style="padding: 12px 14px; background: rgb(255, 255, 255); border-radius: 10px; border-width: 1px 1px 1px 4px; border-style: solid; border-color: rgba(107, 114, 128, 0.145) rgba(107, 114, 128, 0.145) rgba(107, 114, 128, 0.145) rgb(107, 114, 128); border-image: none; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); cursor: pointer;"
+        >
+          <div
+            style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;"
+          >
+            <span
+              style="font-size: 13px; font-weight: 700; color: rgb(17, 17, 17); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 0%;"
+            >
+              Youth Skills 2026
+            </span>
+            <span
+              style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: rgba(107, 114, 128, 0.082); color: rgb(107, 114, 128); flex-shrink: 0; margin-left: 8px;"
+            >
+              No deadline set
+            </span>
+          </div>
+          <div
+            style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;"
+          >
+            <span
+              style="font-size: 11px; color: rgb(107, 114, 128);"
+            >
+              GIDF
+            </span>
+            <span
+              style="width: 4px; height: 4px; border-radius: 2px; background: rgb(107, 114, 128);"
+            />
+            <span
+              style="font-size: 11px; color: rgb(245, 158, 11); font-weight: 600;"
+            >
+              Drafting
+            </span>
+            <span
+              style="width: 4px; height: 4px; border-radius: 2px; background: rgb(107, 114, 128);"
+            />
+            <span
+              style="font-size: 11px; font-weight: 600; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(75, 85, 99);"
+            >
+              R5.0M
+            </span>
+          </div>
+          <div
+            style="display: flex; align-items: center; gap: 8px;"
+          >
+            <span
+              style="display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; font-size: 6.4799999999999995px; font-weight: 700; color: rgb(37, 99, 235); background: rgb(239, 246, 255); border-radius: 5.3999999999999995px; flex-shrink: 0; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+              title="Unassigned"
+            >
+              —
+            </span>
+            <div
+              style="flex: 1 1 0%; height: 4px; border-radius: 2px; background: rgb(226, 230, 226); overflow: hidden;"
+            >
+              <div
+                style="height: 100%; width: 10%; background: rgb(220, 38, 38); border-radius: 2px;"
+              />
+            </div>
+            <span
+              style="font-size: 10px; font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(220, 38, 38);"
+            >
+              10
+              %
+            </span>
+          </div>
+          <div
+            style="font-size: 10px; color: rgb(107, 114, 128); margin-top: 6px; font-weight: 500;"
+          >
+            Next: 
+            Generate a draft proposal
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      data-tour="dash-pipeline"
+    >
+      <div
+        style="margin-top: 16px;"
+      >
+        <div
+          style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 16px; user-select: none; padding: 10px 14px; border-radius: 10px; background: rgb(236, 253, 245); border: 1px solid rgba(16, 185, 129, 0.19); transition: all 0.2s ease;"
+        >
+          <div
+            style="display: flex; align-items: center; gap: 10px;"
+          >
+            <div
+              style="width: 24px; height: 24px; border-radius: 6px; background: rgba(16, 185, 129, 0.082); display: flex; align-items: center; justify-content: center; font-size: 12px; color: rgb(16, 185, 129); flex-shrink: 0;"
+            >
+              ◈
+            </div>
+            <div
+              style="font-size: 12px; font-weight: 700; color: rgb(16, 185, 129); letter-spacing: 0.5px; text-transform: uppercase; transition: color 0.2s;"
+            >
+              Pipeline
+            </div>
+            <span
+              style="font-size: 9px; color: rgb(16, 185, 129); font-weight: 600; transform: rotate(90deg); transition: transform 0.2s; display: inline-block;"
+            >
+              ▶
+            </span>
+          </div>
+          <div>
+            <button
+              style="background: none; border: medium; font-size: 11px; color: rgb(74, 124, 89); font-weight: 600; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+            >
+              View Pipeline 
+              →
+            </button>
+          </div>
+        </div>
+        <div
+          style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;"
+        >
+          <div
+            class="ge-hover-lift"
+            style="padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); flex: 1.4 1 200px; display: flex; align-items: center; gap: 12px;"
+          >
+            <div>
+              <div
+                style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px;"
+              >
+                Active Pipeline
+              </div>
+              <div
+                style="font-size: 24px; font-weight: 800; color: rgb(74, 124, 89); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; letter-spacing: -2px; line-height: 1;"
+              >
+                R5.6M
+              </div>
+              <div
+                style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 6px; font-weight: 500;"
+              >
+                2
+                 grants
+              </div>
+            </div>
+            <svg
+              height="28"
+              style="display: block;"
+              width="60"
+            >
+              <polyline
+                fill="none"
+                points="0,26 15,26 30,2 45,26 60,22.856338028169013"
+                stroke="#4A7C59"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1"
+              />
+            </svg>
+          </div>
+          <div
+            style="flex: 1 1 0%; min-width: 120px; padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; border: 1px solid rgba(55, 65, 81, 0.125); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);"
+          >
+            <div
+              style="display: flex; justify-content: space-between; align-items: flex-start;"
+            >
+              <div
+                style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase;"
+              >
+                Weighted
+              </div>
+            </div>
+            <div
+              style="font-size: 28px; font-weight: 800; color: rgb(55, 65, 81); letter-spacing: -1px; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; line-height: 1;"
+            >
+              R1.9M
+            </div>
+            <div
+              style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 8px; font-weight: 500;"
+            >
+              Probability-adjusted
+            </div>
+          </div>
+          <div
+            style="flex: 1 1 0%; min-width: 120px; padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; border: 1px solid rgba(22, 163, 74, 0.125); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);"
+          >
+            <div
+              style="display: flex; justify-content: space-between; align-items: flex-start;"
+            >
+              <div
+                style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase;"
+              >
+                Won
+              </div>
+            </div>
+            <div
+              style="font-size: 28px; font-weight: 800; color: rgb(22, 163, 74); letter-spacing: -1px; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; line-height: 1;"
+            >
+              R1.1M
+            </div>
+            <div
+              style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 8px; font-weight: 500;"
+            >
+              1 grant
+            </div>
+          </div>
+          <div
+            style="flex: 1 1 0%; min-width: 120px; padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; border: 1px solid rgba(22, 163, 74, 0.125); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);"
+          >
+            <div
+              style="display: flex; justify-content: space-between; align-items: flex-start;"
+            >
+              <div
+                style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase;"
+              >
+                Win Rate
+              </div>
+            </div>
+            <div
+              style="font-size: 28px; font-weight: 800; color: rgb(22, 163, 74); letter-spacing: -1px; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; line-height: 1;"
+            >
+              100%
+            </div>
+            <div
+              style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 8px; font-weight: 500;"
+            >
+              1W / 0L
+            </div>
+          </div>
+        </div>
+        <div
+          style="padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); display: flex; gap: 12px; align-items: center; margin-bottom: 8px;"
+        >
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 0.8px; text-transform: uppercase; white-space: nowrap;"
+          >
+            Funnel
+          </div>
+          <div
+            style="flex: 1 1 0%; display: flex; gap: 3px; align-items: center;"
+          >
+            <div
+              style="flex: 50 1 0%; display: flex; flex-direction: column; align-items: center; gap: 2px;"
+            >
+              <div
+                class="ge-hover-bar"
+                style="width: 100%; height: 7px; border-radius: 4px; background: rgb(245, 158, 11); opacity: 0.8;"
+              />
+              <div
+                style="font-size: 9px; font-weight: 700; color: rgb(245, 158, 11);"
+              >
+                1
+              </div>
+              <div
+                style="font-size: 8px; color: rgb(107, 114, 128); font-weight: 600;"
+              >
+                Drafting
+              </div>
+            </div>
+            <div
+              style="flex: 50 1 0%; display: flex; flex-direction: column; align-items: center; gap: 2px;"
+            >
+              <div
+                class="ge-hover-bar"
+                style="width: 100%; height: 7px; border-radius: 4px; background: rgb(139, 92, 246); opacity: 0.8;"
+              />
+              <div
+                style="font-size: 9px; font-weight: 700; color: rgb(139, 92, 246);"
+              >
+                1
+              </div>
+              <div
+                style="font-size: 8px; color: rgb(107, 114, 128); font-weight: 600;"
+              >
+                Submitted
+              </div>
+            </div>
+            <div
+              style="font-size: 9px; color: rgb(107, 114, 128); padding: 0px 3px;"
+            >
+              →
+            </div>
+            <div
+              style="display: flex; flex-direction: column; align-items: center; gap: 2px;"
+            >
+              <div
+                style="width: 20px; height: 7px; border-radius: 4px; background: rgb(22, 163, 74);"
+              />
+              <div
+                style="font-size: 9px; font-weight: 700; color: rgb(22, 163, 74);"
+              >
+                1
+              </div>
+              <div
+                style="font-size: 8px; color: rgb(107, 114, 128); font-weight: 600;"
+              >
+                Won
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        style="margin-top: 16px;"
+      >
+        <div
+          style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0px; user-select: none; padding: 10px 14px; border-radius: 10px; background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); transition: all 0.2s ease;"
+        >
+          <div
+            style="display: flex; align-items: center; gap: 10px;"
+          >
+            <div
+              style="width: 24px; height: 24px; border-radius: 6px; background: rgba(14, 165, 233, 0.082); display: flex; align-items: center; justify-content: center; font-size: 12px; color: rgb(14, 165, 233); flex-shrink: 0;"
+            >
+              ▶
+            </div>
+            <div
+              style="font-size: 12px; font-weight: 700; color: rgb(75, 85, 99); letter-spacing: 0.5px; text-transform: uppercase; transition: color 0.2s;"
+            >
+              In Play
+            </div>
+            <span
+              style="font-size: 9px; color: rgb(14, 165, 233); font-weight: 600; transform: rotate(0deg); transition: transform 0.2s; display: inline-block;"
+            >
+              ▶
+            </span>
+          </div>
+          <div>
+            <span
+              style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500;"
+            >
+              2
+               active · 
+              R5.6M
+               total
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      data-tour="dash-timeline"
+    >
+      <div
+        style="margin-top: 16px;"
+      >
+        <div
+          style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0px; user-select: none; padding: 10px 14px; border-radius: 10px; background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); transition: all 0.2s ease;"
+        >
+          <div
+            style="display: flex; align-items: center; gap: 10px;"
+          >
+            <div
+              style="width: 24px; height: 24px; border-radius: 6px; background: rgba(5, 150, 105, 0.082); display: flex; align-items: center; justify-content: center; font-size: 12px; color: rgb(5, 150, 105); flex-shrink: 0;"
+            >
+              ◷
+            </div>
+            <div
+              style="font-size: 12px; font-weight: 700; color: rgb(75, 85, 99); letter-spacing: 0.5px; text-transform: uppercase; transition: color 0.2s;"
+            >
+              Timeline
+            </div>
+            <span
+              style="font-size: 9px; color: rgb(5, 150, 105); font-weight: 600; transform: rotate(0deg); transition: transform 0.2s; display: inline-block;"
+            >
+              ▶
+            </span>
+          </div>
+          <div />
+        </div>
+      </div>
+    </div>
+    <div
+      data-tour="dash-ai-tools"
+    >
+      <div
+        style="margin-top: 16px;"
+      >
+        <div
+          style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0px; user-select: none; padding: 10px 14px; border-radius: 10px; background: rgb(255, 255, 255); border: 1px solid rgb(226, 230, 226); transition: all 0.2s ease;"
+        >
+          <div
+            style="display: flex; align-items: center; gap: 10px;"
+          >
+            <div
+              style="width: 24px; height: 24px; border-radius: 6px; background: rgba(20, 184, 166, 0.082); display: flex; align-items: center; justify-content: center; font-size: 12px; color: rgb(20, 184, 166); flex-shrink: 0;"
+            >
+              ✦
+            </div>
+            <div
+              style="font-size: 12px; font-weight: 700; color: rgb(75, 85, 99); letter-spacing: 0.5px; text-transform: uppercase; transition: color 0.2s;"
+            >
+              AI Tools
+            </div>
+            <span
+              style="font-size: 9px; color: rgb(20, 184, 166); font-weight: 600; transform: rotate(0deg); transition: transform 0.2s; display: inline-block;"
+            >
+              ▶
+            </span>
+          </div>
+          <div />
+        </div>
+      </div>
+    </div>
+    <div
+      style="order: -2;"
+    >
+      <div
+        style="margin-top: 16px;"
+      >
+        <div
+          style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 16px; user-select: none; padding: 10px 14px; border-radius: 10px; background: rgb(239, 246, 255); border: 1px solid rgba(59, 130, 246, 0.19); transition: all 0.2s ease;"
+        >
+          <div
+            style="display: flex; align-items: center; gap: 10px;"
+          >
+            <div
+              style="width: 24px; height: 24px; border-radius: 6px; background: rgba(59, 130, 246, 0.082); display: flex; align-items: center; justify-content: center; font-size: 12px; color: rgb(59, 130, 246); flex-shrink: 0;"
+            >
+              ◆
+            </div>
+            <div
+              style="font-size: 12px; font-weight: 700; color: rgb(59, 130, 246); letter-spacing: 0.5px; text-transform: uppercase; transition: color 0.2s;"
+            >
+              Pipeline Intelligence
+            </div>
+            <span
+              style="font-size: 9px; color: rgb(59, 130, 246); font-weight: 600; transform: rotate(90deg); transition: transform 0.2s; display: inline-block;"
+            >
+              ▶
+            </span>
+          </div>
+          <div>
+            <span
+              style="font-size: 10px; font-weight: 600; color: rgb(107, 114, 128); letter-spacing: 0.3px;"
+            >
+              Click header to collapse
+            </span>
+          </div>
+        </div>
+        <div
+          style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;"
+        >
+          <div
+            style="padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); flex: 1 1 0%; min-width: 140px;"
+          >
+            <div
+              style="min-width: 80px;"
+            >
+              <div
+                style="font-size: 10px; font-weight: 600; color: rgb(107, 114, 128); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 6px;"
+              >
+                Avg Ask
+              </div>
+              <div
+                style="font-size: 20px; font-weight: 800; color: rgb(74, 124, 89); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; letter-spacing: -1.5px; line-height: 1;"
+              >
+                R2.2M
+              </div>
+              <div
+                style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 6px; font-weight: 500;"
+              >
+                Median R1.1M
+              </div>
+            </div>
+          </div>
+          <div
+            style="padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); flex: 1 1 0%; min-width: 140px;"
+          >
+            <div
+              style="min-width: 80px;"
+            >
+              <div
+                style="font-size: 10px; font-weight: 600; color: rgb(107, 114, 128); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 6px;"
+              >
+                Win Rate
+              </div>
+              <div
+                style="font-size: 20px; font-weight: 800; color: rgb(22, 163, 74); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; letter-spacing: -1.5px; line-height: 1;"
+              >
+                100%
+              </div>
+              <div
+                style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 6px; font-weight: 500;"
+              >
+                1W / 0L
+              </div>
+            </div>
+          </div>
+          <div
+            style="padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); flex: 1 1 0%; min-width: 140px;"
+          >
+            <div
+              style="min-width: 80px;"
+            >
+              <div
+                style="font-size: 10px; font-weight: 600; color: rgb(107, 114, 128); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 6px;"
+              >
+                AI Coverage
+              </div>
+              <div
+                style="font-size: 20px; font-weight: 800; color: rgb(109, 40, 217); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; letter-spacing: -1.5px; line-height: 1;"
+              >
+                0%
+              </div>
+              <div
+                style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 6px; font-weight: 500;"
+              >
+                0 drafted / 0 researched / 0 scored
+              </div>
+            </div>
+          </div>
+          <div
+            style="padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); flex: 1 1 0%; min-width: 140px;"
+          >
+            <div
+              style="min-width: 80px;"
+            >
+              <div
+                style="font-size: 10px; font-weight: 600; color: rgb(107, 114, 128); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 6px;"
+              >
+                No Deadline
+              </div>
+              <div
+                style="font-size: 20px; font-weight: 800; color: rgb(193, 120, 23); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; letter-spacing: -1.5px; line-height: 1;"
+              >
+                1
+              </div>
+              <div
+                style="font-size: 11px; color: rgb(107, 114, 128); margin-top: 6px; font-weight: 500;"
+              >
+                Need dates
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;"
+        >
+          <div
+            style="padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); flex: 1 1 0%; min-width: 300px;"
+          >
+            <div
+              style="font-size: 11px; font-weight: 700; color: rgb(17, 17, 17); margin-bottom: 4px;"
+            >
+              Funder Types
+            </div>
+            <div
+              style="font-size: 10px; color: rgb(107, 114, 128); margin-bottom: 10px;"
+            >
+              1
+               types across 
+              3
+               grants
+            </div>
+            <div
+              style="display: flex; gap: 12px; flex-wrap: wrap;"
+            >
+              <div
+                style="display: flex; flex-direction: column; align-items: center; gap: 8px;"
+              >
+                <svg
+                  height="90"
+                  viewBox="0 0 36 36"
+                  width="90"
+                >
+                  <circle
+                    cx="18"
+                    cy="18"
+                    fill="none"
+                    r="14"
+                    stroke="#4A7C59"
+                    stroke-dasharray="100 0"
+                    stroke-dashoffset="100"
+                    stroke-width="4"
+                  />
+                  <text
+                    dominant-baseline="middle"
+                    style="font-size: 7px; font-weight: 700; fill: rgb(75, 85, 99); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+                    text-anchor="middle"
+                    x="18"
+                    y="19"
+                  >
+                    3
+                  </text>
+                </svg>
+              </div>
+              <div
+                style="flex: 1 1 0%; min-width: 140px;"
+              >
+                <div
+                  style="display: flex; align-items: center; gap: 8px; padding: 5px 0px; border-bottom: medium;"
+                >
+                  <div
+                    style="width: 6px; height: 6px; border-radius: 3px; background: rgb(74, 124, 89);"
+                  />
+                  <div
+                    style="flex: 1 1 0%; font-size: 11px; font-weight: 500; color: rgb(75, 85, 99);"
+                  >
+                    Foundation
+                  </div>
+                  <div
+                    style="font-size: 11px; font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(28, 28, 28);"
+                  >
+                    3
+                  </div>
+                  <div
+                    style="font-size: 10px; font-weight: 600; color: rgb(22, 163, 74); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+                  >
+                    100
+                    %w
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; margin-top: 24px;"
+        >
+          <div
+            style="font-size: 10px; font-weight: 700; color: rgb(107, 114, 128); letter-spacing: 1.4px; text-transform: uppercase;"
+          >
+            Funder Intelligence
+          </div>
+          <button
+            style="background: none; border: medium; font-size: 11px; color: rgb(74, 124, 89); font-weight: 600; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+          >
+            Show all 3 funders
+          </button>
+        </div>
+        <div
+          style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; margin-bottom: 16px;"
+        >
+          <div
+            class="ge-hover-lift"
+            style="background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); cursor: pointer; transition: all 0.2s ease; overflow: hidden;"
+          >
+            <div
+              style="padding: 12px 16px 10px;"
+            >
+              <div
+                style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;"
+              >
+                <div
+                  style="width: 8px; height: 8px; border-radius: 4px; background: rgb(107, 114, 128); flex-shrink: 0; box-shadow: none;"
+                />
+                <div
+                  style="flex: 1 1 0%; font-size: 13px; font-weight: 700; color: rgb(17, 17, 17); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                >
+                  GIDF
+                </div>
+                <span
+                  style="padding: 2px 8px; font-size: 10px; font-weight: 700; color: rgb(37, 99, 235); background: rgb(239, 246, 255); border-radius: 20px; white-space: nowrap; letter-spacing: 0.4px;"
+                >
+                  Foundation
+                </span>
+              </div>
+              <div
+                style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;"
+              >
+                <div
+                  style="flex: 1 1 0%;"
+                >
+                  <div
+                    style="flex: 1 1 0%; height: 5px; background: rgb(238, 241, 238); border-radius: 2.5px; overflow: hidden;"
+                  >
+                    <div
+                      style="width: 100%; height: 100%; border-radius: 2.5px; background: rgb(74, 124, 89); transition: width 0.5s ease;"
+                    />
+                  </div>
+                </div>
+                <div
+                  style="font-size: 13px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(17, 17, 17); letter-spacing: -0.5px; white-space: nowrap;"
+                >
+                  R5.0M
+                </div>
+              </div>
+              <div
+                style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;"
+              >
+                <span
+                  style="font-size: 10px; color: rgb(107, 114, 128); font-weight: 600;"
+                >
+                  1
+                   grant
+                </span>
+                <span
+                  style="font-size: 10px; color: rgb(74, 124, 89); font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+                >
+                  1
+                   active
+                </span>
+                <span
+                  style="display: flex; gap: 3px; align-items: center;"
+                >
+                  <span
+                    style="width: 14px; height: 14px; border-radius: 3px; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; background: rgb(238, 241, 238); color: rgb(107, 114, 128); border: 1px solid transparent;"
+                    title="Research: Pending"
+                  >
+                    R
+                  </span>
+                  <span
+                    style="width: 14px; height: 14px; border-radius: 3px; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; background: rgb(238, 241, 238); color: rgb(107, 114, 128); border: 1px solid transparent;"
+                    title="Draft: Pending"
+                  >
+                    D
+                  </span>
+                  <span
+                    style="width: 14px; height: 14px; border-radius: 3px; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; background: rgb(238, 241, 238); color: rgb(107, 114, 128); border: 1px solid transparent;"
+                    title="Fit Score: Pending"
+                  >
+                    F
+                  </span>
+                </span>
+              </div>
+              <div
+                style="display: flex; gap: 2px; margin-top: 10px;"
+              >
+                <div
+                  style="flex: 1 1 0%; height: 4px; border-radius: 2px; background: rgb(245, 158, 11); opacity: 0.7; min-width: 6px;"
+                  title="Drafting: 1"
+                />
+              </div>
+            </div>
+          </div>
+          <div
+            class="ge-hover-lift"
+            style="background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); cursor: pointer; transition: all 0.2s ease; overflow: hidden;"
+          >
+            <div
+              style="padding: 12px 16px 10px;"
+            >
+              <div
+                style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;"
+              >
+                <div
+                  style="width: 8px; height: 8px; border-radius: 4px; background: rgb(107, 114, 128); flex-shrink: 0; box-shadow: none;"
+                />
+                <div
+                  style="flex: 1 1 0%; font-size: 13px; font-weight: 700; color: rgb(17, 17, 17); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                >
+                  CCBA
+                </div>
+                <span
+                  style="font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 6px; background: rgb(220, 252, 231); color: rgb(22, 163, 74); letter-spacing: 0.3px;"
+                >
+                  RETURNING
+                </span>
+                <span
+                  style="padding: 2px 8px; font-size: 10px; font-weight: 700; color: rgb(37, 99, 235); background: rgb(239, 246, 255); border-radius: 20px; white-space: nowrap; letter-spacing: 0.4px;"
+                >
+                  Foundation
+                </span>
+              </div>
+              <div
+                style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;"
+              >
+                <div
+                  style="flex: 1 1 0%;"
+                >
+                  <div
+                    style="flex: 1 1 0%; height: 5px; background: rgb(238, 241, 238); border-radius: 2.5px; overflow: hidden;"
+                  >
+                    <div
+                      style="width: 13.098591549295774%; height: 100%; border-radius: 2.5px; background: rgb(74, 124, 89); transition: width 0.5s ease;"
+                    />
+                  </div>
+                </div>
+                <div
+                  style="font-size: 13px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(17, 17, 17); letter-spacing: -0.5px; white-space: nowrap;"
+                >
+                  R651K
+                </div>
+              </div>
+              <div
+                style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;"
+              >
+                <span
+                  style="font-size: 10px; color: rgb(107, 114, 128); font-weight: 600;"
+                >
+                  1
+                   grant
+                </span>
+                <span
+                  style="font-size: 10px; color: rgb(74, 124, 89); font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+                >
+                  1
+                   active
+                </span>
+                <span
+                  style="display: flex; gap: 3px; align-items: center;"
+                >
+                  <span
+                    style="width: 14px; height: 14px; border-radius: 3px; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; background: rgb(238, 241, 238); color: rgb(107, 114, 128); border: 1px solid transparent;"
+                    title="Research: Pending"
+                  >
+                    R
+                  </span>
+                  <span
+                    style="width: 14px; height: 14px; border-radius: 3px; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; background: rgb(238, 241, 238); color: rgb(107, 114, 128); border: 1px solid transparent;"
+                    title="Draft: Pending"
+                  >
+                    D
+                  </span>
+                  <span
+                    style="width: 14px; height: 14px; border-radius: 3px; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; background: rgb(238, 241, 238); color: rgb(107, 114, 128); border: 1px solid transparent;"
+                    title="Fit Score: Pending"
+                  >
+                    F
+                  </span>
+                </span>
+                <span
+                  style="font-size: 10px; font-weight: 600; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(107, 114, 128);"
+                >
+                  104
+                  d to deadline
+                </span>
+              </div>
+              <div
+                style="display: flex; gap: 2px; margin-top: 10px;"
+              >
+                <div
+                  style="flex: 1 1 0%; height: 4px; border-radius: 2px; background: rgb(139, 92, 246); opacity: 0.7; min-width: 6px;"
+                  title="Submitted: 1"
+                />
+              </div>
+            </div>
+          </div>
+          <div
+            class="ge-hover-lift"
+            style="background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); cursor: pointer; transition: all 0.2s ease; overflow: hidden;"
+          >
+            <div
+              style="padding: 12px 16px 10px;"
+            >
+              <div
+                style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;"
+              >
+                <div
+                  style="width: 8px; height: 8px; border-radius: 4px; background: rgb(107, 114, 128); flex-shrink: 0; box-shadow: none;"
+                />
+                <div
+                  style="flex: 1 1 0%; font-size: 13px; font-weight: 700; color: rgb(17, 17, 17); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                >
+                  DGMT
+                </div>
+                <span
+                  style="padding: 2px 8px; font-size: 10px; font-weight: 700; color: rgb(37, 99, 235); background: rgb(239, 246, 255); border-radius: 20px; white-space: nowrap; letter-spacing: 0.4px;"
+                >
+                  Foundation
+                </span>
+              </div>
+              <div
+                style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;"
+              >
+                <div
+                  style="flex: 1 1 0%;"
+                >
+                  <div
+                    style="flex: 1 1 0%; height: 5px; background: rgb(238, 241, 238); border-radius: 2.5px; overflow: hidden;"
+                  >
+                    <div
+                      style="width: 21.730382293762577%; height: 100%; border-radius: 2.5px; background: rgb(22, 163, 74); transition: width 0.5s ease;"
+                    />
+                  </div>
+                </div>
+                <div
+                  style="font-size: 13px; font-weight: 800; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(17, 17, 17); letter-spacing: -0.5px; white-space: nowrap;"
+                >
+                  R1.1M
+                </div>
+              </div>
+              <div
+                style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;"
+              >
+                <span
+                  style="font-size: 10px; color: rgb(107, 114, 128); font-weight: 600;"
+                >
+                  1
+                   grant
+                </span>
+                <span
+                  style="font-size: 10px; font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; padding: 1px 5px; border-radius: 4px; background: rgb(220, 252, 231); color: rgb(22, 163, 74);"
+                >
+                  100
+                  % win
+                </span>
+                <span
+                  style="font-size: 10px; color: rgb(22, 163, 74); font-weight: 600;"
+                >
+                  1
+                  W
+                   (R1.1M)
+                </span>
+                <span
+                  style="display: flex; gap: 3px; align-items: center;"
+                >
+                  <span
+                    style="width: 14px; height: 14px; border-radius: 3px; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; background: rgb(238, 241, 238); color: rgb(107, 114, 128); border: 1px solid transparent;"
+                    title="Research: Pending"
+                  >
+                    R
+                  </span>
+                  <span
+                    style="width: 14px; height: 14px; border-radius: 3px; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; background: rgb(238, 241, 238); color: rgb(107, 114, 128); border: 1px solid transparent;"
+                    title="Draft: Pending"
+                  >
+                    D
+                  </span>
+                  <span
+                    style="width: 14px; height: 14px; border-radius: 3px; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; background: rgb(238, 241, 238); color: rgb(107, 114, 128); border: 1px solid transparent;"
+                    title="Fit Score: Pending"
+                  >
+                    F
+                  </span>
+                </span>
+              </div>
+              <div
+                style="display: flex; gap: 2px; margin-top: 10px;"
+              >
+                <div
+                  style="flex: 1 1 0%; height: 4px; border-radius: 2px; background: rgb(16, 185, 129); opacity: 0.7; min-width: 6px;"
+                  title="Won: 1"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;"
+        >
+          <div
+            style="padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); flex: 1 1 0%; min-width: 260px;"
+          >
+            <div
+              style="font-size: 11px; font-weight: 700; color: rgb(17, 17, 17); margin-bottom: 4px;"
+            >
+              Relationships
+            </div>
+            <div
+              style="font-size: 10px; color: rgb(107, 114, 128); margin-bottom: 10px;"
+            >
+              Conversion by status
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;"
+            >
+              <div
+                style="width: 70px; font-size: 11px; font-weight: 600; color: rgb(75, 85, 99); text-align: right;"
+              >
+                Cold
+              </div>
+              <div
+                style="flex: 1 1 0%; height: 8px; background: rgb(238, 241, 238); border-radius: 4px; overflow: hidden;"
+              >
+                <div
+                  style="width: 100%; height: 100%; border-radius: 4px; background: rgb(37, 99, 235); transition: width 0.5s ease;"
+                />
+              </div>
+              <div
+                style="font-size: 11px; font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(28, 28, 28); width: 24px; text-align: right;"
+              >
+                3
+              </div>
+              <div
+                style="font-size: 10px; padding: 2px 6px; border-radius: 6px; background: rgb(220, 252, 231); color: rgb(22, 163, 74); font-weight: 600; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+              >
+                100
+                %
+              </div>
+            </div>
+          </div>
+          <div
+            style="padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); flex: 1 1 0%; min-width: 260px;"
+          >
+            <div
+              style="font-size: 11px; font-weight: 700; color: rgb(17, 17, 17); margin-bottom: 4px;"
+            >
+              Ask Distribution
+            </div>
+            <div
+              style="font-size: 10px; color: rgb(107, 114, 128); margin-bottom: 10px;"
+            >
+              Grants by ask range
+            </div>
+            <div
+              style="display: flex; align-items: flex-end; gap: 8px; height: 100px;"
+            >
+              <div
+                style="flex: 1 1 0%; display: flex; flex-direction: column; align-items: center; gap: 3px;"
+              >
+                <div
+                  style="width: 100%; max-width: 36px; border-radius: 5px 5px 0 0; height: 3px; background: rgb(55, 65, 81); opacity: 0.2;"
+                />
+                <div
+                  style="font-size: 9px; font-weight: 600; color: rgb(107, 114, 128); text-align: center;"
+                >
+                  &lt;250K
+                </div>
+              </div>
+              <div
+                style="flex: 1 1 0%; display: flex; flex-direction: column; align-items: center; gap: 3px;"
+              >
+                <div
+                  style="width: 100%; max-width: 36px; border-radius: 5px 5px 0 0; height: 3px; background: rgb(55, 65, 81); opacity: 0.2;"
+                />
+                <div
+                  style="font-size: 9px; font-weight: 600; color: rgb(107, 114, 128); text-align: center;"
+                >
+                  250-500K
+                </div>
+              </div>
+              <div
+                style="flex: 1 1 0%; display: flex; flex-direction: column; align-items: center; gap: 3px;"
+              >
+                <div
+                  style="font-size: 10px; font-weight: 700; color: rgb(28, 28, 28); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+                >
+                  1
+                </div>
+                <div
+                  style="width: 100%; max-width: 36px; border-radius: 5px 5px 0 0; height: 70px; background: rgb(55, 65, 81); opacity: 1;"
+                />
+                <div
+                  style="font-size: 9px; font-weight: 600; color: rgb(107, 114, 128); text-align: center;"
+                >
+                  500K-1M
+                </div>
+              </div>
+              <div
+                style="flex: 1 1 0%; display: flex; flex-direction: column; align-items: center; gap: 3px;"
+              >
+                <div
+                  style="font-size: 10px; font-weight: 700; color: rgb(28, 28, 28); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+                >
+                  1
+                </div>
+                <div
+                  style="width: 100%; max-width: 36px; border-radius: 5px 5px 0 0; height: 70px; background: rgb(55, 65, 81); opacity: 1;"
+                />
+                <div
+                  style="font-size: 9px; font-weight: 600; color: rgb(107, 114, 128); text-align: center;"
+                >
+                  1-2M
+                </div>
+              </div>
+              <div
+                style="flex: 1 1 0%; display: flex; flex-direction: column; align-items: center; gap: 3px;"
+              >
+                <div
+                  style="font-size: 10px; font-weight: 700; color: rgb(28, 28, 28); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+                >
+                  1
+                </div>
+                <div
+                  style="width: 100%; max-width: 36px; border-radius: 5px 5px 0 0; height: 70px; background: rgb(55, 65, 81); opacity: 1;"
+                />
+                <div
+                  style="font-size: 9px; font-weight: 600; color: rgb(107, 114, 128); text-align: center;"
+                >
+                  2M+
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;"
+        >
+          <div
+            style="padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); flex: 1 1 0%; min-width: 240px;"
+          >
+            <div
+              style="font-size: 11px; font-weight: 700; color: rgb(17, 17, 17); margin-bottom: 4px;"
+            >
+              Team Workload
+            </div>
+            <div
+              style="font-size: 10px; color: rgb(107, 114, 128); margin-bottom: 10px;"
+            >
+              Active grants per person
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 8px; height: 26px;"
+            >
+              <div
+                style="width: 80px; font-size: 11px; font-weight: 600; color: rgb(75, 85, 99); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+              >
+                Unassigned
+              </div>
+              <div
+                style="flex: 1 1 0%; height: 6px; background: rgb(238, 241, 238); border-radius: 3px; overflow: hidden;"
+              >
+                <div
+                  style="width: 100%; height: 100%; border-radius: 3px; background: rgb(55, 65, 81); transition: width 0.5s ease;"
+                />
+              </div>
+              <div
+                style="width: 36px; font-size: 11px; font-weight: 700; color: rgb(28, 28, 28); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; text-align: right;"
+              >
+                1
+              </div>
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: 8px; height: 26px;"
+            >
+              <div
+                style="width: 80px; font-size: 11px; font-weight: 600; color: rgb(75, 85, 99); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+              >
+                Alison Jacobson
+              </div>
+              <div
+                style="flex: 1 1 0%; height: 6px; background: rgb(238, 241, 238); border-radius: 3px; overflow: hidden;"
+              >
+                <div
+                  style="width: 100%; height: 100%; border-radius: 3px; background: rgb(55, 65, 81); transition: width 0.5s ease;"
+                />
+              </div>
+              <div
+                style="width: 36px; font-size: 11px; font-weight: 700; color: rgb(28, 28, 28); font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; text-align: right;"
+              >
+                1
+              </div>
+            </div>
+          </div>
+          <div
+            style="padding: 14px 16px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226); flex: 1 1 0%; min-width: 240px;"
+          >
+            <div
+              style="font-size: 11px; font-weight: 700; color: rgb(17, 17, 17); margin-bottom: 4px;"
+            >
+              Deadline Pressure
+            </div>
+            <div
+              style="font-size: 10px; color: rgb(107, 114, 128); margin-bottom: 10px;"
+            >
+              Submissions by month
+            </div>
+            <div
+              style="display: flex; align-items: flex-end; gap: 6px; height: 80px;"
+            >
+              <div
+                style="flex: 1 1 0%; display: flex; flex-direction: column; align-items: center; gap: 3px;"
+              >
+                <div
+                  style="font-size: 10px; font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(28, 28, 28);"
+                >
+                  1
+                </div>
+                <div
+                  style="width: 100%; max-width: 32px; border-radius: 4px 4px 0 0; height: 50px; background: rgb(74, 124, 89); opacity: 1;"
+                />
+                <div
+                  style="font-size: 9px; font-weight: 600; color: rgb(107, 114, 128);"
+                >
+                  Sept
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;

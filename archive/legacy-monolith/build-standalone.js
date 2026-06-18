@@ -4,14 +4,20 @@
  * This is for sharing/demo — compiles everything into one file
  * that runs in Claude artifacts or any browser.
  * 
- * Usage: node scripts/build-standalone.js
- * Input:  src/grant-engine.monolith.jsx (the original single-file version)
+ * Usage: node archive/legacy-monolith/build-standalone.js
+ * Input:  grant-engine.monolith.jsx (sibling — the original single-file version)
  * Output: dist/grant-engine.html
+ *
+ * NOTE: archived 2026-06-18. This + the monolith are legacy demo tooling
+ * (single-file build for Claude artifacts), not part of the app build.
  */
 import { build } from "esbuild";
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
-const MONOLITH = "src/grant-engine.monolith.jsx";
+const HERE = dirname(fileURLToPath(import.meta.url));
+const MONOLITH = join(HERE, "grant-engine.monolith.jsx");
 
 async function main() {
   mkdirSync("dist", { recursive: true });

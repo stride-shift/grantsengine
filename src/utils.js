@@ -1,6 +1,7 @@
 import { C } from "./theme";
 import { DOCS, DOC_MAP, GATES } from "./data/constants";
 import { applyGlossary } from "./data/glossary";
+import { PTYPES } from "./data/funderStrategy";
 
 // ── Parse structured research JSON from AI response ──
 // Accepts the AI output in three formats, in order of preference:
@@ -188,6 +189,8 @@ export const sanitizeNotes = (notes) => {
 
 export const fmt = n => n ? `R${(n / 1e6).toFixed(1)}M` : "—";
 export const fmtK = n => n ? (n >= 1e6 ? `R${(n / 1e6).toFixed(1)}M` : `R${(n / 1e3).toFixed(0)}K`) : "—";
+// Full ZAR amount (no abbreviation), falsy → "R0". Was duplicated in BudgetBuilder/SectionCard.
+export const fmtR = n => `R${(n || 0).toLocaleString()}`;
 export const dL = d => d ? Math.ceil((new Date(d) - new Date()) / 864e5) : null;
 export const uid = () => "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 export const urgC = d => d === null ? C.t3 : d < 0 ? C.red : d <= 14 ? C.red : d < 30 ? C.amber : C.ok;
@@ -492,8 +495,79 @@ export const grantReadiness = (g, complianceDocs = []) => {
 // ── AI error detection (shared across components) ──
 export const isAIError = (r) => !r || r.startsWith("Error") || r.startsWith("Rate limit") || r.startsWith("Connection") || r.startsWith("Request failed") || r.startsWith("No response") || r.startsWith("The AI service");
 
+// ── Parse the AI fit-score block ("SCORE: NN" / "VERDICT: ...") into structured values ──
+// Single source of truth for what was previously a regex copy-pasted across 7 call sites
+// (Pipeline, ProposalWorkspace, AutoFillPanel, GrantDetail x4). Those sites had drifted:
+// some matched SCORE case-sensitively, some case-insensitively. We unify on case-INSENSITIVE
+// — the safe superset, since the AI follows an uppercase "SCORE:" template so for real output
+// it is a no-op, and it is more forgiving of stray lowercase. Returns { score, verdict } with
+// score a number (or null) and verdict a trimmed string (or null).
+export const parseFitScore = (text) => {
+  if (!text) return { score: null, verdict: null };
+  const s = String(text);
+  const sm = s.match(/SCORE:\s*(\d+)/i);
+  const vm = s.match(/VERDICT:\s*(.+)/i);
+  return {
+    score: sm ? parseInt(sm[1], 10) : null,
+    verdict: vm ? vm[1].trim() : null,
+  };
+};
+
 // ── Assemble sections into a single text (for backward compat + export) ──
 export const assembleText = (sections, order) =>
   order.filter(n => sections[n]?.text)
     .map(n => `${n.toUpperCase()}\n\n${sections[n].text}`)
     .join("\n\n" + "=".repeat(60) + "\n\n");
+
+export const fmtTs = (iso) => iso ? new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
+
+// Extract ask recommendation from draft text
+// Supports multi-year format: ASK_RECOMMENDATION: Type 3, 2 cohort(s), 3 year(s), R7416000
+export const extractAskFromDraft = (draftText) => {
+  // Priority 1: Structured ASK_RECOMMENDATION line (with optional years)
+  const structured = draftText.match(/ASK_RECOMMENDATION:\s*Type\s*(\d),\s*(\d+)\s*cohort\(s?\),\s*(?:(\d+)\s*year\(s?\),\s*)?R([\d,\s]+)/i);
+  if (structured) {
+    const typeNum = parseInt(structured[1]);
+    const count = parseInt(structured[2]);
+    const years = structured[3] ? parseInt(structured[3]) : 1;
+    const amount = parseInt(structured[4].replace(/[,\s]/g, ''));
+    if (PTYPES[typeNum] && amount > 0) return { ask: amount, typeNum, mcCount: count, years };
+  }
+  // Priority 2: Scan for Type X in body
+  const typeMatch = draftText.match(/Type\s*(\d)/i);
+  if (!typeMatch) return null;
+  const detectedNum = parseInt(typeMatch[1]);
+  const detectedPt = PTYPES[detectedNum];
+  if (!detectedPt || !detectedPt.cost) return null;
+  const mcMatch = draftText.match(/(\d+)\s*(?:x|×)\s*(?:Type\s*\d|cohort)/i);
+  const mcCount = mcMatch ? parseInt(mcMatch[1]) : 1;
+  return { ask: detectedPt.cost * mcCount, typeNum: detectedNum, mcCount, years: 1 };
+};
+
+export const calcTotalAsk = (ptypes, customs, includeOrgCost = true) => {
+  let total = 0;
+  for (const [key, { cohorts }] of ptypes) {
+    if (key.startsWith("custom-")) {
+      const cp = customs.find(c => c.id === key);
+      if (cp?.cost) total += cp.cost * cohorts;
+    } else {
+      const pt = PTYPES[key];
+      if (pt?.cost) total += pt.cost * cohorts;
+    }
+  }
+  if (includeOrgCost && total > 0) total = Math.round(total * 1.3);
+  return total;
+};
+
+export const buildPtypeNotes = (ptypes, customs, userNotes) => {
+  const parts = [];
+  for (const [key, { cohorts }] of ptypes) {
+    if (key.startsWith("custom-")) {
+      const cp = customs.find(c => c.id === key);
+      if (cp) parts.push(`Custom: ${cp.name}${cohorts > 1 ? ` (${cohorts} cohorts)` : ""} R${(cp.cost || 0).toLocaleString()}/cohort`);
+    } else {
+      parts.push(`Type ${key}${cohorts > 1 ? ` (${cohorts} cohorts)` : ""}`);
+    }
+  }
+  return [parts.join(" + "), userNotes].filter(Boolean).join("\n");
+};

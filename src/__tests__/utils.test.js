@@ -38,9 +38,16 @@ describe("parseStructuredResearch", () => {
     expect(result.rawText).toBe("found it");
   });
 
-  it("returns null if no rawText field", () => {
+  // CHARACTERIZATION: parseStructuredResearch no longer requires a rawText field. When the parsed
+  // research object lacks one, the function synthesizes rawText from the other fields so downstream
+  // code can always rely on it (utils.js ~L40). This is intentional current behaviour.
+  it("synthesizes rawText when the field is missing (instead of returning null)", () => {
     const json = JSON.stringify({ priorities: "youth", contacts: "John" });
-    expect(parseStructuredResearch(json)).toBe(null);
+    const result = parseStructuredResearch(json);
+    expect(result).not.toBe(null);
+    expect(result.priorities).toBe("youth");
+    expect(typeof result.rawText).toBe("string");
+    expect(result.rawText.length).toBeGreaterThan(0);
   });
 
   it("returns null for malformed JSON", () => {

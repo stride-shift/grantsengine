@@ -64,12 +64,13 @@ d-lab NPC (The Field Lab NPC) trains unemployed South African youth in AI-native
 - No router — `view` state toggles between Dashboard / Pipeline / Detail / Docs / Tools
 
 ## Architecture
-- `App.jsx` (~2400 lines) contains all views and AI functions — this is the main file to work in
+- `App.jsx` (~1,300 lines) is the root orchestrator — view routing (via a `view` state toggle), top-level state, and a large background "hygiene" side-effect. The actual views live in `src/components/`, not here.
 - `src/data/` has all static data, org context, funder strategy, seed grants
 - `src/components/` has shared UI primitives (Btn, Tag, Avatar, CalendarStrip, etc.) + major views (Dashboard, Pipeline, GrantDetail, etc.)
-- `src/prompts.js` — only `scoutPrompt` is active (used by Pipeline.jsx). All other exports are LEGACY; App.jsx has its own inline prompts
+- `src/hooks/useAI.js` (~1,550 lines) is the AI logic layer — the bulk of the AI prompts now live here as an inline if-chain (NOT in App.jsx). This is a known god-hook flagged for splitting.
+- `src/prompts.js` — `scoutPrompt` and `scoutBriefPrompt` are active (used by `ScoutPanel.jsx`). Some other exports are legacy.
 - `server/` — Express 5 backend: auth, data (grants CRUD), AI proxy, uploads, admin
-- `grant-engine.monolith.jsx` is the original single-file version that runs in Claude artifacts — keep it as a working reference
+- `archive/legacy-monolith/grant-engine.monolith.jsx` — the original single-file version that runs in Claude artifacts. **Archived** (no longer in `src/`); it is NOT imported by the app. Only the standalone demo build (`archive/legacy-monolith/build-standalone.js`) uses it.
 
 ## Key Patterns
 - State helpers: `sB("key", true/false)` for busy state, `sA("key", value)` for AI results
@@ -94,7 +95,7 @@ All prompts follow these principles:
 5. Context flow: `context.js` (CTX/CTX_SLIM) + `funderStrategy.js` + server profile → injected into every AI prompt as `orgCtx`
 
 ## Common Tasks
-- **Add a new AI prompt**: Add function to `src/prompts.js`, wire into App.jsx 
+- **Add a new AI prompt**: Add it to the AI logic layer in `src/hooks/useAI.js` (scout-style prompts live in `src/prompts.js`)
 - **Add a pipeline stage**: Update STAGES in `src/data/constants.js`, add gate criteria in GATES
 - **Change design tokens**: Edit `src/theme.js` (C object)
 - **Update org context**: Edit `src/data/context.js` (CTX and CTX_SLIM)

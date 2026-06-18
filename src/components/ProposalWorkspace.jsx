@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { C, FONT, MONO } from "../theme";
 import { Btn, CopyBtn, DownloadBtn } from "./index";
-import { assembleText, effectiveAsk, isAIError, cleanProposalText, validateProposalBreaks, readabilityScore, readabilityLabel } from "../utils";
+import { assembleText, effectiveAsk, isAIError, cleanProposalText, validateProposalBreaks, readabilityScore, readabilityLabel, parseFitScore } from "../utils";
 import { buildGlossaryAppendix } from "../data/glossary";
 import { funderStrategy, detectType, PTYPES } from "../data/funderStrategy";
 import SectionCard from "./SectionCard";
@@ -614,11 +614,7 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
 
       {/* ── Document Preview ── */}
       {showPreview && assembledText.trim() && (() => {
-        const fitscoreNum = (() => {
-          if (!g?.aiFitscore) return null;
-          const m = String(g.aiFitscore).match(/SCORE:\s*(\d+)/i);
-          return m ? parseInt(m[1]) : null;
-        })();
+        const fitscoreNum = parseFitScore(g?.aiFitscore).score;
         const wordCount = assembledText.split(/\s+/).filter(Boolean).length;
         const showTOC = order.filter(n => sections[n]?.text && !isAIError(sections[n].text)).length >= 3;
         return (

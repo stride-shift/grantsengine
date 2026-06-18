@@ -3,9 +3,9 @@ import { C, FONT } from "../theme";
 import { Btn, Avatar, RoleBadge } from "./index";
 import { getTeamPublic, requestPasswordReset, resetPasswordWithToken } from "../api";
 import NorthernLights from "./NorthernLights";
-import geLogo from "../grants-engine-logo.png";
-import dlabLogo from "../dlab.png";
-import geIcon from "../ge-icon.png";
+import geLogo from "../assets/grants-engine-logo.png";
+import dlabLogo from "../assets/dlab.png";
+import geIcon from "../assets/ge-icon.png";
 
 const ROLE_ORDER = { director: 0, hop: 1, pm: 2, board: 3, none: 9 };
 

@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmtK, dL, uid, td, effectiveAsk, grantReadiness, isAIError } from "../utils";
+import { fmtK, dL, uid, td, effectiveAsk, grantReadiness, isAIError, parseFitScore, calcTotalAsk, buildPtypeNotes } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "./index";
 import { detectType, PTYPES } from "../data/funderStrategy";
 import { GATES, ROLES } from "../data/constants";
@@ -205,11 +205,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
     else if (pSort === "priority") gs.sort((a, b) => (b.pri || 0) - (a.pri || 0));
     else if (pSort === "fit") {
       // Extract numeric score from AI fit score text (SCORE: XX)
-      const getFit = g => {
-        if (!g.aiFitscore) return -1;
-        const m = g.aiFitscore.match(/SCORE:\s*(\d+)/);
-        return m ? parseInt(m[1]) : -1;
-      };
+      const getFit = g => parseFitScore(g.aiFitscore).score ?? -1;
       gs.sort((a, b) => getFit(b) - getFit(a));
     }
     else /* default + deadline */ gs.sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999"));
@@ -253,34 +249,6 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   };
 
   const [addError, setAddError] = useState("");
-
-  const calcTotalAsk = (ptypes, customs, includeOrgCost = true) => {
-    let total = 0;
-    for (const [key, { cohorts }] of ptypes) {
-      if (key.startsWith("custom-")) {
-        const cp = customs.find(c => c.id === key);
-        if (cp?.cost) total += cp.cost * cohorts;
-      } else {
-        const pt = PTYPES[key];
-        if (pt?.cost) total += pt.cost * cohorts;
-      }
-    }
-    if (includeOrgCost && total > 0) total = Math.round(total * 1.3);
-    return total;
-  };
-
-  const buildPtypeNotes = (ptypes, customs, userNotes) => {
-    const parts = [];
-    for (const [key, { cohorts }] of ptypes) {
-      if (key.startsWith("custom-")) {
-        const cp = customs.find(c => c.id === key);
-        if (cp) parts.push(`Custom: ${cp.name}${cohorts > 1 ? ` (${cohorts} cohorts)` : ""} R${(cp.cost || 0).toLocaleString()}/cohort`);
-      } else {
-        parts.push(`Type ${key}${cohorts > 1 ? ` (${cohorts} cohorts)` : ""}`);
-      }
-    }
-    return [parts.join(" + "), userNotes].filter(Boolean).join("\n");
-  };
 
   const resetWizard = () => {
     setShowAdd(false); setAddError(""); setWizStep(1);

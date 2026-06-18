@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, forwardRef, useImperativeHandle } from "r
 import { C, FONT, MONO } from "../theme";
 import { uid, td, isGroundingRedirect, isUsableUrl, normaliseFunder as utilNormaliseFunder } from "../utils";
 import { Btn } from "./index";
-import { scoutPrompt, scoutBriefPrompt } from "../prompts";
+import { scoutPrompt, scoutBriefPrompt } from "../prompts/scout";
 import { kvGet, kvSet, verifyUrls } from "../api";
 
 /* ── Constants ── */

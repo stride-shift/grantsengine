@@ -1,0 +1,171 @@
+#+TITLE: Sub-Agent Playbook
+#+AUTHOR: strideshift
+#+DATE: 2026-03-18
+
+* Purpose
+
+Coordination guide for dispatching and managing sub-agents in Claude Code
+conversations. The coordinating (main) agent — whichever model is driving
+the session — uses this to plan work, select models, and structure prompts
+for Haiku/Sonnet/Opus sub-agents.
+
+** Sub-Agent Dispatch Mechanics
+
+Valid =subagent_type= values and the model-override rules (Haiku/Opus are =model=
+overrides, not =subagent_type= values; the full task→model table) live in
+=.claude/CLAUDE.md= → /Model Selection/ (canonical). Read it before dispatching.
+
+Sub-agents inherit =CLAUDE.md= automatically. This playbook covers the mechanics
+=CLAUDE.md= does not: wave planning, coordination patterns, return formats, and
+anti-patterns.
+
+For documentation principles, .org file rules, and doc sync workflows, see
+=DOCUMENTATION.org=.
+For audit-specific workflows, see =AGENT_AUDIT_WORKFLOW.org=.
+
+* Principles
+
+- Sub-agents have up to 200K token context — they can handle substantial
+  work across multiple files.
+- The key constraint is *file ownership per wave*: no two agents should edit
+  the same file in the same wave. This prevents merge conflicts.
+- An agent can edit many files — the rule is about conflict prevention, not
+  limiting scope.
+- Always include sufficient context in sub-agent prompts — sub-agents have
+  *NO access* to the parent conversation.
+- Include file paths (absolute), relevant constraints, and the expected
+  return format in every prompt.
+
+* Model Selection
+
+Canonical: =.claude/CLAUDE.md= → /Model Selection/. It defines the valid
+=subagent_type= values, the Haiku/Sonnet/Opus/Explore tiers, and which task types
+map to which model. Do not duplicate it here.
+
+* Context for Sub-Agents
+
+- Sub-agents inherit =CLAUDE.md= (global instructions) — no need to repeat
+  those rules in the prompt.
+- Point sub-agents to =DOCUMENTATION.org= for doc sync workflows, principles,
+  and the tier hierarchy.
+- Point sub-agents to the relevant =quick_reference.org= before they edit
+  code in that module.
+- Include absolute file paths — sub-agents cannot resolve relative
+  references from the parent conversation.
+- Specify whether the task is read-only (research) or requires code edits —
+  sub-agents do not know the user's intent unless told.
+
+* Coordination Patterns
+
+** Parallel Independent Research
+
+Multiple Sonnet agents exploring different areas simultaneously. No file
+edits, no conflicts possible. Use when scoping work or answering multi-part
+questions.
+
+** Wave-Based Edits
+
+Group changes into waves where no two agents in the same wave edit the same
+file. Run waves sequentially, verify (=tsc --noEmit= or equivalent) between
+waves. Broad renames go in the final wave.
+
+** Sequential Dependency
+
+Agent B needs Agent A's output before it can start. Run A in foreground,
+read its results, then dispatch B with those results in its prompt.
+
+** Background + Foreground
+
+*Default is foreground parallel.* Multiple =Agent()= calls in ONE message
+run concurrently and return together in a single notification. That's the
+cheap, correct shape for waves.
+
+Use =run_in_background: true= ONLY when BOTH are true:
+- You have genuinely independent foreground work to do meanwhile, AND
+- You do NOT need the agent's result to proceed with that work.
+
+If you will sit and wait, it must be foreground.
+
+*Why this matters (cost):* each background agent completion fires its own
+notification, which becomes its own main-agent turn. Four background
+agents = four separate main-agent turns, each charging the user again on
+their context window. Foreground parallel = one turn of synthesis for all
+N results. The user pays per turn — background for wave coordination
+multiplies the bill for zero benefit.
+
+When in doubt → foreground.
+
+* Return Format
+
+The main agent must specify what the sub-agent should return. The level of
+detail scales with task complexity.
+
+** Compact Summary
+
+For quick, isolated tasks:
+
+- What was done (1-2 sentences)
+- Any issues encountered
+
+** Structured Report
+
+For exploratory/audit tasks that feed into next steps:
+
+#+begin_example
+MODULE: [module name]
+CHANGES MADE: Yes/No
+SUMMARY: [2-5 bullet points]
+ARCHITECTURAL NOTES: [Items for the main agent, or "None"]
+#+end_example
+
+** Comprehensive Analysis
+
+For deep research that shapes the plan:
+
+- Full findings organized by topic
+- File paths and line references for key items
+- Recommendations with trade-offs
+- The main agent will use this to design subsequent steps — be thorough
+
+The main agent should explicitly state which format it expects in the
+sub-agent prompt.
+
+* Wave Planning Template
+
+Before dispatching edit waves, the main agent presents a plan to the user
+using this table format:
+
+| Wave | Agent | Model  | Files                            | Task                            |
+|------+-------+--------+----------------------------------+---------------------------------|
+|    1 | A     | Sonnet | hooks/useAuth.ts, api/client.ts  | Extract shared auth helper      |
+|    1 | B     | Sonnet | pages/Home.tsx, pages/About.tsx   | Update imports after extraction  |
+|    2 | C     | Opus   | components/Layout.tsx            | Refactor layout (needs wave 1)  |
+|    3 | D     | Sonnet | **/*.ts (broad)                  | Rename module paths             |
+
+Rules for the table:
+
+- Each wave runs in parallel internally, sequentially between waves.
+- No two agents in the same wave touch the same file.
+- Broad operations (renames, directory moves) go in the final wave.
+- Verify (=tsc --noEmit= or equivalent) between each wave.
+- Present to the user for approval before dispatching.
+
+* Anti-Patterns
+
+- Don't split a small task across multiple agents — one agent with clear
+  scope is better than three with coordination overhead.
+- Don't have two agents edit the same file in the same wave.
+- Don't skip build/type verification between waves.
+- Don't dispatch destructive changes without presenting the wave plan to the
+  user first.
+- Don't launch background agents for work you need before proceeding —
+  every background completion is its own billed main-agent turn. Foreground
+  parallel (multiple =Agent()= calls in one message) is the correct shape
+  for wave coordination. See /Background + Foreground/ above.
+- Don't duplicate work — if a sub-agent is researching something, don't also
+  do the same search yourself.
+- Don't re-read files the sub-agent already reported on — trust its output.
+
+-----
+
+/Last updated: 2026-06-12/

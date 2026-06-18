@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { C, FONT, MONO } from "../theme";
 import { PTYPES, detectType, multiCohortInfo } from "../data/funderStrategy";
+import { fmtR } from "../utils";
 import { Btn } from "./index";
 
 /* ── Budget Builder ──
@@ -13,9 +14,6 @@ const parseAmt = s => {
   if (!s || s === "varies") return 0;
   return parseInt(String(s).replace(/[,\s]/g, "")) || 0;
 };
-
-// Format ZAR
-const fmtR = n => n ? `R${n.toLocaleString()}` : "R0";
 
 // Type options for selector
 const TYPE_OPTIONS = Object.entries(PTYPES).map(([k, v]) => ({

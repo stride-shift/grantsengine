@@ -3,9 +3,9 @@ import { C, FONT, MONO } from "../theme";
 import { Btn } from "./index";
 import { getOrgs, createNewOrg, deleteOrg } from "../api";
 import NorthernLights from "./NorthernLights";
-import dlabLogo from "../dlab.png";
-import geLogo from "../grants-engine-logo.png";
-import geIcon from "../ge-icon.png";
+import dlabLogo from "../assets/dlab.png";
+import geLogo from "../assets/grants-engine-logo.png";
+import geIcon from "../assets/ge-icon.png";
 
 /* ── Shared avatar ── */
 function OrgAvatar({ name, logoUrl, slug, size = 40, radius = 10, fontSize = 16 }) {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { C, FONT, MONO } from "../theme";
-import { fmtK, dL, td, uid, effectiveAsk, grantReadiness, isAIError, parseStructuredResearch, cleanProposalText } from "../utils";
+import { fmtK, dL, td, uid, effectiveAsk, grantReadiness, isAIError, parseStructuredResearch, cleanProposalText, parseFitScore, fmtTs, extractAskFromDraft } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, AICard, stripMd, timeAgo } from "./index";
 import UploadZone from "./UploadZone";
 import { getUploads, kvGet, kvSet } from "../api";
@@ -10,32 +10,8 @@ import ProposalWorkspace from "./ProposalWorkspace";
 import BudgetBuilder from "./BudgetBuilder";
 import { downloadICS } from "./Calendar";
 import AutoFillPanel from "./AutoFillPanel";
+import OutstandingActions from "./OutstandingActions";
 import { glossText } from "./JargonTip";
-
-const fmtTs = (iso) => iso ? new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
-
-// Extract ask recommendation from draft text
-// Supports multi-year format: ASK_RECOMMENDATION: Type 3, 2 cohort(s), 3 year(s), R7416000
-const extractAskFromDraft = (draftText) => {
-  // Priority 1: Structured ASK_RECOMMENDATION line (with optional years)
-  const structured = draftText.match(/ASK_RECOMMENDATION:\s*Type\s*(\d),\s*(\d+)\s*cohort\(s?\),\s*(?:(\d+)\s*year\(s?\),\s*)?R([\d,\s]+)/i);
-  if (structured) {
-    const typeNum = parseInt(structured[1]);
-    const count = parseInt(structured[2]);
-    const years = structured[3] ? parseInt(structured[3]) : 1;
-    const amount = parseInt(structured[4].replace(/[,\s]/g, ''));
-    if (PTYPES[typeNum] && amount > 0) return { ask: amount, typeNum, mcCount: count, years };
-  }
-  // Priority 2: Scan for Type X in body
-  const typeMatch = draftText.match(/Type\s*(\d)/i);
-  if (!typeMatch) return null;
-  const detectedNum = parseInt(typeMatch[1]);
-  const detectedPt = PTYPES[detectedNum];
-  if (!detectedPt || !detectedPt.cost) return null;
-  const mcMatch = draftText.match(/(\d+)\s*(?:x|×)\s*(?:Type\s*\d|cohort)/i);
-  const mcCount = mcMatch ? parseInt(mcMatch[1]) : 1;
-  return { ask: detectedPt.cost * mcCount, typeNum: detectedNum, mcCount, years: 1 };
-};
 
 /* ── Local presentational components (mirrors Dashboard patterns) ── */
 const Card = ({ children, accent, pad = "16px 20px", style: sx, className }) => (
@@ -106,124 +82,6 @@ const ActivityRow = ({ date, text, by, team, isLast }) => {
   );
 };
 
-/* ── Outstanding Actions Checklist ── */
-function OutstandingActions({ grant, onUpdate, complianceDocs = [], missingDocs = [] }) {
-  const [newText, setNewText] = useState("");
-  const actions = grant.outstandingActions || [];
-  const g = grant;
-
-  // Auto-detected items based on grant state.
-  // In manual-engagement mode, proposal-specific prompts (draft, ask, docs) are
-  // dropped in favour of relationship touchpoints.
-  const autoItems = useMemo(() => {
-    const items = [];
-    const isManual = g.engagementMode === "manual";
-    if (!g.deadline) items.push({ id: "_no-deadline", text: "Set a deadline", auto: true, priority: "high" });
-    else {
-      const days = Math.ceil((new Date(g.deadline) - new Date()) / 86400000);
-      if (days < 0) items.push({ id: "_overdue", text: `Deadline missed by ${Math.abs(days)} days — resubmit or archive`, auto: true, priority: "high" });
-    }
-    if (!g.owner || g.owner === "team") items.push({ id: "_no-owner", text: "Assign an owner", auto: true, priority: "high" });
-    if (isManual) {
-      // Manual-engagement: nudge toward relationship work, not proposal AI
-      const lastActivity = (g.activityLog || []).slice(-1)[0]?.at;
-      const daysSince = lastActivity ? Math.floor((Date.now() - new Date(lastActivity).getTime()) / 86400000) : null;
-      if (daysSince === null || daysSince > 21) {
-        items.push({ id: "_no-touchpoint", text: "Log next funder touchpoint (call, email, meeting)", auto: true, priority: "high" });
-      }
-    } else {
-      if (!g.aiResearch && !["scouted", "vetting"].includes(g.stage)) items.push({ id: "_no-research", text: "Run funder research", auto: true, priority: "medium" });
-      if (!g.aiFitscore) items.push({ id: "_no-fitscore", text: "Run fit score", auto: true, priority: "low" });
-      if (!g.aiDraft && !g.aiSections && ["drafting", "review"].includes(g.stage)) items.push({ id: "_no-draft", text: "Generate proposal draft", auto: true, priority: "high" });
-      if (g.ask === 0 && !["scouted", "vetting"].includes(g.stage)) items.push({ id: "_no-ask", text: "Set ask amount / build budget", auto: true, priority: "medium" });
-      for (const doc of missingDocs) {
-        items.push({ id: `_doc-${doc}`, text: `Upload: ${doc}`, auto: true, priority: "medium" });
-      }
-    }
-    return items;
-  }, [g.deadline, g.owner, g.aiResearch, g.aiFitscore, g.aiDraft, g.aiSections, g.ask, g.stage, g.engagementMode, g.activityLog, missingDocs]);
-
-  const add = () => {
-    if (!newText.trim()) return;
-    onUpdate([...actions, { id: uid(), text: newText.trim(), done: false, createdAt: td() }]);
-    setNewText("");
-  };
-
-  const toggle = (id) => {
-    onUpdate(actions.map(a => a.id === id ? { ...a, done: !a.done } : a));
-  };
-
-  const remove = (id) => {
-    onUpdate(actions.filter(a => a.id !== id));
-  };
-
-  const manualSorted = [...actions].sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
-  const priorityColor = { high: C.red, medium: C.amber, low: C.t3 };
-
-  return (
-    <div>
-      {/* Auto-detected items */}
-      {autoItems.length > 0 && (
-        <>
-          {autoItems.map(a => (
-            <div key={a.id} style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
-              borderBottom: `1px solid ${C.line}`, borderRadius: 4,
-              background: a.priority === "high" ? C.redSoft + "40" : a.priority === "medium" ? C.amberSoft + "40" : "transparent",
-            }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: priorityColor[a.priority] || C.t4, flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: 13, color: C.dark }}>{a.text}</span>
-              <span style={{ fontSize: 9, color: priorityColor[a.priority], fontWeight: 600, flexShrink: 0 }}>{a.priority}</span>
-            </div>
-          ))}
-          {manualSorted.length > 0 && <div style={{ height: 1, background: C.line, margin: "6px 0" }} />}
-        </>
-      )}
-
-      {/* Manual items */}
-      {manualSorted.map(a => (
-        <div key={a.id} style={{
-          display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
-          borderBottom: `1px solid ${C.line}`,
-          background: a.done ? C.okSoft + "40" : "transparent",
-          borderRadius: 4,
-        }}>
-          <input type="checkbox" checked={a.done} onChange={() => toggle(a.id)}
-            style={{ cursor: "pointer", flexShrink: 0, width: 16, height: 16 }} />
-          <span style={{
-            flex: 1, fontSize: 13, color: a.done ? C.t4 : C.dark,
-            textDecoration: a.done ? "line-through" : "none",
-          }}>{a.text}</span>
-          {a.createdAt && <span style={{ fontSize: 9, color: C.t4, flexShrink: 0 }}>{a.createdAt}</span>}
-          <button onClick={() => remove(a.id)} style={{
-            fontSize: 14, color: C.t4, background: "none", border: "none",
-            cursor: "pointer", fontFamily: FONT, padding: "4px 8px", lineHeight: 1,
-          }} title="Remove action">✕</button>
-        </div>
-      ))}
-
-      {/* Add manual item */}
-      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-        <input
-          value={newText}
-          onChange={e => setNewText(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") add(); }}
-          placeholder="Add a custom action..."
-          style={{
-            flex: 1, padding: "7px 10px", fontSize: 12, fontFamily: FONT,
-            border: `1px solid ${C.line}`, borderRadius: 6, outline: "none",
-          }}
-        />
-        <Btn v="ghost" style={{ fontSize: 11, padding: "6px 14px" }} onClick={add} disabled={!newText.trim()}>Add</Btn>
-      </div>
-      {autoItems.length === 0 && actions.length === 0 && (
-        <div style={{ fontSize: 12, color: C.ok, padding: "8px 0", textAlign: "center" }}>
-          ✓ All clear — nothing outstanding.
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], currentMember, orgName = "the organisation", onUpdate, onDelete, onAddGrant, onSelectGrant, onBack, onRunAI, onUploadsChanged, onLaunchTour }) {
   const [showAll, setShowAll] = useState(false);
@@ -516,8 +374,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   const isClosedStage = ["won", "lost"].includes(g.stage);
   const isSubmittedPlus = ["submitted", "awaiting", "won", "lost", "deferred"].includes(g.stage);
 
-  const fitScoreNum = fitDone ? (() => { const m = ai.fitscore.match(/SCORE:\s*(\d+)/); return m ? parseInt(m[1]) : null; })() : null;
-  const fitVerdict = fitDone ? (() => { const m = ai.fitscore.match(/VERDICT:\s*(.+)/); return m ? m[1].trim() : null; })() : null;
+  const fitScoreNum = fitDone ? parseFitScore(ai.fitscore).score : null;
+  const fitVerdict = fitDone ? parseFitScore(ai.fitscore).verdict : null;
   const fitError = ai.fitscore && isAIError(ai.fitscore) ? ai.fitscore : null;
 
   const runFitScore = async () => {
@@ -2327,17 +2185,16 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               </summary>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingTop: 6 }}>
                 {g.fitscoreHistory.slice().reverse().map((v, i) => {
-                  const prevScore = v.text.match(/SCORE:\s*(\d+)/);
-                  const prevVerdict = v.text.match(/VERDICT:\s*(.+)/);
+                  const { score: prevScore, verdict: prevVerdict } = parseFitScore(v.text);
                   return (
                     <div key={i} style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between",
                       padding: "8px 12px", background: C.warm100, borderRadius: 8, border: `1px solid ${C.line}`,
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        {prevScore && <span style={{ fontSize: 13, fontWeight: 700, fontFamily: MONO, color: parseInt(prevScore[1]) >= 70 ? C.ok : parseInt(prevScore[1]) >= 40 ? C.amber : C.red }}>{prevScore[1]}</span>}
+                        {prevScore != null && <span style={{ fontSize: 13, fontWeight: 700, fontFamily: MONO, color: prevScore >= 70 ? C.ok : prevScore >= 40 ? C.amber : C.red }}>{prevScore}</span>}
                         <span style={{ fontSize: 11, fontFamily: MONO, color: C.t4 }}>{fmtTs(v.ts)}</span>
-                        {prevVerdict && <span style={{ fontSize: 11, color: C.t3 }}>{prevVerdict[1]}</span>}
+                        {prevVerdict && <span style={{ fontSize: 11, color: C.t3 }}>{prevVerdict}</span>}
                       </div>
                       <button onClick={() => setAi(p => ({ ...p, fitscore: v.text }))}
                         style={{ fontSize: 11, color: C.purple, background: "none", border: `1px solid ${C.purple}30`, borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontFamily: FONT, fontWeight: 600, flexShrink: 0 }}>
