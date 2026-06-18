@@ -12,17 +12,11 @@ import { downloadICS } from "./Calendar";
 import AutoFillPanel from "./AutoFillPanel";
 import OutstandingActions from "./OutstandingActions";
 import { glossText } from "./JargonTip";
+import { Card, Hd, Field, ActivityRow } from "./GrantDetailParts";
 
-/* ── Local presentational components (mirrors Dashboard patterns) ── */
-const Card = ({ children, accent, pad = "16px 20px", style: sx, className }) => (
-  <div className={className} style={{
-    padding: pad, background: C.white, borderRadius: 10,
-    boxShadow: C.cardShadow,
-    borderTop: accent ? `3px solid ${accent}` : undefined,
-    border: accent ? undefined : `1px solid ${C.line}`,
-    ...sx,
-  }}>{children}</div>
-);
+/* ── Local presentational components (mirrors Dashboard patterns) ──
+   Card / Hd / Field / ActivityRow lifted to ./GrantDetailParts (move-only).
+   SectionWrap stays here — it must keep a stable module identity (see below). */
 
 // Collapsible section helper — MUST live at module scope. Defining it inside the
 // GrantDetail component would create a new function identity per render, causing
@@ -42,45 +36,6 @@ const SectionWrap = ({ title, defaultOpen, badge, children, id }) => (
     {children}
   </details>
 );
-
-const Hd = ({ children, right, mb = 12 }) => (
-  <div style={{
-    display: "flex", alignItems: "baseline", justifyContent: "space-between",
-    marginBottom: mb, marginTop: 20,
-  }}>
-    <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.4, textTransform: "uppercase" }}>{children}</div>
-    {right}
-  </div>
-);
-
-const Field = ({ label, children }) => (
-  <div>
-    <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
-    {children}
-  </div>
-);
-
-const ActivityRow = ({ date, text, by, team, isLast }) => {
-  const member = by && team ? team.find(t => t.id === by) : null;
-  return (
-    <div className="ge-hover-slide" style={{
-      display: "flex", gap: 10, padding: "8px 14px",
-      borderBottom: isLast ? "none" : `1px solid ${C.line}`,
-      alignItems: "center", background: "transparent",
-    }}>
-      <span style={{ fontSize: 11, color: C.t4, fontFamily: MONO, minWidth: 80 }}>{date}</span>
-      <span style={{ fontSize: 13, color: C.t1, flex: 1 }}>{text}</span>
-      {member && member.id !== "team" && (
-        <span style={{
-          fontSize: 10, fontWeight: 700, color: C.white, background: member.c || C.t3,
-          padding: "2px 8px", borderRadius: 100, fontFamily: FONT,
-        }} title={`by ${member.name}`}>
-          {member.ini || member.name?.slice(0, 2)}
-        </span>
-      )}
-    </div>
-  );
-};
 
 
 export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], currentMember, orgName = "the organisation", onUpdate, onDelete, onAddGrant, onSelectGrant, onBack, onRunAI, onUploadsChanged, onLaunchTour }) {
