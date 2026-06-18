@@ -9,7 +9,7 @@
 import { scoutPrompt } from '../../src/prompts.js';
 import { callOpenAI } from '../routes/ai.js';
 import { SOURCES } from '../scraper/sources.js';
-import { scrapeGrants } from '../scraper/scrapeGrants.js';
+import { scrapeGrants, verifyLinks } from '../scraper/scrapeGrants.js';
 import { getAllOrgs, getGrants, upsertGrant, logAgentRun, getOrgProfile } from '../db.js';
 import crypto from 'crypto';
 
@@ -146,6 +146,11 @@ export async function runAutoScout() {
 async function scrapeAllSources() {
   const all = [];
   for (const source of SOURCES) {
+    // Skip sources that need an env key that isn't configured (e.g. IATI).
+    if (source.requiresEnv && !process.env[source.requiresEnv]) {
+      console.log(`[Scout] scraper:${source.key}: skipped (${source.requiresEnv} not set)`);
+      continue;
+    }
     try {
       const { found, grants } = await scrapeGrants(source);
       console.log(`[Scout] scraper:${source.key}: ${found} found, ${grants.length} usable`);
@@ -173,29 +178,93 @@ async function scoutForOrg(org, scraped = []) {
   } catch { /* profile not set — use empty context */ }
 
   let totalAdded = 0;
+  let totalUpdated = 0;
+  let totalFlagged = 0;
   let totalFound = 0;
-  const seenNames = new Set(grants.map(g => `${(g.funder || '').toLowerCase()}::${(g.name || '').toLowerCase()}`));
 
-  // Auto-add High fit (score >= 65). Dedupe at the (funder, name) level via
-  // seenNames — NOT at the funder level, so renewal/new opportunities from a
-  // funder already in the pipeline (the bread-and-butter for a returning-funder
-  // NPO) still come through. Only an exact funder+name repeat is suppressed.
+  const norm = (v) => (v || '').toString().toLowerCase().trim();
+  const normUrl = (u) => norm(u).replace(/[#?].*$/, '').replace(/\/+$/, '');
+
+  // Identity indexes over the org's existing grants: prefer apply-URL match,
+  // fall back to funder+name. This lets us tell "same opportunity" (reconcile)
+  // from "genuinely new" (add) — and the maps are updated as we go so a result
+  // appearing twice in one run (e.g. from a feed and the AI scout) is reconciled
+  // against what we just added, not duplicated.
+  const byUrl = new Map();
+  const byName = new Map();
+  const indexGrant = (g) => {
+    if (g.applyUrl) byUrl.set(normUrl(g.applyUrl), g);
+    byName.set(`${norm(g.funder)}::${norm(g.name)}`, g);
+  };
+  grants.forEach(indexGrant);
+
+  // Untouched = still 'scouted' and unassigned → safe for the bot to auto-update.
+  const isUntouched = (g) => g.stage === 'scouted' && (!g.owner || g.owner === 'team');
+
+  // Reconcile one high-fit result against the pipeline.
+  const reconcile = async (s, label) => {
+    const sUrl = s.url ? normUrl(s.url) : '';
+    const existing = (sUrl && byUrl.get(sUrl)) || byName.get(`${norm(s.funder)}::${norm(s.name)}`);
+
+    // (a) No match → brand-new opportunity → add it.
+    if (!existing) {
+      const grant = scoutResultToGrant(s);
+      await upsertGrant(org.id, grant);
+      indexGrant(grant);
+      totalAdded++;
+      console.log(`[Scout] ${org.slug}: added "${s.name}" from ${s.funder} (fit ${s.fitScore}%, ${label})`);
+      return;
+    }
+
+    // (b) Match → compare the factual fields to decide unchanged vs updated.
+    const changes = [];
+    const newDeadline = s.deadline || null;
+    if (newDeadline && newDeadline !== (existing.deadline || null)) {
+      changes.push({ field: 'deadline', from: existing.deadline || '—', to: newDeadline });
+    }
+    const newBudget = Number(s.funderBudget || s.ask) || 0;
+    if (newBudget && newBudget !== Number(existing.funderBudget || 0)) {
+      changes.push({ field: 'funderBudget', from: Number(existing.funderBudget || 0), to: newBudget });
+    }
+    if (s.url && normUrl(s.url) !== normUrl(existing.applyUrl || '')) {
+      changes.push({ field: 'applyUrl', from: existing.applyUrl || '—', to: s.url });
+    }
+
+    if (changes.length === 0) return; // genuinely the same, nothing changed → ignore
+
+    const summary = changes.map(c =>
+      c.field === 'funderBudget' ? `funder budget R${Number(c.from).toLocaleString()} → R${Number(c.to).toLocaleString()}`
+      : c.field === 'applyUrl' ? 'apply link updated'
+      : `deadline ${c.from} → ${c.to}`
+    ).join('; ');
+
+    if (isUntouched(existing)) {
+      // Auto-apply the new facts onto the still-untouched card + log what changed.
+      for (const c of changes) {
+        if (c.field === 'deadline') existing.deadline = c.to;
+        else if (c.field === 'funderBudget') existing.funderBudget = c.to;
+        else if (c.field === 'applyUrl') existing.applyUrl = c.to;
+      }
+      existing.log = [...(existing.log || []), { d: td(), t: `Scout update (${label}): ${summary}` }];
+      await upsertGrant(org.id, existing);
+      totalUpdated++;
+      console.log(`[Scout] ${org.slug}: updated "${existing.name}" — ${summary}`);
+    } else {
+      // Human-owned/advanced → never overwrite; append a review flag to its log.
+      existing.log = [...(existing.log || []), { d: td(), t: `⚠ Scout flag (${label}): funder may have changed ${summary} — review` }];
+      await upsertGrant(org.id, existing);
+      totalFlagged++;
+      console.log(`[Scout] ${org.slug}: flagged "${existing.name}" for review — ${summary}`);
+    }
+  };
+
+  // Reconcile every High-fit result (score >= 65); medium-fit is logged only.
   const addHighFit = async (scored, label) => {
     for (const s of scored.filter(x => x.fitScore >= 65)) {
-      const funderKey = (s.funder || '').toLowerCase();
-      const nameKey = `${funderKey}::${(s.name || '').toLowerCase()}`;
-      if (seenNames.has(nameKey)) {
-        console.log(`[Scout] ${org.slug}: skip ${s.funder} — "${s.name}" (already in pipeline)`);
-        continue;
-      }
-      const grant = scoutResultToGrant(s);
       try {
-        await upsertGrant(org.id, grant);
-        seenNames.add(nameKey);
-        totalAdded++;
-        console.log(`[Scout] ${org.slug}: added "${s.name}" from ${s.funder} (fit: ${s.fitScore}%, ${label})`);
+        await reconcile(s, label);
       } catch (err) {
-        console.error(`[Scout] ${org.slug}: failed to add ${s.name}:`, err.message);
+        console.error(`[Scout] ${org.slug}: reconcile failed for "${s.name}":`, err.message);
       }
     }
     const medFit = scored.filter(s => s.fitScore >= 40 && s.fitScore < 65);
@@ -237,7 +306,23 @@ async function scoutForOrg(org, scraped = []) {
 
       totalFound += parsed.length;
       const scored = parsed.map(s => ({ ...s, fitScore: calcScoutFitScore(s) }));
-      await addHighFit(scored, market);
+
+      // Parity with the scraper path: drop past-deadline results, and verify the
+      // model-produced links via the playwright-service (drops verified-dead
+      // links; keeps them when the service is unavailable). Also runs the SSRF
+      // guard before any navigation.
+      const statusMap = await verifyLinks(scored.map(s => s.url));
+      const todayStr = td();
+      const clean = scored.filter(s => {
+        if (s.deadline && s.deadline < todayStr) return false;
+        const st = s.url ? statusMap.get(s.url) : null;
+        if (st && !st.ok) {
+          console.log(`[Scout] ${org.slug}/${market}: dropped dead link for "${s.name}" (${st.status})`);
+          return false;
+        }
+        return true;
+      });
+      await addHighFit(clean, market);
     }
   }
 
@@ -247,7 +332,7 @@ async function scoutForOrg(org, scraped = []) {
       agent_type: 'auto-scout',
       grant_id: null,
       prompt_summary: `Nightly auto-scout: ${SOURCES.length} scraper sources + ${markets.join('+')} markets`,
-      result_summary: `Found ${totalFound}, added ${totalAdded} high-fit opportunities`,
+      result_summary: `Found ${totalFound}; added ${totalAdded}, updated ${totalUpdated}, flagged ${totalFlagged}`,
       tokens_in: 0,
       tokens_out: 0,
       duration_ms: 0,
@@ -256,5 +341,5 @@ async function scoutForOrg(org, scraped = []) {
     });
   } catch { /* best-effort */ }
 
-  console.log(`[Scout] ${org.slug}: done — found ${totalFound}, added ${totalAdded}`);
+  console.log(`[Scout] ${org.slug}: done — found ${totalFound}, added ${totalAdded}, updated ${totalUpdated}, flagged ${totalFlagged}`);
 }

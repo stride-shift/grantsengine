@@ -79,6 +79,7 @@ export default function OrgSelector({ onSelect }) {
   const handleCreateClick = (e) => {
     e.preventDefault();
     if (!name || !slug) return;
+    if (!adminKey) { setErr("An admin key is required to create an organisation."); return; }
     setLogoStep(true);
     setFaviconLoaded(false);
     setFaviconFailed(false);
@@ -404,14 +405,20 @@ export default function OrgSelector({ onSelect }) {
                       style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontFamily: MONO, boxSizing: "border-box", background: "rgba(255,255,255,0.1)", color: "#fff", caretColor: "#fff" }} />
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 3 }}>URL will be: /org/{slug || "..."}</div>
                   </div>
-                  <div style={{ marginBottom: 16 }}>
+                  <div style={{ marginBottom: 12 }}>
                     <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>Website (optional)</label>
                     <input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..." className="ge-dark-input"
                       style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontFamily: FONT, boxSizing: "border-box", background: "rgba(255,255,255,0.1)", color: "#fff", caretColor: "#fff" }} />
                   </div>
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>Admin key</label>
+                    <input type="password" value={adminKey} onChange={e => setAdminKey(e.target.value)} placeholder="Required to create an organisation" className="ge-dark-input"
+                      style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontFamily: MONO, boxSizing: "border-box", background: "rgba(255,255,255,0.1)", color: "#fff", caretColor: "#fff" }} />
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 3 }}>Creating an organisation is restricted — ask your administrator for the key.</div>
+                  </div>
                   {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <Btn onClick={handleCreateClick} disabled={creating || !name || !slug} style={{ flex: 1 }}>
+                    <Btn onClick={handleCreateClick} disabled={creating || !name || !slug || !adminKey} style={{ flex: 1 }}>
                       {creating ? "Creating..." : "Create Organisation"}
                     </Btn>
                     <Btn onClick={() => setShowCreate(false)} v="ghost">Cancel</Btn>

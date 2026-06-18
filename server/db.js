@@ -161,7 +161,7 @@ export const updateOrgProfile = async (orgId, data) => {
   const vals = [];
   let i = 1;
   for (const [k, v] of Object.entries(data)) {
-    if (['mission', 'programmes', 'impact_stats', 'tone', 'anti_patterns', 'past_funders', 'context_full', 'context_slim'].includes(k)) {
+    if (['mission', 'programmes', 'impact_stats', 'tone', 'anti_patterns', 'past_funders', 'context_full', 'context_slim', 'legal_address', 'reg_numbers'].includes(k)) {
       fields.push(`${k} = $${i++}`);
       vals.push(typeof v === 'object' ? JSON.stringify(v) : v);
     }

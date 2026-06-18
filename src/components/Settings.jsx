@@ -103,6 +103,8 @@ function KnowledgeBaseEditor({ profile, onSave }) {
       impact_stats: profile.impact_stats || {},
       context_slim: profile.context_slim || "",
       context_full: profile.context_full || "",
+      legal_address: profile.legal_address || "",
+      reg_numbers: profile.reg_numbers || {},
     });
     setEditing(true);
   };
@@ -177,6 +179,19 @@ function KnowledgeBaseEditor({ profile, onSave }) {
           <KBField label="Tone" value={profile.tone} empty="How proposals should sound — warm, formal, founder-led, evidence-first, etc." />
           <KBField label="Anti-patterns" value={profile.anti_patterns} empty="Phrases or framings the AI should NEVER use (e.g. 'imagine a world where', 'leverage synergies')." />
           <KBField label="Past funders" value={profile.past_funders} empty="Comma-separated list of organisations that have funded you before — gives AI context on what works." />
+          <KBField
+            label="Registration numbers"
+            empty="NPO / PBO / VAT / company registration numbers — used to auto-fill application forms."
+            value={(profile.reg_numbers && Object.values(profile.reg_numbers).some(Boolean)) ? (
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12, color: C.t2 }}>
+                {profile.reg_numbers.npo && <span><strong style={{ color: C.t3 }}>NPO</strong> {profile.reg_numbers.npo}</span>}
+                {profile.reg_numbers.pbo && <span><strong style={{ color: C.t3 }}>PBO</strong> {profile.reg_numbers.pbo}</span>}
+                {profile.reg_numbers.vat && <span><strong style={{ color: C.t3 }}>VAT</strong> {profile.reg_numbers.vat}</span>}
+                {profile.reg_numbers.registration && <span><strong style={{ color: C.t3 }}>Reg</strong> {profile.reg_numbers.registration}</span>}
+              </div>
+            ) : null}
+          />
+          <KBField label="Legal address" value={profile.legal_address} empty="Registered/physical address used on applications." />
           <KBField label="Extended context" value={profile.context_slim} mono empty="A longer org description the AI can reference. Paste your boilerplate org bio, theory of change, signature stories." last />
         </div>
       </div>
@@ -237,6 +252,22 @@ function KnowledgeBaseEditor({ profile, onSave }) {
         <EditField label="Past funders" hint="Comma-separated. Helps AI lean on continuity language for returning funders.">
           <textarea aria-label="Past funders" value={draft.past_funders} onChange={e => setDraft(d => ({ ...d, past_funders: e.target.value }))}
             rows={2} style={kbInputStyle} placeholder="e.g. GIDF, DG Murray Trust, TK Foundation, CCBA Foundation" />
+        </EditField>
+
+        <EditField label="Registration numbers" hint="Used to auto-fill application forms. Leave blank what doesn't apply.">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+            {[["npo", "NPO number"], ["pbo", "PBO number"], ["vat", "VAT number"], ["registration", "Company reg. number"]].map(([key, label]) => (
+              <input key={key} aria-label={label} placeholder={label}
+                value={draft.reg_numbers?.[key] || ""}
+                onChange={e => setDraft(d => ({ ...d, reg_numbers: { ...(d.reg_numbers || {}), [key]: e.target.value } }))}
+                style={{ ...kbInputStyle, fontFamily: MONO, fontSize: 12 }} />
+            ))}
+          </div>
+        </EditField>
+
+        <EditField label="Legal address" hint="Registered/physical address that appears on applications.">
+          <textarea aria-label="Legal address" value={draft.legal_address} onChange={e => setDraft(d => ({ ...d, legal_address: e.target.value }))}
+            rows={2} style={kbInputStyle} placeholder="Street, city, province, postal code" />
         </EditField>
 
         <EditField label="Extended context" hint="Longer org bio, theory of change, signature stories. Injected into every AI prompt as background.">

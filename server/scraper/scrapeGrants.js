@@ -62,6 +62,24 @@ async function pw(path, body) {
   return res.json();
 }
 
+// Verify a batch of URLs via the playwright-service /verify-link endpoint.
+// Returns a Map(url -> { ok, status, ... }). Returns an EMPTY map when the
+// service isn't configured (or on error), so callers naturally fall back to
+// "keep unverified" rather than dropping everything. Used by both the scraper
+// and the AI web-search scout so model-produced links get the same liveness +
+// SSRF check before they reach the pipeline.
+export async function verifyLinks(urls) {
+  const map = new Map();
+  if (!PW_CONFIGURED) return map;
+  const unique = [...new Set((urls || []).filter(Boolean))];
+  if (!unique.length) return map;
+  try {
+    const { results } = await pw('/verify-link', { urls: unique });
+    for (const r of results || []) map.set(r.url, r);
+  } catch { /* best-effort — leave unverified */ }
+  return map;
+}
+
 // ── Minimal dependency-free RSS reader ──
 // Returns the same { pageText, links } shape the HTML scrape returns, so the
 // rest of the pipeline is identical regardless of source kind.
@@ -255,7 +273,71 @@ async function fetchEtenders(source, { days = 14, maxItems = 12, maxChars = 2400
   return { pageText: pageText.slice(0, maxChars), links };
 }
 
-const API_FETCHERS = { grantsgov: fetchGrantsGov, sedia: fetchSedia, etenders: fetchEtenders };
+// World Bank Projects API — free, no key. Filter to South Africa (countrycode_exact=ZA).
+// Paginate via the `os` offset param (NOT `page`). The canonical, always-correct
+// link is the project-detail page built from the project id.
+async function fetchWorldBank(source, { maxItems = 15, maxChars = 24000 } = {}) {
+  const fl = 'id,project_name,project_abstract,boardapprovaldate,closingdate,totalcommamt,sector,countryshortname';
+  const url = `https://search.worldbank.org/api/v3/projects?format=json&countrycode_exact=ZA&rows=${maxItems}&os=0&fl=${encodeURIComponent(fl)}`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'grants-engine-scraper/1.0' } });
+  if (!res.ok) throw new Error(`worldbank ${res.status}`);
+  const json = await res.json();
+  const projects = Array.isArray(json.projects) ? json.projects : Object.values(json.projects || {});
+
+  const links = [];
+  let pageText = '';
+  for (const p of projects) {
+    const id = p.id || p.project_id;
+    if (!id) continue;
+    // Canonical project-detail URL (guaranteed correct, not a redirect).
+    const link = `https://projects.worldbank.org/en/projects-operations/project-detail/${id}`;
+    links.push({ href: link, text: (p.project_name || '').slice(0, 120) });
+    const close = p.closingdate ? String(p.closingdate).slice(0, 10) : '';
+    const amt = p.totalcommamt ? `Commitment: USD ${p.totalcommamt}` : '';
+    const sector = Array.isArray(p.sector) ? p.sector.map(s => s.Name || s.name).filter(Boolean).join(', ') : '';
+    const abstract = stripHtml(p.project_abstract?.cdata || p.project_abstract || '').slice(0, 800);
+    pageText += `\n\n## ${p.project_name || id}\nFunder: World Bank\n(link: ${link})\n${close ? `Closing: ${close}\n` : ''}${amt}${sector ? `\nSector: ${sector}` : ''}\n${abstract}`;
+    if (pageText.length > maxChars) break;
+  }
+  return { pageText: pageText.slice(0, maxChars), links };
+}
+
+// IATI Datastore v3 (Solr) — free but needs a no-cost subscription key, passed
+// in the Ocp-Apim-Subscription-Key header. Surfaces development funders with
+// South Africa as a recipient country. Gated by requiresEnv:'IATI_API_KEY'.
+async function fetchIati(source, { maxItems = 15, maxChars = 24000 } = {}) {
+  const key = process.env.IATI_API_KEY;
+  if (!key) throw new Error('IATI_API_KEY not set');
+  const q = 'recipient_country_code:ZA AND (title_narrative:youth OR title_narrative:skills OR title_narrative:education OR title_narrative:employment OR title_narrative:digital)';
+  const fl = 'iati_identifier,title_narrative,description_narrative,reporting_org_narrative,activity_date_iso_date,activity_date_type';
+  const url = `https://api.iatistandard.org/datastore/activity/select?q=${encodeURIComponent(q)}&rows=${maxItems}&fl=${encodeURIComponent(fl)}`;
+  const res = await fetch(url, {
+    headers: { 'Ocp-Apim-Subscription-Key': key, 'User-Agent': 'grants-engine-scraper/1.0' },
+  });
+  if (!res.ok) throw new Error(`iati ${res.status}`);
+  const json = await res.json();
+  const docs = json.response?.docs || json.docs || [];
+
+  const links = [];
+  let pageText = '';
+  const first = (v) => Array.isArray(v) ? v[0] : v;
+  for (const d of docs) {
+    const id = first(d.iati_identifier);
+    if (!id) continue;
+    const title = stripHtml(first(d.title_narrative) || '');
+    if (!title) continue;
+    // d-portal renders an IATI activity into a human-viewable page.
+    const link = `https://d-portal.org/q.html?aid=${encodeURIComponent(id)}`;
+    links.push({ href: link, text: title.slice(0, 120) });
+    const funder = stripHtml(first(d.reporting_org_narrative) || '');
+    const desc = stripHtml(first(d.description_narrative) || '').slice(0, 700);
+    pageText += `\n\n## ${title}\nFunder: ${funder || 'IATI reporting organisation'}\n(link: ${link})\n${desc}`;
+    if (pageText.length > maxChars) break;
+  }
+  return { pageText: pageText.slice(0, maxChars), links };
+}
+
+const API_FETCHERS = { grantsgov: fetchGrantsGov, sedia: fetchSedia, etenders: fetchEtenders, worldbank: fetchWorldBank, iati: fetchIati };
 
 function parseJsonArray(text) {
   const clean = (text || '').replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();

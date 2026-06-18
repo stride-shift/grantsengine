@@ -17,6 +17,9 @@
  * 'aggregator'/'funder' sources (and link verification) additionally need the
  * playwright-service.
  *
+ * A source may set `requiresEnv: 'SOME_ENV_VAR'` — it is skipped at runtime
+ * unless that env var is present (used for APIs that need a free signup key).
+ *
  * URLs/selectors are best-effort and will need occasional maintenance — the
  * POC's per-source counts tell us which sources are worth keeping.
  */
@@ -54,8 +57,37 @@ export const SOURCES = [
     parseHint: 'These are South African government procurement notices from the National Treasury eTenders portal. They are service contracts, not philanthropic grants — set "type" to "Government/SETA" and "access" to "Open". Only include notices where a youth digital-skills training NPO could plausibly be the appointed service provider (training delivery, learnerships, skills development, work readiness, e-learning content). Skip pure IT systems, equipment, construction, maintenance, and professional-services procurement.',
     market: 'sa',
   },
+  {
+    key: 'worldbank',
+    label: 'World Bank — projects in South Africa',
+    kind: 'api',
+    api: 'worldbank',
+    // Public Projects API (no key). Filters to ZA. These are development-bank
+    // operations, not grants per se — relevant where d-lab could be an
+    // implementing partner on a skills/education component.
+    parseHint: 'These are World Bank development projects financed in South Africa. Treat "World Bank" as the funder unless a co-financier is named. Only include projects with a youth, education, skills-development, employment or digital component where a training NPO could plausibly be an implementing partner or sub-grantee — skip pure infrastructure, energy, transport, water and financial-sector operations. Set type to "Development Agency" and access to "Relationship first".',
+    market: 'sa',
+  },
+  {
+    key: 'iati',
+    label: 'IATI Datastore — development funders active in SA',
+    kind: 'api',
+    api: 'iati',
+    // Free, but needs a no-cost subscription key (developer.iatistandard.org).
+    // Skipped automatically until IATI_API_KEY is set.
+    requiresEnv: 'IATI_API_KEY',
+    parseHint: 'These are international development-aid activities recorded in IATI with South Africa as a recipient country. Treat the reporting/funding organisation as the funder. Focus on youth, education, skills, digital and employment activities. Set type to "Development Agency".',
+    market: 'global',
+  },
 
   // ── RSS feeds (free, structured, no signup) ──
+  {
+    key: 'fundsforngos-sa',
+    label: 'fundsforNGOs — South Africa tag',
+    kind: 'rss',
+    feedUrl: 'https://www2.fundsforngos.org/tag/south-africa/feed/',
+    market: 'sa',
+  },
   {
     key: 'fundsforngos',
     label: 'fundsforNGOs — latest grants',
@@ -100,6 +132,31 @@ export const SOURCES = [
     kind: 'funder',
     funder: 'RAITH Foundation',
     url: 'https://raith.org.za/apply/',
+    market: 'sa',
+  },
+
+  // ── SA listing pages (HTML scrape — no feed/API exists) ──
+  {
+    key: 'ngopulse',
+    label: 'NGO Pulse (SANGONeT) — grants & calls for proposals',
+    kind: 'aggregator',
+    // Homepage carries dated SA grant/CFP listings from many funders. No RSS/API.
+    // postLinkPattern tries to jump to the calls/grants section; if nothing
+    // matches, resolveTargetUrl falls back to scraping the listing page itself.
+    listUrl: 'https://ngopulse.net/',
+    postLinkPattern: /grant|funding|call for proposal|request for proposal|\brfp\b/i,
+    market: 'sa',
+  },
+  {
+    key: 'inyathelo',
+    label: 'Inyathelo — funding opportunities',
+    kind: 'funder',
+    // HTML-only list of opportunities. Funder varies per item, so the parser is
+    // told to capture each one. NOTE: listing freshness is unverified — monitor
+    // its per-source count and drop if it stops yielding current opportunities.
+    funder: '(various)',
+    url: 'https://askinyathelo.org.za/funding-opportunities/',
+    parseHint: 'This is a round-up page listing funding opportunities from many different funders. Capture the specific funder named for each opportunity (do not use "Inyathelo" as the funder — it is only the aggregator).',
     market: 'sa',
   },
 ];
