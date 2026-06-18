@@ -1,7 +1,7 @@
 # Grant Engine — Codebase Cleanup Working Document
 
 > **Status:** Living plan, executing phase by phase. · **Owner:** Johannes (D-Lab)
-> **Last updated:** 2026-06-18 · **Suite:** 163 tests green, build passing, all changes uncommitted.
+> **Last updated:** 2026-06-18 · **Suite:** 169 tests green, build passing. History now tracked on branch `johannes-plumbing` (Phases 0–4.5e committed + pushed to `stride-shift/grantsengine`).
 
 ---
 
@@ -83,6 +83,8 @@ Each row = a logical commit. New files/line-deltas kept so a fresh context knows
 | 4.5a | **Stood up the render net.** Added dev deps `@testing-library/react`+`jest-dom`+`jsdom`; new `vitest.config.js` (jsdom env, globals, setup) + `src/__tests__/setup.js` (jest-dom matchers) + `renderNet.smoke.test.jsx`. Vite build reads no config → untouched. | render | 156→157 | `test: stand up render-net harness (jsdom + @testing-library/react)` |
 | 4.5b | **First component net:** `Dashboard.render.test.jsx` — 2 golden-master DOM snapshots (empty + populated) + 3 interaction/assert tests, clock pinned via `vi.useFakeTimers({toFake:['Date']})` for determinism. Recorded against UN-split Dashboard. | render | 157→163 | `test: characterize Dashboard render + interactions (render net)` |
 | 4.5c | **First netted split (move-only):** lifted 8 presentational primitives (`Bar`,`Spark`,`Hd`,`Section`,`Card`,`Stat`,`HRow`,`AIBlock`) → new `components/DashboardParts.jsx` (147 ln); **Dashboard.jsx 1254→1115**; trimmed 2 now-orphaned imports (`Btn`,`CopyBtn`). Snapshots **matched** (DOM identical) → behaviour-neutral. | render (held) | 163 | `refactor: extract Dashboard presentational primitives to DashboardParts` |
+| 4.5d | **2nd component net:** `Pipeline.render.test.jsx` — 3 golden-master DOM snapshots (no-grants, list, Board) + interaction tests (zero-grants branch, kanban card → `onSelectGrant`). Mocks `../api`, stubs `ScoutPanel`, clock pinned. Recorded against UN-split Pipeline. **Characterized a parked bug:** `GateIndicator`'s `?.level \|\| 99` makes the level-0 `comms` gate always read "needed". | render | 163→169 | `test: characterize Pipeline render + interactions (render net)` |
+| 4.5e | **2nd netted split (move-only):** lifted the 2 pure kanban-card leaves (`ReadinessChips`,`GateIndicator` + private `STAGE_ORDER`) → new `components/PipelineParts.jsx` (52 ln); **Pipeline.jsx 1468→1423**; trimmed now-orphaned `GATES`/`ROLES` import. Board snapshot **matched** → behaviour-neutral. | render (held) | 169 | `refactor: extract Pipeline kanban leaf components to PipelineParts` |
 
 **Phase-5 recon finding (locks future dedup):** the once-suspected "recurring primitives"
 (`Field`/`Stat`/`Bar`/`MiniDonut`/`ReadinessChips`/`GateIndicator`) are each **single-file — not duplicated**.
@@ -98,7 +100,7 @@ Splitting into `services/*` = broad import-rewrite of every call site for little
 
 ### Phase 4.5 — Render-Test Net  *(harness + first netted split DONE 2026-06-18; now fanning out)*
 **Goal:** the render net (§3 row 3) is now live and proven, so god-component splits are provably safe.
-**Done:** ✅ harness (4.5a) · ✅ Dashboard net (4.5b) · ✅ first netted split — Dashboard primitives → `DashboardParts.jsx` (4.5c). The full loop *net → split → snapshots still match* is demonstrated.
+**Done:** ✅ harness (4.5a) · ✅ Dashboard net + primitive split → `DashboardParts.jsx` (4.5b/c) · ✅ Pipeline net + kanban-leaf split → `PipelineParts.jsx` (4.5d/e). The full loop *net → split → snapshots still match* is proven on two god components.
 
 **Established pattern (reuse for every target):**
 1. Profile the component's mount surface (props, top-level hooks, mount-time I/O, riskiest handlers) — an Explore agent is good here.
@@ -107,9 +109,9 @@ Splitting into `services/*` = broad import-rewrite of every call site for little
 4. **Verify by line-number Python edits with boundary asserts, not 100-line Edit matches** — the 4.5c slice bug (accidentally dropped the `CLOSED`/`PRE_SUB` consts that sat just above the moved block) was caught instantly by the net, but assert the lines above *and* below the block before slicing.
 
 **▶ NEXT — fan out, one component per wave, verify between:**
-- **Pipeline (1468)** — needs `../api` (`uploadFile`) mocked and `ScoutPanel` stubbed; `onRunAI`/`api` are user-action only (not mount). Net it, then lift its pure leaf JSX.
+- ✅ ~~Pipeline (1468)~~ — netted + leaf split done (4.5d/e); now 1423. Deeper Pipeline bodies (the add-grant wizard, batch toolbar, the three view renders) close over state — later wave if pursued.
+- **GrantDetail (3092)** — ▶ the big one, do next. Most coupled; expect the strangler fallback (net what renders cleanly, lift already-pure props-only leaf JSX). Profile its mount surface first (an Explore agent) — it imports `../api`/`useAI`-style deps, so identify what to mock before writing the net.
 - **Deeper Dashboard** — `DashboardParts` was the cheap primitive lift; the section bodies (AI Tools, Funder Intelligence, Pipeline Intelligence) close over state, so extracting them threads props — netted now, do as a later wave.
-- **GrantDetail (3092)** — most coupled; do last, likely via the strangler fallback below.
 
 **Strangler fallback (for components too coupled to render whole):** extract already-pure, props-only leaf JSX into own files (those render-test in isolation), shrinking the monster without netting the whole coupled body. Note any component that takes this path and why.
 **Risk:** MED but *netted* — that is the whole point.
