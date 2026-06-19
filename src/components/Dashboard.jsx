@@ -3,12 +3,11 @@ import { C, FONT, MONO } from "../theme";
 import { fmt, fmtK, dL, deadlineCtx, effectiveAsk, grantReadiness } from "../utils";
 import { Num, Timeline, Label, stripMd, TypeBadge, DeadlineBadge, Avatar } from "./index";
 import { isFunderReturning } from "../data/funderStrategy";
-import { Bar, Spark, Hd, Section, Card, Stat, HRow, AIBlock } from "./DashboardParts";
+import { Bar, Spark, Hd, Section, Card, Stat, HRow, AIBlock, FunderIntelCards, REL_COLORS } from "./DashboardParts";
 
 const CLOSED = ["won", "lost", "deferred", "archived"];
 const PRE_SUB = ["scouted", "vetting", "qualifying", "drafting", "review"];
 const FTYPE_COLORS = [C.primary, C.blue, C.purple, C.amber, C.ok];
-const REL_COLORS = { Hot: C.primary, Warm: C.amber, Cold: C.blue, New: C.purple };
 
 export default function Dashboard({
   grants, team, stages, complianceDocs = [], onSelectGrant, onNavigate,
@@ -20,8 +19,6 @@ export default function Dashboard({
   const [insightsResult, setInsightsResult] = useState(null);
   const [strategyBusy, setStrategyBusy] = useState(false);
   const [strategyResult, setStrategyResult] = useState(null);
-  const [expandedFunder, setExpandedFunder] = useState(null);
-  const [showFullIntel, setShowFullIntel] = useState(false);
 
   /* ── Core pipeline numbers ── */
   const pipe = useMemo(() => {
@@ -696,235 +693,8 @@ export default function Dashboard({
           </div>
 
           {/* ═══════════ FUNDER INTELLIGENCE CARDS (collapsed by default) ═══════════ */}
-          {funders.length > 0 && (
-            <>
-              <Hd right={
-                <button onClick={() => setShowFullIntel(!showFullIntel)} style={{
-                  background: "none", border: "none", fontSize: 11, color: C.primary, fontWeight: 600,
-                  cursor: "pointer", fontFamily: FONT,
-                }}>{showFullIntel ? "Collapse" : `Show all ${funders.length} funders`}</button>
-              }>
-                Funder Intelligence
-              </Hd>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 10, marginBottom: 16 }}>
-                {(showFullIntel ? funders : funders.slice(0, 4)).map(f => {
-                  const isExpanded = expandedFunder === f.name;
-                  const closed = f.won + f.lost;
-                  const wr = closed > 0 ? Math.round((f.won / closed) * 100) : null;
-                  const relArr = [...f.rels];
-                  const bestRel = relArr.includes("Previous Funder") ? "Previous Funder" : relArr.includes("Warm Intro") ? "Warm Intro" : relArr[0] || "Unknown";
-                  const dlDays = f.nextDeadline ? dL(f.nextDeadline) : null;
-                  // Momentum: days since last activity
-                  const daysSinceActivity = f.latestActivity
-                    ? Math.floor((Date.now() - new Date(f.latestActivity).getTime()) / 864e5)
-                    : null;
-                  const momentum = daysSinceActivity === null ? "new"
-                    : daysSinceActivity <= 7 ? "hot"
-                    : daysSinceActivity <= 21 ? "warm"
-                    : "cold";
-                  const momentumColor = { hot: C.ok, warm: C.amber, cold: C.t4, new: C.purple }[momentum];
-                  const maxAsk = funders[0]?.totalAsk || 1;
-
-                  return (
-                    <div key={f.name} onClick={() => setExpandedFunder(isExpanded ? null : f.name)}
-                      className="ge-hover-lift"
-                      style={{
-                        background: C.white, borderRadius: 10,
-                        boxShadow: isExpanded ? C.cardShadowHover : C.cardShadow,
-                        border: isExpanded ? `1px solid ${C.primary}30` : `1px solid ${C.line}`,
-                        cursor: "pointer", transition: "all 0.2s ease",
-                        overflow: "hidden",
-                      }}>
-                      {/* ── Card Header ── */}
-                      <div style={{ padding: "12px 16px 10px" }}>
-                        {/* Row 1: Name + badges */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                          {/* Momentum dot */}
-                          <div style={{
-                            width: 8, height: 8, borderRadius: 4, background: momentumColor, flexShrink: 0,
-                            boxShadow: momentum === "hot" ? `0 0 6px ${C.ok}60` : "none",
-                          }} />
-                          <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.dark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {f.name}
-                          </div>
-                          {f.returning && (
-                            <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 6, background: C.okSoft, color: C.ok, letterSpacing: 0.3 }}>
-                              RETURNING
-                            </span>
-                          )}
-                          {f.type && <TypeBadge type={f.type} />}
-                        </div>
-
-                        {/* Row 2: Value bar + numbers */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                          <div style={{ flex: 1 }}>
-                            <Bar pct={(f.totalAsk / maxAsk) * 100} color={f.won > 0 ? C.ok : C.primary} h={5} />
-                          </div>
-                          <div style={{ fontSize: 13, fontWeight: 800, fontFamily: MONO, color: C.dark, letterSpacing: -0.5, whiteSpace: "nowrap" }}>
-                            {fmtK(f.totalAsk)}
-                          </div>
-                        </div>
-
-                        {/* Row 3: Stats row */}
-                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                          <span style={{ fontSize: 10, color: C.t3, fontWeight: 600 }}>
-                            {f.grants.length} grant{f.grants.length !== 1 ? "s" : ""}
-                          </span>
-                          {f.active > 0 && (
-                            <span style={{ fontSize: 10, color: C.primary, fontWeight: 700, fontFamily: MONO }}>
-                              {f.active} active
-                            </span>
-                          )}
-                          {wr !== null && (
-                            <span style={{
-                              fontSize: 10, fontWeight: 700, fontFamily: MONO,
-                              padding: "1px 5px", borderRadius: 4,
-                              background: wr >= 50 ? C.okSoft : C.raised,
-                              color: wr >= 50 ? C.ok : C.t3,
-                            }}>{wr}% win</span>
-                          )}
-                          {f.won > 0 && (
-                            <span style={{ fontSize: 10, color: C.ok, fontWeight: 600 }}>
-                              {f.won}W{f.wonVal > 0 ? ` (${fmtK(f.wonVal)})` : ""}
-                            </span>
-                          )}
-                          {f.lost > 0 && (
-                            <span style={{ fontSize: 10, color: C.red, fontWeight: 600 }}>{f.lost}L</span>
-                          )}
-                          {/* AI coverage dots */}
-                          <span style={{ display: "flex", gap: 3, alignItems: "center" }}>
-                            {[
-                              { has: f.hasResearch, label: "R", color: C.blue },
-                              { has: f.hasDraft, label: "D", color: C.purple },
-                              { has: f.hasFitscore, label: "F", color: C.amber },
-                            ].map((dot, i) => (
-                              <span key={i} title={`${["Research", "Draft", "Fit Score"][i]}: ${dot.has ? "Done" : "Pending"}`}
-                                style={{
-                                  width: 14, height: 14, borderRadius: 3, fontSize: 8, fontWeight: 700,
-                                  display: "flex", alignItems: "center", justifyContent: "center",
-                                  background: dot.has ? dot.color + "18" : C.raised,
-                                  color: dot.has ? dot.color : C.t4,
-                                  border: `1px solid ${dot.has ? dot.color + "30" : "transparent"}`,
-                                }}>{dot.label}</span>
-                            ))}
-                          </span>
-                          {dlDays !== null && (
-                            <span style={{
-                              fontSize: 10, fontWeight: 600, fontFamily: MONO,
-                              color: dlDays <= 14 ? C.red : dlDays <= 30 ? C.amber : C.t3,
-                            }}>
-                              {dlDays}d to deadline
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Row 4: Stage pipeline mini-viz */}
-                        <div style={{ display: "flex", gap: 2, marginTop: 10 }}>
-                          {(stages || []).filter(s => f.stages.has(s.id)).map(s => {
-                            const n = f.stages.get(s.id) || 0;
-                            return (
-                              <div key={s.id} title={`${s.label}: ${n}`}
-                                style={{
-                                  flex: n, height: 4, borderRadius: 2,
-                                  background: s.c, opacity: 0.7,
-                                  minWidth: 6,
-                                }} />
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* ── Expanded Detail Panel ── */}
-                      {isExpanded && (
-                        <div style={{
-                          borderTop: `1px solid ${C.line}`, padding: "10px 16px 14px",
-                          background: C.warm100,
-                          animation: "ai-expand 0.25s ease-out",
-                        }}>
-                          {/* Relationship + Focus */}
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-                            <span style={{
-                              fontSize: 10, fontWeight: 600, padding: "3px 8px", borderRadius: 6,
-                              background: REL_COLORS[bestRel] ? REL_COLORS[bestRel] + "18" : C.raised,
-                              color: REL_COLORS[bestRel] || C.t3,
-                              border: `1px solid ${(REL_COLORS[bestRel] || C.t4) + "25"}`,
-                            }}>{bestRel}</span>
-                            {[...f.focus].slice(0, 4).map(tag => (
-                              <span key={tag} style={{ fontSize: 10, fontWeight: 500, padding: "3px 8px", borderRadius: 6, background: C.raised, color: C.t2 }}>
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-
-                          {/* Research snippet */}
-                          {f.latestResearchSnippet && (
-                            <div style={{
-                              fontSize: 11, lineHeight: 1.7, color: C.t2, marginBottom: 12,
-                              padding: "10px 12px", background: C.white, borderRadius: 8,
-                              border: `1px solid ${C.line}`,
-                              maxHeight: 100, overflow: "auto",
-                            }}>
-                              <div style={{ fontSize: 9, fontWeight: 700, color: C.blue, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>Latest Research</div>
-                              {stripMd(f.latestResearchSnippet)}...
-                            </div>
-                          )}
-
-                          {/* Grant list */}
-                          <div style={{ fontSize: 9, fontWeight: 700, color: C.t4, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 6 }}>
-                            Grants ({f.grants.length})
-                          </div>
-                          {f.grants.map(g => {
-                            const s = (stages || []).find(st => st.id === g.stage);
-                            return (
-                              <div key={g.id}
-                                onClick={e => { e.stopPropagation(); onSelectGrant?.(g.id); }}
-                                className="ge-hover-slide"
-                                style={{
-                                  display: "flex", alignItems: "center", gap: 8,
-                                  padding: "7px 10px", marginBottom: 2, borderRadius: 6,
-                                  cursor: "pointer", transition: "all 0.15s ease",
-                                }}>
-                                <div style={{ width: 6, height: 6, borderRadius: 3, background: s?.c || C.t4, flexShrink: 0 }} />
-                                <div style={{ flex: 1, fontSize: 11, fontWeight: 600, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {g.name}
-                                </div>
-                                <span style={{ fontSize: 10, color: s?.c || C.t3, fontWeight: 600, flexShrink: 0 }}>
-                                  {s?.label || g.stage}
-                                </span>
-                                <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, color: C.t2, flexShrink: 0 }}>
-                                  {fmtK(effectiveAsk(g))}
-                                </span>
-                              </div>
-                            );
-                          })}
-
-                          {/* Action hint */}
-                          {!f.hasResearch && f.active > 0 && (
-                            <div style={{
-                              marginTop: 8, padding: "8px 10px", borderRadius: 6,
-                              background: C.blueSoft, border: `1px solid ${C.blue}20`,
-                              fontSize: 11, color: C.blue, fontWeight: 500,
-                            }}>
-                              No funder research yet — run Research on any grant to build this profile
-                            </div>
-                          )}
-                          {f.returning && f.active === 0 && (
-                            <div style={{
-                              marginTop: 8, padding: "8px 10px", borderRadius: 6,
-                              background: C.amberSoft, border: `1px solid ${C.amber}20`,
-                              fontSize: 11, color: C.amber, fontWeight: 500,
-                            }}>
-                              Returning funder with no active grants — consider a renewal proposal
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
+          {/* Lifted to DashboardParts (Phase 4.6); owns its own expand/show-all state. */}
+          <FunderIntelCards funders={funders} stages={stages} onSelectGrant={onSelectGrant} />
 
           {/* Row C: Relationships + Ask distribution */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
