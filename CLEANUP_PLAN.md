@@ -1,7 +1,7 @@
 # Grant Engine — Codebase Cleanup Working Document
 
 > **Status:** Living plan, executing phase by phase. · **Owner:** Johannes (D-Lab)
-> **Last updated:** 2026-06-18 · **Suite:** 174 tests green, build passing. History tracked on branch `johannes-plumbing` (Phases 0–4.5g committed + pushed to `stride-shift/grantsengine`).
+> **Last updated:** 2026-06-19 · **Suite:** 176 tests green, build passing. History tracked on branch `johannes-plumbing` (Phases 0–4.6b committed + pushed to `stride-shift/grantsengine`).
 
 ---
 
@@ -99,6 +99,8 @@ Each row = a logical commit. New files/line-deltas kept so a fresh context knows
 | 4.5e | **2nd netted split (move-only):** lifted the 2 pure kanban-card leaves (`ReadinessChips`,`GateIndicator` + private `STAGE_ORDER`) → new `components/PipelineParts.jsx` (52 ln); **Pipeline.jsx 1468→1423**; trimmed now-orphaned `GATES`/`ROLES` import. Board snapshot **matched** → behaviour-neutral. | render (held) | 169 | `refactor: extract Pipeline kanban leaf components to PipelineParts` |
 | 4.5f | **3rd component net (the big one):** `GrantDetail.render.test.jsx` — 3 golden-master DOM snapshots (early/scouted, middle/drafting, closed/won) + interaction test (back-control → `onBack`). Mocks `../api` (`getUploads`/`kvGet`/`kvSet` fire in mount effects), stubs the heavy stateful children (`ProposalWorkspace`/`BudgetBuilder`/`AutoFillPanel`/`UploadZone`), clock pinned. The 3s auto-brief `setTimeout` never fires in a sync test (we fake only `Date`); `_pendingAI` left unset. Recorded against UN-split GrantDetail. | render | 169→174 | `test: characterize GrantDetail render (render net)` |
 | 4.5g | **3rd netted split (move-only):** lifted the 4 pure leaves (`Card`,`Hd`,`Field`,`ActivityRow`) → new `components/GrantDetailParts.jsx` (59 ln); **GrantDetail.jsx 3092→3047**. `SectionWrap` deliberately kept in-file (needs a stable module identity, or React remounts its children & wipes their state). No imports orphaned (`C`/`FONT`/`MONO` still used throughout). All 3 snapshots **matched** → behaviour-neutral. | render (held) | 174 | `refactor: extract GrantDetail presentational leaves to GrantDetailParts` |
+| 4.6a | **Net strengthening (Phase 4.6 step 2):** added 2 scroll-anchor interaction tests to `GrantDetail.render.test.jsx` — the context-sidebar "Jump to" anchor and the status-strip readiness button each resolve a `data-tour` target and call `scrollIntoView` (stubbed; jsdom has no layout). Behaviour-survival guard for the next split. Recorded against UN-split bodies. | render | 174→176 | `test: strengthen GrantDetail net with scroll-anchor handler tests` |
+| 4.6b | **Selective stateful-body extraction (step 3):** lifted 3 presentational BODIES → `GrantDetailParts.jsx` (`ContextSidebar`/`StatusStrip`/`StageBanner`, now 270 ln); **GrantDetail.jsx 3047→2852**. All own *no local state, no parent-mutating handler, no stateful children* — every free var became an explicit prop (`g`/`team`/`stg`/`stages`/`complianceDocs`); only behaviour is self-contained `scrollIntoView`. Module-scoped (stable identity). Snapshots **matched** + scroll tests green → behaviour-neutral. Engagement-mode body (closes over `onUpdate`) **parked** for a dedicated stateful wave. | render+interaction (held) | 176 | `refactor: extract GrantDetail context sidebar / status strip / stage banner` |
 
 **Phase-5 recon finding (locks future dedup):** the once-suspected "recurring primitives"
 (`Field`/`Stat`/`Bar`/`MiniDonut`/`ReadinessChips`/`GateIndicator`) are each **single-file — not duplicated**.
@@ -124,10 +126,10 @@ Splitting into `services/*` = broad import-rewrite of every call site for little
 
 **▶ NEXT — fan out, one component per wave, verify between:**
 - ✅ ~~Pipeline (1468)~~ — netted + leaf split done (4.5d/e); now 1423. Deeper Pipeline bodies (the add-grant wizard, batch toolbar, the three view renders) close over state — later wave if pursued.
-- ✅ ~~GrantDetail (3092)~~ — netted + leaf split done (4.5f/g); now 3047. The strangler net is live (`GrantDetail.render.test.jsx`, 3 stage snapshots + child stubs). The cheap pure-leaf lift is taken; **deeper GrantDetail is still the largest remaining file.** Next-deepest lifts behind the existing net: the fixed status strip / context sidebar IIFEs (L420/L519, presentational, read `g`+`stages`+`complianceDocs` — could become props-only sub-components) and the stage-banner / engagement-mode / clone-cycle IIFEs. These close over `g`/`onUpdate`, so extracting threads props — do as a careful later wave, snapshots guarding.
+- ✅ ~~GrantDetail (3092)~~ — netted + leaf split (4.5f/g) **+ selective body split (4.6a/b)**; now **2852**. The strangler net is live (`GrantDetail.render.test.jsx`, 3 stage snapshots + child stubs + 2 scroll-anchor interaction tests). Pure leaves AND the three clean presentational bodies (context sidebar / status strip / stage banner) are lifted to `GrantDetailParts`. **Still the largest remaining file.** Remaining lifts behind the net are the `onUpdate`-coupled bodies (engagement-mode / clone-cycle IIFEs) — a careful stateful wave with `onUpdate`-mutation interaction tests, or park per "selective."
 - **Deeper Dashboard** — `DashboardParts` was the cheap primitive lift; the section bodies (AI Tools, Funder Intelligence, Pipeline Intelligence) close over state, so extracting them threads props — netted now, do as a later wave.
 
-**Checkpoint reached 2026-06-18:** all three god components (Dashboard, Pipeline, GrantDetail) now have a render net + a first behaviour-neutral leaf split. The cheap, zero-risk pure-leaf lifts are done across the board. **Owner reviewed + decided the next tier: "selective, then docs" → see Phase 4.6 below, which is the entry point for the next work session.** A fresh chat should start there: read §3 "Move-only vs. parameterized splits" + Phase 4.6, then execute one candidate body at a time per the protocol.
+**Checkpoint reached 2026-06-19:** all three god components have a render net + leaf split, and **GrantDetail's clean stateful-body tier is now extracted too (4.6a/b, 3047→2852)** per the owner's "selective, then docs." The cleanest props-only bodies are done; the `onUpdate`-coupled bodies are deliberately parked. **A fresh chat has two defensible next moves, both inside the owner's decision:** (a) continue *selective* extraction on Dashboard/Pipeline candidates (read §3 + Phase 4.6, profile each body, park anything that tangles); or (b) pivot to **Phase 6 docs** (the "then docs" half). The `onUpdate`-coupled GrantDetail bodies are the higher-risk optional tail — only attempt with `onUpdate`-mutation interaction tests added to the net first.
 
 **Strangler fallback (for components too coupled to render whole):** extract already-pure, props-only leaf JSX into own files (those render-test in isolation), shrinking the monster without netting the whole coupled body. Note any component that takes this path and why.
 **Risk:** MED but *netted* — that is the whole point.
@@ -150,13 +152,21 @@ behaviour-verbatim**, so it is held to the stronger net (see §3 "Move-only vs. 
 4. If anything about behaviour is ambiguous, **preserve it exactly and park the logic question** (north star).
 
 **Candidate bodies (start with the cleanest, props-only-ish; the rest may park):**
-- *GrantDetail (3047):* the fixed status strip (L~519) and the context sidebar (L~420) are presentational
-  IIFEs reading `g`/`stages`/`complianceDocs` — the most props-only-shaped, likely first. Then the stage-banner
-  / engagement-mode / clone-cycle IIFEs (these close over `onUpdate` → more threading). Submit modal closes over
-  lots of state → likely park.
+- *GrantDetail:* ✅ **DONE (4.6a/b)** — the fixed status strip, context sidebar, and stage banner were the
+  three cleanest (props-only, no state, no `onUpdate`, only self-contained `scrollIntoView`); lifted to
+  `GrantDetailParts` behind a strengthened net (3047→2852). **Parked:** the **engagement-mode** IIFE (L~598)
+  and the **clone-cycle** IIFE both close over `onUpdate` + non-deterministic `Math.random()`/`new Date()` —
+  genuinely stateful, need a dedicated wave (strengthen net with `onUpdate`-mutation interaction tests first,
+  watch the activity-log write). **Submit modal** closes over lots of state → likely park.
 - *Dashboard (1115):* the AI Tools / Funder Intelligence / Pipeline Intelligence section bodies — close over
-  state, assess each for clean parameterization.
+  state, assess each for clean parameterization. **(next selective target)**
 - *Pipeline (1423):* the three view renders + add-grant wizard + batch toolbar — most close over state; cherry-pick.
+
+**Phase 4.6 progress (2026-06-19):** GrantDetail's clean tier is extracted. Remaining 4.6 work is the
+`onUpdate`-coupled bodies (GrantDetail engagement-mode/clone-cycle — a careful stateful wave) and the
+Dashboard/Pipeline selective candidates. Per the owner's "selective, **then docs**," a reasonable stopping
+point for selective extraction has been reached on GrantDetail; the `onUpdate` bodies are higher-risk and
+optional — pivot to Phase 6 docs is also defensible from here.
 
 ### Phase 6 — Integrate the `.org` Doc System + proper `CLAUDE.md` rewrite
 Do this **after** the god files are split (modules stable). Generating `quick_reference.org` / `README.org` earlier
