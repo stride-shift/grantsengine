@@ -1,7 +1,7 @@
 # Grant Engine — Codebase Cleanup Working Document
 
 > **Status:** Living plan, executing phase by phase. · **Owner:** Johannes (D-Lab)
-> **Last updated:** 2026-06-19 · **Suite:** 179 tests green, build passing. History tracked on branch `johannes-plumbing` (Phases 0–4.6d committed + pushed to `stride-shift/grantsengine`).
+> **Last updated:** 2026-06-19 · **Suite:** 186 tests green, build passing. History tracked on branch `johannes-plumbing` (Phases 0–4.6e committed + pushed to `stride-shift/grantsengine`).
 
 ---
 
@@ -103,6 +103,8 @@ Each row = a logical commit. New files/line-deltas kept so a fresh context knows
 | 4.6b | **Selective stateful-body extraction (step 3):** lifted 3 presentational BODIES → `GrantDetailParts.jsx` (`ContextSidebar`/`StatusStrip`/`StageBanner`, now 270 ln); **GrantDetail.jsx 3047→2852**. All own *no local state, no parent-mutating handler, no stateful children* — every free var became an explicit prop (`g`/`team`/`stg`/`stages`/`complianceDocs`); only behaviour is self-contained `scrollIntoView`. Module-scoped (stable identity). Snapshots **matched** + scroll tests green → behaviour-neutral. Engagement-mode body (closes over `onUpdate`) **parked** for a dedicated stateful wave. | render+interaction (held) | 176 | `refactor: extract GrantDetail context sidebar / status strip / stage banner` |
 | 4.6c | **Net strengthening (Dashboard, step 2):** added 3 Funder Intelligence interaction tests to `Dashboard.render.test.jsx` — expand-toggle (`setExpandedFunder`), show-all toggle (`setShowFullIntel`), and grant-row select with `stopPropagation` (`onSelectGrant`). Disambiguated repeated funder-name text by DOM order (`.at(-1)`). Recorded against UN-split Dashboard. | render | 176→179 | `test: strengthen Dashboard net with Funder Intelligence interaction tests` |
 | 4.6d | **Selective stateful-body extraction (step 3):** lifted the ~230-line Funder Intelligence cards body → `FunderIntelCards` in `DashboardParts.jsx` (147→398 ln); **Dashboard.jsx 1115→885**. Its two UI state vars (`expandedFunder`/`showFullIntel`) were used *only* in this block, so they moved with it; module-scoped → stable identity → state survives. Props-only interface (`funders`/`stages`/`onSelectGrant`). `REL_COLORS` promoted to a shared export. Snapshots **matched** + interaction tests green → behaviour-neutral. AI-Tools/Insights/Strategy bodies (share `*Busy`/`*Result` state + `runAI`) **parked** (tangled). | render+interaction (held) | 179 | `refactor: extract Dashboard Funder Intelligence cards to DashboardParts` |
+| 4.6e | **Net strengthening (Pipeline, step 2):** added 7 add-grant-wizard interaction tests + an open-wizard snapshot to `Pipeline.render.test.jsx` — open/close, 3-step nav, the create-grant payload (`onAddGrant`), the auto-AI select path (`onSelectGrant`), and the pre-existing quirk that `newName`/`newFunder` survive `resetWizard`. The persist-across-+Add-toggle test **locks the extraction shape**. The net caught a wrong assumption of mine (intuitive "Cancel clears all fields" — it doesn't) → recorded real behaviour, not the fix. Recorded against UN-split Pipeline. | render | 179→186 | `test: strengthen Pipeline net with Add Grant wizard interaction tests` |
+| 4.6f | **Selective stateful-body extraction (step 3):** lifted the ~390-line 3-step add-grant wizard (its JSX + 18 form-state hooks + `resetWizard`/`addGrantEnhanced`) → new `components/AddGrantWizard.jsx`; **Pipeline.jsx 1423→961** (−462, the biggest single split yet). Wizard state was never read by the rest of Pipeline (filters/views/batch don't touch it) → behaviour-neutral move. Shape: rendered **unconditionally** with an `open` prop (early-returns null when closed) so a half-filled form survives a +Add toggle exactly as before; `onClose` replaces parent `setShowAdd(false)`. Wizard-only consts `COMMON_FOCUS`/`GRANT_SOURCES` moved with it; now-unused imports (`calcTotalAsk`/`buildPtypeNotes`/`uploadFile`/`PTYPES`) dropped from Pipeline. Open-wizard snapshot **matched** + all 13 tests green → behaviour-neutral. | render+interaction (held) | 186 | `refactor: extract Add Grant wizard to AddGrantWizard.jsx` |
 
 **Phase-5 recon finding (locks future dedup):** the once-suspected "recurring primitives"
 (`Field`/`Stat`/`Bar`/`MiniDonut`/`ReadinessChips`/`GateIndicator`) are each **single-file — not duplicated**.
@@ -127,11 +129,11 @@ Splitting into `services/*` = broad import-rewrite of every call site for little
 4. **Verify by line-number Python edits with boundary asserts, not 100-line Edit matches** — the 4.5c slice bug (accidentally dropped the `CLOSED`/`PRE_SUB` consts that sat just above the moved block) was caught instantly by the net, but assert the lines above *and* below the block before slicing.
 
 **▶ NEXT — fan out, one component per wave, verify between:**
-- ✅ ~~Pipeline (1468)~~ — netted + leaf split done (4.5d/e); now 1423. Deeper Pipeline bodies (the add-grant wizard, batch toolbar, the three view renders) close over state — later wave if pursued.
+- ✅ ~~Pipeline (1468)~~ — netted + leaf split (4.5d/e) **+ add-grant-wizard body split (4.6e/f)**; now **961**. The ~390-line 3-step wizard is lifted to `AddGrantWizard.jsx` (its state was fully isolated → clean move). Remaining bodies (batch toolbar, the three view renders) close over `selectedIds`/`dragId`/`pSort` — a later coupled wave if pursued; the URL-extract tool also closes over async state. Cherry-pick only behind mutation interaction tests.
 - ✅ ~~GrantDetail (3092)~~ — netted + leaf split (4.5f/g) **+ selective body split (4.6a/b)**; now **2852**. The strangler net is live (`GrantDetail.render.test.jsx`, 3 stage snapshots + child stubs + 2 scroll-anchor interaction tests). Pure leaves AND the three clean presentational bodies (context sidebar / status strip / stage banner) are lifted to `GrantDetailParts`. **Still the largest remaining file.** Remaining lifts behind the net are the `onUpdate`-coupled bodies (engagement-mode / clone-cycle IIFEs) — a careful stateful wave with `onUpdate`-mutation interaction tests, or park per "selective."
 - **Deeper Dashboard** — `DashboardParts` was the cheap primitive lift; the section bodies (AI Tools, Funder Intelligence, Pipeline Intelligence) close over state, so extracting them threads props — netted now, do as a later wave.
 
-**Checkpoint reached 2026-06-19:** all three god components have a render net + leaf split, and **GrantDetail's AND Dashboard's clean stateful-body tiers are now extracted (4.6a–d: GrantDetail 3047→2852, Dashboard 1115→885)** per the owner's "selective, then docs." The cleanest self-contained bodies are done; the `onUpdate`-/busy-state-coupled bodies are deliberately parked. **A fresh chat has two defensible next moves, both inside the owner's decision:** (a) profile **Pipeline (1423)** — the only god file not yet body-split — for its one standout self-contained body and extract it (read §3 + Phase 4.6, strengthen net first, park anything that tangles); or (b) pivot to **Phase 6 docs** (the "then docs" half). The coupled bodies are the higher-risk optional tail — only attempt with the relevant mutation interaction tests added to the net first.
+**Checkpoint reached 2026-06-19 (Phase 4.6 COMPLETE):** all three god components have a render net + leaf split + their clean stateful-body tier extracted (**4.6a–f: GrantDetail 3047→2852, Dashboard 1115→885, Pipeline 1423→961**) per the owner's "finish 4.6 with the decoupling, then docs." Each file's standout self-contained body is lifted; the `onUpdate`-/busy-state-/selection-coupled bodies are deliberately parked (higher-risk optional tail — only attempt with the relevant mutation interaction tests added to the net first). **Next per owner: Phase 6 docs.**
 
 **Strangler fallback (for components too coupled to render whole):** extract already-pure, props-only leaf JSX into own files (those render-test in isolation), shrinking the monster without netting the whole coupled body. Note any component that takes this path and why.
 **Risk:** MED but *netted* — that is the whole point.
@@ -166,16 +168,16 @@ behaviour-verbatim**, so it is held to the stronger net (see §3 "Move-only vs. 
   + `*Result` state and the `runAI` helper → extracting tangles half the remaining Dashboard state (park per
   "selective"). The Pipeline-summary / In-Play / Timeline / Follow-up rows are pure-ish reads of `pipe`/`ana`
   but many-small + medium-coupled → diminishing value-per-risk; left in place.
-- *Pipeline (1423):* the three view renders + add-grant wizard + batch toolbar — most close over state; cherry-pick.
-  **(only god file not yet body-split; `PipelineParts` is just 52 ln of primitives — the next selective target if
-  continuing extraction.)**
+- *Pipeline (1423→961):* ✅ **DONE (4.6e/f)** — the **3-step add-grant wizard** (~390 ln, fully state-isolated)
+  was the one standout self-contained body; lifted to `AddGrantWizard.jsx`. Remaining bodies (the three view
+  renders + batch toolbar + URL-extract tool) close over `selectedIds`/`dragId`/`pSort`/async state → **parked**
+  (coupled tier).
 
-**Phase 4.6 progress (2026-06-19):** GrantDetail's AND Dashboard's clean stateful-body tiers are extracted
-(4.6a–d). Each god file's standout self-contained body is now lifted; what remains in GrantDetail/Dashboard is
-`onUpdate`-/busy-state-coupled (parked). Per the owner's "selective, **then docs**," a clean stopping point for
-the selective wave has been reached. **Defensible next moves:** (a) profile **Pipeline (1423)** for its one
-standout self-contained body and extract it (mirrors the Dashboard win — Pipeline is the only god file still
-unsplit); or (b) pivot to **Phase 6 docs** (the "then docs" half). The coupled bodies (GrantDetail
+**Phase 4.6 progress (2026-06-19):** all three god components' clean stateful-body tiers are now extracted
+(4.6a–f: GrantDetail 3047→2852, Dashboard 1115→885, **Pipeline 1423→961**). Each god file's standout
+self-contained body is lifted; what remains everywhere is `onUpdate`-/busy-state-/selection-coupled (parked).
+Per the owner's "finish 4.6 with the decoupling, **then docs**," **Phase 4.6 is complete** — the selective wave
+has reached its clean stopping point. **Next: Phase 6 docs.** The coupled bodies (GrantDetail
 engagement-mode/clone-cycle, Dashboard AI-tools) are the higher-risk optional tail.
 
 ### Phase 6 — Integrate the `.org` Doc System + proper `CLAUDE.md` rewrite
