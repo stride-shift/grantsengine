@@ -1,5 +1,747 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`Pipeline — Add Grant wizard (guards the AddGrantWizard extraction) > DOM snapshot — add wizard open at step 1 (golden master) 1`] = `
+<div>
+  <div
+    style="padding: 16px; height: 100%; display: flex; flex-direction: column;"
+  >
+    <div
+      style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 12px;"
+      >
+        <div
+          style="font-size: 22px; font-weight: 800; color: rgb(17, 17, 17); letter-spacing: -0.5px;"
+        >
+          Pipeline
+        </div>
+        <div
+          style="display: flex; gap: 3px;"
+        >
+          <button
+            style="padding: 3px 10px; font-size: 12px; font-weight: 600; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 6px; border: 1px solid rgb(74, 124, 89); background: rgb(237, 245, 240); color: rgb(74, 124, 89); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px;"
+          >
+            All
+            <span
+              style="font-size: 10px; font-weight: 700; padding: 0px 5px; border-radius: 10px; background: rgb(74, 124, 89); color: rgb(255, 255, 255);"
+            >
+              4
+            </span>
+          </button>
+          <button
+            style="padding: 3px 10px; font-size: 12px; font-weight: 600; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 6px; border: 1px solid rgb(226, 230, 226); background: rgb(255, 255, 255); color: rgb(107, 114, 128); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px;"
+          >
+            🇿🇦
+            <span
+              style="font-size: 10px; font-weight: 700; padding: 0px 5px; border-radius: 10px; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+            >
+              4
+            </span>
+          </button>
+          <button
+            style="padding: 3px 10px; font-size: 12px; font-weight: 600; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 6px; border: 1px solid rgb(226, 230, 226); background: rgb(255, 255, 255); color: rgb(107, 114, 128); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px;"
+          >
+            🌍
+            <span
+              style="font-size: 10px; font-weight: 700; padding: 0px 5px; border-radius: 10px; background: rgb(238, 241, 238); color: rgb(107, 114, 128);"
+            >
+              0
+            </span>
+          </button>
+        </div>
+      </div>
+      <button
+        style="padding: 6px 14px; border: medium; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: rgb(74, 124, 89); color: rgb(255, 255, 255); box-shadow: 0 1px 4px #4A7C5933;"
+      >
+        + Add
+      </button>
+    </div>
+    <div
+      style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;"
+    >
+      <input
+        placeholder="Search..."
+        style="padding: 7px 12px; font-size: 13px; border: 1px solid rgb(226, 230, 226); border-radius: 8px; width: 160px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; outline: none; transition: border-color 0.15s;"
+        value=""
+      />
+      <select
+        style="padding: 7px 10px; font-size: 12px; border: 1px solid rgb(226, 230, 226); border-radius: 8px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; background: rgb(255, 255, 255); cursor: pointer;"
+      >
+        <option
+          value="all"
+        >
+          🔽 Filters
+        </option>
+        <option
+          value="Foundation"
+        >
+          Foundation
+        </option>
+        <option
+          value="Corporate CSI"
+        >
+          Corporate CSI
+        </option>
+      </select>
+      <select
+        style="padding: 7px 10px; font-size: 12px; border: 1px solid rgb(226, 230, 226); border-radius: 8px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; background: rgb(255, 255, 255); cursor: pointer;"
+      >
+        <option
+          value="list"
+        >
+          View: List
+        </option>
+        <option
+          value="kanban"
+        >
+          View: Board
+        </option>
+        <option
+          value="person"
+        >
+          View: Person
+        </option>
+      </select>
+      <div
+        style="flex: 1 1 0%;"
+      />
+      <span
+        style="font-size: 12px; color: rgb(107, 114, 128);"
+      >
+        Sort by:
+      </span>
+      <select
+        style="padding: 7px 10px; font-size: 12px; border: 1px solid rgb(226, 230, 226); border-radius: 8px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; background: rgb(255, 255, 255); font-weight: 600; cursor: pointer;"
+      >
+        <option
+          value="default"
+        >
+          Deadline
+        </option>
+        <option
+          value="ask"
+        >
+          Amount
+        </option>
+        <option
+          value="priority"
+        >
+          Priority
+        </option>
+        <option
+          value="fit"
+        >
+          Fit score
+        </option>
+      </select>
+      <div
+        data-tour="scout-button"
+        style="display: flex; align-items: center; gap: 0px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(74, 124, 89, 0.25);"
+      >
+        <button
+          style="padding: 7px 14px; font-size: 12px; font-weight: 700; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; background: rgb(74, 124, 89); color: rgb(255, 255, 255); border: medium; cursor: pointer;"
+        >
+          ☀ Scout
+        </button>
+        <select
+          style="padding: 7px 6px; font-size: 11px; font-weight: 600; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-width: medium medium medium 1px; border-style: none none none solid; border-color: currentcolor currentcolor currentcolor rgba(74, 124, 89, 0.19); border-image: none; background: rgb(237, 245, 240); color: rgb(74, 124, 89); cursor: pointer; outline: none;"
+        >
+          <option
+            value="both"
+          >
+            🌐 All
+          </option>
+          <option
+            value="sa"
+          >
+            🇿🇦 SA
+          </option>
+          <option
+            value="global"
+          >
+            🌍 Global
+          </option>
+        </select>
+      </div>
+      <button
+        style="padding: 6px 12px; border: 1px rgba(37, 99, 235, 0.19); font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: transparent; color: rgb(37, 99, 235);"
+      >
+        🔗 URL
+      </button>
+      <button
+        style="padding: 6px 12px; border: 1px rgba(193, 120, 23, 0.19); font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: transparent; color: rgb(193, 120, 23); animation: none;"
+      >
+        ⚡ Score All
+      </button>
+      <button
+        style="padding: 6px 12px; border: 1px solid rgb(226, 230, 226); font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: transparent; color: rgb(107, 114, 128);"
+      >
+        CSV
+      </button>
+      <button
+        style="padding: 6px 12px; border-width: 1px; border-style: solid; border-image: none; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: transparent; color: rgb(107, 114, 128);"
+      >
+        Select
+      </button>
+    </div>
+    <div
+      data-tour="pipeline-filters"
+      style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px; padding: 8px 14px; background: rgb(255, 255, 255); border-radius: 10px; border: 1px solid rgb(226, 230, 226); flex-wrap: wrap;"
+    >
+      <button
+        style="padding: 5px 12px; border-radius: 100px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; border: medium; background: rgb(220, 252, 231); color: rgb(22, 163, 74);"
+      >
+        ● Open 
+        3
+      </button>
+      <button
+        style="padding: 5px 12px; border-radius: 100px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; border: medium; background: rgb(254, 245, 231); color: rgb(193, 120, 23);"
+      >
+        ● Due soon 
+        0
+      </button>
+      <div
+        style="width: 1px; height: 20px; background: rgb(226, 230, 226); margin: 0px 4px; flex-shrink: 0;"
+      />
+      <button
+        style="padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; border: 1px solid rgb(226, 230, 226); background: rgb(255, 255, 255); color: rgb(107, 114, 128);"
+      >
+        New this week
+      </button>
+      <button
+        style="padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; border: 1px solid rgb(226, 230, 226); background: rgb(255, 255, 255); color: rgb(107, 114, 128);"
+      >
+        Due this month
+      </button>
+      <button
+        style="padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; border: 1px solid rgb(226, 230, 226); background: rgb(255, 255, 255); color: rgb(107, 114, 128);"
+      >
+        No deadline
+      </button>
+      <button
+        style="padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; border: 1px solid rgb(226, 230, 226); background: rgb(255, 255, 255); color: rgb(107, 114, 128);"
+      >
+        No draft
+      </button>
+      <button
+        style="padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s ease; border: 1px solid rgb(226, 230, 226); background: rgb(255, 255, 255); color: rgb(107, 114, 128);"
+      >
+        Unassigned
+      </button>
+      <div
+        style="flex: 1 1 0%;"
+      />
+      <div
+        style="display: flex; gap: 4px; align-items: center; flex-shrink: 0;"
+      >
+        <button
+          style="width: 28px; height: 28px; border-radius: 50%; padding: 0px; border: 2px solid transparent; background: rgb(109, 40, 217); color: rgb(255, 255, 255); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s; opacity: 0.5; box-shadow: none;"
+          title="Alison Jacobson"
+        >
+          AJ
+        </button>
+        <button
+          style="width: 28px; height: 28px; border-radius: 50%; padding: 0px; border: 2px solid transparent; background: rgb(193, 120, 23); color: rgb(255, 255, 255); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; transition: all 0.15s; opacity: 0.5; box-shadow: none;"
+          title="David Kramer"
+        >
+          DK
+        </button>
+      </div>
+    </div>
+    <div
+      style="margin-bottom: 14px; background: rgb(255, 255, 255); border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); overflow: hidden;"
+    >
+      <div
+        style="display: flex; gap: 0px; border-bottom: 1px solid rgb(226, 230, 226);"
+      >
+        <div
+          style="flex: 1 1 0%; padding: 10px 16px; font-size: 11px; font-weight: 700; color: rgb(74, 124, 89); border-bottom: 2px solid rgb(74, 124, 89); text-align: center; letter-spacing: 0.5px; cursor: default;"
+        >
+          1
+          . 
+          Grant & Funder
+        </div>
+        <div
+          style="flex: 1 1 0%; padding: 10px 16px; font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); border-bottom: 2px solid transparent; text-align: center; letter-spacing: 0.5px; cursor: default;"
+        >
+          2
+          . 
+          Programme & Ask
+        </div>
+        <div
+          style="flex: 1 1 0%; padding: 10px 16px; font-size: 11px; font-weight: 700; color: rgb(107, 114, 128); border-bottom: 2px solid transparent; text-align: center; letter-spacing: 0.5px; cursor: default;"
+        >
+          3
+          . 
+          AI Actions
+        </div>
+      </div>
+      <div
+        style="padding: 14px 18px;"
+      >
+        <div>
+          <div
+            style="display: flex; gap: 8px; margin-bottom: 10px;"
+          >
+            <input
+              placeholder="Grant name"
+              style="flex: 2 1 0%; padding: 8px 12px; font-size: 13px; border: 1px solid rgb(226, 230, 226); border-radius: 8px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+              value=""
+            />
+            <input
+              list="funder-suggestions"
+              placeholder="Funder name"
+              style="flex: 1.5 1 0%; padding: 8px 12px; font-size: 13px; border: 1px solid rgb(226, 230, 226); border-radius: 8px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;"
+              value=""
+            />
+            <datalist
+              id="funder-suggestions"
+            >
+              <option
+                value="GIDF"
+              />
+              <option
+                value="CCBA"
+              />
+              <option
+                value="RMB"
+              />
+              <option
+                value="DGMT"
+              />
+            </datalist>
+          </div>
+          <div
+            style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;"
+          >
+            <select
+              style="padding: 8px 12px; font-size: 11px; border: 1px solid rgb(226, 230, 226); border-radius: 8px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; flex: 1 1 0%; min-width: 120px;"
+            >
+              <option
+                value="Foundation"
+              >
+                Foundation
+              </option>
+              <option
+                value="Corporate CSI"
+              >
+                Corporate CSI
+              </option>
+            </select>
+            <input
+              style="padding: 8px 12px; font-size: 11px; border: 1px solid rgb(226, 230, 226); border-radius: 8px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; width: 140px;"
+              type="date"
+              value=""
+            />
+            <select
+              style="padding: 8px 12px; font-size: 11px; border: 1px solid rgb(226, 230, 226); border-radius: 8px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; width: 90px;"
+            >
+              <option
+                value="Cold"
+              >
+                Cold
+              </option>
+              <option
+                value="Warm"
+              >
+                Warm
+              </option>
+              <option
+                value="Hot"
+              >
+                Hot
+              </option>
+            </select>
+            <div
+              style="display: flex; gap: 0px; border-radius: 6px; overflow: hidden; border: 1px solid rgb(226, 230, 226);"
+            >
+              <button
+                style="padding: 6px 12px; font-size: 10px; font-weight: 700; border: medium; cursor: pointer; background: rgb(74, 124, 89); color: rgb(255, 255, 255);"
+              >
+                🇿🇦 SA
+              </button>
+              <button
+                style="padding: 6px 12px; font-size: 10px; font-weight: 700; border: medium; cursor: pointer; background: rgb(255, 255, 255); color: rgb(107, 114, 128);"
+              >
+                🌍 Global
+              </button>
+            </div>
+          </div>
+          <div
+            style="display: flex; gap: 8px; align-items: center;"
+          >
+            <select
+              style="padding: 8px 12px; font-size: 12px; border: 1px solid rgb(226, 230, 226); border-radius: 8px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; color: rgb(75, 85, 99); background: white;"
+            >
+              <option
+                value="scout"
+              >
+                Scout
+              </option>
+              <option
+                value="email"
+              >
+                Email
+              </option>
+              <option
+                value="relationship"
+              >
+                Relationship
+              </option>
+              <option
+                value="website"
+              >
+                Website
+              </option>
+              <option
+                value="referral"
+              >
+                Referral
+              </option>
+              <option
+                value="other"
+              >
+                Other
+              </option>
+            </select>
+            <input
+              placeholder="Application URL (optional)"
+              style="flex: 1 1 0%; padding: 8px 12px; font-size: 12px; border: 1px solid rgb(226, 230, 226); border-radius: 8px; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; color: rgb(75, 85, 99);"
+              value=""
+            />
+            <button
+              disabled=""
+              style="padding: 8px 18px; border: medium; font-size: 12px; font-weight: 600; cursor: not-allowed; opacity: 0.4; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: rgb(74, 124, 89); color: rgb(255, 255, 255); box-shadow: 0 1px 4px #4A7C5933;"
+            >
+              Next
+            </button>
+            <button
+              style="padding: 7px 14px; border: 1px solid rgb(226, 230, 226); font-size: 12px; font-weight: 600; cursor: pointer; opacity: 1; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 8px; transition: all 0.15s ease; letter-spacing: 0.1px; background: transparent; color: rgb(75, 85, 99);"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      data-testid="scout-stub"
+    />
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); border: 1px solid rgb(226, 230, 226);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; border-bottom: 1px solid rgb(226, 230, 226); background: rgb(248, 250, 248);"
+      >
+        <div
+          style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: rgb(107, 114, 128);"
+        >
+          <span
+            style="font-weight: 600;"
+          >
+            Sort by:
+          </span>
+          <select
+            style="font-size: 12px; font-weight: 600; font-family: "Outfit", "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif; border: medium; background: transparent; color: rgb(17, 17, 17); cursor: pointer; outline: none;"
+          >
+            <option
+              value="default"
+            >
+              Deadline
+            </option>
+            <option
+              value="ask"
+            >
+              Amount
+            </option>
+            <option
+              value="priority"
+            >
+              Priority
+            </option>
+            <option
+              value="fit"
+            >
+              Fit score
+            </option>
+          </select>
+        </div>
+      </div>
+      <div
+        data-tour="grant-card"
+        style="display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid rgb(226, 230, 226); cursor: pointer; transition: background 0.15s; background: transparent;"
+      >
+        <span
+          style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; font-size: 11.52px; font-weight: 700; color: rgb(109, 40, 217); background: rgb(243, 240, 255); border-radius: 9.6px; flex-shrink: 0; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+          title="Alison Jacobson"
+        >
+          AJ
+        </span>
+        <div
+          style="flex: 1 1 0%; min-width: 0px;"
+        >
+          <div
+            style="font-size: 14px; font-weight: 600; color: rgb(17, 17, 17); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+          >
+            Corporate Accelerator
+          </div>
+          <div
+            style="font-size: 12px; color: rgb(107, 114, 128); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+          >
+            CCBA
+          </div>
+        </div>
+        <div
+          style="flex-shrink: 0; text-align: right; min-width: 80px;"
+        >
+          <span
+            style="font-size: 13px; font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(17, 17, 17); background: rgb(238, 241, 238); padding: 2px 8px; border-radius: 6px;"
+          >
+            R651K
+          </span>
+        </div>
+        <div
+          style="flex-shrink: 0; min-width: 110px; text-align: right;"
+        >
+          <span
+            style="font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 100px; color: rgb(107, 114, 128); background: rgb(238, 241, 238); white-space: nowrap;"
+          >
+            58d left
+          </span>
+        </div>
+        <div
+          style="flex-shrink: 0; min-width: 130px; display: flex; align-items: center; justify-content: flex-end; gap: 6px;"
+        >
+          <span
+            style="font-size: 12px; color: rgb(107, 114, 128);"
+          >
+            Assigned to 
+            <b
+              style="color: rgb(28, 28, 28);"
+            >
+              Alison Jacobson
+            </b>
+          </span>
+          <span
+            style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 8.64px; font-weight: 700; color: rgb(109, 40, 217); background: rgb(243, 240, 255); border-radius: 7.199999999999999px; flex-shrink: 0; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+            title="Alison Jacobson"
+          >
+            AJ
+          </span>
+        </div>
+        <span
+          style="font-size: 14px; color: rgb(107, 114, 128); flex-shrink: 0;"
+        >
+          ›
+        </span>
+      </div>
+      <div
+        style="display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid rgb(226, 230, 226); cursor: pointer; transition: background 0.15s; background: transparent;"
+      >
+        <span
+          style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; font-size: 11.52px; font-weight: 700; color: rgb(109, 40, 217); background: rgb(243, 240, 255); border-radius: 9.6px; flex-shrink: 0; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+          title="Alison Jacobson"
+        >
+          AJ
+        </span>
+        <div
+          style="flex: 1 1 0%; min-width: 0px;"
+        >
+          <div
+            style="font-size: 14px; font-weight: 600; color: rgb(17, 17, 17); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+          >
+            Youth Skills 2026
+          </div>
+          <div
+            style="font-size: 12px; color: rgb(107, 114, 128); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+          >
+            GIDF
+          </div>
+        </div>
+        <div
+          style="flex-shrink: 0; text-align: right; min-width: 80px;"
+        >
+          <span
+            style="font-size: 13px; font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(17, 17, 17); background: rgb(238, 241, 238); padding: 2px 8px; border-radius: 6px;"
+          >
+            R5.0M
+          </span>
+        </div>
+        <div
+          style="flex-shrink: 0; min-width: 110px; text-align: right;"
+        >
+          <span
+            style="font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 100px; color: rgb(107, 114, 128); background: rgb(238, 241, 238); white-space: nowrap;"
+          >
+            104d left
+          </span>
+        </div>
+        <div
+          style="flex-shrink: 0; min-width: 130px; display: flex; align-items: center; justify-content: flex-end; gap: 6px;"
+        >
+          <span
+            style="font-size: 12px; color: rgb(107, 114, 128);"
+          >
+            Assigned to 
+            <b
+              style="color: rgb(28, 28, 28);"
+            >
+              Alison Jacobson
+            </b>
+          </span>
+          <span
+            style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 8.64px; font-weight: 700; color: rgb(109, 40, 217); background: rgb(243, 240, 255); border-radius: 7.199999999999999px; flex-shrink: 0; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+            title="Alison Jacobson"
+          >
+            AJ
+          </span>
+        </div>
+        <span
+          style="font-size: 14px; color: rgb(107, 114, 128); flex-shrink: 0;"
+        >
+          ›
+        </span>
+      </div>
+      <div
+        style="display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid rgb(226, 230, 226); cursor: pointer; transition: background 0.15s; background: transparent;"
+      >
+        <span
+          style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; font-size: 11.52px; font-weight: 700; color: rgb(193, 120, 23); background: rgb(254, 245, 231); border-radius: 9.6px; flex-shrink: 0; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+          title="David Kramer"
+        >
+          DK
+        </span>
+        <div
+          style="flex: 1 1 0%; min-width: 0px;"
+        >
+          <div
+            style="font-size: 14px; font-weight: 600; color: rgb(17, 17, 17); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+          >
+            Board Initiative
+          </div>
+          <div
+            style="font-size: 12px; color: rgb(107, 114, 128); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+          >
+            RMB
+          </div>
+        </div>
+        <div
+          style="flex-shrink: 0; text-align: right; min-width: 80px;"
+        >
+          <span
+            style="font-size: 13px; font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(17, 17, 17); background: rgb(238, 241, 238); padding: 2px 8px; border-radius: 6px;"
+          >
+            R516K
+          </span>
+        </div>
+        <div
+          style="flex-shrink: 0; min-width: 110px; text-align: right;"
+        >
+          <span
+            style="font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 100px; color: rgb(107, 114, 128); background: rgb(238, 241, 238); white-space: nowrap;"
+          >
+            105d left
+          </span>
+        </div>
+        <div
+          style="flex-shrink: 0; min-width: 130px; display: flex; align-items: center; justify-content: flex-end; gap: 6px;"
+        >
+          <span
+            style="font-size: 12px; color: rgb(107, 114, 128);"
+          >
+            Assigned to 
+            <b
+              style="color: rgb(28, 28, 28);"
+            >
+              David Kramer
+            </b>
+          </span>
+          <span
+            style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 8.64px; font-weight: 700; color: rgb(193, 120, 23); background: rgb(254, 245, 231); border-radius: 7.199999999999999px; flex-shrink: 0; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+            title="David Kramer"
+          >
+            DK
+          </span>
+        </div>
+        <span
+          style="font-size: 14px; color: rgb(107, 114, 128); flex-shrink: 0;"
+        >
+          ›
+        </span>
+      </div>
+      <div
+        style="display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid rgb(226, 230, 226); cursor: pointer; transition: background 0.15s; background: transparent;"
+      >
+        <span
+          style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; font-size: 11.52px; font-weight: 700; color: rgb(109, 40, 217); background: rgb(243, 240, 255); border-radius: 9.6px; flex-shrink: 0; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+          title="Alison Jacobson"
+        >
+          AJ
+        </span>
+        <div
+          style="flex: 1 1 0%; min-width: 0px;"
+        >
+          <div
+            style="font-size: 14px; font-weight: 600; color: rgb(17, 17, 17); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+          >
+            FET Programme
+          </div>
+          <div
+            style="font-size: 12px; color: rgb(107, 114, 128); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+          >
+            DGMT
+          </div>
+        </div>
+        <div
+          style="flex-shrink: 0; text-align: right; min-width: 80px;"
+        >
+          <span
+            style="font-size: 13px; font-weight: 700; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace; color: rgb(17, 17, 17); background: rgb(238, 241, 238); padding: 2px 8px; border-radius: 6px;"
+          >
+            R1.1M
+          </span>
+        </div>
+        <div
+          style="flex-shrink: 0; min-width: 110px; text-align: right;"
+        >
+          <span
+            style="font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 100px; color: rgb(16, 185, 129); background: rgb(236, 253, 245); white-space: nowrap;"
+          >
+            Won
+          </span>
+        </div>
+        <div
+          style="flex-shrink: 0; min-width: 130px; display: flex; align-items: center; justify-content: flex-end; gap: 6px;"
+        >
+          <span
+            style="font-size: 12px; color: rgb(107, 114, 128);"
+          >
+            Assigned to 
+            <b
+              style="color: rgb(28, 28, 28);"
+            >
+              Alison Jacobson
+            </b>
+          </span>
+          <span
+            style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 8.64px; font-weight: 700; color: rgb(109, 40, 217); background: rgb(243, 240, 255); border-radius: 7.199999999999999px; flex-shrink: 0; font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;"
+            title="Alison Jacobson"
+          >
+            AJ
+          </span>
+        </div>
+        <span
+          style="font-size: 14px; color: rgb(107, 114, 128); flex-shrink: 0;"
+        >
+          ›
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
 exports[`Pipeline — kanban (Board) view — guards ReadinessChips + GateIndicator > DOM snapshot — Board view (golden master) 1`] = `
 <div>
   <div
