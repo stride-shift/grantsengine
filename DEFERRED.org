@@ -35,9 +35,12 @@ code that misbehaves), unless noted.
 | =addD(date, n)= is timezone-sensitive | =src/utils.js= ~L297 | =new Date("YYYY-MM-DD")= parses as UTC midnight but =.setDate()= reads/writes local time, so a follow-up cadence date can land a day off behind UTC. | Phase 7: switch to UTC methods, then pin with a test. Deliberately untested for now (a TZ assertion would be flaky). |
 
 Broader defect inventory (security, deploy, a11y, prompt-engineering) is catalogued
-in =EVALUATION.md= (the 25-agent evaluation report). That report is the canonical
-home for those findings; they are not re-listed here. The three rows above are the
-defects specifically surfaced by, and parked during, the cleanup effort.
+in =EVALUATION.md= (the 25-agent evaluation report, *reconciled 2026-06-19* against
+current code — the 1 Critical + all 8 Highs and most Mediums are now resolved; its
+§2 holds the live punch-list). That report is the canonical home for those findings;
+they are not re-listed here. The three rows above are confirmed *still live* and map
+to =EVALUATION.md= §2: =scoutPrompt= import → A1, =funderStrategy= mapping → B8,
+=addD= timezone → A5.
 
 * Intentionally Parked / Coupled (deliberately left as-is pending an owner decision)
 
@@ -68,7 +71,7 @@ Logic and infrastructure work explicitly out of scope for the cleanup. Lifecycle
 | Item | Status | Reactivation / trigger |
 |------|--------|------------------------|
 | Multi-tenant / d-lab decoupling | Dormant — the app is hard-wired to the d-lab NPC profile (=src/data/context.js=, financial model in =CLAUDE.md=). | Triggered when a second tenant is onboarded; decouple org context + financial constants from code into per-tenant config. |
-| AI cost controls (retry coverage, JSON-mode for search prompts) | Dormant — server-side =callOpenAI= has no retry; search-grounded prompts never enable JSON mode (see =EVALUATION.md=). | Triggered by cost/reliability pain at scale: add retry/backoff + JSON mode to =server/routes/ai.js=. |
+| AI cost controls (JSON-mode for search prompts) | Partly resolved — server-side retry is now FIXED (=fetchWithRetry= in =server/routes/ai.js=); what remains dormant is JSON mode on search-grounded prompts (=EVALUATION.md= B3). | Triggered by cost/reliability pain at scale: add JSON mode / lenient parse on the Responses-API search path. |
 | TypeScript adoption | Dormant — React 18, no TS (Decision D1, parked as a Phase-7+ multiplier). | Triggered after the god-files are split and modules are stable; introduce incrementally. |
 | =src/api.js= → =services/*= split | Assessed, *not* taken — =api.js= is already a clean, domain-sectioned service module (~611 ln). | Trigger: owner explicitly wants it. Cost is a broad import-rewrite of every call site for low value; =src/services/= is reserved (Phase 2) but empty. |
 | Supabase secret rotation + audit-log review | Dormant — needs the dashboard owner. The leaked PAT is the Critical finding in =EVALUATION.md= (canonical). | Trigger: immediate for the leaked token (revoke/rotate/purge history); audit-log review follows. Needs Supabase dashboard access. |

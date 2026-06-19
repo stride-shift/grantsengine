@@ -1,7 +1,7 @@
 # Grant Engine — Codebase Cleanup Working Document
 
 > **Status:** Living plan, executing phase by phase. · **Owner:** Johannes (D-Lab)
-> **Last updated:** 2026-06-19 · **Suite:** 186 tests green, build passing. History tracked on branch `johannes-plumbing` (Phases 0–4.6e committed + pushed to `stride-shift/grantsengine`).
+> **Last updated:** 2026-06-19 · **Suite:** 186 tests green, build passing. History tracked on branch `johannes-plumbing` (Phases 0–6 committed + pushed to `stride-shift/grantsengine`). **Phases 0–6 complete** (structure + docs); EVALUATION.md reconciled to current code — Phase 7 punch-list lives there (§2).
 
 ---
 
@@ -180,13 +180,35 @@ Per the owner's "finish 4.6 with the decoupling, **then docs**," **Phase 4.6 is 
 has reached its clean stopping point. **Next: Phase 6 docs.** The coupled bodies (GrantDetail
 engagement-mode/clone-cycle, Dashboard AI-tools) are the higher-risk optional tail.
 
-### Phase 6 — Integrate the `.org` Doc System + proper `CLAUDE.md` rewrite
-Do this **after** the god files are split (modules stable). Generating `quick_reference.org` / `README.org` earlier
-= documenting a structure we're about to demolish. Includes the full `CLAUDE.md` rewrite (Phase 0 only did a
-lightweight fact-fix) and fixing `README.md`'s stale file-tree diagram.
+### Phase 6 — Integrate the `.org` Doc System + proper `CLAUDE.md` rewrite  ✅ **DONE (2026-06-19)**
+Full `.org` doc system committed (engine `116dd8b` + instance `3ddc1f9`): 4 Level-1A + 3 Level-1B + 6 QRs,
+`CLAUDE.md` slimmed to a thin pointer, `README.md` replaced with a GitHub stub. Modules were stable first
+(done after the god-file splits), so the docs describe the real structure, not a demolished one.
 
-### Phase 7+ — Logic Work (OUT OF SCOPE; parked)
-See §7. Includes the two suspected bugs found during cleanup — **do not fix mid-structural-work.**
+### Phase 6.5 — Doc reconciliation  ✅ **DONE (2026-06-19)**
+Re-validated the stale `EVALUATION.md` (a pre-cleanup 25-agent report) against current code via a
+6-dimension read-only pass + spot-checks. **Outcome: the 1 Critical + all 8 High findings are already
+resolved** (a ≈Jun-17 hardening pass — `ssrfGuard.js`, `requireDirector`, gcal/`refProposals` fixes — plus
+the Phases 0–6 cleanup), and most Mediums too. `EVALUATION.md` rewritten to lead with verified current
+state; the real remaining work is its **§2 punch-list**. `DEFERRED.org` pointers confirmed.
+
+### Phase 6.7 — Prompt files → data (move-only)  *(next, before logic work)*
+Convert `src/prompts/*.js` builders toward data-out-of-code (e.g. YAML) **behaviour-preserving**, behind the
+existing golden-master snapshot net (`useAI.prompts.snapshot`). Net first, byte-identical output, net stays
+green. Owner-requested structural tail; still "respectable, not reimagined."
+
+### Phase 7 — Logic Work  *(reconciled — see `EVALUATION.md` §2 for the live punch-list)*
+**No longer the large effort the old plan feared** — most of it was already fixed (Phase 6.5). What remains
+is small and splits two ways:
+- **Track A — plumber-grade** (defects vs. the code's own intent; pin a test first, then fix): the broken
+  `scout.js` import (crashes nightly scout), a few a11y items (keyboard-operable cards, wizard labels),
+  `callClaude` `stop_reason`, `addD` UTC, `playwright-service/.gitignore`, lockfile (owner-run). See §7.
+- **Track B — owner/creator decisions** (behaviour/intent or infra; parked as written questions, never
+  silently resolved): scout funder-dedupe, reminder catch-up, JSON-mode, scraper injection, TLS verify,
+  public ICS feed, seed password, `funderStrategy` mapping, Supabase token rotation. See §7 + `DEFERRED.org`.
+
+**Discipline unchanged:** Track-A behaviour changes are *not* move-only, so each is pinned by a test net
+*first* (its own commit), then fixed (separate commit). Track-B stays parked until the owner adjudicates.
 
 ---
 
@@ -198,17 +220,21 @@ See §7. Includes the two suspected bugs found during cleanup — **do not fix m
 ---
 
 ## 7. Parking Lot (explicitly NOT now)
-- Downstream Supabase secret rotation + audit-log review (needs dashboard owner).
-- Multi-tenant / d-lab decoupling; AI cost controls, retry coverage, JSON-mode for search prompts.
-- Remaining a11y mediums beyond what the creator shipped; TypeScript migration.
+Reconciled 2026-06-19 — the live Phase-7 punch-list is canonical in **`EVALUATION.md` §2** (Track A
+plumber-grade / Track B owner-decision); this list is the structural/strategic parking only.
+- Downstream Supabase secret rotation + audit-log review (needs dashboard owner) → `EVALUATION.md` B9.
+- Multi-tenant / d-lab decoupling; JSON-mode for search prompts (→ B3). *(Server retry coverage is now
+  FIXED — `fetchWithRetry` — no longer parked.)*
+- Remaining a11y items beyond what the creator shipped (→ A2/A3/A7); TypeScript migration.
 - `api.js` → `services/*` split (assessed, low value-per-risk — only if owner wants it).
 
-### Suspected logic bugs found during cleanup (Phase 7 — pinned by tests, do NOT fix now)
-- **`funderStrategy` type→structure mapping is dead for unknown funders** (`funderStrategy.js` ~L188):
-  `funderHasFullStructure` treats any `sections` list containing `"budget"` as a full structure, but the generic
-  default sections already contain `"Budget"`, so the `structures` table is never consulted for funders without
-  hand-written intel. The `|| includes("budget")` clause looks accidental. *Pinned by characterization tests in
-  `funderStrategy.test.js` (marked CURRENTLY…).*
-- **`addD(date, n)` is timezone-sensitive** (`utils.js` ~L297): `new Date("YYYY-MM-DD")` parses as UTC midnight but
-  `.setDate()` reads/writes local time → can land a day off behind UTC. Used for follow-up cadence dates.
-  Deliberately untested (a TZ assertion would be flaky). Fix via UTC methods in Phase 7, then pin.
+### Suspected logic bugs found during cleanup (Phase 7 — pinned by tests, do NOT fix mid-structural-work)
+Now tracked alongside the rest in `EVALUATION.md` §2; restated here for cleanup lineage.
+- **`funderStrategy` type→structure mapping is dead for unknown funders** (`funderStrategy.js` ~L188) →
+  `EVALUATION.md` **B8** (owner-decision). `funderHasFullStructure` treats any `sections` list containing
+  `"budget"` as a full structure, but the generic default sections already contain `"Budget"`, so the
+  `structures` table is never consulted for funders without hand-written intel. The `|| includes("budget")`
+  clause looks accidental. *Pinned by characterization tests in `funderStrategy.test.js` (marked CURRENTLY…).*
+- **`addD(date, n)` is timezone-sensitive** (`utils.js` ~L297) → `EVALUATION.md` **A5** (plumber-grade).
+  `new Date("YYYY-MM-DD")` parses as UTC midnight but `.setDate()` reads/writes local time → can land a day
+  off behind UTC. Deliberately untested (a TZ assertion would be flaky). Fix via UTC methods, then pin.
