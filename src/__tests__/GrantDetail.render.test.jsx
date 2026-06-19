@@ -87,9 +87,17 @@ const renderDetail = (g, h) =>
     />
   );
 
+// jsdom has no layout, so Element.prototype.scrollIntoView is undefined. The context
+// sidebar's "Jump to" anchors and the status strip's readiness button both call it on a
+// resolved data-tour target. Stub it per-test so we can assert the scroll wiring fires —
+// this is the behaviour-survival guard for the Phase 4.6 extraction of those two bodies into
+// props-only sub-components (the snapshot proves output-per-prop; this proves the handler).
+let scrollSpy;
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-06-18T09:00:00Z"));
+  scrollSpy = vi.fn();
+  Element.prototype.scrollIntoView = scrollSpy;
 });
 afterEach(() => vi.useRealTimers());
 
@@ -115,6 +123,24 @@ describe("GrantDetail — early stage (scouted)", () => {
       h
     );
     expect(container).toMatchSnapshot();
+  });
+});
+
+describe("GrantDetail — scroll-anchor handlers (guard the sidebar + status-strip extraction)", () => {
+  it("context sidebar 'Jump to' anchor scrolls its target into view", () => {
+    const h = handlers();
+    renderDetail(grant({ id: "g1", name: "Youth Skills 2026", stage: "drafting" }), h);
+    expect(scrollSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("→ About this grant"));
+    expect(scrollSpy).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
+  });
+
+  it("status strip readiness button scrolls to outstanding actions", () => {
+    const h = handlers();
+    renderDetail(grant({ id: "g1", name: "Youth Skills 2026", stage: "drafting" }), h);
+    expect(scrollSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTitle("Jump to outstanding actions"));
+    expect(scrollSpy).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
   });
 });
 
