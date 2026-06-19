@@ -1,0 +1,198 @@
+#+TITLE: src/components - Quick Reference
+#+DATE: 2026-06-19
+
+# NOTE: Largest module in the project. Content here is genuine non-obvious
+# material (presentational/state-down contract, *Parts extractions, AI-host map,
+# token usage). If it grows further it may warrant a split (e.g. UI primitives vs
+# major views vs AI panels) — flag during doc-sync; do not split unprompted.
+
+* Overview
+
+The React component layer for the d-lab Grant Engine: UI primitives (defined in
+=index.jsx=), major views (Dashboard / Pipeline / GrantDetail / Calendar /
+Funders / Archive / Admin / Settings / DocVault / Freebies), and the AI-feature
+panels (Scout, AutoFill, ProposalWorkspace, etc.). All components are
+*presentational* — application state lives in =App.jsx= and is passed down;
+mutations route through prop helpers (see Key Patterns). No CSS framework: every
+style is inline, sourced from the =C= token object in =src/theme.js=.
+
+* Components
+
+** UI Primitives & Composites (=index.jsx= barrel)
+
+=index.jsx= is the primitives barrel — it defines and exports the small reusable
+pieces below; it does NOT re-export the major views. Major views are imported
+directly by =App.jsx= from their own files.
+
+| Primitive | Purpose |
+|-----------|---------|
+| Btn | Button; =v= variant: primary/ghost/muted/danger/success |
+| Tag | Inline coloured label on tinted background |
+| Label | Uppercase fieldset header |
+| Avatar | Initials circle, deterministic colour from name hash |
+| RoleBadge | director/board/head-of-prog/prog-manager pill |
+| TypeBadge | Funder-type pill (Foundation/Corporate/SETA/etc.) |
+| DeadlineBadge | Stage-aware deadline urgency badge (red/amber/ok + pulse) |
+| Sparkline | Mini inline SVG line chart |
+| Num | Metric card: label + big value + optional sparkline |
+| Timeline | Deadline-banded grant kanban (This Week / Next 2W / …) |
+| CopyBtn | Copy-to-clipboard, shows "✓ Copied" for 2s |
+| DownloadBtn / downloadDoc | Proposal export bar + download helper |
+| AICard | Collapsible AI panel: run / busy / result / error states |
+| AILoadingPanel | Pulsing steps + progress bar + rotating tips |
+| AI_LOAD_STEPS | Per-action contextual loading-step messages |
+| stripMd / timeAgo | Markdown-strip + relative-time text helpers |
+
+** Major Views
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Dashboard | Dashboard.jsx | Home view: KPIs, urgency cards, AI intelligence panels |
+| Pipeline | Pipeline.jsx | Kanban/list/person views, filters, batch ops, CSV export |
+| GrantDetail | GrantDetail.jsx | Single-grant deep editor; orchestrates the AI panels |
+| Calendar | Calendar.jsx | Month/week/list deadline + follow-up calendar; ICS export |
+| Funders | Funders.jsx | Per-funder relationship cards, strategy preview, owner assign |
+| Archive | Archive.jsx | Read-only browser of closed proposals (won/lost/deferred) |
+| Admin | Admin.jsx | Team mgmt, sessions, login history, activity feed, AI reset |
+| Settings | Settings.jsx | Org branding, knowledge-base editor, compliance docs, integrations |
+| DocVault | DocVault.jsx | Org document library + "AI References" marking |
+| Freebies | Freebies.jsx | Static nonprofit-resources directory (data/freebies.js) |
+| OrgSelector | OrgSelector.jsx | Org pick / create / (admin) delete; favicon-fetch logo step |
+| Login | Login.jsx | Multi-step auth (pick member → password → setup/forgot/reset) |
+
+** AI-Feature Panels
+
+| Component | File | AI feature it surfaces |
+|-----------|------|------------------------|
+| ScoutPanel | ScoutPanel.jsx | Grant scouting (=scoutPrompt= / =scoutBriefPrompt=), fit-score, rejection-learning |
+| AutoFillPanel | AutoFillPanel.jsx | Required-doc extraction, apply-URL search, form-field detection, proposal assembly |
+| ProposalWorkspace | ProposalWorkspace.jsx | Funder research + per-section draft (single / generate-all) |
+| BudgetBuilder | BudgetBuilder.jsx | Budget calculator (NO AI; the budget is the anti-hallucination source of truth) |
+| Vetting | Vetting.jsx | 4-item pre-pipeline vetting checklist (NO AI; displays fit score) |
+| AddGrantWizard | AddGrantWizard.jsx | 3-step manual add; sets =_pendingAI= flag for parent to auto-run |
+
+** Chrome, Onboarding & Effects
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| GlobalSearch | GlobalSearch.jsx | Sidebar search over non-archived grants; opens detail |
+| OutstandingActions | OutstandingActions.jsx | Auto-detected + manual per-grant action checklist |
+| SectionCard | SectionCard.jsx | Single proposal-section editor (empty/loading/view/edit/error) |
+| UploadZone | UploadZone.jsx | Drag-drop file + YouTube-URL upload surface |
+| Toast | Toast.jsx | =ToastContext= provider + bottom-right toast stack (max 5) |
+| HelpButton | HelpButton.jsx | Context-aware help launcher (menu on Dashboard, tour elsewhere) |
+| JargonTip | JargonTip.jsx | Hover-tooltip jargon wrapper + =glossText()= auto-wrapper |
+| TourOverlay | TourOverlay.jsx | Guided tour: SVG-mask spotlight + repositioning tooltip |
+| WelcomeTutorial | WelcomeTutorial.jsx | First-login modal walkthrough (localStorage-gated) |
+| ErrorBoundary | ErrorBoundary.jsx | Class-based render-crash fallback with reload button |
+| NorthernLights | NorthernLights.jsx | Canvas aurora/starfield background, mouse-interactive |
+| SpiralAnimation | SpiralAnimation.jsx | Canvas spiral-tunnel animation (GSAP-driven) |
+
+** =*Parts.jsx= Extractions
+
+Each =*Parts.jsx= holds sub-components lifted OUT of its same-named parent. They
+are *module-scope, props-only presentational* pieces — extracted so the parent
+stays readable and (critically) so the sub-components keep *stable React
+identity* (see Constraints). Logic and AI state stay in the parent.
+
+| Parts file | Parent | What lives there |
+|------------|--------|------------------|
+| DashboardParts.jsx | Dashboard.jsx | Bar/Spark charts, Hd/Section/Card/Stat/HRow, AIBlock, FunderIntelCards |
+| GrantDetailParts.jsx | GrantDetail.jsx | Card/Hd/Field/ActivityRow, ContextSidebar, StatusStrip, StageBanner |
+| AutoFillPanelParts.jsx | AutoFillPanel.jsx | DownloadMenu, ApplicationDocuments, ProposalPreviewBlock, VaultPicker |
+| PipelineParts.jsx | Pipeline.jsx | ReadinessChips, GateIndicator (kanban-card helpers) |
+
+* Key Patterns
+
+** Presentational / State-Down Contract
+
+Components hold only *local UI state* (open/closed, active tab, edit buffers).
+All shared/grant state lives in =App.jsx= and is threaded down as props. The
+mutation helpers are also props — components never call the API directly:
+
+| Helper | Shape | Effect |
+|--------|-------|--------|
+| =up= | =up(id, { field: value })= | Updates a grant → PUT → Supabase |
+| =addL= | =addL(id, "text")= | Appends an activity-log entry |
+| =sB= | =sB("key", true/false)= | Sets an AI busy flag |
+| =sA= | =sA("key", value)= | Stores an AI result |
+
+*Gotcha*: inside =GrantDetail= the threaded =up= is *pre-bound to the current
+grant*, so it is called =up(field, value)= (2-arg) there — NOT =up(id, changes)=.
+The 2-arg form is grant-scoped sugar local to that view; the canonical app-level
+helper is the 3-arg =up(id, changes)=.
+
+** AI Data Flow (panels → state → persistence)
+
+AI panels invoke calls through =src/hooks/useAI.js= (see =hooks/quick_reference.org=
+for prompt/logic detail — not duplicated here). The UI contract:
+
+- Busy state written via =sB()=, result via =sA()=; =AICard= / =AILoadingPanel=
+  render the busy/result/error states from those.
+- Durable AI output is persisted onto the grant via =up()= (e.g.
+  =aiResearch=, =aiSections=, =aiFitscore=).
+- Session-scoped / cross-grant AI memory (scout brief, scout rejections,
+  proposal references) is stored via the KV helpers (=kvGet= / =kvSet=), NOT on
+  the grant record.
+- =AddGrantWizard= does not run AI itself: it stamps =_pendingAI= on the new
+  grant and =App.jsx= sequences the fit-score/research/draft runs afterward.
+
+** Design Tokens (=src/theme.js= =C= object)
+
+No CSS framework. Every colour/surface comes from the =C= token object imported
+from =src/theme.js=; styling is inline =style={{…}}=. The token table itself is
+canonical in =src/theme.js= and is not reproduced here. Exceptions: the dark auth
+screens (=Login=) and a few canvas effects use literal colours rather than =C=.
+Animation strategy: CSS transitions for chrome (tour, buttons, tooltips),
+=<style>=-injected =@keyframes= for small effects, and =<canvas>= (NorthernLights,
+SpiralAnimation) for the heavy backgrounds.
+
+** Funder / Programme Intelligence in the UI
+
+- =Funders= resolves a relationship owner two-tier: user-assigned KV
+  (=funder_owners=) wins over the hardcoded =REL_OWNERS= default; it calls
+  =funderStrategy(grant)= on a representative active grant for the strategy panel.
+- =BudgetBuilder= loads line items from =PTYPES[type].table= (the 8 real d-lab
+  programme types) and applies cohort/year multipliers; the 30% org-contribution
+  toggle and funder-budget utilisation warnings live here.
+
+* Constraints & Gotchas
+
+- *Stable-identity rule*: =SectionWrap= (in =GrantDetail=) and the =Section= /
+  chart helpers (in =DashboardParts=) are deliberately defined at *module scope*,
+  never inside the parent render. Redefining them per-render gives them a new
+  identity each frame, which remounts children and wipes their local state
+  (e.g. ProposalWorkspace's preview toggle). This is why the =*Parts= extractions
+  exist as standalone module functions.
+- =up()= is 3-arg (=up(id, changes)=) app-wide but *2-arg grant-bound*
+  (=up(field, value)=) inside =GrantDetail=. Do not mix them.
+- =ScoutPanel=: AI results with no URL are auto-filtered (hallucination shield);
+  grounding-redirect URLs are resolved before display; SA + Global searches are
+  *sequenced* (not parallel) to avoid hitting the model RPM limit; falls back to
+  =SCOUT_FALLBACK= if JSON parse fails; dedup uses normalised funder name + fuzzy
+  title match.
+- =AutoFillPanel=: form-field detection is NOT auto-triggered when the apply-URL
+  is missing — it is an explicit user action; the =generatingProposal= prop
+  auto-generates the proposal on first open (guarded by a useRef).
+- =ProposalWorkspace=: =generateAll= keeps a local =currentSections= copy while
+  persisting after each section to dodge a stale-closure bug; a recommended ask
+  is parsed from the budget section but is NEVER forced when =askSource= is
+  user-override / manual / budget-builder.
+- =BudgetBuilder=: the ask is not computed inline — it is written explicitly on
+  Save (=askSource="budget-builder"=); clearing the budget wipes =budgetTable= +
+  =askYears=, not just zeroes them.
+- =DocVault=: AI-reference IDs and category changes use non-CRUD endpoints
+  (KV store; =PUT …/uploads/:id/category=; =POST …/uploads/:id/reextract= as a
+  background text-extraction job).
+- =Toast= is a context provider (=useToast()=); max 5 toasts, oldest evicted;
+  timers held in refs and cleared on unmount.
+- =AddGrantWizard=: form state persists across modal open/close (gated by the
+  =open= prop, not conditional mount); queued files upload only AFTER the grant
+  is created.
+- =Settings= has no AI itself, but its knowledge-base content is loaded into
+  every AI prompt as =orgCtx= (via =useAI=) — editing it changes all AI output.
+- =Dashboard= reorders sections visually via CSS flex =order= (negative values),
+  not by moving JSX; intelligence panels gate on a minimum grant count.
+
+---
+/Last Updated/: 2026-06-19

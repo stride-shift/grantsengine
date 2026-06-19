@@ -1,0 +1,219 @@
+#+TITLE: Backend Service Overview
+#+DATE: 2026-06-19
+
+* Overview
+
+Express 5 backend for the d-lab Grant Engine. ESM throughout; env loaded via
+=dotenv= at boot (=index.js=). It is a *standalone JSON API* serving the React SPA
+under =/api=, with the Vite build served statically in production. Listens on
+=PORT= (default *3001*). Persistence is *Supabase PostgreSQL* via a lazy =pg.Pool=
+in =db.js= (no ORM — hand-written SQL helpers).
+
+The backend talks to *two AI providers*:
+- *OpenAI* — the app-wide AI proxy (=routes/ai.js=), proposal drafting, research,
+  form detection, document OCR. Detail: [[file:routes/quick_reference.org][routes/quick_reference.org]].
+- *Anthropic Claude (Haiku)* — the grant scraper's parse/verify path ONLY.
+  Detail: [[file:scraper/quick_reference.org][scraper/quick_reference.org]].
+
+Prompt CONTENT lives in the frontend (=src/prompts/=, =src/hooks/useAI.js=,
+=src/data=), not here — the backend is proxy + persistence + jobs.
+
+* Where Things Live
+
+| Area                     | Folder / file        | Role                                                        | Detail                                  |
+|--------------------------+----------------------+-------------------------------------------------------------+-----------------------------------------|
+| Entry / boot             | =index.js=           | dotenv → =app.listen= → =initDb= → buckets → auto-seed → cron | (this file, Boot Sequence)              |
+| App wiring               | =app.js=             | Express instance: security middleware, route mount, error handler | (this file, App Wiring)           |
+| DB seam                  | =db.js=              | Lazy =pg.Pool= + all SQL helpers; =initDb= runs =schema.sql=  | (this file, Database)                   |
+| HTTP routes              | =routes/=            | 8 routers mounted flat at =/api=; OpenAI proxy is the centrepiece | [[file:routes/quick_reference.org][routes/quick_reference.org]]              |
+| Grant scraper            | =scraper/=           | Discovers + parses external grant opportunities (Claude Haiku) | [[file:scraper/quick_reference.org][scraper/quick_reference.org]]            |
+| Background jobs          | =jobs/=              | Nightly auto-scout + deadline reminders (cron-driven)        | (this file, Background Jobs)             |
+| Request middleware       | =middleware/=        | =resolveOrg= (tenancy) + =requireAuth= (session)             | (this file, Middleware)                  |
+| File text extraction     | =extractors/=        | Buffer → text per MIME type; OpenAI vision OCR fallback      | (this file, Extractors)                  |
+| SSRF guard               | =lib/ssrfGuard.js=   | Blocks private/loopback/metadata IPs before any server fetch | (this file, lib)                         |
+| AI upload context        | =context.js=         | Builds budgeted context string from upload extracted-text    | (this file, Peripheral helpers)          |
+| Notifications            | =email.js=           | Resend-based transactional email + ICS calendar invites      | (this file, Peripheral helpers)          |
+| Seeding                  | =seed.js= / =seed-fn.js= | One-off + importable d-lab seed (org, team, pipeline, grants) | (this file, Peripheral helpers)        |
+| Deployment shim          | =../api/index.js=    | Vercel serverless entry — wraps =app=, ensures =initDb= per cold start | (this file, Deployment)            |
+
+* App Wiring (=app.js=)
+
+Middleware and routers are registered in this order (order matters only for the
+security layer and the trailing error handler; routers are order-independent):
+
+1. *Helmet* — =contentSecurityPolicy: false= (CSP disabled because Vite injects
+   inline scripts).
+2. *CORS* — origin from =CORS_ORIGIN= env, else localhost:3000; =credentials: true=.
+3. *express-rate-limit* — per-route throttles (not global): login/set-password/
+   member-login variants (20/15min), =request-reset= (5/hr), =ai/messages=
+   (30/min), =uploads/youtube= (10/min).
+4. =express.json({ limit: '10mb' })= body parser.
+5. *Eight routers, all mounted flat at =/api=* (=app.use('/api', <router>)=).
+6. =GET /api/health= — DB ping + reports =OPENAI_API_KEY= presence.
+7. *Global error handler* — logs, returns ={ error }= (message hidden in production).
+8. *Production only*: serve the Vite =dist/= build statically + SPA fallback.
+
+** Flat mount — the path lives in the route, not the mount
+
+There is NO per-router path prefix. Every router is mounted on bare =/api=;
+each route declares its own full path (almost all =/org/:slug/...=). Request
+routing is by noun, not by mount prefix; mount order is not load-bearing.
+The full router inventory and per-route auth lives in
+[[file:routes/quick_reference.org][routes/quick_reference.org]] — not duplicated here.
+
+** Auth is per-route, not a global gate
+
+There is no single JWT/session gate line. Each protected route composes its own
+=[resolveOrg, requireAuth]= chain (and =requireDirector= / =x-admin-key= for
+elevated routes). A route is public iff its handler omits =requireAuth=. See the
+routes QR for the public/authed breakdown.
+
+* Middleware (=middleware/=)
+
+Two composable per-request middlewares, conventionally chained as
+=const orgAuth = [resolveOrg, requireAuth]=:
+
+| Middleware    | File     | Sets on =req=                       | Behaviour                                                                 |
+|---------------+----------+-------------------------------------+---------------------------------------------------------------------------|
+| =resolveOrg=  | org.js   | =req.org=, =req.orgId=              | Loads org by =:slug=; 400 if no slug, 404 if unknown                       |
+| =requireAuth= | auth.js  | =req.session=, =req.orgId=, =req.memberId= | Reads *Bearer header only* (query tokens rejected); 401 invalid; 403 cross-tenant |
+
+Non-obvious:
+- =requireAuth= reads the token from the =Authorization= header *only* —
+  query-string tokens are rejected by design (they leak into logs/Referer).
+- Cross-tenant block: if =resolveOrg= already set =req.orgId= and the session's
+  org differs → 403.
+- =req.memberId= is =null= for org-level (shared-password) sessions, set for
+  individual member sessions — director checks depend on it.
+- =auth.js= keeps an in-memory =_lastTouched= map to throttle =touchSession= DB
+  writes to once/minute per token, with a 10-min eviction sweep to avoid a leak.
+
+* Database (=db.js=)
+
+Single SQL seam: every Postgres query in the backend lives in =db.js= as a named
+helper (=getGrants=, =upsertGrant=, =createSession=, =logActivity=, …). Callers
+import these helpers, never =pg= directly.
+
+| Aspect            | Behaviour                                                                                     |
+|-------------------+-----------------------------------------------------------------------------------------------|
+| Pool              | Lazy singleton — created on first =pool()= call so env is loaded first (Vercel + local dev)    |
+| TLS               | If =SUPABASE_CA_CERT= / =PGSSLROOTCERT= present → verified TLS; else encrypted-but-unverified (warns) |
+| Schema init       | =initDb()= runs =schema.sql= (idempotent) + two inline data migrations, on boot               |
+| Grant AI fields   | A fixed =AI_KEYS= allow-list is packed into/unpacked from a single =ai_data= JSON column        |
+| JSON safety       | =safeJSON= returns a fallback on malformed column data instead of throwing                      |
+
+The grant row shape is split: scalar columns + JSON columns (=focus=, =geo=,
+=log=, =docs=, =fups=, =off_factors=) + a catch-all =ai_data= JSON blob holding
+the long =AI_KEYS= list (drafts, research, fitscore, sections, vetting, …). The
+schema (table definitions) is in =schema.sql=; field semantics are read from code.
+
+* Boot Sequence (=index.js=)
+
+=index.js= loads dotenv (=override: true=), then on =app.listen=:
+
+1. =initDb()= — run =schema.sql= + data migrations (awaited).
+2. =ensureBuckets()= — create Supabase Storage =uploads= (private) + =logos=
+   (public) buckets if absent.
+3. *Auto-seed* — if no =dlab= org exists, import and run =seed-fn.js=.
+4. Register *two in-process cron jobs* (timezone =Africa/Johannesburg=):
+   nightly auto-scout (=0 0 * * *=) and deadline reminders (=*/30 * * * *=).
+5. A separate =setInterval= cleans expired sessions hourly.
+
+*Cron caveat (present-state):* the in-process =node-cron= schedules only run on a
+long-lived host. On Vercel (the canonical deploy target), the process is
+serverless and these cron callbacks do not fire — scheduling there is expected to
+come from Vercel's own cron → HTTP endpoints. The =index.js= comment notes this.
+
+* Background Jobs (=jobs/=)
+
+| Job                  | File                | Trigger (long-lived host) | Does                                                                 |
+|----------------------+---------------------+---------------------------+---------------------------------------------------------------------|
+| =runAutoScout=       | scout.js            | nightly 00:00 SAST        | Scrapes all sources once, then per-org: scores, reconciles, persists |
+| =runDeadlineReminders= | deadlineReminders.js | every 30 min            | Owner emails: day-before, 2-hours-before, "no deadline >48h" nudges  |
+
+** scout.js — orchestration + scoring (live scraper consumer)
+
+=scout.js= is the live consumer of =scraper/= (=scrapeGrants= + =verifyLinks=). It
+scrapes every source once, shares results across orgs, and per org runs an AI
+web-search scout for both markets (=sa=, =global=). Each candidate is scored by
+=calcScoutFitScore= (exported here; also imported by the scraper) and reconciled
+against the pipeline:
+- *No match* → add as a new =scouted= grant.
+- *Match + untouched* (still =scouted=, owner =team=) → auto-apply changed
+  deadline/budget/URL and log them.
+- *Match + human-owned* → never overwrite; append a ⚠ review flag to the log.
+Only High-fit (=fitScore >= 65=) results are reconciled; medium-fit is logged only.
+Reconciliation detail and the fit-score weights are read from the code.
+
+** deadlineReminders.js — KV-deduped timed emails
+
+Walks active grants per org; sends owner reminders in time windows (23-25h,
+1.5-2.5h before a 09:00 SAST deadline; 48h after assignment if no deadline). A
+per-grant key in the =kv= table (=kvGet=/=kvSet=) prevents duplicate sends. Skips
+grants with no owner, =team= owner, or closed/submitted stage.
+
+*KNOWN BROKEN IMPORT (present-state gotcha — not to fix here):* =scout.js= imports
+=scoutPrompt= from ='../../src/prompts.js'=, a file that no longer exists — the
+prompts were moved into =src/prompts/= (=scout.js=, etc.). The AI web-search half of
+the scout therefore throws on import; the scraper half is unaffected. Tracked in
+=DEFERRED.org=.
+
+* Extractors (=extractors/=)
+
+=extractText(buffer, mimeType, originalName)= → ={ text, error }=. One dispatch
+over MIME type / extension:
+
+| Input            | Path                                                                  |
+|------------------+-----------------------------------------------------------------------|
+| PDF              | =pdf-parse=; if empty/<50 chars → OpenAI vision OCR fallback           |
+| Image            | OpenAI vision OCR (=gpt-4o-mini=, =image_url= data URL)                |
+| DOCX / DOC       | =mammoth= raw-text                                                     |
+| XLSX / XLS / CSV | =exceljs= (xlsx only) flattened to CSV-ish rows; CSV read as UTF-8     |
+| text/markdown    | UTF-8 buffer                                                          |
+
+Non-obvious: CJS deps (=pdf-parse=, =mammoth=, =exceljs=) are lazy-=require=-d to
+avoid Vercel import-time crashes (=pdf-parse= reads test files at import).
+=truncateText= caps text on a word boundary. Consumed by =routes/uploads.js=.
+
+* Peripheral Helpers
+
+| File          | Role                                                                                          |
+|---------------+-----------------------------------------------------------------------------------------------|
+| =context.js=  | =buildUploadsContext= — packs grant-level then org-level upload text into a ~8000-char budgeted AI context block (grant docs prioritised) |
+| =email.js=    | Resend transactional email (stage-change, assignment, created/deleted, reminders, reset) + ICS calendar invites/cancellations. *No =RESEND_API_KEY= → all sends silently no-op (log only).* Stable per-grant ICS UID so re-sends update rather than duplicate |
+| =seed.js=     | Standalone CLI seed (=node server/seed.js=) — exits on completion                              |
+| =seed-fn.js=  | Same seed logic as an importable function (no =process.exit=); called by =index.js= auto-seed   |
+| =migrate-context.js= | One-off legacy migration script (reads a local better-sqlite3 file) — not on the request path |
+
+* lib (=lib/ssrfGuard.js=)
+
+=assertSafeUrl(raw)= throws =SsrfError= for any URL that is non-http(s) or resolves
+to a private / loopback / link-local / CGNAT / multicast / cloud-metadata
+(=169.254.169.254=) address (DNS-resolved, IPv4 + IPv6 incl. mapped). Guards every
+server-side fetch of a *user-supplied* URL — =routes/ai.js= URL verifier,
+=routes/autofill.js= form detection, and (mirrored) the Playwright service.
+=isSafeUrl= is the boolean wrapper.
+
+* Deployment (=../api/index.js= — Vercel shim)
+
+A thin serverless entry wrapping =app=. On each invocation it awaits a
+memoised =ensureDb()= (=initDb= run once per cold start; reset to retry on
+failure) before delegating to the Express =app=. This is why =initDb= is
+idempotent — it can run on every cold start. The long-lived =index.js= path
+(=app.listen= + cron) is the local/standalone-host entry; the Vercel path uses
+=api/index.js= and has no in-process cron (see Boot Sequence caveat).
+
+* Key Decisions
+
+| Decision                  | Choice                                                            | Rationale                                                                  | Constraints                                                              |
+|---------------------------+------------------------------------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------|
+| Single SQL seam           | All SQL in =db.js= named helpers; callers never touch =pg=        | A DB swap rewrites one file; rest of backend untouched                     | Convention-enforced; no build-tool guard                                 |
+| Flat =/api= mount, per-route auth | Routers mounted on bare =/api=; each route composes its own =resolveOrg+requireAuth= | Per-route logic varies (public, authed, director, super-admin); a gate-all middleware would mis-cover | Auth exposure flips by adding/removing one middleware on a route — invisible unless each route reviewed |
+| Two AI providers          | OpenAI for the app, Anthropic Claude (Haiku) for the scraper parse | Haiku's server-side web_search lets the scraper verify facts/links cheaply  | Two SDKs + two key envs; provider differs by code path                   |
+| Response-shape contract   | =ai.js= normalises OpenAI output into an Anthropic-style envelope  | Frontend depends on shape, not provider — see [[file:routes/quick_reference.org][routes/quick_reference.org]]              | Changing normalisation silently breaks every AI feature                  |
+| ai_data JSON blob         | Long-tail grant AI fields packed into one =ai_data= JSON column    | New AI fields need no schema migration — add to =AI_KEYS=                    | Fields invisible to SQL queries; allow-list must include each key        |
+| Best-effort side effects  | Emails, calendar, activity log, agent runs run detached/swallowed  | HTTP latency/success not coupled to notification delivery                   | A 200 does NOT mean the email/calendar/log succeeded                     |
+| Schema-on-boot            | =initDb= runs idempotent =schema.sql= + data migrations every start | No external migration tool; safe for Vercel cold-start                      | No rollback; migration edits live in =schema.sql= / =db.js=               |
+
+---
+/Last Updated/: 2026-06-19

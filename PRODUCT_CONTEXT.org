@@ -1,0 +1,205 @@
+#+TITLE: Product Context — d-lab Grant Engine
+#+DATE: 2026-06-19
+
+* Purpose
+
+Present-state product context: what the Grant Engine is, who uses it, the d-lab
+domain it serves (organisation, funding model, programme catalogue, funder
+relationships, proposal strategy), and the design decisions that are
+*intentional* — so an audit reads this BEFORE flagging an intentional choice as a
+bug. It documents the *product and its domain*, not the code structure — it
+survives refactors.
+
+Code-level mechanics for the funder-strategy engine and programme detection are
+NOT here: they live in =src/data/quick_reference.org= (canonical). This file
+holds the business/domain *meaning*; that file holds the *how*. Intentionally
+dormant + deferred features live in =DEFERRED.org= (linked, not duplicated).
+
+* What It Is
+
+The d-lab Grant Engine is a React + Express app for managing a grant-funding
+pipeline for *d-lab NPC*, a South African youth-skills non-profit. It moves a
+grant opportunity through a staged pipeline (scout → vet → qualify → draft →
+review → submit → await → won/lost) and uses AI to draft proposals, research
+funders, scout new opportunities, and surface pipeline intelligence.
+
+| AI use | Provider | Where |
+|--------|----------|-------|
+| Proposal drafting, funder research, scouting, pipeline intelligence | OpenAI (proxied through the Express backend) | =server/routes/ai.js= |
+| Grant-scraper parsing/verification | Anthropic Claude (Haiku) | server scraper path |
+
+* Who Uses It
+
+d-lab NPC internal staff and board, managing the funding pipeline. Roles and the
+stages each may operate in are defined in =src/data/constants.js= (=ROLES=);
+approval gates between stages are =GATES= (see =src/data/quick_reference.org=).
+
+| Role | Pipeline authority (gate sign-off) |
+|------|-------------------------------------|
+| Comms | Vetting checklist (scouted → vetting) |
+| Board | Worth-pursuing decision (vetting → qualifying) |
+| Head of Programmes (hop) | Draft approved (drafting → review) |
+| Director | Approve submission; confirm award/loss (review → submitted; awaiting → won/lost) |
+
+* Organisation Context
+
+d-lab NPC (registered as *The Field Lab NPC*) trains unemployed South African
+youth in AI-native digital skills. The organisational profile that the AI quotes
+in live proposals is held in code as =CTX= / =CTX_SLIM= in =src/data/context.js=
+(see Intentional Design Decisions, and =src/data/quick_reference.org= for the
+full treatment).
+
+| Stat | Value | Note |
+|------|-------|------|
+| Completion rate | 92% | vs 55% sector average |
+| Employment within 3 months | 85% | post-programme |
+| Programme catalogue | 8 programme types | R199K–R5M range; see table below |
+
+* d-lab Financial Model & Funding Landscape
+
+** Revenue Model (2026)
+
+| Stream | Amount | Detail |
+|--------|--------|--------|
+| Grant funding | ~R9.3M (65% of income) | Foundations, corporate CSI, SETAs, international agencies |
+| Earned revenue | ~R2.5M | Corporate Collaborations R2.03M, Intensives R225K, Microjobbing R240K |
+| In-kind | ~R4.95M | Mentor hours R1.08M, laptops R954K, stipends R2.29M, infrastructure R629K |
+
+- *30% org-cost model*: programmes not covered by the org budget carry a 30%
+  contribution to core operations. This is a standing proposal inclusion (see
+  Proposal Strategy).
+
+** Financial Position
+
+| Measure | Value |
+|---------|-------|
+| Retained reserves (Feb 2025) | R4.98M |
+| Cash in bank | R4.83M |
+| FY2025 income / expense | R6.97M / R7.66M (planned deficit drawdown) |
+| FY2024 income / expense / surplus | R11.11M / R6.33M / R4.88M |
+| 2025 budget discipline | Approved R11.08M, actual R8.23M (R2.85M variance — deliberate stewardship) |
+
+** Cornerstone Funder — Get It Done Foundation (GIDF)
+
+| Aspect | Value |
+|--------|-------|
+| Returning annual contribution | R2.84M (2023) → R4.99M (2024) → R4.97M (2025) → R4.97M requested (2026) |
+| Share of budget | 49% of project budget, 35% of operating budget |
+| Framing rule | Always *"continuity"*, never *"expansion"* — see Proposal Strategy |
+
+GIDF is the single most important relationship in the portfolio. Its scale means
+proposal framing is deliberately conservative: a returning-funder continuity
+story, not a growth pitch.
+
+** 2026 Secured Funding — R8.59M
+
+| Type | Source | Amount |
+|------|--------|--------|
+| Cash | TK Foundation | R1M |
+| Cash | Inkcubeko | R1.23M |
+| Cash | CCBA | R1.41M |
+| In-kind | (combined) | R4.95M |
+
+** Programme Catalogue — 8 Programme Types
+
+The catalogue is a *fixed domain set of 8 types* (a product fact, not a code
+count). Canonical figures and per-type line items live in =PTYPES=
+(=src/data/funderStrategy.js=); detection and budget-fit mechanics are in
+=src/data/quick_reference.org=.
+
+| Type | Description | Cost | Students | Duration |
+|------|-------------|------|----------|----------|
+| 1 | Standard Cohort — Partner-funded | R516K | 20 | 9 months |
+| 2 | Standard Cohort — Full (stipends + laptops) | R1.597M | 20 | 9 months |
+| 3 | Standard Cohort — With Stipends | R1.236M | 20 | 9 months |
+| 4 | FET High School Programme | R1.080M | 60 | 3 years |
+| 5 | Corporate (CCBA Future Leaders) | R651K | 63 | 6 months |
+| 6 | Cyborg Habits Short Course | R930/learner | varies | 4–6 weeks |
+| 7 | Sci-Bono Employability Skills | R232K | 90 | 13 weeks |
+| 8 | Bespoke Corporate — Leadership Accelerator | R2.753M | 25 | 18 months |
+
+* Key People & Relationship Owners
+
+Each named owner holds the relationship with specific funders; proposals to those
+funders are framed through that relationship.
+
+| Owner | Role | Funder relationships owned |
+|-------|------|----------------------------|
+| Alison Jacobson | Director | Correlation Risk Partners, Pragma, Sybrin, Nedbank PW, DGMT |
+| Barbara Dale-Jones | Board | RMB, BII, Old Mutual, MODO, KAVOD, Kagiso, SAB Foundation, Optima, MTM Momo |
+| David Kramer | Board | GDE, Penreach/FRF (joint), SAP, SciBono, MICT SETA |
+| Nolan Beudeker | Head of Programmes | ACT Foundation, ALT Capital, Sawabona, MasterCard, iQ, Chartall, Harambee |
+
+* Proposal Strategy
+
+The strategy a proposal takes is driven per-funder by =funderStrategy(grant)=
+(returns lead / hook / language / structure / budget emphasis). Named-funder
+intelligence lives in =FUNDER_ANGLES= (=src/data/funderAngles.js=); the
+resolution mechanics are in =src/data/quick_reference.org=. The *business intent*
+behind it:
+
+| Situation | Framing |
+|-----------|---------|
+| Returning funder | "Here's what your investment built" + specific outcomes from the last cycle |
+| New funder | "Here's the system and the proof" + matched programme type + an alumni story |
+
+** Programme-to-funder matching
+
+| Funder profile | Matched programme |
+|----------------|-------------------|
+| Small funder | Type 1 (R516K) |
+| Medium funder | Type 3 (~R1.2M) |
+| Large funder | Type 2 (~R1.6M) or multi-cohort |
+| Corporate | Type 5 / Type 8 |
+| SETA | Multi-cohort, national |
+
+** Standing rules
+
+- *Always include* the 30% org-cost contribution for sustainability.
+- *Anti-patterns (hard rules):* never lead with "SA has X% unemployment"; never
+  use hollow phrases; always use specific numbers. These are baked into the AI
+  prompts (see Intentional Design Decisions).
+
+* South African Context Glossary
+
+Domain terms the product assumes throughout. The runtime jargon-injection
+glossary that annotates proposals is =GLOSSARY= (=src/data/glossary.js=).
+
+| Term | Meaning |
+|------|---------|
+| ZAR | South African Rand — the only currency; formatted =R1,236,000= or =R1.2M= |
+| B-BBEE | Broad-Based Black Economic Empowerment — a key compliance/value framework for corporate CSI funders |
+| SETA | Sector Education and Training Authority — government skills bodies (a funder type) |
+| NPO / PBO | Non-Profit Organisation / Public Benefit Organisation — d-lab's registration categories |
+| ICITP | Institute of Chartered IT Professionals — accreditation body |
+| FET | Further Education and Training — high-school level (Programme Type 4) |
+
+* Intentional Design Decisions
+
+Rationale for choices an audit might otherwise flag as defects. Each is stated as
+*intentional: X, because Y* — present-state design, not a regression. (Code-level
+quality findings remain valid issues; this section concerns only *deliberate
+product/domain choices*.)
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| ZAR-only currency | Currency is always South African Rand, formatted =R1,236,000= / =R1.2M=; no multi-currency support | d-lab operates entirely in ZAR; every funder, budget, and programme figure is Rand. Multi-currency would be unused complexity. Do not flag the single-currency assumption as a gap |
+| Org context injected into every AI prompt | =CTX= / =CTX_SLIM= (=src/data/context.js=) — the d-lab profile, programme budgets, impact stats, funder history — is injected as =orgCtx= into every AI call | The prompts must share one version-controlled factual basis so the AI cannot invent or drift on numbers across proposals. It is CODE on purpose; changing a figure there changes what the AI may claim everywhere. =CTX_SLIM= is the token-budget variant of the same truth, not a second source |
+| Anti-pattern guardrails baked into prompts | Every prompt carries the anti-pattern list (no "SA has X% unemployment" openers, no hollow phrases, always specific numbers) plus the tone contract (lead with the human story, weave numbers into narrative, emphasise the system, never lead with geographic expansion) | These are d-lab's house proposal voice and are load-bearing; the tone block in =context.js= is constraint, not decoration. Do not flag the repeated anti-pattern text as prompt bloat |
+| Alumni-story "use once" rule | Prompts flag alumni stories "use each ONCE — do NOT fabricate" | Reusing or inventing beneficiary stories would damage funder trust and credibility; scarcity + honesty is deliberate |
+| GIDF framed as continuity, never expansion | The cornerstone-funder hook for Get It Done Foundation is a continuity story, not a growth pitch | GIDF funds ~half the project budget; the relationship is protected by conservative, renewal-oriented framing. This is a domain rule, not a copy oversight |
+| 8 programme types as a fixed catalogue | =PTYPES= is exactly 8 types with fixed budgets; Type 6 alone carries =cost: null= / =students: null= (priced per-learner) | The catalogue mirrors d-lab's actual programme offering — a fixed domain set, not an extensible config. Type 6's null cost is correct (per-learner pricing) and is deliberately skipped by the budget-fit loops; do not flag it as missing data |
+| Funder lookup is exact-match | =FUNDER_ANGLES= is keyed by exact funder name, with aliases as explicit separate keys (e.g. "DGMT" + "DG Murray Trust"); no fuzzy matching | The funder set is small and curated; an unknown name deliberately falls to the no-intel hook (instructing the AI to research priorities rather than use generic mission language). Fuzzy matching would risk mis-attributing the wrong funder's strategy |
+| 30% org-cost contribution always included | Proposals carry a standing 30% core-ops contribution line | Sustainability requirement of the funding model, not a per-proposal toggle |
+
+* Related Docs
+
+| Doc | Contents |
+|-----|----------|
+| =src/data/quick_reference.org= | Code-level funder-strategy engine, programme detection (=detectType=), budget-fit picker (=selectOptimalBudget=), pipeline state machine, glossary mechanics |
+| =DEFERRED.org= | Intentionally dormant + deferred features and reactivation paths |
+| =ARCHITECTURE.org= | System design, tech stack, cross-cutting decisions |
+| =AGENT_AUDIT_WORKFLOW.org= | The audit workflow this file feeds (read before flagging issues) |
+
+---
+/Last Updated/: 2026-06-19

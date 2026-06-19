@@ -1,0 +1,123 @@
+#+TITLE: Architecture
+#+DATE: 2026-06-19
+
+* Purpose
+
+Project-wide system design, technology stack, and cross-cutting decisions for the
+d-lab Grant Engine. This file stays strategic: it names what exists and links to
+the per-tier docs. For tier detail see =src/ARCHITECTURE.org= (frontend),
+=server/README.org= (backend), and =playwright-service/README.org= (separate
+deployable). For the product view (users, roles, funding model) see
+=PRODUCT_CONTEXT.org=.
+
+* System Shape
+
+The Grant Engine manages a grant-funding pipeline for d-lab NPC. It is one
+repository running three independently-deployable pieces plus a managed database:
+
+| Piece               | What it is                                                                 |
+|---------------------+----------------------------------------------------------------------------|
+| Frontend            | React 18 single-page app (Vite build), =no TypeScript=, =no router=, =no CSS framework= |
+| Backend             | Express 5 JSON API on =PORT= (default *3001*); proxies AI, owns persistence + jobs |
+| Datastore           | Supabase PostgreSQL, reached from the backend via a lazy =pg.Pool= (no ORM) |
+| Playwright service  | Standalone Node/Express + headless Chromium for form autofill and remote page fetch |
+
+The browser loads the SPA and talks only to the Express API over =/api/...=. The
+backend talks to *two AI providers*: OpenAI for all app-facing AI features, and
+Anthropic Claude (Haiku) for the grant scraper's parse/verify path only. The
+backend also reaches the Playwright service over HTTP with a shared secret.
+
+#+BEGIN_EXAMPLE
+Browser (React SPA)
+   │  fetch  /api/...  (Bearer token in Authorization header)
+   ▼
+Express API ── resolveOrg + requireAuth (per-route)
+   │
+   ├── AI proxy (routes/ai.js)   → OpenAI (Chat Completions / Responses API)
+   ├── data / CRUD               → Supabase PostgreSQL (pg.Pool in db.js)
+   ├── grant scraper (scraper/)  → Anthropic Claude (Haiku)  +  Playwright service
+   └── jobs (cron, long-lived host only) → scout + deadline reminders
+#+END_EXAMPLE
+
+* Technology Stack
+
+| Layer            | Technology                                                                 |
+|------------------+----------------------------------------------------------------------------|
+| Frontend         | React 18 (no TypeScript), Vite; inline styles from =src/theme.js= design tokens |
+| Routing          | =view= state string + manual =history.pushState= / =popstate= sync (no router library) |
+| Backend          | Node.js (ESM), Express 5; Helmet, CORS, express-rate-limit                  |
+| Database         | Supabase PostgreSQL via =pg.Pool= (hand-written SQL helpers, no ORM)        |
+| App AI           | OpenAI — =gpt-4o-mini= default, =gpt-4o= for web-search via the Responses API; proxied through =server/routes/ai.js= |
+| Scraper AI       | Anthropic Claude (Haiku) — scraper parse/verify path only                   |
+| Browser automation | Playwright (headless Chromium) in the separate Playwright service          |
+| File extraction  | =pdf-parse=, =mammoth=, =exceljs=, plus OpenAI vision OCR fallback           |
+| Email / calendar | Resend transactional email + ICS calendar invites                          |
+
+* End-to-End Data Flow
+
+| Step | Path                                                                                          |
+|------+-----------------------------------------------------------------------------------------------|
+| Load grants | SPA →  =GET /api/org/:slug/grants=  → backend → Supabase; org/team/profile/pipeline/compliance loaded in one =Promise.all= after auth |
+| Mutate grant | =up(id, changes)= in =App.jsx= → debounced PUT → backend → Supabase; the grant row splits scalar columns from a packed =ai_data= JSON blob |
+| App AI call | Component panel calls =runAI(...)= → =useAI= assembles =orgCtx= + budget → Express AI proxy → OpenAI → normalised to an Anthropic-style ={ content: [...] }= envelope → stored via =sA()= / persisted via =up()= |
+| Scout | Scraper discovers opportunities → Anthropic Claude (Haiku) parses/verifies → scored by =calcScoutFitScore= → high-fit (>=65) reconciled into the pipeline |
+| Context injection | =src/data/context.js= + funder strategy + server profile build =orgCtx=, injected into every app AI prompt |
+
+The frontend never holds AI provider keys: every AI call is proxied through the
+Express backend, which holds =OPENAI_API_KEY= (and the scraper's Anthropic key)
+server-side.
+
+* Key Architectural Decisions
+
+| Decision                | Choice                                                                 | Rationale                                                                  | Constraints                                                                 |
+|-------------------------+------------------------------------------------------------------------+----------------------------------------------------------------------------+-----------------------------------------------------------------------------|
+| Routing                 | =view= state string + manual =pushState= / =popstate= URL sync; no router library | Small fixed view set; avoids a routing dependency                          | Route logic is hand-rolled in =App.jsx=; deep-linkable via the pushState paths |
+| Styling                 | Inline styles from the =C= token object in =src/theme.js=; no CSS framework | One source of design tokens; supports per-org theming by mutating =C=      | Tokens are the only sanctioned colours (auth/canvas use literals by exception) |
+| Language                | React 18, no TypeScript                                                | Lower ceremony; the app is prop-threaded, not type-driven                  | No compile-time prop checking; the presentational contract is documented, not typed |
+| AI proxied via backend  | Frontend → Express =/api= proxy → OpenAI; never a direct browser call  | Keeps provider keys server-side; one normalisation + budget code path      | Backend must be up for any AI feature; =ai.js= normalisation is a load-bearing contract |
+| Datastore               | Supabase PostgreSQL via a lazy =pg.Pool=, all SQL behind =db.js= helpers | Managed Postgres + storage buckets; a DB swap rewrites one file            | TLS unverified unless a CA cert env is set; convention-enforced SQL seam (no lint guard) |
+| Playwright deployable    | Browser automation lives in a separate Node service, called over HTTP with a shared secret | Chromium cannot run in-process on the serverless backend; isolates the SSRF-heavy fetch surface | Two deploy units; in-memory ephemeral sessions don't survive restart/span instances |
+| Dual AI providers       | OpenAI for the app; Anthropic Claude (Haiku) for the scraper parse/verify | Haiku's server-side web_search verifies facts/links cheaply for the scraper | Two SDKs + two key envs; provider differs by code path                      |
+| API mount + auth        | Routers mounted flat at =/api=; auth composed per-route as =resolveOrg + requireAuth= (not a global gate) | Per-route rules vary (public, authed, director, super-admin); one gate would mis-cover | Auth exposure flips by adding/removing one middleware on a route — invisible unless each route reviewed |
+
+* Where Things Live
+
+Strategic map only — each entry links to its canonical home; module detail lives
+in the linked Tier-1B doc and its quick references.
+
+| Area                | Home                                          | Detail                                                              |
+|---------------------+-----------------------------------------------+--------------------------------------------------------------------|
+| Project navigation  | =README.org= (root)                           | Project tree + quick start (canonical there)                       |
+| Frontend            | =src/ARCHITECTURE.org= (1B)                    | App shell, view set, helper contract, AI flow, styling             |
+| Frontend modules    | per-module QRs                                | =src/components/=, =src/hooks/= (=useAI=), =src/data/=, =src/prompts/= quick_references |
+| Backend             | =server/README.org= (1B)                      | Boot sequence, app wiring, middleware, db seam, jobs, deployment shim |
+| Backend modules     | per-module QRs                                | =server/routes/= and =server/scraper/= quick_references            |
+| Playwright service  | =playwright-service/README.org= (1B)          | HTTP surface, session lifecycle, SSRF guard, deployment            |
+| Product / funding   | =PRODUCT_CONTEXT.org= (root)                  | d-lab org context, financial model, funder strategy                |
+| Deferred / dormant  | =DEFERRED.org= (root)                         | Parked work and reactivation paths                                 |
+
+Non-obvious present-state notes (the details are in the linked 1B docs):
+
+- *Prompts are a directory, not a file.* App AI prompt text lives in =src/prompts/=
+  (=draft= / =research= / =extraction= / =operations= / shared =lib= / =scout=),
+  each a pure builder returning ={ system, user, search, maxTokens }=. =useAI.js=
+  assembles org context and dispatches — it does not hold the prompt text, and
+  there is no single =src/prompts.js=.
+- *=App.jsx= and =useAI.js= are large and central* — the root orchestrator and the
+  AI dispatch hook respectively (facts noted with their owners; flagged in their QRs).
+- *Cron only fires on a long-lived host.* The in-process =node-cron= jobs (nightly
+  scout, deadline reminders) run only when the backend is a persistent process. On
+  the Vercel serverless path the =api/index.js= shim wraps the Express =app= with a
+  memoised =initDb= and runs no in-process cron — scheduling there is expected from
+  Vercel's own cron → HTTP endpoints.
+
+* See Also
+
+- =src/ARCHITECTURE.org= — frontend layering, App shell, view set, AI flow
+- =server/README.org= — backend boot, routing, middleware, db, jobs, deployment
+- =playwright-service/README.org= — the separate browser-automation deployable
+- =PRODUCT_CONTEXT.org= — product, users, roles, d-lab funding model
+- =DOCUMENTATION.org= — documentation standard + tier hierarchy
+
+---
+/Last Updated/: 2026-06-19

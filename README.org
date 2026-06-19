@@ -1,0 +1,138 @@
+#+TITLE: d-lab Grant Engine — Documentation Hub
+#+DATE: 2026-06-19
+
+* What This Is
+
+The d-lab Grant Engine is a React + Express grant-pipeline application for d-lab
+NPC (The Field Lab NPC), a South African NPO training unemployed youth in
+AI-native digital skills. It manages a funding pipeline across stages from
+scouting to won/lost, and uses the OpenAI API (proxied through the Express
+backend) for proposal drafting, funder research, opportunity scouting, and
+pipeline intelligence; the server-side scraper additionally uses the Anthropic
+Claude API for parsing. The d-lab domain — financial model, funder landscape,
+programme types, proposal strategy — lives in =PRODUCT_CONTEXT.org=.
+
+* Read First
+
+| Order | File | Purpose |
+|-------|------|---------|
+| 1 | README.org (this file) | Navigation, project tree, quick start |
+| 2 | ARCHITECTURE.org | System design, tech stack, cross-cutting decisions |
+| 3 | PRODUCT_CONTEXT.org | d-lab domain, users, funder strategy, scope |
+| 4 | src/ARCHITECTURE.org · server/README.org | Per-tier design (Level 1B) |
+
+* Documentation Map
+
+Documentation follows a three-tier hierarchy (see =DOCUMENTATION.org=): 1A
+project-wide, 1B service/app, 2 per-module quick references.
+
+** Level 1A — Project-Wide Strategic (root)
+
+| Doc | Tier | What it covers |
+|-----|------|----------------|
+| ARCHITECTURE.org | 1A | System design, tech stack, data flow, key decisions |
+| PRODUCT_CONTEXT.org | 1A | d-lab domain, users, financial model, intentional design decisions |
+| DEFERRED.org | 1A | Intentionally dormant + deferred features, reactivation paths |
+
+** Doc-System Engine (carry-over, root)
+
+| Doc | Tier | What it covers |
+|-----|------|----------------|
+| DOCUMENTATION.org | 1A | Documentation standard + procedure (principles, tiers, sync workflow) |
+| SETUP.org | 1A | Doc-system bootstrap, engine-vs-instance split, portability |
+| SUBAGENT_PLAYBOOK.org | 1A | Sub-agent dispatch + model selection (canonical home) |
+| AGENT_AUDIT_WORKFLOW.org | 1A | Macro/micro codebase audit workflow |
+
+** Level 1B — Service / App Strategic
+
+| Doc | Tier | What it covers |
+|-----|------|----------------|
+| src/ARCHITECTURE.org | 1B | Frontend layering, App shell, state, view routing |
+| server/README.org | 1B | Express backend — routes, jobs, middleware, lib, scraper, API contracts |
+| playwright-service/README.org | 1B | Standalone Playwright scrape service (separate deployable) |
+
+** Level 2 — Module Quick References
+
+Per-module =quick_reference.org= files exist under =src/*= and =server/*= (the
+canonical home for each module's non-obvious patterns): =src/components=,
+=src/hooks=, =src/data=, =src/prompts=, =server/routes=, =server/scraper=.
+Strategic files link here; they do not duplicate module detail.
+
+* Project Structure
+
+#+BEGIN_EXAMPLE
+grantsengine/
+├── README.org · ARCHITECTURE.org · PRODUCT_CONTEXT.org · DEFERRED.org   ← 1A
+├── DOCUMENTATION.org · SETUP.org · SUBAGENT_PLAYBOOK.org · AGENT_AUDIT_WORKFLOW.org  ← 1A engine
+├── CLAUDE.md                     project instructions (doc system + sub-agent coordination)
+├── package.json                  scripts (dev/build/start/seed/test); React 18 + Express 5
+├── index.html · vite.config.js   Vite entry; dev server :3000, proxies /api → :3001
+├── vercel.json                   Vercel deploy: serverless api/ functions + crons
+├── vitest.config.js
+├── .env.example                  backend env template (copy to .env — see Quick Start)
+│
+├── src/                          React 18 frontend (no TypeScript, no router, no CSS framework)
+│   ├── ARCHITECTURE.org                                                 ← 1B
+│   ├── App.jsx                   root orchestrator — view routing, top-level state
+│   ├── theme.js                  design tokens (C, FONT, MONO)
+│   ├── api.js · utils.js · prompts.js
+│   ├── components/               shared UI primitives + major views     ← QR
+│   ├── hooks/                    AI logic layer (useAI.js)              ← QR
+│   ├── data/                     org context, funder strategy, constants, seed  ← QR
+│   ├── prompts/                  scout-style prompt builders            ← QR
+│   ├── assets/ · __tests__/
+│
+├── server/                       Express 5 backend — API on port 3001
+│   ├── README.org                                                       ← 1B (extractors/jobs/lib/middleware folded in)
+│   ├── index.js · app.js         entry point + Express wiring
+│   ├── db.js · schema.sql · seed.js   Supabase PostgreSQL data access + seed
+│   ├── routes/                   auth, grants CRUD, AI proxy, uploads, admin  ← QR
+│   ├── scraper/                  grant scraper (Anthropic Claude parsing)     ← QR
+│   ├── extractors/ · jobs/ · lib/ · middleware/   support modules
+│
+├── api/                          Vercel serverless adapters
+│   ├── index.js                  serverless entry (wraps the Express app)
+│   └── cron/                     reminders.js (hourly) · scout.js (nightly)
+│
+├── playwright-service/           standalone headless-browser scrape service
+│   └── README.org                                                       ← 1B (separate deployable)
+│
+├── public/                       static assets
+└── archive/legacy-monolith/      original single-file version (NOT imported by the app)
+#+END_EXAMPLE
+
+* Quick Start
+
+** Prerequisites
+
+- Node.js 20.19+ or 22.12+
+- An OpenAI API key (=OPENAI_API_KEY=) for the AI features; an Anthropic key
+  (=ANTHROPIC_API_KEY=) for the scraper
+- Supabase PostgreSQL credentials (=DATABASE_URL=, =SUPABASE_URL=,
+  =SUPABASE_SERVICE_KEY=)
+
+** Environment
+
+Backend secrets load from the root =.env=. Copy =.env.example= to =.env= and fill
+it in — never commit real secrets. The template lists every variable, including
+OpenAI/Anthropic keys, =PORT= (backend, defaults to 3001), =CORS_ORIGIN=,
+Supabase credentials, Resend email, Google OAuth, =CRON_SECRET=, and the
+Playwright service URL/secret.
+
+** Run
+
+| Command | What it does |
+|---------|--------------|
+| =npm install= | Install dependencies |
+| =npm run dev= | Start both processes via =concurrently=: Express API on =http://localhost:3001= and Vite dev server (HMR) on =http://localhost:3000= — *open :3000* |
+| =npm run build= | Production frontend build (=vite build=) → =dist/= |
+| =npm start= | Production backend (=NODE_ENV=production node server/index.js=) |
+| =npm run seed= | Seed initial pipeline data |
+| =npm test= | Run the test suite (=vitest run=) |
+
+Vite (:3000) proxies =/api= to the Express backend (:3001), so the frontend's
+relative API calls work with both processes running side by side. The backend
+talks to Supabase PostgreSQL; the schema lives in =server/schema.sql=.
+
+---
+/Last Updated/: 2026-06-19

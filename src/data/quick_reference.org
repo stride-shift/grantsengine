@@ -1,0 +1,239 @@
+#+TITLE: src/data - Quick Reference
+#+DATE: 2026-06-19
+
+* Overview
+
+Static data + the grant-funding business rules layer: the d-lab organisational
+profile injected into every AI prompt, the per-funder proposal strategy engine,
+the programme-type catalogue, the pipeline state machine, and supporting
+reference data (conferences, freebies, glossary, onboarding tours, seed grants).
+Pure data and pure functions — no React, no I/O.
+
+* Components
+
+| File | Exports | Purpose |
+|------|---------|---------|
+| context.js | =CTX=, =CTX_SLIM= | d-lab org profile — the runtime prompt-context source of truth |
+| funderStrategy.js | =funderStrategy=, =PTYPES=, =detectType=, =selectOptimalBudget=, =isFunderReturning=, =multiCohortInfo= | Per-funder proposal strategy + programme-type catalogue + detection |
+| funderAngles.js | =FUNDER_ANGLES= | Per-named-funder proposal angle data (lead/hook/sections/lang) |
+| constants.js | =STAGES=, =GATES=, =ROLES=, =TEAM=, =FTYPES=, =WFAC=, =LFAC=, =DOCS=, =ORG_DOCS=, =DOC_MAP=, =CAD=, =TOPICS=, =PERSONAS= | Pipeline state machine, roles, factor vocabularies, compliance docs |
+| glossary.js | =GLOSSARY=, =detectGlossaryTerms=, =applyGlossary=, =buildGlossaryAppendix= | Jargon → plain-English definition injection for proposals |
+| conferences.js | =CONFS= | Conference/event calendar (SA + global) |
+| freebies.js | =FREEBIES=, =FREEBIE_CATEGORIES= | Nonprofit tool discounts/credits for the Resources tab |
+| tourSteps.js | =TOURS=, =stepsForTour=, =hasSeenOverview=, =markOverviewSeen=, =resetOverview= | Two-tier onboarding tour definitions + per-user seen-tracking |
+| seed.js | =SEED= | Initial pipeline grants (currently empty) |
+
+* Key Patterns
+
+** context.js — the org-context source of truth (do NOT relocate)
+
+=CTX= (full) and =CTX_SLIM= (condensed) are the canonical d-lab organisational
+profile: registration, mission, the 8 programme types with budgets, curriculum,
+financials, impact stats, funder history, alumni stories, tone + proposal
+strategy guidance. This string is injected into EVERY AI prompt as the org
+context (=orgCtx=) — consumed by the AI layer (=src/hooks/=) and the server
+=seed= path. It is CODE precisely so the prompts have a single, version-controlled
+factual basis; changing a number here changes what the AI may claim across every
+proposal. =CTX_SLIM= exists for token-budget-constrained calls; both must stay
+factually consistent with each other.
+
+The tone block is load-bearing, not decoration: it encodes hard proposal
+constraints (lead with the human story; weave numbers into narrative; emphasise
+the SYSTEM — 8 types, partner model, AI tools; NEVER lead with geographic
+expansion). Alumni stories are flagged "use each ONCE — do NOT fabricate".
+
+** funderStrategy() — funder → tailored proposal strategy
+
+=funderStrategy(grant)= is the entry point. It merges three inputs into one
+strategy object the AI layer spreads into prompts: the named-funder angle
+(=FUNDER_ANGLES=), returning-vs-new status (=isFunderReturning=), and the
+detected programme type (=detectType=). Returned shape (spread of the angle plus):
+=lead=, =hook=, =sections=/=structure=, =lang=, =returning=, =pt= (programme
+type), =mc= (multi-cohort), =targetPages=, =formatNotes=.
+
+Resolution order for the proposal *structure* (section list):
+
+| Source | Wins when |
+|--------|-----------|
+| Funder's own =sections= (=FUNDER_ANGLES[name]=) | It is a FULL structure: ≥4 sections AND contains a "Cover"/"Budget" section |
+| Generic structure by funder type (=structures[type]=) | Funder angle absent or only a hints-level section list |
+| =structures["Foundation"]= | Funder type unrecognised (fallback) |
+
+Page target precedence: angle =targetPages= → per-type =pageDefaults= → 8.
+
+When a funder has NO angle entry, the generated =hook= is an explicit instruction
+to the AI: do NOT use generic "aligns with our mission" language; use the funder
+research to find specific priorities, else lead with strongest proof points. The
+object carries =noIntel: true= in that case.
+
+** Funder type → generic proposal structure + page target
+
+Used when there is no full funder-specific structure. Funder =type= comes from
+=FTYPES= (constants.js).
+
+| Funder type | Generic structure emphasis | Default pages |
+|-------------|----------------------------|---------------|
+| Corporate CSI | B-BBEE value, brand alignment, visibility | 8 |
+| Government/SETA | NQF/SAQA regulatory alignment, accreditation, M&E | 12 |
+| International | Theory of change, SDG impact, safeguarding, exit strategy | 12 |
+| Foundation | Challenge → approach → evidence (default fallback) | 8 |
+| Tech Company | Technology/AI integration, scale pathway | 6 |
+| Partnership | White-label delivery model, commercial terms | 5 |
+
+** funderAngles.js — relationship to funderStrategy
+
+=FUNDER_ANGLES= is keyed by exact funder display name (with aliases as separate
+keys, e.g. "Get It Done Foundation" and "Get It Done", "DGMT" and "DG Murray
+Trust"). =funderStrategy()= looks it up with =FUNDER_ANGLES[g.funder]= — exact
+match, no fuzzy logic. Each entry holds =lead=, =hook= (the verbatim opening
+framing the AI uses), =sections=, =lang=, and optional =returning=,
+=targetPages=, =formatNotes=. This is d-lab-specific funder intelligence; absence
+of a key triggers the no-intel fallback above. Add new funders here, not in
+funderStrategy.js.
+
+** Programme-type catalogue + detection (PTYPES / detectType)
+
+=PTYPES= (funderStrategy.js) is the canonical 8-programme-type catalogue —
+label, students, =cost=, =perStudent=, duration, description, budget summary, and
+a =table= of line items. This is a fixed domain set, not a count.
+
+| Type | Label | Cost | Students |
+|------|-------|------|----------|
+| 1 | Standard Cohort — Partner-funded | R516K | 20 |
+| 2 | Standard Cohort — d-lab Funded + Stipends + Laptops | R1.597M | 20 |
+| 3 | Standard Cohort — With Stipends | R1.236M | 20 |
+| 4 | FET High School Programme | R1.080M | 60 |
+| 5 | Corporate Programme (CCBA-style) | R651K | 63 |
+| 6 | Cyborg Habits Short Course | R930/learner | n/a |
+| 7 | Sci-Bono Employability Skills | R232K | 90 |
+| 8 | Bespoke Corporate — Leadership Accelerator | R2.753M | 25 |
+
+=detectType(grant)= maps a grant to one PTYPE in priority order:
+1. Explicit ="type N"= / ="(type N)"= in =g.notes= (scanned 8→1, highest wins).
+2. Otherwise infer from =g.ask= via thresholds (only when ask > 0):
+
+| =g.ask= ≤ | → Type |
+|-----------|--------|
+| 250,000 | 7 (Sci-Bono short course) |
+| 550,000 | 1 (Partner-funded) |
+| 700,000 | 5 (Corporate) |
+| 1,100,000 | 4 (FET) |
+| 1,400,000 | 3 (With stipends) |
+| above | 2 (Full-funded) |
+
+Returns =null= when no notes match and ask is unset/≤0.
+
+** selectOptimalBudget() — the "Roll the Dice" budget picker
+
+Distinct from =detectType=. Picks ={ typeNum, cohorts }= to auto-populate the
+BudgetBuilder, maximising cohorts within =g.funderBudget= (falling back to
+=g.ask=). Order: explicit ="type N"= notes win → "bespoke"/"leadership
+accelerator"/"grad programme" keywords → Type 8 → otherwise a *preferred type
+list keyed by funder category*, taking the FIRST type that fits at least one
+cohort (strategic fit before budget maximisation), then as many cohorts as the
+budget supports.
+
+| Funder category | Preferred type order |
+|-----------------|----------------------|
+| Corporate | 8, 5, 1, 7, 3 |
+| Government/SETA | 4, 1, 3, 7 |
+| International | 1, 3, 2 |
+| Tech | 1, 5, 7 |
+| Foundation + default | 1, 3, 5, 7, 4, 2 |
+
+Type 6 is skipped in both budget loops (it has no fixed =cost=). =multiCohortInfo=
+parses ="N × type M"= / ="N cohorts"= out of notes for explicit multi-cohort asks.
+
+** Pipeline state machine — STAGES, GATES, ROLES (constants.js)
+
+=STAGES= is the ordered pipeline (scouted → vetting → qualifying → drafting →
+review → submitted → awaiting → won/lost, plus resubmit/deferred/archived). Each
+carries display colour =c= and background =bg=.
+
+=GATES= is the approval layer: keyed ="from->to"=, each gate names the minimum
+=role= that must sign off the transition. Transitions NOT in =GATES= are
+ungated.
+
+| Transition | Required role |
+|------------|---------------|
+| scouted->vetting | comms (vetting checklist) |
+| vetting->qualifying | board (worth pursuing) |
+| drafting->review | hop (draft approved) |
+| review->submitted | director (approve submission) |
+| awaiting->won | director (confirm award) |
+| awaiting->lost | director (confirm loss) |
+
+=ROLES= defines each role's =level= and the =can= array of stages it may operate
+in. =TEAM= is the default member roster (only used when DB team data is absent).
+
+** Fit score semantics — the =g.on= factor string
+
+A grant's =g.on= is a COMMA-SEPARATED STRING of win/loss factor labels drawn
+from the vocabularies =WFAC= (win factors) and =LFAC= (loss factors) in
+constants.js. Consumers split on commas and trim. The Dashboard aggregates won
+grants' factors to surface which win factors recur. The numeric fit score
+(produced by the AI fit step, surfaced via =g.on_factors=) is bucketed by the
+same thresholds everywhere in the UI: =≥70= high (green), =≥40= medium (amber),
+below = low (red). Scout uses its own pre-add scoring (High→+10, Medium→+4) with
+the same 70/40 display thresholds.
+
+** Compliance docs — three linked structures (constants.js)
+
+=ORG_DOCS= is the canonical org-level compliance library (id, name, =renew=
+flag, category). =DOCS= maps each funder TYPE to the doc NAMES that funder type
+requires. =DOC_MAP= bridges grant-level doc names back to =ORG_DOCS= ids, so a
+grant's required-doc list can resolve to the actual stored org document.
+
+** Glossary — first-occurrence definition injection (glossary.js)
+
+=GLOSSARY= pairs jargon terms with a case-insensitive, whole-word regex and a
+bracketed plain-English definition. =applyGlossary(text)= inserts each term's
+definition after its FIRST occurrence only (skips if already followed by an open
+paren — idempotent, safe to run twice). =detectGlossaryTerms= returns hits in
+reading order; =buildGlossaryAppendix= renders them as a markdown appendix.
+Regexes are deliberately whole-word (=\bFET\b=) so "FET" is not matched inside
+"fetch" nor "type 1" inside "stereotype 1234".
+
+** Onboarding tours — two-tier, role-filtered (tourSteps.js)
+
+=TOURS= holds an OVERVIEW tour (auto-fires first login, walks the sidebar) plus
+one per-tab tour (triggered by the in-tab help button). =stepsForTour(tourId,
+role, context)= filters steps by =roles= (steps without a =roles= field show for
+everyone) and by an optional =showWhen(context)= predicate (e.g. the
+funder-feedback step only shows on submitted+ grants). Steps target real DOM
+nodes via =data-tour="..."= attributes; targetless steps render as centred
+modals. Seen-state is per =(memberId, role)= in =localStorage=, namespaced by a
+=VERSION= constant — bump it to re-show tours to all users.
+
+* Constraints & Gotchas
+
+- =context.js= is the runtime prompt-context source of truth and is CODE on
+  purpose — it is read by the AI layer and the server seed path. Treat numbers,
+  outcomes, and funder figures here as facts the AI will quote in live proposals.
+- =CTX= and =CTX_SLIM= must stay factually consistent — =CTX_SLIM= is the
+  token-budget variant of the same profile, not a separate truth.
+- =FUNDER_ANGLES= lookup is EXACT-MATCH on =g.funder=. Aliases exist as separate
+  keys (e.g. "DGMT" + "DG Murray Trust"). A name not present silently falls to
+  the no-intel hook — there is no fuzzy matching.
+- A funder angle's =sections= only override the generic type structure when it
+  reads as a FULL structure (≥4 sections AND includes a Cover/Budget section);
+  otherwise the type-based generic structure is used.
+- =detectType= and =selectOptimalBudget= are DIFFERENT functions: =detectType=
+  classifies a single grant for display/proposal; =selectOptimalBudget= picks
+  type + cohort count to fill a budget. They use different precedence rules.
+- Type 6 (Cyborg Habits) has =students: null= and =cost: null= — both budget
+  loops in =selectOptimalBudget= skip any type without a fixed =cost=.
+- Fit-score thresholds (70 high / 40 medium) are the same across GrantDetail and
+  Scout but are hard-coded per call site, not centralised here.
+- =GATES= only lists GATED transitions; any "from->to" not present is allowed
+  without sign-off. =PERSONAS= (constants.js) is a legacy fallback used only when
+  DB team data is missing; the active app uses DB team data.
+- =SEED= is currently an empty array — the app starts with an empty pipeline and
+  grants are added via Scout or manual entry. (App.jsx bumps a localStorage
+  version key, e.g. =dlg12→dlg13=, to force fresh seed data on load.)
+- =glossary.js= regexes are SHARED objects; =detectGlossaryTerms= resets
+  =regex.lastIndex= after each use — relevant if a regex is ever given a global
+  flag elsewhere.
+
+---
+/Last Updated/: 2026-06-19

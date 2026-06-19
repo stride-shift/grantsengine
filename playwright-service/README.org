@@ -1,0 +1,114 @@
+#+TITLE: Playwright Service (Level 1B)
+#+DATE: 2026-06-19
+
+* Overview
+
+A standalone Node.js + Express service that drives a headless Chromium browser
+(via Playwright) on behalf of the main Grants Engine. It is a *separate
+deployable*: it ships its own =package.json= and =Dockerfile= and deploys
+independently of the React app (Vercel) and the Express backend. The main app
+reaches it over HTTP using a shared secret.
+
+It serves two jobs the main app cannot do in-process: (1) auto-filling and
+submitting funder application forms behind a human-review step, and (2) fetching
+arbitrary remote pages for the scraper (raw-text extraction and link
+verification).
+
+* HTTP Surface
+
+All endpoints except =/health= require the =X-Service-Key= request header to
+match the =PLAYWRIGHT_SECRET= env var; a missing secret returns 500, a wrong one
+401. JSON body, 10mb limit.
+
+| Method | Path           | Auth | Purpose |
+|--------+----------------+------+---------|
+| GET    | =/health=      | no   | Liveness probe; returns service name + version |
+| POST   | =/fill=        | yes  | Open page, optional login, fill =fieldMappings=, screenshot, hold session open for review |
+| POST   | =/submit=      | yes  | Click submit on a held session, capture confirmation, close session |
+| POST   | =/cancel=      | yes  | Close a held session without submitting |
+| POST   | =/scrape=      | yes  | Load a page, return visible body text (capped) + deduped http(s) anchor links |
+| POST   | =/verify-link= | yes  | Resolve one (=url=) or many (=urls=) URLs; report status, finalUrl, title |
+
+* Key Patterns
+
+- *Fill → review → submit, not fire-and-forget.* =/fill= launches a browser,
+  fills the form, uploads a full-page screenshot, and keeps the live
+  browser/context/page in an in-memory =sessions= map keyed by a random
+  =sessionId=. The caller reviews the screenshot, then calls =/submit= (or
+  =/cancel=) with that =sessionId=. =/submit= and =/scrape=/=/verify-link= each
+  manage their own browser lifecycle.
+- *Sessions are in-memory and ephemeral.* The =sessions= map is process-local
+  (no Redis/DB), so it does not survive a restart or span instances. Each session
+  auto-closes its browser ~15 minutes after =/fill=.
+- *Heuristic selectors.* Form-field, login, and submit-button matching all try a
+  list of common selector patterns rather than a precise contract — field fill
+  reports per-field =filled= / =not-found= / =error=. File-upload fields are
+  skipped.
+- *Screenshot storage is optional.* Screenshots upload to the Supabase
+  =uploads= bucket only when =SUPABASE_URL= + =SUPABASE_SERVICE_KEY= are set;
+  otherwise the service still works and returns empty screenshot arrays.
+
+* SSRF Guard
+
+=ssrfGuard.js= exports =assertSafeUrl(url)=, called on the target URL of =/fill=,
+=/scrape=, and =/verify-link= before the browser navigates. Because this service
+fetches *arbitrary, externally-supplied URLs* with a real browser, it is a prime
+SSRF vector — without the guard a caller (or a malicious funder link) could point
+it at internal infrastructure or a cloud metadata endpoint and exfiltrate
+credentials. The guard is self-contained (no dependency on the main server) since
+the service deploys separately.
+
+It rejects, before navigation:
+
+- Non-http(s) schemes (e.g. =file:=, =gopher:=).
+- Hostnames matching =localhost=, =*.local=, =*.internal=.
+- Private / loopback / link-local IP literals — IPv4 (0/8, 127/8, 10/8,
+  169.254/16, 172.16–31, 192.168/16, 100.64–127, multicast ≥224) and IPv6
+  (=::1=, =::=, =fe80::/10=, =fc00::/7=, plus IPv4-mapped forms).
+- Hosts whose DNS resolution yields any private IP (DNS-rebinding defence), or
+  that fail to resolve.
+
+A blocked URL surfaces to the caller as a 400 with a =Blocked URL:= message; in
+=/verify-link= batch mode it becomes a per-URL =ok: false= result rather than
+failing the whole request.
+
+* How the Main App Calls It
+
+The main app holds the service URL in =PLAYWRIGHT_SERVICE_URL= and the shared
+secret in =PLAYWRIGHT_SECRET=, sending the latter as =X-Service-Key=. The form
+endpoints (=/fill=, =/submit=, =/cancel=) back the autofill feature; =/scrape=
+and =/verify-link= back the server-side grant scraper.
+
+OPEN OBSERVATION: the exact main-app call sites are not visible from within this
+directory. Confirm against the main repo (likely =server/= scraper and an
+autofill route) which caller hits which endpoint — this section describes the
+intended wiring from env-var names and endpoint comments, not a verified
+integration point.
+
+* Deployment
+
+Containerised from =mcr.microsoft.com/playwright:v1.48.0-jammy= (Chromium + system
+deps preinstalled). The Dockerfile installs production deps with =npm ci
+--omit=dev=, sets =PORT=8080=, exposes 8080, and runs =node server.js=. The port
+default and 8080 EXPOSE target a Cloud Run-style managed-container host that
+injects =PORT=.
+
+| Env var                | Required | Purpose |
+|------------------------+----------+---------|
+| =PLAYWRIGHT_SECRET=    | yes      | Shared secret matched against =X-Service-Key= |
+| =PORT=                 | no       | Listen port (default 8080; host may inject) |
+| =SUPABASE_URL=         | no*      | Supabase project URL for screenshot upload |
+| =SUPABASE_SERVICE_KEY= | no*      | Supabase service-role key for screenshot upload |
+
+(*) Screenshots simply don't persist when the Supabase pair is absent; the
+service otherwise runs.
+
+* See Also
+
+- =DOCUMENTATION.org= (root) — documentation standard, tier hierarchy.
+- =server/README.org= — main Express backend (the likely caller).
+- =README.md= (this dir) — GitHub-facing operational notes incl. example
+  gcloud deploy commands and local-dev steps.
+
+---
+/Last Updated/: 2026-06-19

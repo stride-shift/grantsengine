@@ -1,0 +1,182 @@
+#+TITLE: server/scraper - Quick Reference
+#+DATE: 2026-06-19
+
+* Overview
+
+Discovers and parses live grant funding opportunities from external sources
+(grant-database APIs, RSS feeds, funder pages, HTML listings), parses them into
+scout-shaped grant candidates, link-verifies them, and scores fit. The live
+path is consumed by =jobs/scout.js=; =poc.js= is a standalone CLI harness for
+eyeballing yield before/without DB writes.
+
+* Components
+
+| Component        | File            | Purpose                                              |
+|------------------+-----------------+------------------------------------------------------|
+| =SOURCES=        | sources.js      | Source registry — one entry per crawl target         |
+| =scrapeGrants=   | scrapeGrants.js | Main per-source pipeline: fetch→parse→verify→score    |
+| =verifyLinks=    | scrapeGrants.js | Batch URL liveness/SSRF check (also used by the scout) |
+| =parseWithAI=    | scrapeGrants.js | Claude Haiku parse with OpenAI fallback (internal)    |
+| API fetchers     | scrapeGrants.js | Per-API fetchers normalising to ={ pageText, links }= |
+| =fetchRss=       | scrapeGrants.js | Dependency-free RSS reader (internal)                 |
+| POC harness      | poc.js          | Standalone CLI: scrape all/one source, print, no writes |
+
+** Cross-module relationships
+
+- Imports =callClaude= and =callOpenAI= from =server/routes/ai.js= (canonical
+  home for the LLM clients; do not duplicate model/client detail here).
+- Imports =calcScoutFitScore= from =server/jobs/scout.js= to score each candidate.
+- =scrapeGrants= + =verifyLinks= are called by =server/jobs/scout.js= (live path);
+  see that module / =server/README.org= for how scraped results are persisted.
+- This module does NOT touch =server/extractors/= (documented elsewhere).
+
+* Source registry shape (sources.js)
+
+=SOURCES= is an array; each entry's =kind= selects the fetch path. =key= is the
+stable id (POC arg, =sourceKey= on results); =label= is human-facing; =market=
+(='sa'= | ='global'=) is stamped onto every result.
+
+| kind         | Fetch path                              | Key fields                                  |
+|--------------+-----------------------------------------+---------------------------------------------|
+| ='api'=      | one of =API_FETCHERS[source.api]=       | =api=, =queries= (or fetcher-specific)       |
+| ='rss'=      | =fetchRss(feedUrl)=                      | =feedUrl=                                    |
+| ='aggregator'= | =resolveTargetUrl= → playwright =/scrape= | =listUrl=, =postLinkPattern=               |
+| ='funder'=   | playwright =/scrape= of =url=           | =url=, =funder= (default funder for items)   |
+
+Optional per-source fields:
+- =requiresEnv: 'ENV_VAR'= — source is skipped at runtime unless that var is set
+  (e.g. IATI needs =IATI_API_KEY=). Gating is enforced by the *caller* (=jobs/scout.js= /
+  =poc.js= via env), not inside =scrapeGrants=.
+- =parseHint= — extra instructions appended to the AI parse prompt (eligibility
+  filtering, which org is the funder, type/access defaults).
+- =funder= — funder name applied when the AI doesn't extract one.
+
+=API_FETCHERS= keys: =grantsgov=, =sedia=, =etenders=, =worldbank=, =iati=.
+
+* Key Patterns
+
+** Dual AI provider: Anthropic Claude for the scraper, OpenAI for the app
+
+This module is the one place that prefers the *Anthropic Claude API*. The rest
+of the app uses OpenAI (see =src/hooks/useAI.js= and =server/routes/ai.js=). The
+scraper parses with *Claude Haiku* (=claude-haiku-4-5=, overridable via
+=ANTHROPIC_MODEL=) and falls back to OpenAI:
+
+- =claudeConfigured()= returns true only when =ANTHROPIC_API_KEY= starts with
+  =sk-ant-=, is not the =.env.example= placeholder (=your-claude-key=), and has
+  not previously 401'd.
+- =parseWithAI= tries =callClaude(..., { search: true })=. On a 401 it sets the
+  module-level =claudeAuthFailed= flag (so subsequent calls skip Claude) and
+  falls through to OpenAI. Any non-401 Claude error is rethrown (not swallowed).
+- OpenAI fallback is =callOpenAI(..., { search: false })= — note web_search is
+  OFF on the fallback path (Claude's parse uses web_search to sanity-check
+  facts/links; the OpenAI fallback does not).
+
+Why Haiku: cheap, and its server-side =web_search= lets the model verify facts
+and refuse to emit links it can't confirm. The web_search tool config and the
+=pause_turn= continuation loop live in =callClaude= (=routes/ai.js=), not here.
+
+** Uniform =;{ pageText, links }= contract
+
+Every fetch path (API fetchers, RSS, HTML scrape) returns the same
+={ pageText, links }= shape, so the parse → verify → score tail of
+=scrapeGrants= is identical regardless of source kind. =links= is
+=[{ href, text }]=; =pageText= is markdown-ish concatenated text capped at
+=maxChars= (default 24000).
+
+** scrapeGrants pipeline (per source)
+
+1. *Fetch* by =kind= (api fetcher / RSS / playwright =/scrape=). Bail early with
+   empty result if =pageText= < 100 chars.
+2. *Parse* via =parseWithAI= using the prompt from =buildParsePrompt=; extract a
+   JSON array with =parseJsonArray=; keep only candidates with a =name=.
+3. *Verify links* via playwright =/verify-link= (only if PW configured). Builds
+   =statusByUrl=; verification is best-effort (errors leave statuses empty).
+4. *Map + score*: drop past-deadline candidates; drop candidates whose link was
+   verified dead; map to the scout-result shape; attach =fitScore=
+   (=calcScoutFitScore=), =sourceKey=, and =linkStatus=.
+
+Result objects match the shape =scoutResultToGrant= consumes (canonical in the
+scout/frontend path), annotated with =fitScore=, =sourceKey=, =linkStatus=.
+
+** buildParsePrompt — anti-hallucination contract
+
+The system prompt forces a JSON-only array and forbids fabrication: =deadline=
+null unless stated, =funderBudget= 0 unless published (with fixed FX
+assumptions USD≈18 / EUR≈20 / GBP≈23 ZAR), and =url= MUST be one of the supplied
+LINKS or null. The =funderHint= varies by =kind= (funder page vs round-up vs
+official DB) and is overridden by an explicit =source.parseHint=.
+
+** verifyLinks — shared liveness + SSRF gate
+
+=verifyLinks(urls)= dedups, calls playwright =/verify-link=, and returns a
+=Map(url → { ok, status, ... })=. Returns an *empty* map when PW is unconfigured
+or on error, so callers fall back to "keep unverified" rather than dropping
+everything. Used by BOTH this module's step 3 and the AI web-search scout
+(=jobs/scout.js=) so model-produced links get the same liveness/SSRF check.
+
+** Per-API fetcher quirks (non-obvious)
+
+| Fetcher       | Quirk                                                                 |
+|---------------+-----------------------------------------------------------------------|
+| =grantsgov=   | Two-call: =search2= per keyword, then =fetchOpportunity= for newest hits; foreign-eligibility filtered in the prompt, not the API |
+| =sedia=       | Public =apiKey=SEDIA=; rewrites machine =topicDetails/*.json= URLs to the human portal page |
+| =etenders=    | OCDS API; pre-filters releases by =ETENDERS_KEYWORDS= regex + =status==='active'= before the AI sees them |
+| =worldbank=   | Paginates via =os= offset (NOT =page=); builds canonical project-detail URL from id; =projects= may be array OR object |
+| =iati=        | Requires =IATI_API_KEY= in =Ocp-Apim-Subscription-Key= header; renders activities via d-portal.org URLs |
+
+* Constraints & Gotchas
+
+- *Dual provider*: scraper = Anthropic (Haiku + web_search), rest of app =
+  OpenAI. The =claudeAuthFailed= flag is module-level — once Claude 401s in a
+  process, every later parse uses OpenAI until the process restarts.
+- *No internal retries / rate-limit handling here.* API fetchers issue plain
+  =fetch=; a non-OK upstream response throws and aborts that source. The
+  caller (=jobs/scout.js= / =poc.js=) decides what a failed source means.
+- *playwright-service is optional.* =PW_CONFIGURED= = both =PLAYWRIGHT_SERVICE_URL=
+  and =PLAYWRIGHT_SECRET= set. Without it: ='api'= and ='rss'= sources still run;
+  ='funder'=/='aggregator'= sources throw; link verification is skipped and all
+  links are kept as =unverified=. Auth to playwright-service is via the
+  =X-Service-Key= header.
+- *SSRF / liveness* lives in the playwright-service =/verify-link= endpoint, not
+  here — this module only consumes its verdicts.
+- *Hand-rolled HTML/RSS parsing.* No XML/HTML library: =fetchRss= and =stripHtml=
+  use regex + a small fixed entity-decode table (=decodeEntities= only handles
+  =&lt; &gt; &quot; &#39; &apos; &nbsp; &amp;=). Malformed feeds degrade silently
+  rather than throwing.
+- *Link verdicts are conservative*: a candidate is dropped only when PW is
+  configured AND the link was verified AND =!status.ok=. Unverified links are
+  kept (=linkStatus: 'unverified'=); a candidate with no URL is kept
+  (=linkStatus: 'no-url'=).
+- *Past-deadline drop* compares the candidate's =deadline= string against today
+  (=YYYY-MM-DD=); a null/absent deadline is always kept.
+
+* POC vs live path
+
+- =poc.js= is a *standalone proof-of-concept CLI*, not part of the live request
+  path: =node server/scraper/poc.js [sourceKey]=. It loads =dotenv=, runs
+  =scrapeGrants= over all (or one) source, prints scout-shaped results plus a
+  per-source/total summary (found → verified → high-fit ≥65), and makes *no
+  database writes*. Its header comment marks it "Phase 1 proof-of-concept".
+- The *live* consumer is =server/jobs/scout.js=, which imports =scrapeGrants= and
+  =verifyLinks= directly and persists results. =scrapeGrants.js=, =sources.js=,
+  and =verifyLinks= are therefore live code; only =poc.js= is the standalone
+  harness.
+
+* Configuration
+
+| Env var                | Used by                | Purpose                                   |
+|------------------------+------------------------+-------------------------------------------|
+| =ANTHROPIC_API_KEY=    | parseWithAI / claudeConfigured | Enables Claude Haiku parse (preferred) |
+| =ANTHROPIC_MODEL=      | callClaude (routes/ai.js) | Override default =claude-haiku-4-5=     |
+| =OPENAI_API_KEY=       | parseWithAI            | Fallback parser when Claude unavailable    |
+| =PLAYWRIGHT_SERVICE_URL= | pw / verifyLinks     | HTML scrape + link verification base URL   |
+| =PLAYWRIGHT_SECRET=    | pw / verifyLinks       | =X-Service-Key= auth to playwright-service  |
+| =IATI_API_KEY=         | fetchIati              | =requiresEnv= gate for the IATI source      |
+
+Provider keys are read from =process.env= directly in this module (not via
+=server/config=). Defaults for fetcher limits (=maxItems=, =maxChars=, =maxDetails=,
+=days=) are inline per fetcher.
+
+---
+/Last Updated/: 2026-06-19

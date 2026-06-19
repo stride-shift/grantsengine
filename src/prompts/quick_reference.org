@@ -1,0 +1,164 @@
+#+TITLE: src/prompts - Quick Reference
+#+DATE: 2026-06-19
+
+* Overview
+
+Pure prompt-construction modules. Each =build*= function takes a context bag and
+returns a =P()= object (={ system, user, search, maxTokens }=) — or ={ result }=
+for a precomputed early return — with no I/O, no React, and no state. The bag is
+assembled once in =src/hooks/useAI.js= (=runAI=) and dispatched by =type= string;
+the scout pair is the one exception, called directly from =ScoutPanel.jsx=.
+
+This directory is the home of the prompt *strings*. The dispatch table, =api()=
+call, token-budget plumbing, JSON parsing, and usage logging live in
+=src/hooks/useAI.js= — see =src/hooks/quick_reference.org=, do not restate them here.
+
+* Modules
+
+| Module          | Exports (prompt builders / helpers)                                                                                          | Consumer (importer)        | Status |
+|-----------------|------------------------------------------------------------------------------------------------------------------------------|----------------------------|--------|
+| =lib.js=        | =FACT_GUARD=, =getResearchForSection=, =getResearchForDraft=                                                                  | =useAI.js=, =draft.js=, tests | active |
+| =draft.js=      | =buildDraftPrompt=, =buildSectionDraftPrompt=, =buildConceptNotePrompt=                                                       | =useAI.js=                 | active |
+| =research.js=   | =buildResearchPrompt=, =buildFollowupPrompt=, =buildFitScorePrompt=                                                           | =useAI.js=                 | active |
+| =extraction.js= | =buildExtractRequiredDocs=, =buildExtractEmailFeedback=, =buildExtractNotes=, =buildFetchFunderBrief=, =buildFindApplyUrl=, =buildUrlExtractPrompt= | =useAI.js=                 | active |
+| =operations.js= | =buildBriefPrompt=, =buildWinLossPrompt=, =buildReportPrompt=, =buildInsightsOrStrategyPrompt=                                | =useAI.js=                 | active |
+| =scout.js=      | =scoutPrompt=, =scoutBriefPrompt=, =buildRejectionBlock=                                                                      | =ScoutPanel.jsx=           | active |
+
+Every =build*= module starts with the same one-line local helper
+=const P = (system, user, search, maxTokens) => ({ system, user, search, maxTokens });=.
+=scout.js= builders instead return objects with a =maxTok= key (not =maxTokens=) —
+they are called outside =useAI='s dispatch path and shape their own =api()= calls
+in =ScoutPanel=.
+
+* The useAI dispatch contract
+
+=useAI.js= imports the =build*= functions and routes on a =type= string in an
+if-chain (=if (type === "draft") return dispatch(buildDraftPrompt(ctx))=, etc.).
+=dispatch= returns =b.result= directly when present (early-return prompts that
+short-circuit the model), otherwise calls =api(system, user, search, maxTokens)=.
+
+The =ctx= bag every =build*= function destructures:
+=type, grant, orgName, orgCtx, factGuard, budgetInfo, perStudentStr, costHook,
+priorResearch, priorFitScore, grants, team, stages=.
+
+| =ctx= field        | Non-obvious meaning                                                                 |
+|--------------------|-------------------------------------------------------------------------------------|
+| =factGuard=        | =FACT_GUARD= from =lib.js=, re-aliased; appended to most system prompts             |
+| =budgetInfo=       | Pre-rendered budget block (=budgetInfo.block=) — single source of truth for the ask |
+| =priorResearch=    | OVERLOADED — payload differs per type (see Constraints)                              |
+| =priorFitScore=    | OVERLOADED — either fitscore text or a ={ research, fitscore }= object               |
+
+* Key Patterns
+
+** lib.js — shared prompt primitives
+- =FACT_GUARD= is the static anti-hallucination block (source-of-truth hierarchy,
+  never-fabricate list, TBC labels, derived-vs-provided rule, no-named-directors).
+  It is appended to most system prompts via =${factGuard}=. The scout prompts do
+  NOT use it — they carry their own inline accuracy rules instead.
+- =getResearchForDraft= flattens parsed funder research into a labelled block for
+  the full-draft prompt (default budget 2500 chars).
+- =getResearchForSection= selects a research SUBSET keyed off the section name
+  (cover / exec-summary / budget / impact / programme / scale) so each section
+  only sees the funder intel relevant to it; falls back to all fields.
+- These two are the "pure logic buried in prompts" extracted from =useAI= and are
+  the only prompt code with dedicated unit tests (=src/__tests__/promptsLib.test.js=).
+
+** Funder-strategy injection (research / draft)
+=research.js= and =draft.js= call =funderStrategy(grant)= (from
+=src/data/funderStrategy=) to get ={ lead, hook, lang, structure, returning, mc,
+targetPages, ... }=. Returning-vs-new funders get different field names in the
+research JSON schema (=relationshipLeverage= vs =doorOpener=) and different
+relationship framing blocks. =operations.js= strategy prompt uses =detectType=
+and =PTYPES= from the same module to build the programme-type reference.
+
+** Section-by-section drafting (draft.js)
+=buildSectionDraftPrompt= is the heaviest builder. It:
+- Classifies the section by name (cover / exec / budget / impact / programme /
+  scale / B-BBEE / M&E / risk / regulatory / timeline / etc.) and emits a
+  section-specific guidance block.
+- Computes a per-section WORD budget from =fs.targetPages= (~650 words/page),
+  splitting fixed sections (cover/exec/budget/appendix) from body sections, then
+  derives a per-section =tokenBudget= (=promptWords / 0.75 + 400=).
+- Reads =completedSections= from =priorResearch= and builds an anti-repetition
+  summary — detects which named alumni and which stats each prior section already
+  used so the model varies openings and never reuses a story.
+
+** Hardcoded factual allowlists (draft.js)
+Both draft builders hardcode the ONLY real alumni names the model may use
+(Siphumezo Adam, Simanye Mdunyelwa, Prieska Mofokeng) and the ONLY employer
+testimonial (Michelle Adler / forgood), plus a BANNED-PHRASES list (no "Imagine",
+no "SA has X% unemployment" openers, no hollow grant-speak). These are
+load-bearing anti-hallucination constraints, not stylistic preferences.
+
+** Structured-output discipline
+Every JSON-returning prompt instructs "Return ONLY valid JSON, no markdown
+fences". JSON prompts: =scoutPrompt= (array of opportunities), =buildExtractRequiredDocs=,
+=buildFetchFunderBrief=, =buildFindApplyUrl=, =buildUrlExtractPrompt=,
+=buildResearchPrompt= (object). Plain-text/markdown prompts: drafts, concept note,
+followup, fitscore (fixed labelled format), brief, winloss, report, insights,
+strategy, extractEmailFeedback, extractNotes. Parsing happens in =useAI.js=.
+
+** Scout pair (scout.js → ScoutPanel)
+- =scoutBriefPrompt(orgContext)= distils the org into a 5-line plain-text brief
+  (WE DO / WE DON'T DO / SECRET SAUCE / PARTNERSHIPS) used downstream to FILTER
+  opportunities. =maxTok 700=, =search false=.
+- =scoutPrompt({ existingFunders, market, orgContext, scoutBrief, rejections,
+  keywords })= is search-grounded (=search true=, =maxTok 4000=). The system prompt
+  swaps entirely on =market= (=sa= / =global= / =both=) — each market has its own
+  role, search-focus funder list, and inclusion rule. =ScoutPanel= calls it once
+  per market when scanning both.
+- =buildRejectionBlock(rejections)= converts the user's accumulated rejections
+  (capped at 50 most recent) into a "PREVIOUSLY REJECTED / ACCURACY WARNING" block
+  injected into the scout system prompt — including fake-grant and dead-link
+  flags that harden the never-fabricate rule.
+
+** Token budgets
+Calibrated per builder, from 800 (urlextract, fitscore, extractNotes) up to ~6000
+(fetchFunderBrief) and dynamic per-section in =buildSectionDraftPrompt=. The
+budget values are part of each prompt object; the actual call lives in =useAI.js=.
+
+* Constraints & Gotchas
+
+- *=priorResearch= is overloaded per type* — it is NOT always "research text".
+  =buildWinLossPrompt= reads it as the outcome string ("won"/"lost");
+  =buildUrlExtractPrompt= reads it as the URL; =buildSectionDraftPrompt= reads it
+  as ={ sectionName, sectionIndex, totalSections, allSections, completedSections,
+  customInstructions }=. Check the specific builder before assuming its shape.
+- *=priorFitScore= is overloaded* — =buildSectionDraftPrompt= reads
+  =priorFitScore?.research= and =priorFitScore?.fitscore= (an object), while
+  =buildDraftPrompt= treats it as fitscore text. Different shapes, same field name.
+- *=scout.js= returns =maxTok=, not =maxTokens=* — it bypasses =useAI='s dispatch,
+  so the key name differs from every other module. =ScoutPanel= reads =maxTok=.
+- *Stale header comment in =scout.js=* — the top comment says the scout prompts
+  are "used by Pipeline.jsx and server/jobs/scout.js". The actual active frontend
+  consumer is =ScoutPanel.jsx=; =Pipeline.jsx= does not import them.
+- *Broken server import* — =server/jobs/scout.js= imports =scoutPrompt= from
+  ='../../src/prompts.js'=, a path that no longer exists (the prompts were split
+  into this =src/prompts/= directory). The reference resolves to no file as
+  written. Present-state observation only.
+- *=FACT_GUARD= is not universal* — appended to most builders but NOT to the scout
+  prompts (which carry their own accuracy rules) nor =buildFindApplyUrl= /
+  =buildFitScorePrompt= (no =${factGuard}= in their templates). Don't assume it is
+  on every prompt.
+- *Early-return prompts skip the model* — =buildExtractRequiredDocs= and
+  =buildExtractEmailFeedback= return ={ result }= (a canned string) when their
+  input is empty/too short; =dispatch= returns that string without an =api()= call.
+- *=lib.js= helpers are char-budgeted, not token-budgeted* — =getResearchForDraft=
+  / =getResearchForSection= slice by character count (=.slice(0, budget)=), a
+  rough proxy applied before the prompt's own token budget.
+- *Anti-hallucination is duplicated by design across draft builders* — the alumni
+  allowlist and banned-phrase list appear in both =buildDraftPrompt= and
+  =buildSectionDraftPrompt=. They are independent prompts; keep the lists in sync
+  when editing.
+
+* Configuration
+
+| Setting                 | Where                          | Purpose                                    |
+|-------------------------|--------------------------------|--------------------------------------------|
+| =maxTokens= per builder | each =P(...)= return           | Output budget; calibrated to output complexity |
+| =search= flag           | each =P(...)= return           | Routes =useAI= to web-search-capable model |
+| rejection cap (50)      | =buildRejectionBlock=          | Most-recent rejections fed to scout        |
+| research char budget    | =getResearchFor*= (=lib.js=)   | 2500 (draft) / 2000 (section) default      |
+
+---
+/Last Updated/: 2026-06-19

@@ -1,0 +1,181 @@
+#+TITLE: src/hooks - Quick Reference
+#+DATE: 2026-06-19
+
+* Overview
+
+Two hooks. =useAI= is the app's central AI logic layer: it assembles org
+context, builds a per-action prompt, and routes the call to the Express AI
+proxy. =useHygiene= is a one-shot background side-effect that silently tidies
+the grant pipeline on load. =useAI= is a large hook that centralises all AI
+dispatch (internally flagged as a god-hook); document the dispatch shape and the
+context-budget math, not signatures.
+
+* Components
+
+| Hook | File | Purpose |
+|------|------|---------|
+| useAI | useAI.js | Context assembly + per-action prompt dispatch to the AI proxy |
+| useHygiene | useHygiene.js | One-shot background pipeline cleanup after grants load |
+
+Prompt *text* does NOT live here — each action's builder lives in =src/prompts/=
+(=draft.js=, =research.js=, =extraction.js=, =operations.js=; shared bits in
+=lib.js=). Scout prompts live in =src/prompts/scout.js= (see =src/prompts/quick_reference.org=).
+Org context source data lives in =src/data/= (see =src/data/quick_reference.org=).
+
+* Key Patterns
+
+** useAI dispatch — action key → builder → api()
+
+=runAI(type, grant, priorResearch, priorFitScore)= is the single entry point. It
+builds ONE shared =ctx= bag, then an if-chain matches the =type= string to a
+builder imported from =src/prompts/=. Each builder returns =({ system, user,
+search, maxTokens })= — or =({ result })= to short-circuit. =dispatch(b)= sends
+=b.result= straight back when present (no API call), otherwise calls
+=api(b.system, b.user, b.search, b.maxTokens)=. Unknown =type= returns the
+literal string ="Unknown AI action"=.
+
+This is a flat if-chain, not a map — there is no fallthrough; the first match
+returns. =insights= and =strategy= share one builder (=buildInsightsOrStrategyPrompt=),
+branching internally on =ctx.type=.
+
+*** Action key → builder → token budget
+
+Budgets are calibrated to output complexity and whether the call needs
+web-search grounding (=search=). Search-grounded calls hit OpenAI's Responses
+API server-side; non-search calls hit Chat Completions (see =server/= docs).
+
+| type | Builder (module) | search | maxTokens | Purpose |
+|------|------------------|--------|-----------|---------|
+| draft | buildDraftPrompt (draft) | no | 5000 | Full multi-section proposal |
+| sectionDraft | buildSectionDraftPrompt (draft) | no | dynamic | One proposal section; budget sized to prompt length, min 1000 |
+| conceptNote | buildConceptNotePrompt (draft) | no | 1800 | Short 1-2 page pre-proposal pitch |
+| research | buildResearchPrompt (research) | yes | 3000 | Deep funder intelligence (web search) |
+| followup | buildFollowupPrompt (research) | no | 1000 | Short follow-up message |
+| fitscore | buildFitScorePrompt (research) | no | 800 | Numeric fit score + rationale |
+| extractRequiredDocs | buildExtractRequiredDocs (extraction) | no | 1200 | Parse required-docs list from brief/research |
+| extractEmailFeedback | buildExtractEmailFeedback (extraction) | no | 900 | Structure a pasted funder email |
+| extractNotes | buildExtractNotes (extraction) | no | 800 | Distil notes to fact bullets |
+| fetchFunderBrief | buildFetchFunderBrief (extraction) | yes | 6000 | Find + return published RFP (web search) |
+| findApplyUrl | buildFindApplyUrl (extraction) | yes | 1200 | Find candidate application URLs (web search) |
+| urlextract | buildUrlExtractPrompt (extraction) | yes | 800 | Extract structured data from a URL (web search) |
+| brief | buildBriefPrompt (operations) | no | 1000 | Internal grant brief |
+| winloss | buildWinLossPrompt (operations) | no | 1000 | Win/loss reflection |
+| report | buildReportPrompt (operations) | no | 2000 | Pipeline report |
+| insights | buildInsightsOrStrategyPrompt (operations) | no | 2000 | Pipeline insights |
+| strategy | buildInsightsOrStrategyPrompt (operations) | no | 2500 | Portfolio strategy |
+
+Budgets are the single most-likely-to-drift numbers here — they live in the
+builder's =P(...)= call in =src/prompts/=, NOT in useAI.js. Treat this table as a
+map of which builder owns which budget, and confirm a value against the builder
+before relying on it.
+
+** sB / sA state helpers (consumer-side convention)
+
+=sB("key", bool)= sets a per-action BUSY flag; =sA("key", value)= stores an AI
+RESULT. These do NOT live in useAI — they are the App/component convention for
+tracking each =runAI= call's in-flight and result state, keyed by action so
+multiple AI calls coexist without clobbering one another. =runAI= is pure
+request/response; the caller owns the busy/result bookkeeping.
+
+** orgCtx assembly — budget-aware, priority-ordered, never truncates high-value content
+
+=runAI= builds =orgCtx= as a single string under a character budget (=maxCtx= =
+10000 for draft/sectionDraft, else 8000). Content is appended in PRIORITY order,
+each block clamped to the =remaining= budget so high-priority content is never
+crowded out by low-priority content:
+
+1. Base profile (=profile.context_slim= — the SLIM context, deliberately, to stay
+   within token limits) + structured profile sections (team, programmes, impact
+   stats, tone, anti-patterns, past funders).
+2. Grant-level uploaded documents (HIGHEST upload priority — user attached them to
+   THIS grant).
+3. Writing learnings (draft types only — small, inserted before org docs so edits
+   the user made are never truncated).
+4. Reference proposals (draft types only — starred uploads + in-app grant drafts
+   the team flagged "use as AI reference"; WON/LOST tagged).
+5. Org-level knowledge base (fills whatever budget remains).
+
+Structured profile sections (programmes, impact stats) are added ONLY for the
+context-heavy actions (=needsOrgContext= = draft / sectionDraft / research /
+fitscore / followup) — extraction and operations actions skip them.
+
+** Budget block — grant.budgetTable wins over detectType
+
+Every action gets a =budgetInfo= block built from =grant.budgetTable=
+(BudgetBuilder output) when present, else falls back to =detectType(grant)=
+(programme-type heuristic from =src/data/funderStrategy=), else null. The
+budget-table path emits a verbose "SOURCE OF TRUTH — use these EXACT figures"
+block including multi-year math and the 30% org contribution. Builders reference
+=budgetInfo.total= / =perStudentStr= to lock the ask amount across the proposal.
+
+** Caching — three refs, different TTLs
+
+| Cache (ref) | Keyed by | TTL | Cleared by |
+|-------------|----------|-----|------------|
+| uploadsCache | grantId | none (per-grant, session) | =clearUploadsCache(grantId?)= |
+| learningsCache | — (single) | 60s | TTL only |
+| proposalLibraryCache | — (single) | 120s | TTL only |
+
+=clearUploadsCache(id)= drops one grant's entry; called with no arg it wipes all.
+Callers must invoke it after a grant's uploads change, or stale doc context
+persists for the session.
+
+** Anti-hallucination guard
+
+=FACT_GUARD= (from =src/prompts/lib.js=) is appended to every prompt's system
+message. It defines a strict source-of-truth hierarchy and "[TBC]" labels for
+unavailable facts. It is shared, not per-action — change it in =lib.js=, not here.
+
+** useHygiene — one-shot background pipeline cleanup
+
+Runs ONCE per =(memberId + HYGIENE_VERSION)= session after grants load, gated by
+=repairRanForRef=. It has no UI — the user just sees a cleaner pipeline, with one
+discrete summary toast at the end (only if something changed). Passes run in
+order; instant (regex/in-memory) passes first, AI/network passes last:
+
+| Pass | Work | Cost |
+|------|------|------|
+| 1 | Sanitize notes (strip internal jargon via =sanitizeNotes=) | instant |
+| 1.5 | Auto-archive active grants >90 days past deadline (logged) | instant |
+| 1.6 | Detect "accepts unsolicited" from notes (only if field unset) | instant |
+| 2 | Dedupe by normalised funder — keep most-complete, archive rest | instant |
+| 3 | URL hygiene — verify existing URLs, AI-find replacements | AI + network, rate-limited |
+| 4 | Fetch funder briefs for Gov/SETA/International/Foundation grants lacking one | AI + network, rate-limited |
+
+Bumping =HYGIENE_VERSION= forces a re-run for everyone on next load — the
+intended lever after changing URL/brief logic.
+
+* Constraints & Gotchas
+
+- =useAI= centralises ALL AI dispatch and is internally flagged as a god-hook;
+  it is large by design at present. Document its dispatch shape; do not restructure.
+- =runAI= short-circuits via =({ result })= for validation/no-input cases (e.g.
+  =extractEmailFeedback= with <30 chars pasted, =extractRequiredDocs= with no
+  brief/research) — these return a canned string WITHOUT calling =api()=, so the
+  caller still gets a normal string back, just not AI-generated.
+- =api()= NEVER throws — on failure it RETURNS a friendly error string (it sets
+  =_skipOkCheck= and manages its own retry/backoff for 429/500/502/503/529).
+  Callers must detect AI-error strings, not catch exceptions. =useHygiene= guards
+  with =isAIError(raw)= before parsing and skips that grant on a hit.
+- Token budgets live in each builder's =P(...)= call in =src/prompts/=, NOT in
+  useAI — the table above maps action→builder; verify the number at the source.
+- =orgCtx= uses =context_slim= (the SLIM profile), not the full context, to stay
+  within token limits — a deliberate choice, not an oversight.
+- Upload/learnings/reference injection is wrapped in try/catch and is
+  non-blocking: a fetch failure logs and proceeds with whatever context exists,
+  so a missing uploads service degrades gracefully rather than failing the call.
+- =useHygiene= Pass 3 prefers SPECIFIC pages over homepages: AI candidates are
+  sorted by =pageType= priority (form < info_page < contact < homepage); a bare
+  homepage is the last-resort URL, and a loading bare homepage is kept rather than
+  cleared (better than nothing). Synthesised =slug.co.za/.com/.org= guesses are
+  the absolute final fallback.
+- =useHygiene= rate-limits AI calls with a fixed 4.5 s sleep between grants in
+  Passes 3 and 4 — these passes are slow by design to respect proxy limits.
+- =useHygiene= persists via a local =working= Map (not the frozen
+  =initialGrants= snapshot) so successive passes touching the same grant
+  accumulate patches server-side instead of clobbering each other; the UI merges
+  via functional =setGrants=. Server writes use =dSave(..., { silent: true })= —
+  background hiccups log to console, never toast.
+
+---
+/Last Updated/: 2026-06-19

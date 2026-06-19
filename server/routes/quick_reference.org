@@ -1,0 +1,178 @@
+#+TITLE: server/routes - Quick Reference
+#+DATE: 2026-06-19
+
+* Overview
+
+Express 5 routers for the Grant Engine backend. Every router is mounted flat at
+=/api= in =app.js= (=app.use('/api', <router>)=) — there is NO per-router prefix;
+the path prefix lives inside each route declaration (almost all are
+=/org/:slug/...=). Tenancy and auth are applied per-route via the =resolveOrg= +
+=requireAuth= middleware pair, not by a single global gate. =ai.js= is the
+non-obvious centrepiece: it is the OpenAI proxy that normalises OpenAI responses
+into an Anthropic-style shape for the frontend.
+
+* Route Module Inventory
+
+| File        | Route prefix (under =/api=)        | Handles                                                    | Auth required?                          |
+|-------------+------------------------------------+------------------------------------------------------------+-----------------------------------------|
+| ai.js       | =/org/:slug/ai/*=                   | OpenAI proxy (chat + web-search); batch URL health check   | Yes (=resolveOrg= + =requireAuth=)       |
+| auth.js     | =/org/:slug/auth/*=, =/auth/verify= | Login (shared-password + member), password reset, logout   | Mixed — login/reset public; set-password authed |
+| data.js     | =/org/:slug/grants*=, approvals, compliance, agent-runs, kv, calendar.ics | Grants CRUD + side-effect emails; org KV; ICS calendar feed | Yes, EXCEPT =calendar.ics= (=resolveOrg= only) |
+| orgs.js     | =/orgs=, =/org/:slug=, profile, config, team, pipeline-config, logo | Org/tenant CRUD, profile/config, team members, logos       | Mixed — see below                        |
+| uploads.js  | =/org/:slug/uploads*=               | File uploads (Supabase Storage) + text extraction; YouTube | Yes (=resolveOrg= + =requireAuth=)       |
+| admin.js    | =/org/:slug/admin/*=                | Sessions, activity feed, export logging                    | Yes + director (=requireDirector=)       |
+| autofill.js | =/org/:slug/grants/:id/detect-form=, =/org/:slug/autofill/*= | Form detection + field mapping (OpenAI JSON); Playwright fill/submit | Yes (=resolveOrg= + =requireAuth=)       |
+| gcal.js     | =/org/:slug/gcal/*=, =/auth/google/*= | Google Calendar OAuth + event upsert/sync/delete           | Mixed — OAuth url/callback public; gcal/* authed |
+
+Endpoint-level detail (methods, request shapes) is read from the route files
+directly — they are short. This table is the map, not the full contract.
+
+* Key Patterns
+
+** Mount is flat; the prefix lives in the path
+=app.js= mounts all eight routers on the bare =/api= path in import order. Express
+tries each router in turn, so a request matches the first router that declares its
+path. Because every path is namespaced (=/org/:slug/<noun>=, =/orgs=,
+=/auth/...=) collisions are avoided by noun, not by mount prefix. Mount order is
+NOT load-bearing here (unlike a gate-ordered design) — auth is attached per-route.
+
+** Per-route tenancy + auth (the two-middleware pair)
+There is no single JWT gate line. Each protected route lists its own middleware
+chain, conventionally =const orgAuth = [resolveOrg, requireAuth]= then
+=router.<verb>(path, ...orgAuth, handler)=.
+
+- =resolveOrg= (=middleware/org.js=): reads =:slug=, loads the org row, sets
+  =req.org= and =req.orgId=. Returns 404 if the slug is unknown.
+- =requireAuth= (=middleware/auth.js=): reads the Bearer token (header ONLY —
+  query-string tokens are rejected by design), loads the session, and sets
+  =req.session=, =req.orgId=, =req.memberId=. If =req.orgId= was already set by
+  =resolveOrg= and the session's org differs, it returns 403 (cross-tenant block).
+- =req.memberId= is =null= for shared-password (org-level) sessions and set for
+  individual member sessions — director checks depend on it.
+
+** ai.js — the OpenAI proxy and its response normalisation (key gotcha)
+=POST /org/:slug/ai/messages= is the frontend's single AI entry point. The
+frontend sends an Anthropic-style body (=system=, =messages=, =max_tokens=) plus a
+custom =search= flag. The proxy branches:
+
+- =search= falsy (default): calls the OpenAI *Chat Completions* API
+  (=/v1/chat/completions=) with =DEFAULT_MODEL= (=gpt-4o-mini=).
+- =search= true: calls the OpenAI *Responses* API (=/v1/responses=) with the
+  =web_search_preview= tool and =SEARCH_MODEL= (=gpt-4o=). URL citations are
+  extracted into a =sources= array.
+
+Either branch is then NORMALISED into an Anthropic-style envelope before being
+returned: =){ content: [{ type: 'text', text }], usage }=, with
+=grounding_sources= appended when search ran. This is why the frontend treats the
+backend as if it were Claude even though OpenAI is upstream — the shape, not the
+provider, is what the UI depends on. The two APIs report usage under different
+keys (=prompt_tokens=/=completion_tokens= vs =input_tokens=/=output_tokens=); the
+handler maps both into =usage.input_tokens= / =usage.output_tokens=.
+
+Prompt CONTENT (system prompts, scout templates) is NOT here — it lives in the
+frontend (=src/prompts.js=, =src/hooks/useAI.js= and =src/data= context). This
+module documents proxy mechanics only.
+
+** ai.js — standalone server-side callers (no req/res)
+=ai.js= also exports plain async functions for server-side jobs (scout, scraper)
+that have no Express request: =callOpenAI=, =callOpenAIWithSearch=, and
+=callClaude=. =callClaude= uses the Anthropic SDK (Claude Haiku, =CLAUDE_MODEL=)
+and is the ONLY Anthropic caller — used by the grant scraper, lazy-imported so the
+module still loads if the SDK is absent. All HTTP callers go through
+=fetchWithRetry= (retries 429/5xx with quadratic backoff).
+
+** data.js — grants CRUD drives best-effort side-effect emails
+=GET/PUT/POST/DELETE /org/:slug/grants[/:id]= are the canonical grants endpoints.
+=PUT /grants/:id= is not a plain write: it diffs the incoming grant against the
+existing row and fires fire-and-forget notification emails (stage change,
+assignment, ownership-removed, deadline change, grant created/deleted) plus
+calendar cancellations. On transition to =submitted= it auto-archives the
+=aiDraft= into the uploads library as a =proposal= document. All email/archive work
+is wrapped in detached async IIFEs whose failures are swallowed — the HTTP response
+does not wait on or fail with them.
+
+** Literal-before-param ordering (uploads.js)
+Within =uploads.js= the literal routes =/uploads/context= and
+=/uploads/:id/download= are declared BEFORE the bare =/uploads/:id= route so
+"context"/"download" are never captured as an =:id=. Inline comments mark this.
+
+** Director-gated routes
+=admin.js= and the management routes in =orgs.js= add a third middleware,
+=requireDirector=, after =requireAuth=. It requires an individual member session
+(=req.memberId= present) whose team role is =director=; shared-password sessions
+are rejected with 403. Each file defines its own copy of this check.
+
+** Super-admin (cross-tenant) routes
+=POST /orgs=, =DELETE /orgs/:slug= in =orgs.js= are NOT org-scoped and have no
+session auth — they gate on a =x-admin-key= header compared to
+=SUPER_ADMIN_KEY=. These create/delete whole tenants.
+
+** gcal.js — per-member OAuth tokens, owner-targeted sync
+Google Calendar tokens are stored per member (=getMemberGcalTokens=), refreshed
+on demand (=getFreshToken= refreshes when within 60s of expiry). Sync targets the
+grant OWNER's calendar (falling back to the caller) and silently skips members
+with no connected calendar. =makeEventId= maps a grant id into Google's
+base32hex-safe alphabet (no w/x/y/z) so any id scheme yields a valid custom event
+id; all-day =end.date= is start+1 because Google treats it as exclusive.
+
+* Constraints & Gotchas
+
+- *Response shape is the contract, not the provider.* The frontend expects the
+  Anthropic-style =){ content: [{type:'text',text}], usage }= envelope. Changing
+  =ai.js= normalisation (or returning raw OpenAI JSON) silently breaks every AI
+  feature even though the proxy "works".
+- *Two OpenAI APIs, one endpoint.* =search=true= switches Chat Completions →
+  Responses API AND model gpt-4o-mini → gpt-4o AND token-usage key names. Treat
+  the two branches as one behaviour with two backends.
+- *Prompts are NOT here.* Do not add prompt text to route files — single source of
+  truth is the frontend (=src/prompts.js=, =src/hooks/useAI.js=, =src/data=).
+- *Auth is per-route, not a gate.* There is no single line dividing public from
+  authed. A route is public iff its handler omits =requireAuth=. Public ones:
+  =auth= login/verify/reset, =GET /orgs=, =GET /org/:slug/team/public=,
+  =GET .../calendar.ics=, =/auth/google/url= + =/callback=, and the
+  =x-admin-key= super-admin routes. Adding/removing a middleware on one line
+  flips that route's exposure.
+- *Side-effect emails are best-effort and detached.* =data.js= mutations fire
+  notifications in unawaited IIFEs; their failures are logged, never surfaced to
+  the client. A 200 does NOT mean the email/calendar event succeeded.
+- *SSRF guard on user-supplied URLs.* =ai.js= =verify-urls= and =autofill.js=
+  =detect-form= call =assertSafeUrl= (=lib/ssrfGuard.js=) before fetching, because
+  the URLs come from grant data. 401/403 from a target count as "exists"
+  (Cloudflare bot-blocking), only 404/410/DNS/timeout count as broken.
+- *Browser User-Agent spoofing is deliberate.* =verify-urls= and =detect-form=
+  send a real Chrome UA + headers so Cloudflare-fronted SA corporate sites don't
+  403 a bare bot client.
+- *Multer upload guards.* =uploads.js= requires BOTH an allowed MIME type AND a
+  matching extension (an OR check would let arbitrary files through); =orgs.js=
+  logo upload rejects SVG (inline-script XSS risk on a PUBLIC bucket).
+- *Playwright autofill is gated on env.* =autofill/:jobId/fill= and =/submit=
+  return 503 when =PLAYWRIGHT_SERVICE_URL= / =PLAYWRIGHT_SECRET= are unset; the
+  detect-form/review flow still works without them.
+- *=calendar.ics= is intentionally unauthenticated* (=resolveOrg= only) so
+  external calendar apps can subscribe by org slug; it exposes grant names,
+  funders and deadlines but no secrets.
+- *Cross-cutting middleware lives in =app.js= / =server/middleware=, not here.*
+  Helmet (CSP disabled — Vite injects inline scripts), CORS, =express.json= body
+  limit (10mb), and the per-route =express-rate-limit= throttles (login,
+  request-reset, =ai/messages=, =uploads/youtube=) are wired in =app.js= ahead of
+  the routers. The global error handler is registered after all routers. Reference
+  =server/README.org= and =server/middleware= for depth — do not re-document here.
+
+* Configuration
+
+Environment variables read directly by these route modules (defaults in code):
+
+| Setting                | Used by              | Purpose                                                |
+|------------------------+----------------------+--------------------------------------------------------|
+| OPENAI_API_KEY         | ai.js, autofill.js, uploads.js | OpenAI auth; absence → 500/handled error      |
+| OPENAI_MODEL           | ai.js, autofill.js   | Chat Completions model (default =gpt-4o-mini=)          |
+| OPENAI_SEARCH_MODEL    | ai.js, uploads.js    | Responses-API web-search model (default =gpt-4o=)       |
+| ANTHROPIC_API_KEY      | ai.js                | Claude (scraper) auth for =callClaude=                  |
+| ANTHROPIC_MODEL        | ai.js                | Claude model (default =claude-haiku-4-5=)               |
+| SUPER_ADMIN_KEY        | orgs.js              | =x-admin-key= compare for create/delete org            |
+| SUPABASE_URL / SUPABASE_SERVICE_KEY | uploads.js, orgs.js | Storage client (uploads + logos buckets) |
+| PLAYWRIGHT_SERVICE_URL / PLAYWRIGHT_SECRET | autofill.js | External Playwright fill/submit service       |
+| GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI | gcal.js | Calendar OAuth client |
+
+---
+/Last Updated/: 2026-06-19

@@ -1,0 +1,138 @@
+#+TITLE: Frontend Architecture
+#+DATE: 2026-06-19
+
+* Overview
+
+React 18 single-page application, *no TypeScript*. Build tool: Vite. Entry point
+=src/main.jsx= (a four-line =createRoot(...).render(<App/>)=). There is *no
+router* and *no CSS framework*. Navigation is a single =view= state string;
+styling is inline =style={{…}}= sourced from the =C= design-token object in
+=src/theme.js=.
+
+The application is a thick root orchestrator (=App.jsx=) over a layer of
+*presentational* components: =App.jsx= owns all shared/grant state and threads it
+— plus a small set of mutation helpers — down as props. Components hold only
+local UI state. Module-level detail lives in the four quick references below;
+this file names what exists and links to them.
+
+* Where Things Live
+
+| Folder          | Role                                                          | Detail                                            |
+|-----------------|--------------------------------------------------------------|---------------------------------------------------|
+| =src/main.jsx=  | Entry: =createRoot= → =<App/>=                                | —                                                 |
+| =src/App.jsx=   | Root orchestrator: state, view routing, mutation helpers, URL sync | This file (App Shell below)                 |
+| =src/theme.js=  | =C= design-token object + org-theming + font/keyframe inject | Tokens canonical here; see App Shell → Styling    |
+| =src/utils.js=  | Pure date/id/number helpers (=uid=, =td=, =dL=, =addD=, =effectiveAsk=) | Read the file                           |
+| =src/api/=      | HTTP client to the Express backend (auth, grants CRUD, AI proxy, uploads) | Read the module                      |
+| =src/components/= | UI primitives, major views, AI-feature panels, chrome      | [[file:components/quick_reference.org]]           |
+| =src/hooks/=    | =useAI= (AI dispatch) + =useHygiene= (background cleanup)     | [[file:hooks/quick_reference.org]]                |
+| =src/data/=     | Static data + business rules (org context, funder strategy, programme types, pipeline state machine) | [[file:data/quick_reference.org]] |
+| =src/prompts/=  | Pure prompt-construction modules (draft/research/extraction/operations/lib/scout) | [[file:prompts/quick_reference.org]] |
+
+* App Shell
+
+=App.jsx= is the ~1,300-line root. =App= itself is a thin wrapper that mounts a
+single =<ToastProvider>= around =<AppInner>=; =AppInner= holds everything else.
+
+| Concern              | How =AppInner= handles it                                                                 |
+|----------------------|-------------------------------------------------------------------------------------------|
+| Top-level state      | =grants=, =org=, =profile=, =team=, =stages=, =funderTypes=, =complianceDocs=, plus =view= / =sel= navigation and auth state — all =useState= in =AppInner= |
+| View routing         | A =view= string + a =sel= (selected grant id) drive a render-time if-chain over the view components — no router |
+| URL sync             | A =useEffect= writes =history.pushState= paths (=/org/:slug/...=) and a =popstate= listener maps the URL back to =view=/=sel= — lightweight, not a router library |
+| Data load            | =loadData()= fetches org / grants / team / profile / pipeline-config / compliance in one =Promise.all= after auth, applies the org theme, and runs a one-time grant migration |
+| Background hygiene    | =useHygiene(...)= — a one-shot background side-effect that silently tidies the pipeline on load (see [[file:hooks/quick_reference.org]]) |
+| Persistence          | =dSave()= — a per-grant *debounced* (1 s) save with a =saving/saved/error= status indicator and a =silent= mode for background writes |
+| AI                   | =useAI(...)= returns =runAI= / =clearUploadsCache=; =runAI= is threaded to the views as =onRunAI= |
+
+** Views (the =view= string)
+
+The sidebar nav and the render if-chain switch between these. =sel= (a grant id)
+takes precedence over =view= — when set, =GrantDetail= renders instead of the
+=view= surface. All major views are =React.lazy= chunks loaded under one
+=<Suspense>=; the whole content area is wrapped in =<ErrorBoundary>=.
+
+| =view= value | Component   | Notes |
+|--------------|-------------|-------|
+| =dashboard=  | Dashboard   | Default landing view |
+| =pipeline=   | Pipeline    | —     |
+| (=sel= set)  | GrantDetail | Single-grant editor; orchestrates the AI panels |
+| =vetting=    | Vetting     | —     |
+| =calendar=   | Calendar    | —     |
+| =docs=       | DocVault    | —     |
+| =funders=    | Funders     | —     |
+| =archive=    | Archive     | —     |
+| =resources=  | Freebies    | —     |
+| =settings=   | Settings    | —     |
+| =admin=      | Admin       | Director role only — also added to the sidebar only for directors |
+
+Pre-auth, =AppInner= short-circuits the view system entirely: it renders
+=OrgSelector= (org pick/create) or =Login= (multi-step member auth) before any
+=view= is shown.
+
+** The helper contract (props threaded down)
+
+Components never call the API directly. =App.jsx= owns the mutations and passes
+helpers down. Two are app-level grant mutations; two are the AI bookkeeping
+convention used by the panels.
+
+| Helper  | Canonical shape        | Effect                                                       |
+|---------|------------------------|--------------------------------------------------------------|
+| =up=    | =up(id, { field: … })= | Update a grant → debounced PUT → Supabase; auto-logs stage/owner/ask/deadline changes and auto-schedules follow-ups on submit |
+| =addL=  | =addL(id, "text")=     | Append an activity-log entry                                 |
+| =sB=    | =sB("key", bool)=      | Set a per-action AI *busy* flag                              |
+| =sA=    | =sA("key", value)=     | Store a per-action AI *result*                               |
+
+*Gotcha (canonical in [[file:components/quick_reference.org]])*: inside
+=GrantDetail= the threaded =up= is pre-bound to the current grant and is called
+=up(field, value)= (2-arg), not the app-level =up(id, changes)= (3-arg). =sB= /
+=sA= are the consumer-side convention for tracking each =runAI= call's in-flight
+and result state — they do not live inside =useAI= (see
+[[file:hooks/quick_reference.org]]).
+
+** Styling — inline tokens, no framework
+
+Every colour/surface is an inline style reading from the =C= object in
+=src/theme.js=; there is no Tailwind/CSS-module/styled-components layer. =theme.js=
+also: derives a per-org palette from brand colours (=applyOrgTheme=, called after
+org load — it *mutates =C= in place* and React re-renders pick it up), and
+injects the web font link plus all global =@keyframes= / responsive media queries
+via =injectFonts()= (a one-time =<style>= append). The token table is canonical
+in =theme.js= and is not reproduced in the docs.
+
+* AI Flow (high level)
+
+The AI feature set is a *context-assembly + dispatch* pipeline. Detail lives in
+the hooks and prompts QRs; the strategic shape:
+
+1. A component panel (Scout, AutoFill, ProposalWorkspace, …) calls =runAI(type,
+   grant, …)= — threaded down from =App.jsx= as =onRunAI=.
+2. =useAI= (=src/hooks/useAI.js=) assembles the org context (=orgCtx=, built
+   budget-aware from =src/data/context.js= + profile) and a budget block, then
+   matches =type= to a *prompt builder* and dispatches.
+3. The prompt *text* lives in =src/prompts/= — separate builder modules
+   (=draft.js=, =research.js=, =extraction.js=, =operations.js=, shared =lib.js=,
+   and =scout.js=), NOT inline in =useAI.js= and NOT in a single =prompts.js=
+   file. Each builder returns ={ system, user, search, maxTokens }=.
+4. The call goes to the Express AI proxy → OpenAI (Chat Completions, or the
+   Responses API with web-search when =search= is true); the normalised result is
+   stored via =sA()= and durable output persisted onto the grant via =up()=.
+
+The scout pair (=scout.js=) is the one exception: =ScoutPanel.jsx= calls it
+directly rather than through =useAI='s dispatch. Full action→builder→token-budget
+map: [[file:hooks/quick_reference.org]] and [[file:prompts/quick_reference.org]].
+
+* Key Architectural Decisions
+
+| Decision            | Choice                                                  | Rationale                                                                 | Constraints                                                                 |
+|---------------------|---------------------------------------------------------|---------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| Language            | React 18, *no TypeScript*                               | Lower ceremony; the app is prop-threaded rather than type-driven          | No compile-time prop checking; the presentational contract is documented, not typed |
+| Build tool          | Vite                                                    | Fast dev server + lean production build                                   | —                                                                           |
+| Routing             | =view= state string + manual =history.pushState= / =popstate= sync; *no router library* | Small fixed view set; avoids a routing dependency                         | Deep-linkable via the pushState paths, but route logic is hand-rolled in =App.jsx= |
+| Styling             | Inline styles from the =C= token object (=theme.js=); *no CSS framework* | Single source of design tokens; per-org theming by mutating =C=           | Tokens are the only sanctioned colours (auth screens + canvas effects use literals by exception) |
+| State management    | All shared state in =App.jsx=, threaded down as props; presentational components | No external store (Redux/Zustand); one owner of grant state               | =App.jsx= is large and central (a known fact, parked with the owner — do not split unprompted) |
+| AI dispatch         | One =useAI= hook assembles context + dispatches; prompt text in =src/prompts/= | Single context-budget code path; prompts isolated as pure builders        | =useAI.js= is large (god-hook, flagged in its QR); prompt builders own their own token budgets |
+| Code-splitting      | Major views are =React.lazy= chunks under one =<Suspense>= | Keeps the initial bundle lean                                             | Each view loads on first navigation                                         |
+| Persistence         | Debounced (1 s) =dSave= with status indicator + silent background mode | Coalesces rapid edits into one write; background jobs save silently       | Save timers held in refs, cleared on unmount / org switch                   |
+
+---
+/Last Updated/: 2026-06-19

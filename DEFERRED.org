@@ -1,0 +1,102 @@
+#+TITLE: Deferred & Dormant — Grant Engine
+#+DATE: 2026-06-19
+
+* Purpose
+
+The forward-looking counterpart to =PRODUCT_CONTEXT.org=. That file documents
+what the product *is* (present-state); this file records what is deliberately
+*not* finished, *not* decoupled, or *known-broken-but-not-yet-fixed* — and the
+path to fix or reactivate each.
+
+This is the one place allowed to talk about the future and about known defects.
+It exists so audits don't re-flag intentional parking as a bug (and don't lose
+a real gap as "probably intentional"). The cleanup effort is in *describe-don't-change*
+mode: items here are *recorded*, not fixed, and parked logic questions are the
+*owner's* call — they are written as open questions, never silently resolved.
+
+The audit lifecycle axis (=AGENT_AUDIT_WORKFLOW.org=) uses the tags *Active /
+Intentionally Dormant / Scheduled for Removal / Stale*. Each entry below carries
+the tag an audit should apply so a finding here is reconciled, not re-raised.
+
+=PRODUCT_CONTEXT.org= links here; it does not duplicate these entries. Code-level
+detail lives in the relevant =quick_reference.org= / Level-1B docs (referenced per
+row), not restated here.
+
+* Known Bugs / Gaps (real defects, not yet fixed)
+
+Confirmed defects. Recorded for the owner; *not* fixed during structural cleanup
+(logic work is Phase 7+ — see =CLEANUP_PLAN.md= §7). Lifecycle: *Active* (live
+code that misbehaves), unless noted.
+
+| Bug | Location | Impact | Fix path |
+|-----|----------|--------|----------|
+| Broken import: =scoutPrompt= imported from a moved path | =server/jobs/scout.js= line 9 imports ={ scoutPrompt }= from ='../../src/prompts.js'= | =src/prompts.js= no longer exists — the prompt now lives at =src/prompts/scout.js= (the Phase-3 extract split =prompts.js= into the =src/prompts/= directory). The bad path makes the scout job throw on import, so the nightly scout cannot run. | Update the import to ='../../src/prompts/scout.js'= (the =scoutPrompt= export is there). Owner confirms whether the server should depend on a =src/= module at all, or whether the prompt belongs server-side. |
+| =funderStrategy= type→structure mapping is dead for unknown funders | =src/data/funderStrategy.js= ~L188 (=funderHasFullStructure=) | Any =sections= list containing ="budget"= is treated as a full structure, but the generic default sections already contain ="Budget"=, so the =structures= table is never consulted for funders lacking hand-written intel. The =\|\| includes("budget")= clause looks accidental. | Phase 7 logic fix. Pinned by characterization tests (=funderStrategy.test.js=, marked CURRENTLY…) so the current behaviour is locked before any change. Owner decides the intended mapping. |
+| =addD(date, n)= is timezone-sensitive | =src/utils.js= ~L297 | =new Date("YYYY-MM-DD")= parses as UTC midnight but =.setDate()= reads/writes local time, so a follow-up cadence date can land a day off behind UTC. | Phase 7: switch to UTC methods, then pin with a test. Deliberately untested for now (a TZ assertion would be flaky). |
+
+Broader defect inventory (security, deploy, a11y, prompt-engineering) is catalogued
+in =EVALUATION.md= (the 25-agent evaluation report). That report is the canonical
+home for those findings; they are not re-listed here. The three rows above are the
+defects specifically surfaced by, and parked during, the cleanup effort.
+
+* Intentionally Parked / Coupled (deliberately left as-is pending an owner decision)
+
+Stateful component bodies deliberately *not* extracted during the Phase 4.6
+selective-decoupling wave. Each is behaviour-correct as written; it is parked
+because pulling it into a props-only sub-component would thread half the parent's
+state out (or risks a child-identity remount that wipes local state). The north
+star forbids "reimagining," so these stop at a clean boundary. Lifecycle:
+*Active* (live, working code) — parked for *structure*, not behaviour.
+
+Code-level split protocol and the render-net mechanics live in =CLEANUP_PLAN.md=
+§3–§5 and the component =quick_reference.org= files; not restated here.
+
+| Parked body | Location | Why parked | Decision that unblocks it |
+|-------------|----------|------------|---------------------------|
+| GrantDetail engagement-mode IIFE | =src/components/GrantDetail.jsx= (~L598) | Closes over =onUpdate= plus non-deterministic =Math.random()= / =new Date()= and writes the activity log — genuinely stateful, not a move-only lift. | Owner green-lights a dedicated stateful wave; net first strengthened with =onUpdate=-mutation interaction tests that watch the activity-log write. |
+| GrantDetail clone-cycle IIFE | =src/components/GrantDetail.jsx= | Same coupling as engagement-mode (=onUpdate= + non-deterministic time/random). | Same as above — paired with the engagement-mode wave. |
+| GrantDetail submit modal | =src/components/GrantDetail.jsx= | Closes over a large slice of local state; likely to drag half the parent out if extracted. | Owner decides whether the respectability gain justifies the prop-threading risk; otherwise leave in-file. |
+| Dashboard AI-Tools + Insights/Strategy AIBlocks | =src/components/Dashboard.jsx= | Share the =reportBusy=/=insightsBusy=/=strategyBusy= + =*Result= state and the =runAI= helper — extracting tangles half the remaining Dashboard state. | Owner decides whether to extract the shared AI-state cluster together (one sub-component owning all three) vs. leave coupled. |
+| Pipeline view-renders (3) + batch toolbar + URL-extract tool | =src/components/Pipeline.jsx= | The three view renders + batch toolbar close over =selectedIds=/=dragId=/=pSort=; the URL-extract tool closes over async state. Coupled tier — not state-isolated like the already-lifted add-grant wizard. | Owner green-lights a coupled wave; each body extracted only behind mutation interaction tests on =selectedIds=/=dragId=/=pSort= and the async tool. |
+
+* Deferred / Backlog (Phase 7+)
+
+Logic and infrastructure work explicitly out of scope for the cleanup. Lifecycle:
+*Intentionally Dormant* (not built / not enabled by design). Canonical backlog:
+=CLEANUP_PLAN.md= §7 (Parking Lot).
+
+| Item | Status | Reactivation / trigger |
+|------|--------|------------------------|
+| Multi-tenant / d-lab decoupling | Dormant — the app is hard-wired to the d-lab NPC profile (=src/data/context.js=, financial model in =CLAUDE.md=). | Triggered when a second tenant is onboarded; decouple org context + financial constants from code into per-tenant config. |
+| AI cost controls (retry coverage, JSON-mode for search prompts) | Dormant — server-side =callOpenAI= has no retry; search-grounded prompts never enable JSON mode (see =EVALUATION.md=). | Triggered by cost/reliability pain at scale: add retry/backoff + JSON mode to =server/routes/ai.js=. |
+| TypeScript adoption | Dormant — React 18, no TS (Decision D1, parked as a Phase-7+ multiplier). | Triggered after the god-files are split and modules are stable; introduce incrementally. |
+| =src/api.js= → =services/*= split | Assessed, *not* taken — =api.js= is already a clean, domain-sectioned service module (~611 ln). | Trigger: owner explicitly wants it. Cost is a broad import-rewrite of every call site for low value; =src/services/= is reserved (Phase 2) but empty. |
+| Supabase secret rotation + audit-log review | Dormant — needs the dashboard owner. The leaked PAT is the Critical finding in =EVALUATION.md= (canonical). | Trigger: immediate for the leaked token (revoke/rotate/purge history); audit-log review follows. Needs Supabase dashboard access. |
+
+* Deployment Constraints (known, not bugs)
+
+Recorded so an audit doesn't flag the dormant code paths as defects. Lifecycle:
+*Active* (intentional). Deploy detail is canonical in the service-level deploy
+docs / =EVALUATION.md=; only the constraint is noted here.
+
+| Constraint | Where | Note |
+|------------|-------|------|
+| In-process =node-cron= only fires on a long-lived host | =server/index.js= (cron registration); =api/index.js= (serverless shim) | =node-cron= schedules (deadline reminders, nightly scout) require a persistent process. On Vercel serverless they never fire — the =api/index.js= shim exists for that path. Choosing one deploy target + scheduling mechanism is the open deploy item in =EVALUATION.md= (conflicting Vercel / Railway / Procfile configs). |
+
+* Open Questions (intentional-vs-gap unresolved — owner to resolve)
+
+| Question | Present state | Why it's open |
+|----------|---------------|---------------|
+| Is the empty seed intentional? | =src/data/seed.js= exports =SEED = []= (its own comment reads "empty pipeline, grants added via Scout or manual entry", which leans *intentional clean slate*). | =CLAUDE.md= still documents a "bump storage version (=dlg12=→=dlg13=) to force fresh seed data" flow, but no =src/= code currently references =SEED= beyond its definition or shows that version-bump wiring — so the documented re-seed (if still wired anywhere) would seed an *empty* pipeline. Owner confirms whether the empty seed is the intended clean slate (and the =CLAUDE.md= re-seed note is stale) or a gap where seed data was lost. |
+
+* Related Docs
+
+| Doc | Contents |
+|-----|----------|
+| =PRODUCT_CONTEXT.org= | Present-state product, users, roles, intentional design decisions |
+| =EVALUATION.md= | Canonical home for the full security / correctness / deploy / a11y / AI defect inventory |
+| =CLEANUP_PLAN.md= | The cleanup effort: phases, test-net policy, parked-body rationale (§4–§7) |
+| =AGENT_AUDIT_WORKFLOW.org= | Lifecycle axis (Active / Intentionally Dormant / Scheduled for Removal / Stale) that consumes this file |
+
+---
+/Last Updated/: 2026-06-19
