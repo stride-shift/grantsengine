@@ -1,0 +1,139 @@
+#+TITLE: Documentation System — Setup & Portability
+#+DATE: 2026-05-30
+
+* Purpose
+
+Start-here file for the =.org= documentation + audit system. It defines which
+files are the portable *engine* (carried into every project) versus the
+per-project *instance* (generated fresh), and the bootstrap sequence for a new
+repo. This file is itself part of the engine.
+
+If you are setting up a new project, read this first. If you are doing
+documentation or audit work in an existing project, read =DOCUMENTATION.org=.
+
+* The Two File Categories
+
+** Engine — portable, carried into every project
+
+| File | Role | Per-project edit on arrival? |
+|------|------|------------------------------|
+| SETUP.org | This file — bootstrap + portability | No |
+| DOCUMENTATION.org | Standard (principles) + procedure | *Yes* — re-point the "Example Tree" + Level 1B examples to the new repo's structure |
+| SUBAGENT_PLAYBOOK.org | Sub-agent dispatch, wave planning, return formats | No |
+| AGENT_AUDIT_WORKFLOW.org | 10-phase audit + cleanup choreography | No |
+| =.claude/CLAUDE.md= (Model Selection block) | Canonical model selection; auto-loaded each session | Verify present; keep in sync with global =~/.claude/CLAUDE.md= |
+
+DOCUMENTATION.org is the only engine file that needs a touch-up on arrival — its
+example tree and 1B examples are deliberately project-specific. Everything else
+copies verbatim.
+
+** Instance — generated fresh per project, never carried over
+
+| File | Create when | Day-1 stub needed? |
+|------|-------------|--------------------|
+| README.org | Always (1A navigation hub) | Yes — skeleton |
+| ARCHITECTURE.org | Always (1A system design) | Yes — skeleton |
+| PRODUCT_CONTEXT.org | Always (present-state product) | *Yes — audit depends on it* |
+| DEFERRED.org | Always (dormant/deferred sink) | *Yes — audit depends on it* |
+| DATABASE.org / DEPLOYMENT.org / API.org | As the project earns them (see DOCUMENTATION.org optional-files table) | No |
+| =*/quick_reference.org= | Per module, as modules form | No |
+
+* Dependency Graph
+
+Why the obvious three files aren't self-sufficient on their own:
+
+#+BEGIN_EXAMPLE
+SETUP.org  ── start here
+DOCUMENTATION.org ─────────▶ PRODUCT_CONTEXT.org, DEFERRED.org   (instance, canonical homes)
+SUBAGENT_PLAYBOOK.org ─────▶ .claude/CLAUDE.md                   (model selection)
+AGENT_AUDIT_WORKFLOW.org ──▶ SUBAGENT_PLAYBOOK.org
+                         ──▶ DOCUMENTATION.org
+   lifecycle axis reads ──▶ PRODUCT_CONTEXT.org, DEFERRED.org    (instance)
+.claude/CLAUDE.md ─────────▶ ~/.claude/CLAUDE.md                 (generic cross-project doc rules)
+#+END_EXAMPLE
+
+Two gaps to close on a fresh repo:
+1. *Model selection* lives in =.claude/CLAUDE.md=, not in the =.org= files — carry it too.
+2. The *audit lifecycle axis* reads dormancy from =PRODUCT_CONTEXT.org= + =DEFERRED.org=. If those don't exist, every half-built feature is tagged /Stale/. Create stubs before the first audit.
+
+* New-Project Bootstrap Sequence
+
+1. *Drop the engine files* at project root: SETUP.org, DOCUMENTATION.org, SUBAGENT_PLAYBOOK.org, AGENT_AUDIT_WORKFLOW.org.
+2. *Confirm =.claude/CLAUDE.md=* has the /Model Selection/ block and the Tier-1A file list. Confirm global =~/.claude/CLAUDE.md= carries the generic doc rules.
+3. *Re-specialize DOCUMENTATION.org* — replace the "Example Tree (this repo)" and the Level 1B examples with the new project's actual structure.
+4. *Create instance stubs* (templates below): README.org, ARCHITECTURE.org, PRODUCT_CONTEXT.org, DEFERRED.org. PRODUCT_CONTEXT + DEFERRED must exist even if near-empty.
+5. *Add quick_references* as modules take shape — use the QR Format Template in DOCUMENTATION.org → Part II.
+6. *Run the self-check* (below).
+
+* Instance Stubs
+
+** PRODUCT_CONTEXT.org (minimal)
+
+#+BEGIN_EXAMPLE
+#+TITLE: Product Context — <Project>
+#+DATE: YYYY-MM-DD
+* Purpose
+Present-state product context. Dormant/deferred features live in DEFERRED.org.
+* What It Is
+<one paragraph: what it is, who it serves>
+* Users & Roles
+| Role | Scope | Can do |
+* Feature Lifecycle
+| Feature | Status | Note |
+* Intentional Decisions (do not re-flag)
+| Decision | Choice | Rationale |
+---
+/Last Updated/: YYYY-MM-DD
+#+END_EXAMPLE
+
+** DEFERRED.org (minimal)
+
+#+BEGIN_EXAMPLE
+#+TITLE: Deferred & Dormant — <Project>
+#+DATE: YYYY-MM-DD
+* Purpose
+Forward-looking counterpart to PRODUCT_CONTEXT.org: intentionally dormant +
+deferred features and their reactivation paths.
+* Dormant Features (code removed; reactivation path documented)
+| Feature | Why dormant | Reactivation path |
+* Deferred (not yet built)
+| Item | Reason for deferral | Trigger to revisit |
+* Open Product Questions
+- <none yet>
+---
+/Last Updated/: YYYY-MM-DD
+#+END_EXAMPLE
+
+* Self-Check
+
+Run after bootstrap, and after any engine update:
+
+#+BEGIN_SRC bash
+# No dangling references to renamed/removed engine files:
+grep -rn -e "DOCUMENTATION_PHILOSOPHY" -e "DOCUMENTATION_PROCEDURE" --include="*.org" --include="*.md" .
+# Engine + required instance files all present:
+ls README.org ARCHITECTURE.org PRODUCT_CONTEXT.org DEFERRED.org \
+   DOCUMENTATION.org SUBAGENT_PLAYBOOK.org AGENT_AUDIT_WORKFLOW.org SETUP.org
+# Model-selection block present:
+grep -n "Model Selection" .claude/CLAUDE.md
+#+END_SRC
+
+Checklist:
+- [ ] All engine files present at root
+- [ ] DOCUMENTATION.org example tree matches THIS project
+- [ ] PRODUCT_CONTEXT.org + DEFERRED.org exist (even as stubs)
+- [ ] =.claude/CLAUDE.md= has the Model Selection block
+- [ ] Self-check grep returns no dangling references
+
+* Updating an Existing Project
+
+When the engine evolves (e.g. the 2026-05-30 PHILOSOPHY+PROCEDURE → DOCUMENTATION
+merge), propagate to existing projects:
+
+1. Diff the engine files against the project's copies.
+2. Re-apply structural changes — but keep the project's own example tree in DOCUMENTATION.org.
+3. If a file was split or merged, grep for and repoint inbound references.
+4. Run the self-check.
+
+---
+/Last Updated/: 2026-05-30

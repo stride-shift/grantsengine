@@ -6,6 +6,10 @@ dist/
 /data/
 .env
 .env.save
-.claude/
+.claude/*
+!.claude/CLAUDE.md
+!.claude/workflows/
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
 mcp.json
 playwright-service/node_modules/
