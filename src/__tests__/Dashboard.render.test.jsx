@@ -109,3 +109,47 @@ describe("Dashboard — populated", () => {
     expect(container).toMatchSnapshot();
   });
 });
+
+describe("Dashboard — Funder Intelligence cards (guards the props-only extraction)", () => {
+  // The funder name appears in several sections (urgent / In Play / the funder card).
+  // The Funder Intelligence block is LAST in source order, so the funder-card occurrence
+  // is the last match — `.at(-1)` targets it without a brittle test-id. These three tests
+  // pin the only behaviours the block owns (expand toggle, show-all toggle, grant-row
+  // select with stopPropagation) so the Phase 4.6 lift into DashboardParts is guarded
+  // beyond the static snapshot.
+  const lastFunderCard = (name) => screen.getAllByText(name).at(-1);
+
+  it("clicking a funder card expands its detail panel; clicking again collapses it", () => {
+    const h = handlers();
+    render(<Dashboard grants={GRANTS} team={TEAM} stages={STAGES} orgName="d-lab NPC" {...h} />);
+    // GIDF (g1 Youth Skills, drafting, no research, active) — its expanded panel shows a
+    // deterministic action hint that exists ONLY when the card is expanded.
+    expect(screen.queryByText(/No funder research yet/)).not.toBeInTheDocument();
+    fireEvent.click(lastFunderCard("GIDF"));
+    expect(screen.getByText(/No funder research yet/)).toBeInTheDocument();
+    fireEvent.click(lastFunderCard("GIDF"));
+    expect(screen.queryByText(/No funder research yet/)).not.toBeInTheDocument();
+  });
+
+  it("'Show all N funders' toggles the funder list expansion label", () => {
+    const h = handlers();
+    render(<Dashboard grants={GRANTS} team={TEAM} stages={STAGES} orgName="d-lab NPC" {...h} />);
+    const toggle = screen.getByText(/Show all 3 funders/);
+    fireEvent.click(toggle);
+    expect(screen.getByText("Collapse")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Collapse"));
+    expect(screen.getByText(/Show all 3 funders/)).toBeInTheDocument();
+  });
+
+  it("clicking a grant in an expanded funder panel selects it without collapsing the card", () => {
+    const h = handlers();
+    render(<Dashboard grants={GRANTS} team={TEAM} stages={STAGES} orgName="d-lab NPC" {...h} />);
+    fireEvent.click(lastFunderCard("GIDF"));
+    expect(screen.getByText(/No funder research yet/)).toBeInTheDocument();
+    // The grant row inside the expanded panel is the last "Youth Skills 2026" in the DOM;
+    // its onClick stops propagation, so it selects without re-triggering the card toggle.
+    fireEvent.click(screen.getAllByText("Youth Skills 2026").at(-1));
+    expect(h.onSelectGrant).toHaveBeenCalledWith("g1");
+    expect(screen.getByText(/No funder research yet/)).toBeInTheDocument();
+  });
+});
