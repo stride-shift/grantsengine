@@ -58,6 +58,18 @@ The whole cleanup rides on this: a *test net* captures what code does **now**, s
 **Sequence rule:** build the net *first*, against the *un-refactored* code (that recording IS the golden
 master), then refactor and confirm green. Net and refactor never share a commit.
 
+**Move-only vs. parameterized splits — the net must scale to the risk (added 2026-06-18):**
+The leaf lifts (4.5c/e/g) were *move-only*: already-pure code relocated verbatim, so a DOM snapshot that
+**matches** is near-total proof. The next tier — **stateful-body extraction** — is NOT move-only: pulling a
+body out means converting every closed-over variable (`g`, `onUpdate`, local `useState`, derived/memoized
+values) into an explicit **prop**. A static DOM snapshot guards *output shape* but **cannot** see the new
+failure modes that transformation introduces: a missed/stale prop, an effect firing at a different time, or a
+changed child **identity** that makes React remount the subtree and wipe its local state (the `SectionWrap`
+hazard, generalized). **Rule:** before extracting any stateful body, *first* add **targeted interaction tests**
+that exercise the handlers that body owns (toggles, edits, the callbacks it fires) — commit them with the
+snapshot net, against the un-split code — so the net guards *behaviour*, not just HTML. Snapshot-only is
+sufficient for move-only; behaviour tests are mandatory for parameterized.
+
 **Lineage / vocabulary** (so the terms travel): *characterization tests* — Feathers, *Working Effectively
 with Legacy Code*; *golden master / approval testing* — Falco; *snapshot testing* — Jest (2016).
 Stack here: **Vitest** (runner, `npx vitest run`), **`@testing-library/react`** + **jsdom** (render tests).
@@ -115,10 +127,36 @@ Splitting into `services/*` = broad import-rewrite of every call site for little
 - ✅ ~~GrantDetail (3092)~~ — netted + leaf split done (4.5f/g); now 3047. The strangler net is live (`GrantDetail.render.test.jsx`, 3 stage snapshots + child stubs). The cheap pure-leaf lift is taken; **deeper GrantDetail is still the largest remaining file.** Next-deepest lifts behind the existing net: the fixed status strip / context sidebar IIFEs (L420/L519, presentational, read `g`+`stages`+`complianceDocs` — could become props-only sub-components) and the stage-banner / engagement-mode / clone-cycle IIFEs. These close over `g`/`onUpdate`, so extracting threads props — do as a careful later wave, snapshots guarding.
 - **Deeper Dashboard** — `DashboardParts` was the cheap primitive lift; the section bodies (AI Tools, Funder Intelligence, Pipeline Intelligence) close over state, so extracting them threads props — netted now, do as a later wave.
 
-**Checkpoint reached 2026-06-18:** all three god components (Dashboard, Pipeline, GrantDetail) now have a render net + a first behaviour-neutral leaf split. The cheap, zero-risk pure-leaf lifts are done across the board. What remains in each is the *stateful body* extraction (props-threading), which is a step up in risk — a natural place to pause for owner review before the next wave.
+**Checkpoint reached 2026-06-18:** all three god components (Dashboard, Pipeline, GrantDetail) now have a render net + a first behaviour-neutral leaf split. The cheap, zero-risk pure-leaf lifts are done across the board. **Owner reviewed + decided the next tier: "selective, then docs" → see Phase 4.6 below, which is the entry point for the next work session.** A fresh chat should start there: read §3 "Move-only vs. parameterized splits" + Phase 4.6, then execute one candidate body at a time per the protocol.
 
 **Strangler fallback (for components too coupled to render whole):** extract already-pure, props-only leaf JSX into own files (those render-test in isolation), shrinking the monster without netting the whole coupled body. Note any component that takes this path and why.
 **Risk:** MED but *netted* — that is the whole point.
+
+### Phase 4.6 — Selective stateful-body extraction  *(owner-decided 2026-06-18; NEXT to execute)*
+**Owner decision (verbatim intent):** *"Selective, then docs."* Extract **only** the stateful bodies that
+parameterize cleanly into props; **stop at any that tangle state/identity and park them** — do NOT
+systematically dismantle every body (that edges into "reimagining," which the north star forbids). Biggest
+respectability win for least risk, then pivot to Phase 6. This is the first tier of work that is **not
+behaviour-verbatim**, so it is held to the stronger net (see §3 "Move-only vs. parameterized splits").
+
+**Per-target protocol (do this for each body, one at a time, verify between):**
+1. **Profile** the body: what state/props/callbacks it closes over (an Explore agent is good for the big files).
+   If it can't be made props-only without dragging half the parent's state with it → **park it, note why, move on.**
+2. **Strengthen the net FIRST:** add targeted **interaction tests** for the handlers that body owns (not just a
+   snapshot) against the **un-split** component. Commit the net alone.
+3. **Extract** the body into a props-only sub-component; thread the closed-over vars in as explicit props.
+   Watch child **identity** (define at module scope or stable ref — never inline in render — or React remounts
+   it and wipes local state). Confirm snapshots **match** AND interaction tests stay green. Commit alone.
+4. If anything about behaviour is ambiguous, **preserve it exactly and park the logic question** (north star).
+
+**Candidate bodies (start with the cleanest, props-only-ish; the rest may park):**
+- *GrantDetail (3047):* the fixed status strip (L~519) and the context sidebar (L~420) are presentational
+  IIFEs reading `g`/`stages`/`complianceDocs` — the most props-only-shaped, likely first. Then the stage-banner
+  / engagement-mode / clone-cycle IIFEs (these close over `onUpdate` → more threading). Submit modal closes over
+  lots of state → likely park.
+- *Dashboard (1115):* the AI Tools / Funder Intelligence / Pipeline Intelligence section bodies — close over
+  state, assess each for clean parameterization.
+- *Pipeline (1423):* the three view renders + add-grant wizard + batch toolbar — most close over state; cherry-pick.
 
 ### Phase 6 — Integrate the `.org` Doc System + proper `CLAUDE.md` rewrite
 Do this **after** the god files are split (modules stable). Generating `quick_reference.org` / `README.org` earlier
