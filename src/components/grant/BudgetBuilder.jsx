@@ -1,18 +1,14 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState } from "react";
 import { C, FONT, MONO } from "@/theme";
-import { PTYPES, detectType, multiCohortInfo } from "@/data/funderStrategy";
+import { PTYPES } from "@/data/funderStrategy";
 import { Btn } from "@/components/ui";
+import useBudget from "@/hooks/useBudget";
 
 /* ── Budget Builder ──
    Interactive budget calculator using real PTYPES line-item data.
    Eliminates AI budget hallucination by making the budget the source of truth.
+   All budget logic lives in useBudget (headless); this component only renders.
 */
-
-// Parse PTYPES table amounts: "516,000" → 516000, "varies" → 0
-const parseAmt = s => {
-  if (!s || s === "varies") return 0;
-  return parseInt(String(s).replace(/[,\s]/g, "")) || 0;
-};
 
 // Format ZAR
 const fmtR = n => n ? `R${n.toLocaleString()}` : "R0";
@@ -30,150 +26,27 @@ const TYPE_OPTIONS = Object.entries(PTYPES).map(([k, v]) => ({
 }));
 
 export default function BudgetBuilder({ grant, onUpdate }) {
-  const g = grant;
-  const saved = g.budgetTable;
+  const {
+    saved,
+    typeNum, cohorts, years, items, orgContrib,
+    editing, collapsed, setEditing, setCollapsed,
+    pt, studentsPerCohort, calcs, hasChanges, funderBudget, utilization,
+    selectType, setCohorts, setYears, setOrgContrib,
+    updateItem, removeItem, addItem,
+    saveBudget, clearBudget, cancelEdit,
+  } = useBudget(grant, onUpdate);
 
-  // State
-  const [typeNum, setTypeNum] = useState(saved?.typeNum || null);
-  const [cohorts, setCohorts] = useState(saved?.cohorts || 1);
-  const [years, setYears] = useState(saved?.years || 1);
-  const [items, setItems] = useState(saved?.items || []);
-  const [orgContrib, setOrgContrib] = useState(saved?.includeOrgContribution || false);
-  const [editing, setEditing] = useState(!saved);
-  const [collapsed, setCollapsed] = useState(!!saved);
+  // Transient add-item form inputs (pure UI state)
   const [addingItem, setAddingItem] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newAmount, setNewAmount] = useState("");
-
-  // Auto-detect type from grant if not set
-  useEffect(() => {
-    if (!typeNum && !saved) {
-      const detected = detectType(g);
-      if (detected) {
-        const match = Object.entries(PTYPES).find(([, v]) => v === detected);
-        if (match) setTypeNum(parseInt(match[0]));
-      }
-      const mc = multiCohortInfo(g);
-      if (mc?.count > 1) setCohorts(mc.count);
+  const commitItem = () => {
+    if (addItem(newLabel, newAmount)) {
+      setNewLabel("");
+      setNewAmount("");
+      setAddingItem(false);
     }
-  }, []);
-
-  // Load items from PTYPES when type changes
-  const loadTypeItems = (num) => {
-    const pt = PTYPES[num];
-    if (!pt?.table) return;
-    const newItems = pt.table
-      .filter(([label]) => label !== "TOTAL")
-      .map(([label, amount]) => ({
-        label,
-        amount: parseAmt(amount),
-        isCustom: false,
-      }));
-    setItems(newItems);
   };
-
-  // Select type handler
-  const selectType = (num) => {
-    setTypeNum(num);
-    loadTypeItems(num);
-    setEditing(true);
-    setCollapsed(false);
-  };
-
-  // Calculations
-  const pt = typeNum ? PTYPES[typeNum] : null;
-  const studentsPerCohort = pt?.students || 0;
-
-  const calcs = useMemo(() => {
-    const itemTotal = items.reduce((s, it) => s + (it.amount || 0), 0);
-    const subtotal = itemTotal * cohorts; // one year's programme cost across all cohorts
-    const orgAmount = orgContrib ? Math.round(subtotal * 0.3) : 0; // ONE year of org contribution (UI consistency)
-    const annualTotal = subtotal + orgAmount;
-    const total = annualTotal * years; // full multi-year ask INCLUDING org contribution
-    const totalOrgContribution = orgAmount * years; // multi-year org contribution to match `total`
-    const totalStudents = studentsPerCohort * cohorts * years;
-    const perStudent = totalStudents > 0 ? Math.round(total / totalStudents) : 0;
-    return { itemTotal, subtotal, orgAmount, totalOrgContribution, annualTotal, total, totalStudents, perStudent };
-  }, [items, cohorts, years, orgContrib, studentsPerCohort]);
-
-  // Check if unsaved changes
-  const hasChanges = useMemo(() => {
-    if (!saved) return items.length > 0;
-    const savedYears = saved.years || 1;
-    if (saved.typeNum !== typeNum || saved.cohorts !== cohorts || savedYears !== years || saved.includeOrgContribution !== orgContrib) return true;
-    if (saved.items.length !== items.length) return true;
-    return saved.items.some((si, i) => si.label !== items[i]?.label || si.amount !== items[i]?.amount);
-  }, [saved, typeNum, cohorts, years, orgContrib, items]);
-
-  // Save budget
-  const saveBudget = () => {
-    const budgetTable = {
-      typeNum,
-      typeLabel: pt?.label || "",
-      cohorts,
-      years,
-      studentsPerCohort,
-      duration: pt?.duration || "",
-      items: items.map(it => ({ label: it.label, amount: it.amount, isCustom: it.isCustom })),
-      includeOrgContribution: orgContrib,
-      subtotal: calcs.subtotal,
-      orgContribution: calcs.orgAmount, // ONE year (matches the UI line item)
-      totalOrgContribution: calcs.totalOrgContribution, // multi-year (matches the grand total)
-      annualTotal: calcs.annualTotal,
-      total: calcs.total,
-      perStudent: calcs.perStudent,
-      savedAt: new Date().toISOString(),
-    };
-    onUpdate(g.id, {
-      budgetTable,
-      ask: calcs.total,
-      askSource: "budget-builder",
-      aiRecommendedAsk: calcs.total,
-      ...(years > 1 ? { askYears: years } : { askYears: null }),
-    });
-    setEditing(false);
-    setCollapsed(false);
-  };
-
-  // Clear budget
-  const clearBudget = () => {
-    setTypeNum(null);
-    setCohorts(1);
-    setYears(1);
-    setItems([]);
-    setOrgContrib(false);
-    setEditing(true);
-    setCollapsed(false);
-    onUpdate(g.id, { budgetTable: null, askYears: null });
-  };
-
-  // Revert all state atoms to the last saved budget (Edit → Cancel)
-  const resetToSaved = () => {
-    setTypeNum(saved?.typeNum || null);
-    setCohorts(saved?.cohorts || 1);
-    setYears(saved?.years || 1);
-    setItems(saved?.items || []);
-    setOrgContrib(saved?.includeOrgContribution || false);
-  };
-
-  // Item mutations
-  const updateItem = (idx, field, value) => {
-    setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it));
-  };
-  const removeItem = (idx) => {
-    setItems(prev => prev.filter((_, i) => i !== idx));
-  };
-  const addItem = () => {
-    if (!newLabel.trim()) return;
-    setItems(prev => [...prev, { label: newLabel.trim(), amount: newAmount || 0, isCustom: true }]);
-    setNewLabel("");
-    setNewAmount("");
-    setAddingItem(false);
-  };
-
-  // Funder budget comparison
-  const funderBudget = g.funderBudget;
-  const utilization = funderBudget && calcs.total > 0 ? Math.round((calcs.total / funderBudget) * 100) : null;
 
   // ── Collapsed saved state ──
   if (saved && collapsed && !editing) {
@@ -402,7 +275,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
                       background: C.white, outline: "none",
                     }}
                     autoFocus
-                    onKeyDown={e => { if (e.key === "Enter") addItem(); if (e.key === "Escape") setAddingItem(false); }}
+                    onKeyDown={e => { if (e.key === "Enter") commitItem(); if (e.key === "Escape") setAddingItem(false); }}
                   />
                   <input
                     type="number"
@@ -414,9 +287,9 @@ export default function BudgetBuilder({ grant, onUpdate }) {
                       border: `1px solid ${C.line}`, borderRadius: 6, color: C.t1,
                       background: C.white, outline: "none", textAlign: "right",
                     }}
-                    onKeyDown={e => { if (e.key === "Enter") addItem(); }}
+                    onKeyDown={e => { if (e.key === "Enter") commitItem(); }}
                   />
-                  <button onClick={addItem}
+                  <button onClick={commitItem}
                     style={{
                       padding: "4px 10px", fontSize: 10, fontWeight: 700, color: C.primary,
                       background: C.primarySoft, border: "none", borderRadius: 6, cursor: "pointer", fontFamily: FONT,
@@ -572,7 +445,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
               <span style={{ fontSize: 10, color: C.amber, fontWeight: 600, marginRight: "auto" }}>Unsaved changes</span>
             )}
             {saved && editing && (
-              <button onClick={() => { setEditing(false); resetToSaved(); }}
+              <button onClick={cancelEdit}
                 style={{ padding: "5px 12px", fontSize: 11, fontWeight: 600, color: C.t3, background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", fontFamily: FONT }}>Cancel</button>
             )}
             <button onClick={clearBudget}
