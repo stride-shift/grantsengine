@@ -416,6 +416,12 @@ export const setMemberPassword = async (memberId, hash) => {
   await pool().query('UPDATE team_members SET password_hash = $1 WHERE id = $2', [hash, memberId]);
 };
 
+// Set a member's email (used by the email backfill tool). Stored lower-cased to
+// match the case-insensitive unique index and the email→org login lookup.
+export const setMemberEmail = async (memberId, email) => {
+  await pool().query('UPDATE team_members SET email = $1 WHERE id = $2', [String(email).trim().toLowerCase(), memberId]);
+};
+
 export const createMemberSession = async (orgId, memberId) => {
   const token = crypto.randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
