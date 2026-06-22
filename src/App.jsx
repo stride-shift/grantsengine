@@ -425,7 +425,7 @@ function AppInner() {
   }
 
   if (!authed) {
-    return <EmailLogin onLogin={handleEmailLogin} onUsePicker={goToPicker} />;
+    return <EmailLogin onLogin={handleEmailLogin} onUsePicker={goToPicker} onForgot={goToPicker} />;
   }
 
   if (loading) {

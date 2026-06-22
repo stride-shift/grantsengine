@@ -6,7 +6,7 @@ import useEmailLogin from "@/hooks/useEmailLogin";
 /* Primary login: email + password only. The org is resolved server-side from the
    email (no org/member picker). A small link drops to the legacy picker (fallback
    for members not yet backfilled with an email). Render-only — logic in useEmailLogin. */
-export default function EmailLogin({ onLogin, onUsePicker }) {
+export default function EmailLogin({ onLogin, onUsePicker, onForgot }) {
   const { email, setEmail, password, setPassword, err, busy, submit } = useEmailLogin({ onEmailLogin: onLogin });
 
   const inputStyle = {
@@ -43,6 +43,16 @@ export default function EmailLogin({ onLogin, onUsePicker }) {
               style={inputStyle} />
           </label>
         </div>
+
+        {onForgot && (
+          <div style={{ textAlign: "right", marginTop: 8 }}>
+            <button type="button" onClick={onForgot}
+              style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)",
+                fontSize: 12, fontFamily: FONT, cursor: "pointer", padding: 0 }}>
+              Forgot password?
+            </button>
+          </div>
+        )}
 
         {err && <div style={{ fontSize: 12, color: "#F87171", marginTop: 12 }}>{err}</div>}
 
