@@ -124,7 +124,9 @@ function DeleteConfirmModal({ target, confirmSlug, onConfirmChange, onConfirm, o
   );
 }
 
-export default function OrgSelector({ onSelect }) {
+// `superAdmin` (only set via the hidden ?superadmin route) reveals the create /
+// delete / admin-key controls. Regular users get a plain org picker (list + select).
+export default function OrgSelector({ onSelect, superAdmin = false }) {
   const {
     orgs, loading,
     adminMode, setAdminMode, adminKey, setAdminKey, exitAdmin,
@@ -249,7 +251,7 @@ export default function OrgSelector({ onSelect }) {
           <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Grants Engine</div>
           <div style={{ fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Select Organisation</div>
           <div style={{ width: 28, height: 3, background: "#4ADE80", borderRadius: 2, margin: "8px auto 0" }} />
-          <div style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", marginTop: 10 }}>Choose an org to manage or create a new one</div>
+          <div style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", marginTop: 10 }}>{superAdmin ? "Choose an org to manage or create a new one" : "Choose your organisation"}</div>
         </div>
 
         {loading ? (
@@ -334,6 +336,7 @@ export default function OrgSelector({ onSelect }) {
               </div>
             )}
 
+            {superAdmin && (
             <div style={{ display: "flex", gap: 8 }}>
               {!showCreate ? (
                 <>
@@ -396,6 +399,7 @@ export default function OrgSelector({ onSelect }) {
                 </form>
               )}
             </div>
+            )}
           </>
         )}
       </div>

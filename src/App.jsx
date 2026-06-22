@@ -397,6 +397,12 @@ function AppInner() {
 
   // ── Render ──
 
+  // Hidden super-admin org console (create/list/delete) — reached only via the
+  // unlinked ?superadmin URL; the key field gates create/delete server-side.
+  if (new URLSearchParams(window.location.search).get("superadmin")) {
+    return <OrgSelector superAdmin onSelect={handleOrgSelect} />;
+  }
+
   // Not authed. Primary path is the email-login screen; the org/member picker is
   // a fallback (goToPicker), and the legacy member login also serves the
   // password-reset deep-link (loggingIn defaults true when ?reset= is present).
