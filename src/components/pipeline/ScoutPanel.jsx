@@ -1,13 +1,9 @@
-import { useState, useMemo, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { C, FONT, MONO } from "@/theme";
-import { uid, td, isGroundingRedirect, isUsableUrl, normaliseFunder } from "@/utils";
 import { Btn } from "@/components/ui";
-import { scoutPrompt, scoutBriefPrompt } from "@/prompts";
-import { kvGet, kvSet, verifyUrls } from "@/api";
-import { CLOSED_STAGES } from "@/data/constants";
+import useScout from "@/hooks/useScout";
 
-/* ── Constants ── */
-const SCOUT_TYPE_MAP = { corporate: "Corporate CSI", csi: "Corporate CSI", government: "Government/SETA", seta: "Government/SETA", international: "International", foundation: "Foundation", tech: "Tech Company", credit: "Tech Credit", "in-kind": "In-Kind", partnership: "Partnership", development: "Development Agency", impact: "Impact Investor" };
+/* ── Presentation constants ── */
 const REJECT_REASONS = [
   { key: "wrong_sector", label: "Wrong sector" },
   { key: "wrong_geo", label: "Wrong geography" },
@@ -19,52 +15,18 @@ const REJECT_REASONS = [
   { key: "wrong_deadline", label: "Wrong deadline" },
 ];
 
-/* ── Local fit score for scout results (0-100, calculated client-side before display) ── */
-const calcScoutFitScore = (s) => {
-  let score = 40; // base for any scouted result
-  // Focus alignment
-  const goodFocus = ["Youth Employment", "Digital Skills", "AI/4IR", "Education", "STEM", "Work Readiness"];
-  const focusHits = (s.focus || []).filter(f => goodFocus.includes(f)).length;
-  score += Math.min(focusHits * 8, 24);
-  // Budget range fit (R200K-R5M sweet spot)
-  const budget = Number(s.funderBudget || s.ask) || 0;
-  if (budget >= 200000 && budget <= 5000000) score += 12;
-  else if (budget > 0 && budget < 200000) score += 4;
-  else if (budget > 5000000) score += 6;
-  // Access — open is best
-  const acc = (s.access || "").toLowerCase();
-  if (acc === "open") score += 10;
-  else if (acc.includes("relationship")) score += 4;
-  // AI fit label from scout prompt
-  if (s.fit === "High") score += 10;
-  else if (s.fit === "Medium") score += 4;
-  // Type bonus — some funder types historically better
-  const typ = (s.type || "").toLowerCase();
-  if (typ.includes("foundation") || typ.includes("csi")) score += 4;
-  if (typ.includes("seta")) score += 3;
-  // Deadline exists and is in the future
-  if (s.deadline) {
-    const dl = new Date(s.deadline);
-    const now = new Date();
-    if (dl > now) score += 4;
-    const daysLeft = (dl - now) / 86400000;
-    if (daysLeft > 14 && daysLeft < 180) score += 3; // sweet spot — enough time, not stale
-  }
-  return Math.min(100, Math.max(0, Math.round(score)));
-};
-
 /* ── Scout: loading insights ── */
 const SCOUT_INSIGHTS = [
   { label: "AI Skills Demand", stat: "4x", note: "Growth in AI job postings across Africa since 2023, with South Africa leading the continent", source: "LinkedIn Economic Graph" },
-  { label: "Youth Unemployment", stat: "45.5%", note: "SA youth (15\u201334) unemployment rate \u2014 digital skills programmes show the strongest employment outcomes", source: "Stats SA Q4 2025" },
-  { label: "CSI Spend Trending", stat: "R12.3B", note: "Total SA corporate social investment in 2025 \u2014 education and skills remain the top priority sector", source: "Trialogue CSI Handbook" },
-  { label: "SETA Windows", stat: "Q1\u2013Q2", note: "Most SETA discretionary grant windows open between February and June \u2014 peak scouting season", source: "DHET Calendar" },
-  { label: "Digital Skills Gap", stat: "2.6M", note: "Estimated unfilled digital roles across Africa by 2030 \u2014 funders are prioritising pipeline programmes", source: "IFC Digital Skills Report" },
+  { label: "Youth Unemployment", stat: "45.5%", note: "SA youth (15–34) unemployment rate — digital skills programmes show the strongest employment outcomes", source: "Stats SA Q4 2025" },
+  { label: "CSI Spend Trending", stat: "R12.3B", note: "Total SA corporate social investment in 2025 — education and skills remain the top priority sector", source: "Trialogue CSI Handbook" },
+  { label: "SETA Windows", stat: "Q1–Q2", note: "Most SETA discretionary grant windows open between February and June — peak scouting season", source: "DHET Calendar" },
+  { label: "Digital Skills Gap", stat: "2.6M", note: "Estimated unfilled digital roles across Africa by 2030 — funders are prioritising pipeline programmes", source: "IFC Digital Skills Report" },
   { label: "Funder Shift", stat: "73%", note: "Of SA corporate funders now require measurable employment outcomes, not just training completion", source: "Trialogue 2025" },
   { label: "International Grants", stat: "+18%", note: "Year-on-year increase in international foundation funding to African digital skills organisations", source: "OECD DAC 2025" },
-  { label: "NPO Growth", stat: "12%", note: "More registered NPOs competing for funding \u2014 differentiated outcomes data is the key advantage", source: "DSD NPO Database" },
+  { label: "NPO Growth", stat: "12%", note: "More registered NPOs competing for funding — differentiated outcomes data is the key advantage", source: "DSD NPO Database" },
   { label: "B-BBEE Value", stat: "135%", note: "Skills development spend counts 135% toward B-BBEE scorecards, making it the highest-leverage category", source: "B-BBEE Codes" },
-  { label: "Tech Philanthropy", stat: "$4.2B", note: "Global tech company philanthropic spending in 2025 \u2014 AI education is the fastest-growing category", source: "CECP Giving in Numbers" },
+  { label: "Tech Philanthropy", stat: "$4.2B", note: "Global tech company philanthropic spending in 2025 — AI education is the fastest-growing category", source: "CECP Giving in Numbers" },
 ];
 
 const SCOUT_STEPS = [
@@ -118,7 +80,7 @@ function ScoutLoader() {
             display: "flex", alignItems: "center", justifyContent: "center",
             animation: "ge-pulse 2s ease-in-out infinite",
           }}>
-            <span style={{ fontSize: 15, color: C.white }}>{"\u2609"}</span>
+            <span style={{ fontSize: 15, color: C.white }}>{"☉"}</span>
           </div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.dark }}>Scouting new opportunities</div>
@@ -178,337 +140,62 @@ function ScoutLoader() {
   );
 }
 
-/* ── Scout: fallback data if API parse fails ── */
-const SCOUT_FALLBACK = [
-  { name: "NSF Digital Skills", funder: "National Skills Fund", type: "Government/SETA", funderBudget: 2500000, deadline: null, fit: "High", reason: "Digital skills, youth employment, scalable partner model", url: "https://www.nsf.gov.za/", focus: ["Youth Employment", "Digital Skills"], access: "Open", accessNote: "NSF publishes open calls for skills development projects — apply through their online portal" },
-  { name: "W&R SETA Discretionary", funder: "Wholesale & Retail SETA", type: "Government/SETA", funderBudget: 1500000, deadline: "2026-06-30", fit: "Medium", reason: "Digital skills for retail sector, youth employment", url: "https://www.wrseta.org.za/grant_application.aspx", focus: ["Digital Skills", "Youth Employment"], access: "Open", accessNote: "Discretionary grant window opens annually — application forms available on website" },
-  { name: "National Lotteries Commission", funder: "NLC Charities Sector", type: "Government/SETA", funderBudget: 3000000, deadline: "2026-06-30", fit: "Medium", reason: "Community development, NPO registered, large grants", url: "https://nlcsa.org.za/how-to-apply/", focus: ["Youth Employment", "Education"], access: "Open", accessNote: "Online application portal open to registered NPOs — apply through nlcsa.org.za" },
-  { name: "Oppenheimer Memorial Trust", funder: "OMT", type: "Foundation", funderBudget: 550000, deadline: "2026-06-30", fit: "Medium", reason: "Education, under-resourced communities, biannual window", url: "https://www.omt.org.za/how-to-apply/", focus: ["Education", "Rural Dev"], access: "Open", accessNote: "Biannual application windows — unsolicited proposals accepted through their website" },
-  { name: "FirstRand Foundation", funder: "FirstRand Foundation", type: "Foundation", funderBudget: 2000000, deadline: null, fit: "High", reason: "Youth employment, education, innovation — rolling applications", url: "https://www.firstrandfoundation.org.za/apply", focus: ["Youth Employment", "Education"], access: "Open", accessNote: "Rolling applications accepted year-round through online portal" },
-  { name: "Microsoft Skills for Jobs", funder: "Microsoft Philanthropies", type: "Tech Company", funderBudget: 1500000, deadline: null, fit: "High", reason: "AI skills, digital employment, FET programme synergy", url: "https://www.microsoft.com/en-za/corporate-responsibility", focus: ["AI/4IR", "Digital Skills"], access: "Relationship first", accessNote: "No public application portal — approach via Microsoft SA partnerships team or local CSI contacts" },
-  { name: "Ford Foundation Future of Work", funder: "Ford Foundation", type: "International", funderBudget: 5400000, deadline: null, fit: "Medium", reason: "Future of work, digital economy, Global South", url: "https://www.fordfoundation.org/work/our-grants/", focus: ["Youth Employment", "AI/4IR"], access: "Relationship first", accessNote: "Submit a brief letter of inquiry — grants officer reviews before inviting full proposal" },
-  { name: "Anglo American CSI", funder: "Anglo American", type: "Corporate CSI", funderBudget: 2000000, deadline: null, fit: "Medium", reason: "Skills development, host communities, youth employment", url: "https://www.angloamerican.com/sustainability", focus: ["Youth Employment", "Digital Skills", "Rural Dev"], access: "Relationship first", accessNote: "CSI proposals through their sustainability team — approach via Anglo American Foundation SA" },
-  { name: "Standard Bank CSI", funder: "Standard Bank", type: "Corporate CSI", funderBudget: 1500000, deadline: null, fit: "High", reason: "Youth skills, digital economy, B-BBEE alignment", url: "https://www.standardbank.co.za/southafrica/personal/about-us/corporate-social-investment", focus: ["Youth Employment", "Digital Skills"], access: "Open", accessNote: "CSI application form available on website — accepts unsolicited proposals for education and skills" },
-  { name: "Echoing Green Fellowship", funder: "Echoing Green", type: "International", funderBudget: 1440000, deadline: "2026-03-15", fit: "Medium", reason: "Social entrepreneur fellowship, innovative models, early-stage", url: "https://echoinggreen.org/fellowship/", focus: ["Youth Employment", "Education"], access: "Open", accessNote: "Annual fellowship application — open call with published deadline, apply online" },
-];
-
-/* ── Scout data-quality helpers ── */
-// Levenshtein distance for fuzzy title matching
-const levenshtein = (a, b) => {
-  if (a === b) return 0;
-  if (!a.length) return b.length;
-  if (!b.length) return a.length;
-  const m = []; for (let i = 0; i <= b.length; i++) m[i] = [i];
-  for (let j = 0; j <= a.length; j++) m[0][j] = j;
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      m[i][j] = b.charAt(i - 1) === a.charAt(j - 1)
-        ? m[i - 1][j - 1]
-        : Math.min(m[i - 1][j - 1] + 1, m[i][j - 1] + 1, m[i - 1][j] + 1);
-    }
-  }
-  return m[b.length][a.length];
-};
-
-const titlesSimilar = (a, b) => {
-  const na = normaliseFunder(a), nb = normaliseFunder(b);
-  if (!na || !nb) return false;
-  if (na === nb) return true;
-  if (na.length < 8 || nb.length < 8) return false;
-  return levenshtein(na, nb) < 4;
-};
-
-// Detect a URL that's just the funder's homepage (no application path)
-const isHomepageOnly = (url) => {
-  if (!url) return false;
-  try {
-    const u = new URL(url);
-    const path = u.pathname.replace(/\/$/, "");
-    return path === "" || path === "/" || path === "/index" || path === "/home";
-  } catch { return false; }
-};
-
-// Detect an AI/API error string so we never persist or display it as a real result
-const isApiErrorString = (s) => {
-  if (!s) return false;
-  return /^(Rate limit reached|Error[: (]|Connection error:|The AI service is temporarily overloaded|No response|Request failed after)/i.test(s.trim());
-};
-
-const parseScoutResults = (text) => {
-  try {
-    const clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-    const start = clean.indexOf("[");
-    const end = clean.lastIndexOf("]");
-    if (start >= 0 && end > start) {
-      const arr = JSON.parse(clean.substring(start, end + 1));
-      if (Array.isArray(arr) && arr.length > 0 && arr[0].name) return arr;
-    }
-  } catch (e) { /* fall through */ }
-  return null;
-};
-
-/* ── ScoutPanel Component ── */
+/* ── ScoutPanel Component — render-only; all logic lives in useScout ── */
 const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGrant, onShowAdd, onShowUrlTool, onScoutingChange, api }, ref) {
+  const {
+    scouting,
+    scoutResults,
+    scoutBrief, setScoutBrief, saveScoutBrief,
+    scoutBriefLoading,
+    scoutRejections,
+    scoutStats, scoutDisplay, hiddenLowConfCount,
+    aiScout,
+    generateScoutBrief,
+    rejectScoutResult,
+    clearScoutRejections,
+    addScoutToPipeline,
+    dismissResults,
+  } = useScout({ orgContext, grants, onAddGrant, onScoutingChange, api });
+
+  // ── Transient UI state (component-owned) ──
   const [scoutMarket, setScoutMarket] = useState("both"); // "sa" | "global" | "both"
-  const [scouting, _setScouting] = useState(false);
-  const setScouting = (v) => { _setScouting(v); onScoutingChange?.(v); };
-  const [scoutResults, setScoutResults] = useState([]);
   const [scoutSort, setScoutSort] = useState("fit"); // "fit" | "deadline" | "budget"
   const [scoutFitFilter, setScoutFitFilter] = useState("all"); // "all" | "high" | "medium"
-  const [showUncertain, setShowUncertain] = useState(false); // Phase 2: hide low-confidence results by default
+  const [showUncertain, setShowUncertain] = useState(false);
   const [searchKeywords, setSearchKeywords] = useState(""); // Free-text keyword search
-  // Scout brief + rejection feedback
-  const [scoutBrief, setScoutBrief] = useState("");
-  const [scoutBriefLoading, setScoutBriefLoading] = useState(false);
   const [scoutBriefDirty, setScoutBriefDirty] = useState(false);
-  const [scoutRejections, setScoutRejections] = useState([]);
   const [rejectingIdx, setRejectingIdx] = useState(null);
   const [rejectText, setRejectText] = useState("");
   const [expandedIdx, setExpandedIdx] = useState(null);
 
-  // Load scout brief + rejections from KV store on mount
-  useEffect(() => {
-    Promise.all([
-      kvGet("scout_brief").catch(() => null),
-      kvGet("scout_rejections").catch(() => null),
-    ]).then(([brief, rejections]) => {
-      if (brief) {
-        const text = (typeof brief === "string" ? brief : brief.value || "").trim();
-        if (text && !isApiErrorString(text)) setScoutBrief(text);
-        else if (text) kvSet("scout_brief", "").catch(() => {}); // purge stale error string
-      }
-      if (Array.isArray(rejections)) setScoutRejections(rejections);
-      else if (rejections?.value && Array.isArray(rejections.value)) setScoutRejections(rejections.value);
-    });
-  }, []);
-
-  // Single-pass scout stats (replaces 5 separate .filter() calls)
-  const scoutStats = useMemo(() => {
-    let added = 0, expired = 0, open = 0, rel = 0, inv = 0, rejected = 0, urlOk = 0, urlDead = 0, highConf = 0, lowConf = 0;
-    const now = new Date();
-    for (const s of scoutResults) {
-      if (s.rejected) rejected++;
-      if (s.added) added++;
-      if (s.deadline && new Date(s.deadline) < now) expired++;
-      const acc = (s.access || "").toLowerCase();
-      if (acc === "open") open++;
-      else if (acc.includes("relationship")) rel++;
-      else if (acc.includes("invitation")) inv++;
-      if (s.urlStatus === "verified") urlOk++;
-      else if (s.urlStatus === "dead") urlDead++;
-      if (s.confidence === "high") highConf++;
-      else if (s.confidence === "low") lowConf++;
-    }
-    return { added, expired, open, rel, inv, rejected, urlOk, urlDead, highConf, lowConf };
-  }, [scoutResults]);
-
-  // Memoized sorted/filtered scout results — rejected cards sort to bottom
-  const scoutDisplay = useMemo(() => {
-    let results = [...scoutResults];
-    if (scoutFitFilter === "high") results = results.filter(s => s.fitScore >= 70);
-    else if (scoutFitFilter === "medium") results = results.filter(s => s.fitScore >= 40);
-    // Phase 2: hide low-confidence results unless user explicitly opts in
-    if (!showUncertain) results = results.filter(s => s.confidence !== "low");
-    // Single comparator: rejected cards always sort to bottom, then by selected criterion
-    const bySort = (a, b) => {
-      if (scoutSort === "deadline") return (a.deadline || "9999").localeCompare(b.deadline || "9999");
-      if (scoutSort === "budget") return (Number(b.funderBudget || b.ask) || 0) - (Number(a.funderBudget || a.ask) || 0);
-      return b.fitScore - a.fitScore; // default: fit
-    };
-    results.sort((a, b) => {
-      const r = (a.rejected ? 1 : 0) - (b.rejected ? 1 : 0);
-      return r !== 0 ? r : bySort(a, b);
-    });
-    return results;
-  }, [scoutResults, scoutFitFilter, scoutSort, showUncertain]);
-
-  // Phase 2: count of hidden low-confidence results so the toggle has context
-  const hiddenLowConfCount = useMemo(
-    () => scoutResults.filter(s => s.confidence === "low").length,
-    [scoutResults]
-  );
-
-  /* ── Scout Brief: generate org identity distillation ── */
-  const generateScoutBrief = async () => {
-    if (!orgContext) return "";
-    setScoutBriefLoading(true);
-    try {
-      const p = scoutBriefPrompt(orgContext);
-      const result = await api(p.system, p.user, p.search, p.maxTok);
-      const brief = (result || "").trim();
-      if (brief && !isApiErrorString(brief)) {
-        setScoutBrief(brief);
-        setScoutBriefDirty(false);
-        kvSet("scout_brief", brief).catch(() => {});
-        return brief;
-      }
-      if (isApiErrorString(brief)) {
-        console.warn("Scout brief: API returned error, not saving:", brief);
-      }
-      return "";
-    } catch (err) {
-      console.error("Scout brief generation failed:", err);
-      return "";
-    } finally {
-      setScoutBriefLoading(false);
-    }
+  // Run the scout with the live UI inputs; resets sort to "fit" after a run.
+  const runScout = () => {
+    setRejectingIdx(null);
+    return aiScout({ market: scoutMarket, keywords: searchKeywords, onSortReset: setScoutSort });
   };
 
-  /* ── Scout: reject a result ── */
-  const rejectScoutResult = (s, reasonKey, freeText) => {
-    const rejection = {
-      funder: s.funder, name: s.name, reason: reasonKey,
-      reasonText: freeText || "", date: new Date().toISOString().slice(0, 10),
-      focus: s.focus || [],
-    };
-    const updated = [...scoutRejections, rejection];
-    setScoutRejections(updated);
-    kvSet("scout_rejections", updated).catch(() => {});
-    setScoutResults(prev => prev.map(x =>
-      x.name === s.name && x.funder === s.funder ? { ...x, rejected: true, rejectReason: reasonKey } : x
-    ));
+  // Regenerate the brief (clears the dirty flag — canonical value comes back).
+  const handleGenerateBrief = async () => {
+    await generateScoutBrief();
+    setScoutBriefDirty(false);
+  };
+
+  // Reject + reset the popover input (transient UI).
+  const handleReject = (s, reasonKey, freeText) => {
+    rejectScoutResult(s, reasonKey, freeText);
     setRejectingIdx(null);
     setRejectText("");
   };
 
-  /* ── Scout: AI search for new grant opportunities ── */
-  const aiScout = async () => {
-    setScouting(true);
-    setScoutResults([]);
-    setRejectingIdx(null);
-    const activeGrants = grants.filter(g => !CLOSED_STAGES.includes(g.stage));
-    const existing = activeGrants.map(g => g.funder.toLowerCase());
-    const existingNormalised = new Set(activeGrants.map(g => normaliseFunder(g.funder)));
-    const existingFunders = [...new Set(existing)].join(", ");
+  const display = scoutDisplay({ sort: scoutSort, fitFilter: scoutFitFilter, showUncertain });
 
-    // Auto-generate scout brief if empty
-    let brief = scoutBrief;
-    if (!brief && orgContext) {
-      brief = await generateScoutBrief();
-    }
-
-    const promptArgs = { existingFunders, orgContext, scoutBrief: brief, rejections: scoutRejections, keywords: searchKeywords.trim() };
-    let allParsed = [];
-
-    if (scoutMarket === "both") {
-      // Run SA then Global sequentially with a brief pause — keeps us under
-      // free-tier Gemini RPM limits (search-grounded calls count heavier).
-      const pSA = scoutPrompt({ ...promptArgs, market: "sa" });
-      const rSA = await api(pSA.system, pSA.user, pSA.search, pSA.maxTok);
-      await new Promise(r => setTimeout(r, 4500));
-      const pGlobal = scoutPrompt({ ...promptArgs, market: "global" });
-      const rGlobal = await api(pGlobal.system, pGlobal.user, pGlobal.search, pGlobal.maxTok);
-      const parsedSA = parseScoutResults(rSA) || [];
-      const parsedGlobal = parseScoutResults(rGlobal) || [];
-      allParsed = [...parsedSA, ...parsedGlobal];
-    } else {
-      const p = scoutPrompt({ ...promptArgs, market: scoutMarket });
-      const r = await api(p.system, p.user, p.search, p.maxTok);
-      allParsed = parseScoutResults(r) || [];
-    }
-
-    if (!allParsed.length) allParsed = SCOUT_FALLBACK;
-
-    // Phase 2: drop results with no URL — hallucination shield
-    allParsed = allParsed.filter(s => s.url && typeof s.url === "string" && s.url.trim().length > 0);
-
-    // Phase 2: stronger de-dup using normalised funder names + fuzzy title match
-    const dedup = [];
-    for (const s of allParsed) {
-      const nf = normaliseFunder(s.funder);
-      const isDupe = dedup.some(d => normaliseFunder(d.funder) === nf && titlesSimilar(d.name, s.name));
-      if (!isDupe) dedup.push(s);
-    }
-    allParsed = dedup;
-
-    // Pre-mark results if funder was previously rejected
-    const rejectedFunders = new Set(scoutRejections.map(r => (r.funder || "").toLowerCase()));
-
-    // Tag confidence based on what we know
-    const scored = allParsed.map(s => {
-      const fitScore = calcScoutFitScore(s);
-      const acc = (s.access || "").toLowerCase();
-      // Confidence: combine AI self-rating with heuristics
-      const aiConf = (s.sourceConfidence || "").toLowerCase();
-      const genericLink = isHomepageOnly(s.url);
-      let confidence = "medium";
-      if (aiConf === "verified" && acc === "open" && s.url && s.deadline && !genericLink) confidence = "high";
-      else if (aiConf === "verified" && s.url && !genericLink) confidence = "high";
-      else if (aiConf === "uncertain" || !s.url || acc === "unknown" || genericLink) confidence = "low";
-      else if (aiConf === "likely") confidence = "medium";
-      const sNorm = normaliseFunder(s.funder);
-      return {
-        ...s,
-        fitScore,
-        confidence,
-        genericLink,
-        urlStatus: null, // will be filled by async verification
-        inPipeline: existingNormalised.has(sNorm) || existing.includes((s.funder || "").toLowerCase()),
-        rejected: rejectedFunders.has((s.funder || "").toLowerCase()),
-        added: false,
-      };
-    }).sort((a, b) => b.fitScore - a.fitScore);
-
-    setScoutResults(scored);
-    setScoutSort("fit");
-    setScouting(false);
-
-    // Async URL verification — runs after results are displayed.
-    // Also RESOLVES Gemini grounding-redirect URLs to their final destinations:
-    // verifyUrls follows redirects, so check.redirect contains the real URL.
-    const urlsToCheck = scored.filter(s => s.url && !s.rejected).map(s => s.url);
-    if (urlsToCheck.length > 0) {
-      try {
-        const urlResults = await verifyUrls(urlsToCheck);
-        const urlMap = {};
-        for (const r of urlResults) urlMap[r.url] = r;
-        setScoutResults(prev => prev.map(s => {
-          if (!s.url || !urlMap[s.url]) return s;
-          const check = urlMap[s.url];
-          // If the original was a grounding redirect AND we followed to a real URL, swap it in.
-          let resolvedUrl = s.url;
-          if (isGroundingRedirect(s.url) && check.redirect && isUsableUrl(check.redirect)) {
-            resolvedUrl = check.redirect;
-          }
-          const urlStatus = check.ok ? "verified" : check.status === 0 ? "dead" : "warning";
-          // If after resolution the URL is STILL a grounding redirect or unreachable, the result is unusable.
-          const stillBad = isGroundingRedirect(resolvedUrl) || (!check.ok && check.status === 0);
-          const confidence = stillBad ? "low" : urlStatus === "dead" ? "low" : s.confidence;
-          return { ...s, url: resolvedUrl, urlStatus, confidence };
-        }));
-      } catch { /* URL verification is best-effort */ }
-    }
-  };
-
-  const addScoutToPipeline = (s) => {
-    const gType = SCOUT_TYPE_MAP[Object.keys(SCOUT_TYPE_MAP).find(k => (s.type || "").toLowerCase().includes(k))] || "Foundation";
-    const funderBudget = Number(s.funderBudget || s.ask) || 0;
-    const accessLine = s.access ? `\nAccess: ${s.access}${s.accessNote ? " — " + s.accessNote : ""}` : "";
-    // Only embed the URL in notes / save to applyUrl if it's a real usable URL.
-    // Grounding redirects from Gemini look real but only resolve inside the AI session.
-    const usableUrl = isUsableUrl(s.url) ? s.url : "";
-    const notes = `${s.reason || ""}${usableUrl ? "\nApply: " + usableUrl : ""}${accessLine}`;
-    // Store funder's raw budget — ask will be set after proposal generation
-    const scoutedMarket = s.market || (s.type === "International" ? "global" : "sa");
-    const newG = {
-      id: uid(), name: s.name || "New Grant", funder: s.funder || "Unknown", type: gType,
-      stage: "scouted", ask: 0, funderBudget, askSource: null, aiRecommendedAsk: null,
-      deadline: s.deadline || null,
-      focus: s.focus || ["Youth Employment", "Digital Skills"], geo: [], rel: "Cold", pri: 3, hrs: 0,
-      notes, market: scoutedMarket, source: "scout",
-      log: [{ d: td(), t: `Scouted by AI · funder budget R${funderBudget.toLocaleString()}${s.access ? ` · ${s.access}` : ""} · ask TBD` }],
-      on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null, applyUrl: usableUrl,
-    };
-    onAddGrant(newG);
-    setScoutResults(prev => prev.map(x => x.name === s.name && x.funder === s.funder ? { ...x, added: true } : x));
-  };
-
-  // Expose scout controls to parent for toolbar rendering
+  // Expose scout controls to parent for toolbar rendering — preserves the
+  // original ref contract exactly (aiScout takes no args from the parent).
   useImperativeHandle(ref, () => ({
     scouting,
     scoutMarket,
     setScoutMarket,
-    aiScout,
+    aiScout: runScout,
     scoutResults,
     searchKeywords,
     setSearchKeywords,
@@ -552,8 +239,8 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
               </>}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <Btn v="ghost" style={{ fontSize: 12, padding: "5px 12px" }} onClick={aiScout} disabled={scouting}>{scouting ? "Searching..." : "Search again"}</Btn>
-              <button onClick={() => setScoutResults([])} style={{ fontSize: 12, color: C.t4, background: "none", border: "none", cursor: "pointer", fontFamily: FONT }}>Dismiss</button>
+              <Btn v="ghost" style={{ fontSize: 12, padding: "5px 12px" }} onClick={runScout} disabled={scouting}>{scouting ? "Searching..." : "Search again"}</Btn>
+              <button onClick={dismissResults} style={{ fontSize: 12, color: C.t4, background: "none", border: "none", cursor: "pointer", fontFamily: FONT }}>Dismiss</button>
             </div>
           </div>
           {/* Scout Brief — identity distillation */}
@@ -575,18 +262,18 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   {scoutBriefDirty && (
                     <button onClick={() => {
-                      kvSet("scout_brief", scoutBrief).catch(() => {});
+                      saveScoutBrief(scoutBrief);
                       setScoutBriefDirty(false);
                     }} style={{ fontSize: 10, fontWeight: 700, color: C.ok, background: C.okSoft, border: `1px solid ${C.ok}30`, borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontFamily: FONT }}>
                       Save
                     </button>
                   )}
-                  <button onClick={generateScoutBrief} disabled={scoutBriefLoading}
+                  <button onClick={handleGenerateBrief} disabled={scoutBriefLoading}
                     style={{ fontSize: 10, fontWeight: 600, color: C.t3, background: "none", border: "none", cursor: scoutBriefLoading ? "wait" : "pointer", fontFamily: FONT }}>
-                    {scoutBriefLoading ? "Generating..." : "\u21BB Regenerate"}
+                    {scoutBriefLoading ? "Generating..." : "↻ Regenerate"}
                   </button>
                   {scoutRejections.length > 0 && (
-                    <button onClick={() => { setScoutRejections([]); kvSet("scout_rejections", []).catch(() => {}); }}
+                    <button onClick={clearScoutRejections}
                       style={{ fontSize: 10, fontWeight: 600, color: C.t4, background: "none", border: "none", cursor: "pointer", fontFamily: FONT }}>
                       Clear history
                     </button>
@@ -599,7 +286,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                 <textarea
                   value={scoutBrief}
                   onChange={e => { setScoutBrief(e.target.value); setScoutBriefDirty(true); }}
-                  onBlur={() => { if (scoutBriefDirty) { kvSet("scout_brief", scoutBrief).catch(() => {}); setScoutBriefDirty(false); } }}
+                  onBlur={() => { if (scoutBriefDirty) { saveScoutBrief(scoutBrief); setScoutBriefDirty(false); } }}
                   rows={4}
                   style={{
                     width: "100%", fontSize: 11, lineHeight: 1.5, fontFamily: FONT,
@@ -654,14 +341,14 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
             )}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {scoutDisplay.map((s, i) => {
+            {display.map((s, i) => {
               const fs = s.fitScore || 0;
               const fitC = fs >= 70 ? C.ok : fs >= 40 ? C.amber : C.t4;
               const expired = s.deadline && new Date(s.deadline) < new Date();
               const alreadyIn = s.inPipeline || s.added;
               const acc = (s.access || "").toLowerCase();
               const accessC = acc === "open" ? C.ok : acc.includes("relationship") ? C.amber : acc.includes("invitation") ? C.red : C.t4;
-              const accessIcon = acc === "open" ? "\u2713" : acc.includes("relationship") ? "\u2192" : acc.includes("invitation") ? "\u2715" : "?";
+              const accessIcon = acc === "open" ? "✓" : acc.includes("relationship") ? "→" : acc.includes("invitation") ? "✕" : "?";
               const isByInvite = acc.includes("invitation");
               const isRejected = s.rejected;
               const isExpanded = expandedIdx === i;
@@ -685,44 +372,44 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                           <span style={{ fontSize: 10, fontWeight: 600, color: accessC, background: accessC + "15", padding: "1px 7px", borderRadius: 100 }} title={s.accessNote || ""}>{accessIcon} {s.access}</span>
                         )}
                         {s.market && (
-                          <span style={{ fontSize: 9, fontWeight: 600, color: C.t4, background: C.raised, padding: "1px 6px", borderRadius: 100 }}>{s.market === "global" ? "\uD83C\uDF0D" : "\uD83C\uDDFF\uD83C\uDDE6"}</span>
+                          <span style={{ fontSize: 9, fontWeight: 600, color: C.t4, background: C.raised, padding: "1px 6px", borderRadius: 100 }}>{s.market === "global" ? "🌍" : "🇿🇦"}</span>
                         )}
                         {expired && <span style={{ fontSize: 10, fontWeight: 600, color: C.red, background: C.redSoft, padding: "1px 7px", borderRadius: 100 }}>Expired</span>}
-                        {s.added && <span style={{ fontSize: 10, fontWeight: 600, color: C.ok }}>{"\u2713"}</span>}
+                        {s.added && <span style={{ fontSize: 10, fontWeight: 600, color: C.ok }}>{"✓"}</span>}
                         {s.inPipeline && !s.added && (
                           <span style={{ fontSize: 10, fontWeight: 700, color: C.white, background: C.primary, padding: "2px 8px", borderRadius: 100, letterSpacing: 0.2 }}
                             title="This funder is already in your pipeline">
-                            {"\u25cf"} Already tracking
+                            {"●"} Already tracking
                           </span>
                         )}
                         {s.genericLink && (
                           <span style={{ fontSize: 9, fontWeight: 600, color: C.amber, background: C.amberSoft, padding: "1px 6px", borderRadius: 100 }}
-                            title="URL points only to the funder homepage \u2014 AI did not find a specific application page">
-                            {"\u26a0"} generic link
+                            title="URL points only to the funder homepage — AI did not find a specific application page">
+                            {"⚠"} generic link
                           </span>
                         )}
                         {isRejected && <span style={{ fontSize: 10, fontWeight: 600, color: C.t4, background: C.raised, padding: "1px 7px", borderRadius: 100 }}>Rejected</span>}
-                        {s.urlStatus === "verified" && <span style={{ fontSize: 9, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "1px 6px", borderRadius: 100 }} title="URL verified — link is live">{"\u2713"} Link OK</span>}
-                        {s.urlStatus === "dead" && <span style={{ fontSize: 9, fontWeight: 600, color: C.red, background: C.redSoft, padding: "1px 6px", borderRadius: 100 }} title="URL is dead or unreachable">{"\u2715"} Dead link</span>}
+                        {s.urlStatus === "verified" && <span style={{ fontSize: 9, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "1px 6px", borderRadius: 100 }} title="URL verified — link is live">{"✓"} Link OK</span>}
+                        {s.urlStatus === "dead" && <span style={{ fontSize: 9, fontWeight: 600, color: C.red, background: C.redSoft, padding: "1px 6px", borderRadius: 100 }} title="URL is dead or unreachable">{"✕"} Dead link</span>}
                         {s.urlStatus === "warning" && <span style={{ fontSize: 9, fontWeight: 600, color: C.amber, background: C.amberSoft, padding: "1px 6px", borderRadius: 100 }} title="URL returned an error or redirect">? Link issue</span>}
-                        {s.confidence && <span style={{ fontSize: 9, fontWeight: 600, color: s.confidence === "high" ? C.ok : s.confidence === "low" ? C.red : C.amber, background: (s.confidence === "high" ? C.ok : s.confidence === "low" ? C.red : C.amber) + "12", padding: "1px 6px", borderRadius: 100 }} title={`Confidence: ${s.confidence} — ${s.confidence === "high" ? "open access, URL + deadline present" : s.confidence === "low" ? "missing URL or unknown access" : "partial info available"}`}>{s.confidence === "high" ? "\u25CF" : s.confidence === "low" ? "\u25CB" : "\u25D1"} {s.confidence}</span>}
+                        {s.confidence && <span style={{ fontSize: 9, fontWeight: 600, color: s.confidence === "high" ? C.ok : s.confidence === "low" ? C.red : C.amber, background: (s.confidence === "high" ? C.ok : s.confidence === "low" ? C.red : C.amber) + "12", padding: "1px 6px", borderRadius: 100 }} title={`Confidence: ${s.confidence} — ${s.confidence === "high" ? "open access, URL + deadline present" : s.confidence === "low" ? "missing URL or unknown access" : "partial info available"}`}>{s.confidence === "high" ? "●" : s.confidence === "low" ? "○" : "◑"} {s.confidence}</span>}
                       </div>
                       <div style={{ fontSize: 12, color: C.t3 }}>
-                        {s.funder}{(s.funderBudget || s.ask) ? ` \u00B7 ~R${Number(s.funderBudget || s.ask).toLocaleString()}` : ""}{s.valueType && s.valueType !== "cash" && s.valueType !== "unknown" ? ` \u00B7 ${s.valueType}` : ""}
+                        {s.funder}{(s.funderBudget || s.ask) ? ` · ~R${Number(s.funderBudget || s.ask).toLocaleString()}` : ""}{s.valueType && s.valueType !== "cash" && s.valueType !== "unknown" ? ` · ${s.valueType}` : ""}
                         {s.deadline ? (
-                          <span title={s.sourceConfidence === "verified" ? "Deadline confirmed on funder site" : "Deadline not verified \u2014 check funder site before relying on it"}
+                          <span title={s.sourceConfidence === "verified" ? "Deadline confirmed on funder site" : "Deadline not verified — check funder site before relying on it"}
                             style={{ fontStyle: s.sourceConfidence === "verified" ? "normal" : "italic", color: s.sourceConfidence === "verified" ? C.t3 : C.amber }}>
-                            {` \u00B7 ${new Date(s.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`}
-                            {s.sourceConfidence !== "verified" && " \u26A0"}
+                            {` · ${new Date(s.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`}
+                            {s.sourceConfidence !== "verified" && " ⚠"}
                           </span>
                         ) : (
-                          <span style={{ color: C.t4, fontStyle: "italic" }}>{" \u00B7 Deadline: TBC"}</span>
+                          <span style={{ color: C.t4, fontStyle: "italic" }}>{" · Deadline: TBC"}</span>
                         )}
                       </div>
                       <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.4, marginTop: 3 }}>{s.reason}</div>
                       {s.accessNote && (
                         <div style={{ fontSize: 11, color: accessC, lineHeight: 1.4, marginTop: 3, fontStyle: "italic" }}>
-                          {acc === "open" ? "\uD83D\uDCCB" : acc.includes("relationship") ? "\uD83E\uDD1D" : acc.includes("invitation") ? "\uD83D\uDEAB" : "\u2753"}{" "}
+                          {acc === "open" ? "📋" : acc.includes("relationship") ? "🤝" : acc.includes("invitation") ? "🚫" : "❓"}{" "}
                           {s.url ? (
                             <a href={s.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} style={{ color: accessC, textDecoration: "underline" }}>{s.accessNote}</a>
                           ) : s.accessNote}
@@ -733,7 +420,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                       {s.url && (
                         <a href={s.url} target="_blank" rel="noopener noreferrer"
                           style={{ fontSize: 11, color: C.blue, textDecoration: "none", padding: "4px 8px", border: `1px solid ${C.blue}25`, borderRadius: 5, fontFamily: FONT, fontWeight: 500 }}>
-                          {"\u2197"}
+                          {"↗"}
                         </a>
                       )}
                       {!alreadyIn && !expired && !isByInvite && !isRejected && (
@@ -746,7 +433,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                         <button onClick={() => setRejectingIdx(rejectingIdx === i ? null : i)}
                           style={{ fontSize: 13, color: C.t4, padding: "3px 7px", border: `1px solid ${C.line}`, borderRadius: 5, background: rejectingIdx === i ? C.redSoft : "none", cursor: "pointer", fontFamily: FONT, lineHeight: 1 }}
                           title="Not for us">
-                          {"\u2715"}
+                          {"✕"}
                         </button>
                       )}
                     </div>
@@ -808,7 +495,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                     }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: C.t2, marginBottom: 6 }}>Why doesn't this fit?</div>
                       {REJECT_REASONS.map(r => (
-                        <button key={r.key} onClick={() => rejectScoutResult(s, r.key, "")}
+                        <button key={r.key} onClick={() => handleReject(s, r.key, "")}
                           style={{
                             display: "block", width: "100%", textAlign: "left",
                             padding: "5px 8px", fontSize: 11, fontFamily: FONT,
@@ -824,14 +511,14 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                           placeholder="Other reason..."
                           value={rejectText}
                           onChange={e => setRejectText(e.target.value)}
-                          onKeyDown={e => { if (e.key === "Enter" && rejectText.trim()) rejectScoutResult(s, "custom", rejectText); }}
+                          onKeyDown={e => { if (e.key === "Enter" && rejectText.trim()) handleReject(s, "custom", rejectText); }}
                           style={{
                             flex: 1, padding: "5px 8px", fontSize: 11, fontFamily: FONT,
                             border: `1px solid ${C.line}`, borderRadius: 4, outline: "none",
                           }}
                         />
                         {rejectText.trim() && (
-                          <button onClick={() => rejectScoutResult(s, "custom", rejectText)}
+                          <button onClick={() => handleReject(s, "custom", rejectText)}
                             style={{ fontSize: 10, fontWeight: 700, color: C.white, background: C.red, border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer", fontFamily: FONT }}>
                             Reject
                           </button>
@@ -857,7 +544,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
               display: "flex", alignItems: "center", justifyContent: "center",
               border: `1px solid ${C.primary}15`,
             }}>
-              <span style={{ fontSize: 32 }}>{"\u2609"}</span>
+              <span style={{ fontSize: 32 }}>{"☉"}</span>
             </div>
 
             {/* Headline */}
@@ -874,7 +561,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                 type="text"
                 value={searchKeywords}
                 onChange={e => setSearchKeywords(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && !scouting) aiScout(); }}
+                onKeyDown={e => { if (e.key === "Enter" && !scouting) runScout(); }}
                 placeholder="Search for anything... e.g. 'food security grants', 'free LLM credits', 'youth employment'"
                 style={{
                   width: "100%", padding: "10px 14px", fontSize: 13, fontFamily: FONT,
@@ -895,7 +582,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
 
             {/* Scout market selector */}
             <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 16 }}>
-              {[{ id: "both", l: "Both" }, { id: "sa", l: "\uD83C\uDDFF\uD83C\uDDE6 Local" }, { id: "global", l: "\uD83C\uDF0D Global" }].map(o => (
+              {[{ id: "both", l: "Both" }, { id: "sa", l: "🇿🇦 Local" }, { id: "global", l: "🌍 Global" }].map(o => (
                 <button key={o.id} onClick={() => setScoutMarket(o.id)} style={{
                   padding: "6px 14px", fontSize: 13, fontWeight: 600, fontFamily: FONT,
                   borderRadius: 6, border: `1px solid ${scoutMarket === o.id ? C.primary : C.line}`,
@@ -907,13 +594,13 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
             </div>
 
             {/* Primary CTA — Scout */}
-            <Btn onClick={aiScout} disabled={scouting} v="primary" style={{
+            <Btn onClick={runScout} disabled={scouting} v="primary" style={{
               fontSize: 15, padding: "12px 32px", borderRadius: 8,
               background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
               borderColor: C.primary, color: C.white,
               boxShadow: `0 4px 14px ${C.primary}30`,
             }}>
-              {"\u2609"} Scout for opportunities
+              {"☉"} Scout for opportunities
             </Btn>
 
             {/* Divider */}
@@ -946,7 +633,7 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                   onMouseEnter={e => { e.currentTarget.style.borderColor = C.blue + "60"; e.currentTarget.style.background = C.blueSoft; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = C.line; e.currentTarget.style.background = C.white; }}
                 >
-                  <span style={{ fontSize: 14 }}>{"\uD83D\uDD17"}</span> Paste a grant URL
+                  <span style={{ fontSize: 14 }}>{"🔗"}</span> Paste a grant URL
                 </button>
               )}
             </div>

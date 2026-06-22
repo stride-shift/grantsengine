@@ -1,10 +1,11 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { C, FONT, MONO } from "@/theme";
-import { fmtK, dL, uid, td, effectiveAsk, grantReadiness, isAIError } from "@/utils";
+import { fmtK, dL, td, effectiveAsk, grantReadiness } from "@/utils";
 import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "@/components/ui";
 import { detectType, PTYPES } from "@/data/funderStrategy";
 import { GATES, ROLES, CLOSED_STAGES } from "@/data/constants";
-import { uploadFile } from "@/api";
+import usePipelineView from "@/hooks/usePipelineView";
+import useGrantWizard from "@/hooks/useGrantWizard";
 import ScoutPanel from "./ScoutPanel";
 
 /* ── Readiness Chips — show missing items on kanban cards ── */
@@ -64,182 +65,55 @@ const AVATAR_COLORS = [
 ];
 
 export default function Pipeline({ grants, team, stages, funderTypes, complianceDocs = [], orgContext = "", onSelectGrant, onUpdateGrant, onAddGrant, onRunAI, api, onToast, onLaunchTour }) {
+  // ── Transient, render-only UI state (lives in the component) ──
   const [pView, setPView] = useState("list");
-  const [q, setQ] = useState("");
-  const [sf, setSf] = useState("all");
-  const [pSort, setPSort] = useState("default");
-  const [market, setMarket] = useState("all"); // "all" | "sa" | "global"
   const scoutRef = useRef(null);
   const [isScouting, setIsScouting] = useState(false); // mirrors ScoutPanel scouting state for toolbar button
   const [dragId, setDragId] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [wizStep, setWizStep] = useState(1); // 1 = funder, 2 = programme, 3 = AI actions
-  const [newName, setNewName] = useState("");
-  const [newFunder, setNewFunder] = useState("");
-  const [newType, setNewType] = useState(funderTypes?.[0] || "Foundation");
-  const [newAsk, setNewAsk] = useState("");
-  const [newDeadline, setNewDeadline] = useState("");
-  const [newRel, setNewRel] = useState("Cold");
-  const [newMarket, setNewMarket] = useState("sa");
-  const [newApplyUrl, setNewApplyUrl] = useState("");
-  const [newSource, setNewSource] = useState("scout");
-  // Step 2: multi-programme selection — Map<ptypeKey, { cohorts }> where key is "1"-"8" or "custom-N"
-  const [selectedPTypes, setSelectedPTypes] = useState(new Map());
-  const [customProgrammes, setCustomProgrammes] = useState([]); // [{ id, name, cost }]
-  const [newFocusTags, setNewFocusTags] = useState([]);
-  const [customFocusInput, setCustomFocusInput] = useState("");
-  const [newNotes, setNewNotes] = useState("");
-  const [pendingFiles, setPendingFiles] = useState([]); // files to upload after grant creation
-  // Step 3: AI actions
-  const [autoAI, setAutoAI] = useState({ fitscore: true, research: false, draft: false });
-  const [urlInput, setUrlInput] = useState("");
-  const [urlBusy, setUrlBusy] = useState(false);
+  const [customFocusInput, setCustomFocusInput] = useState(""); // transient "add custom focus" input
+  const [urlInput, setUrlInput] = useState("");                 // transient URL-tool input
   const [showUrlTool, setShowUrlTool] = useState(false);
-  const [activeFilters, setActiveFilters] = useState(new Set()); // "due-week", "due-month", "no-deadline", "no-draft", "unassigned", owner ids
-  const [selectedIds, setSelectedIds] = useState(new Set()); // batch operations
-  const [batchAction, setBatchAction] = useState(null); // "stage" | "owner" | "priority"
-  const [scoringAll, setScoringAll] = useState(false);
-  const [scoreProgress, setScoreProgress] = useState({ done: 0, total: 0, current: "" });
-  const [showArchived, setShowArchived] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());    // batch operations
+  const [batchAction, setBatchAction] = useState(null);         // "stage" | "owner" | "priority" | "select"
 
   const STAGES = stages || [];
 
-  // Build team lookup once per team change (avoids O(n) find per grant card)
-  const teamById = useMemo(() => {
-    const m = new Map();
-    if (team) for (const t of team) m.set(t.id, t);
-    return m;
-  }, [team]);
-  const fallbackMember = teamById.get("team") || { name: "Unassigned", initials: "\u2014" };
-  const getMember = (id) => teamById.get(id) || fallbackMember;
+  // ── Headless view-model: search / filter / sort / group + batch side-effects ──
+  const pv = usePipelineView(grants, team, stages, { onUpdateGrant, onAddGrant, onRunAI, onToast });
+  const {
+    q, sf, setSf, pSort, setPSort, market, setMarket,
+    activeFilters, setActiveFilters, showArchived, setShowArchived,
+    handleSearchChange, getMember,
+    filtered, sorted, personEntries, marketCounts, archivedCount,
+    ownerNames, funderSuggestions,
+    exportCSV, scoreAllGrants, scoringAll, scoreProgress, extractFromUrl, urlBusy,
+  } = pv;
 
-  // Debounced search — immediate typing, delayed filtering (150ms)
-  const [debouncedQ, setDebouncedQ] = useState("");
-  const debounceRef = useRef(null);
-  const handleSearchChange = useCallback((val) => {
-    setQ(val);
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedQ(val), 150);
-  }, []);
+  // ── Headless view-model: add-grant wizard ──
+  const wiz = useGrantWizard(funderTypes?.[0] || "Foundation", { onAddGrant, onSelectGrant });
+  const {
+    wizStep, setWizStep,
+    newName, setNewName, newFunder, setNewFunder, newType, setNewType,
+    newAsk, setNewAsk, newDeadline, setNewDeadline, newRel, setNewRel,
+    newMarket, setNewMarket, newApplyUrl, setNewApplyUrl, newSource, setNewSource,
+    selectedPTypes, setSelectedPTypes, customProgrammes, setCustomProgrammes,
+    newFocusTags, setNewFocusTags, newNotes, setNewNotes,
+    pendingFiles, setPendingFiles, autoAI, setAutoAI,
+    addError, setAddError, calcTotalAsk,
+  } = wiz;
 
-  // Market counts (computed before filtering)
-  const marketCounts = useMemo(() => {
-    const sa = grants.filter(g => (g.market || "sa") === "sa");
-    const gl = grants.filter(g => g.market === "global");
-    return {
-      sa: { count: sa.length, ask: sa.reduce((s, g) => s + (effectiveAsk(g) || 0), 0) },
-      global: { count: gl.length, ask: gl.reduce((s, g) => s + (effectiveAsk(g) || 0), 0) },
-    };
-  }, [grants]);
+  // Wizard reset/submit wrappers — close the modal (transient) + clear the
+  // inline custom-focus input, then delegate to the hook.
+  const resetWizard = () => { wiz.resetWizard(); setCustomFocusInput(""); setShowAdd(false); };
+  const addGrantEnhanced = (runAI = false) => {
+    if (wiz.addGrantEnhanced(runAI)) { setCustomFocusInput(""); setShowAdd(false); }
+  };
 
-  const archivedCount = useMemo(() => grants.filter(g => g.stage === "archived").length, [grants]);
-
-  const filtered = useMemo(() => {
-    let gs = [...grants];
-    // Hide archived unless explicitly toggled on
-    if (!showArchived) gs = gs.filter(g => g.stage !== "archived");
-    if (market !== "all") gs = gs.filter(g => (g.market || "sa") === market);
-    if (debouncedQ) {
-      const lq = debouncedQ.toLowerCase();
-      gs = gs.filter(g => {
-        // Search across all text fields — name, funder, notes, stage, type, owner, focus tags, AI content
-        if (g.name?.toLowerCase().includes(lq)) return true;
-        if (g.funder?.toLowerCase().includes(lq)) return true;
-        if (g.notes?.toLowerCase().includes(lq)) return true;
-        if (g.stage?.toLowerCase().includes(lq)) return true;
-        if (g.type?.toLowerCase().includes(lq)) return true;
-        if (g.market?.toLowerCase().includes(lq)) return true;
-        if (g.rel?.toLowerCase().includes(lq)) return true;
-        // Owner name lookup
-        if (g.owner) {
-          const ownerName = getMember(g.owner)?.name?.toLowerCase() || "";
-          if (ownerName.includes(lq)) return true;
-        }
-        // Focus tags
-        if (Array.isArray(g.focus) && g.focus.some(f => f.toLowerCase().includes(lq))) return true;
-        // Geo tags
-        if (Array.isArray(g.geo) && g.geo.some(f => f.toLowerCase().includes(lq))) return true;
-        // AI research summary (first 500 chars — avoid deep search of megabytes)
-        if (g.aiResearch?.slice(0, 500).toLowerCase().includes(lq)) return true;
-        // Ask amount — allow searching by number
-        if (g.ask && String(g.ask).includes(lq)) return true;
-        return false;
-      });
-    }
-    if (sf !== "all") gs = gs.filter(g => g.type === sf);
-    if (activeFilters.size > 0) {
-      // Separate owner filters (OR logic) from other filters (AND logic)
-      const ownerFilters = [...activeFilters].filter(f => f.startsWith("owner:") || f === "unassigned");
-      const otherFilters = [...activeFilters].filter(f => !f.startsWith("owner:") && f !== "unassigned");
-      gs = gs.filter(g => {
-        // AND logic for non-owner filters
-        for (const f of otherFilters) {
-          if (f === "new-week") { const created = g.log?.[0]?.d; if (!created || (Date.now() - new Date(created).getTime()) > 7 * 86400000) return false; }
-          else if (f === "due-week") { const d = dL(g.deadline); if (d === null || d > 7 || d < 0) return false; }
-          else if (f === "due-month") { const d = dL(g.deadline); if (d === null || d > 30 || d < 0) return false; }
-          else if (f === "no-deadline") { if (g.deadline) return false; }
-          else if (f === "no-draft") { if (g.aiDraft) return false; }
-          else if (f === "open-only") { if (g.deadline && new Date(g.deadline) < new Date() && !["submitted","awaiting","won","lost","deferred","archived"].includes(g.stage)) return false; }
-          else if (f === "awaiting") { if (g.stage !== "submitted" && g.stage !== "awaiting") return false; }
-          else if (f === "missed") { const dl = dL(g.deadline); if (dl === null || dl >= 0 || ["submitted","awaiting","won","lost","deferred","archived"].includes(g.stage)) return false; }
-        }
-        // OR logic for owner/unassigned filters — grant matches if it belongs to ANY selected person
-        if (ownerFilters.length > 0) {
-          const matchesAny = ownerFilters.some(f => {
-            if (f === "unassigned") return !g.owner || g.owner === "team";
-            return g.owner === f.slice(6);
-          });
-          if (!matchesAny) return false;
-        }
-        return true;
-      });
-    }
-    return gs;
-  }, [grants, debouncedQ, sf, market, activeFilters, showArchived]);
-
-  const sorted = useMemo(() => {
-    let gs = [...filtered];
-    if (pSort === "ask") gs.sort((a, b) => (b.ask || 0) - (a.ask || 0));
-    else if (pSort === "priority") gs.sort((a, b) => (b.pri || 0) - (a.pri || 0));
-    else if (pSort === "fit") {
-      // Extract numeric score from AI fit score text (SCORE: XX)
-      const getFit = g => {
-        if (!g.aiFitscore) return -1;
-        const m = g.aiFitscore.match(/SCORE:\s*(\d+)/);
-        return m ? parseInt(m[1]) : -1;
-      };
-      gs.sort((a, b) => getFit(b) - getFit(a));
-    }
-    else /* default + deadline */ gs.sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999"));
-    return gs;
-  }, [filtered, pSort]);
-
-  // Pre-compute person groups from sorted grants (avoids rebuild on every render)
-  const personEntries = useMemo(() => {
-    const map = new Map();
-    sorted.forEach(g => {
-      const ownerId = g.owner || "team";
-      if (!map.has(ownerId)) map.set(ownerId, []);
-      map.get(ownerId).push(g);
-    });
-    return [...map.entries()].sort((a, b) => {
-      if (a[0] === "team") return 1;
-      if (b[0] === "team") return -1;
-      return b[1].length - a[1].length;
-    });
-  }, [sorted]);
-
-  // Memoized owner names for filter chips
-  const ownerNames = useMemo(() =>
-    [...new Set(grants.map(g => g.owner).filter(o => o && o !== "team"))],
-    [grants]
-  );
-
-  // Memoized funder list for datalist suggestions
-  const funderSuggestions = useMemo(() =>
-    [...new Set(grants.map(g => g.funder).filter(Boolean))],
-    [grants]
-  );
+  // Note: team lookup, debounced search, market/archived counts, the
+  // filtered/sorted/personEntries memos, ownerNames, funderSuggestions, CSV
+  // export, Score-All and URL-extract all live in usePipelineView; the wizard
+  // (fields, calcTotalAsk, buildPtypeNotes, submit) lives in useGrantWizard.
 
   const handleDrop = (stageId) => {
     if (!dragId) return;
@@ -248,145 +122,6 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
       onUpdateGrant(dragId, { stage: stageId, log: [...(g.log || []), { d: td(), t: `Moved to ${stageId}` }] });
     }
     setDragId(null);
-  };
-
-  const [addError, setAddError] = useState("");
-
-  const calcTotalAsk = (ptypes, customs, includeOrgCost = true) => {
-    let total = 0;
-    for (const [key, { cohorts }] of ptypes) {
-      if (key.startsWith("custom-")) {
-        const cp = customs.find(c => c.id === key);
-        if (cp?.cost) total += cp.cost * cohorts;
-      } else {
-        const pt = PTYPES[key];
-        if (pt?.cost) total += pt.cost * cohorts;
-      }
-    }
-    if (includeOrgCost && total > 0) total = Math.round(total * 1.3);
-    return total;
-  };
-
-  const buildPtypeNotes = (ptypes, customs, userNotes) => {
-    const parts = [];
-    for (const [key, { cohorts }] of ptypes) {
-      if (key.startsWith("custom-")) {
-        const cp = customs.find(c => c.id === key);
-        if (cp) parts.push(`Custom: ${cp.name}${cohorts > 1 ? ` (${cohorts} cohorts)` : ""} R${(cp.cost || 0).toLocaleString()}/cohort`);
-      } else {
-        parts.push(`Type ${key}${cohorts > 1 ? ` (${cohorts} cohorts)` : ""}`);
-      }
-    }
-    return [parts.join(" + "), userNotes].filter(Boolean).join("\n");
-  };
-
-  const resetWizard = () => {
-    setShowAdd(false); setAddError(""); setWizStep(1);
-    setSelectedPTypes(new Map()); setCustomProgrammes([]);
-    setNewAsk(""); setNewDeadline(""); setNewRel("Cold");
-    setNewMarket("sa"); setNewApplyUrl(""); setNewSource("scout"); setNewFocusTags([]);
-    setNewNotes(""); setCustomFocusInput(""); setPendingFiles([]);
-    setAutoAI({ fitscore: true, research: false, draft: false });
-  };
-
-  const addGrantEnhanced = async (runAI = false) => {
-    const trimName = (newName || "").trim();
-    const trimFunder = (newFunder || "").trim();
-    if (!trimName || trimName.length < 2) { setAddError("Grant name must be at least 2 characters"); return; }
-    if (!trimFunder) { setAddError("Funder name is required"); return; }
-    setAddError("");
-
-    const calculatedAsk = calcTotalAsk(selectedPTypes, customProgrammes, true);
-    const enteredAsk = parseInt(String(newAsk).replace(/[,\s]/g, "")) || 0;
-    const finalAsk = enteredAsk || calculatedAsk;
-    const ptypeNotes = buildPtypeNotes(selectedPTypes, customProgrammes, newNotes);
-    const pendingAI = runAI && Object.values(autoAI).some(Boolean) ? autoAI : null;
-
-    const ptypeSummary = [...selectedPTypes.entries()].map(([k, v]) =>
-      k.startsWith("custom-") ? "Custom" : `T${k}${v.cohorts > 1 ? `×${v.cohorts}` : ""}`
-    ).join("+");
-
-    const grantId = uid();
-    const g = {
-      id: grantId, name: trimName, funder: trimFunder, type: newType,
-      stage: "scouted", ask: finalAsk, funderBudget: finalAsk || null,
-      askSource: enteredAsk ? "manual" : calculatedAsk ? "calculated" : null,
-      aiRecommendedAsk: null,
-      deadline: newDeadline || null,
-      focus: newFocusTags, geo: [], rel: newRel, pri: 3, hrs: 0,
-      notes: ptypeNotes, market: newMarket,
-      log: [{ d: td(), t: `Grant created · R${finalAsk.toLocaleString()}${ptypeSummary ? ` · ${ptypeSummary}` : ""}` }],
-      on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null,
-      applyUrl: newApplyUrl,
-      source: newSource,
-      _pendingAI: pendingAI,
-    };
-
-    const filesToUpload = [...pendingFiles];
-    onAddGrant(g);
-    resetWizard();
-    if (pendingAI) onSelectGrant(grantId);
-
-    // Upload any attached files in the background after grant creation
-    if (filesToUpload.length > 0) {
-      (async () => {
-        for (const file of filesToUpload) {
-          try { await uploadFile(file, grantId, null); }
-          catch (err) { console.error("Upload failed:", file.name, err.message); }
-        }
-      })();
-    }
-  };
-
-  /* ── CSV Export ── */
-  const exportCSV = () => {
-    const escCSV = (v) => {
-      const s = String(v ?? "");
-      return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    const headers = ["Name", "Funder", "Type", "Stage", "Ask (R)", "Deadline", "Owner", "Relationship", "Priority", "Source", "Market", "Apply URL", "Created"];
-    const ownerName = (id) => team.find(t => t.id === id)?.name || id;
-    const stageLabel = (id) => stages.find(s => s.id === id)?.label || id;
-    const rows = filtered.map(g => [
-      g.name, g.funder, g.type, stageLabel(g.stage), g.ask || 0, g.deadline || "",
-      ownerName(g.owner), g.rel, g.pri, g.source || "scout", g.market || "sa", g.applyUrl || "",
-      g.log?.[0]?.d || "",
-    ].map(escCSV).join(","));
-    const csv = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `grants-pipeline-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-  };
-
-  /* ── Score All: batch AI fit score for every active grant ── */
-  const scoreAllGrants = async () => {
-    const active = grants.filter(g => !CLOSED_STAGES.includes(g.stage));
-    if (active.length === 0) return;
-    setScoringAll(true);
-    setScoreProgress({ done: 0, total: active.length, current: "" });
-    let ok = 0, failed = 0;
-    for (let i = 0; i < active.length; i++) {
-      const g = active[i];
-      setScoreProgress({ done: i, total: active.length, current: g.funder });
-      try {
-        const r = await onRunAI("fitscore", g);
-        if (r && !isAIError(r)) {
-          onUpdateGrant(g.id, { aiFitscore: r, aiFitscoreAt: new Date().toISOString() });
-          ok++;
-        } else {
-          failed++;
-          console.warn(`Fit score failed for ${g.name}:`, r);
-        }
-      } catch (e) {
-        failed++;
-        console.error(`Fit score failed for ${g.name}:`, e);
-      }
-    }
-    setScoreProgress({ done: active.length, total: active.length, current: "" });
-    setScoringAll(false);
-    onToast?.(`Scored ${ok} of ${active.length}${failed ? ` (${failed} failed)` : ""}`, { type: failed ? "error" : "success" });
   };
 
   const activeStages = STAGES.filter(s => !CLOSED_STAGES.includes(s.id));
@@ -713,64 +448,18 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             onKeyDown={e => {
               if (e.key === "Enter" && urlInput.trim() && !urlBusy) {
                 e.preventDefault();
-                (async () => {
-                  setUrlBusy(true);
-                  try {
-                    const r = await onRunAI("urlextract", { name: "", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "Cold", notes: "", deadline: null, stage: "scouted" }, urlInput.trim());
-                    if (isAIError(r)) { onToast?.(r, { type: "error" }); setUrlBusy(false); return; }
-                    const parsed = JSON.parse(r);
-                    const fBudget = parsed.ask || 0;
-                    const g = {
-                      id: uid(), name: parsed.name || "Untitled Grant", funder: parsed.funder || "",
-                      type: parsed.type || "Foundation", stage: "scouted",
-                      ask: 0, funderBudget: fBudget, askSource: null, aiRecommendedAsk: null,
-                      deadline: parsed.deadline || null,
-                      focus: parsed.focus || [], geo: [], rel: "Cold", pri: 3, hrs: 0,
-                      notes: parsed.notes || "", applyUrl: parsed.applyUrl || urlInput.trim(),
-                      log: [{ d: td(), t: `Created from URL · funder budget R${fBudget.toLocaleString()} · ask TBD` }],
-                      market: parsed.type === "International" ? "global" : "sa",
-                      source: "website",
-                      on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null,
-                    };
-                    onAddGrant(g);
-                    setUrlInput("");
-                    setShowUrlTool(false);
-                  } catch (e) {
-                    onToast?.("Could not parse grant from URL. Try adding manually.", { type: "error" });
-                  }
-                  setUrlBusy(false);
-                })();
+                extractFromUrl(urlInput.trim()).then(ok => {
+                  if (ok) { setUrlInput(""); setShowUrlTool(false); }
+                });
               }
             }}
           />
           <Btn
-            onClick={async () => {
+            onClick={() => {
               if (!urlInput.trim() || urlBusy) return;
-              setUrlBusy(true);
-              try {
-                const r = await onRunAI("urlextract", { name: "", funder: "", type: "", ask: 0, focus: [], geo: [], rel: "Cold", notes: "", deadline: null, stage: "scouted" }, urlInput.trim());
-                if (isAIError(r)) { onToast?.(r, { type: "error" }); setUrlBusy(false); return; }
-                const parsed = JSON.parse(r);
-                const fBudget = parsed.ask || 0;
-                const g = {
-                  id: uid(), name: parsed.name || "Untitled Grant", funder: parsed.funder || "",
-                  type: parsed.type || "Foundation", stage: "scouted",
-                  ask: 0, funderBudget: fBudget, askSource: null, aiRecommendedAsk: null,
-                  deadline: parsed.deadline || null,
-                  focus: parsed.focus || [], geo: [], rel: "Cold", pri: 3, hrs: 0,
-                  notes: parsed.notes || "", applyUrl: parsed.applyUrl || urlInput.trim(),
-                  log: [{ d: td(), t: `Created from URL · funder budget R${fBudget.toLocaleString()} · ask TBD` }],
-                  market: parsed.type === "International" ? "global" : "sa",
-                  source: "website",
-                  on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null,
-                };
-                onAddGrant(g);
-                setUrlInput("");
-                setShowUrlTool(false);
-              } catch (e) {
-                onToast?.('Could not parse grant from URL. Try adding manually.', { type: 'error' });
-              }
-              setUrlBusy(false);
+              extractFromUrl(urlInput.trim()).then(ok => {
+                if (ok) { setUrlInput(""); setShowUrlTool(false); }
+              });
             }}
             disabled={!urlInput.trim() || urlBusy}
             style={{ fontSize: 12, padding: "6px 14px", background: C.blue, borderColor: C.blue }}
@@ -1190,7 +879,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
           <div style={{ fontSize: 13, color: C.t4 }}>
             {q ? `No results for "${q}"` : activeFilters.size > 0 ? "No grants match your active filters" : `No ${sf} grants found`}
             {" · "}
-            <button onClick={() => { setQ(""); setSf("all"); setActiveFilters(new Set()); setMarket("all"); }} style={{ color: C.primary, background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontFamily: FONT, fontSize: 13 }}>Clear all filters</button>
+            <button onClick={() => { handleSearchChange(""); setSf("all"); setActiveFilters(new Set()); setMarket("all"); }} style={{ color: C.primary, background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontFamily: FONT, fontSize: 13 }}>Clear all filters</button>
           </div>
           <div style={{ fontSize: 11, color: C.t4, marginTop: 4 }}>Try removing filters or broadening your search</div>
         </div>
