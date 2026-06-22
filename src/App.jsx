@@ -4,14 +4,14 @@ import { dL, isUsableUrl, isHomepageOnly, normaliseFunder, grantCompleteness, sa
 import {
   isLoggedIn, getAuth, setAuth, getCurrentMember, login, logout, setPassword,
   memberLogin,
-  getGrants, saveGrant,
-  getTeam, getProfile, updateProfile as apiUpdateProfile, getPipelineConfig, getOrg, updateOrg as apiUpdateOrg, checkHealth, api, verifyUrls,
-  getCompliance,
+  saveGrant,
+  getTeam, getProfile, updateProfile as apiUpdateProfile, updateOrg as apiUpdateOrg, checkHealth, api, verifyUrls,
 } from "./api";
 import useAI from "./hooks/useAI";
 import useSave from "./hooks/useSave";
 import useComplianceDocs from "./hooks/useComplianceDocs";
 import useGrants from "./hooks/useGrants";
+import useDataLoad from "./hooks/useDataLoad";
 
 import OrgSelector from "@/components/auth/OrgSelector";
 import Login from "@/components/auth/Login";
@@ -322,7 +322,6 @@ function AppInner() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Global search — sidebar input that surfaces any grant by funder, name, notes, type
   const [globalQ, setGlobalQ] = useState("");
-  const [loading, setLoading] = useState(false);
   const { complianceDocs, setComplianceDocs, upsertCompDoc } = useComplianceDocs(toast);
   // Phase 12: which tour (if any) is currently running. null = no tour.
   const [activeTour, setActiveTour] = useState(null);
@@ -331,6 +330,8 @@ function AppInner() {
   const { saveState, dSave } = useSave(toast, authed);
   // Grants collection + mutations (auto-log, auto-followups, optimistic add/delete+undo)
   const { grants, setGrants, updateGrant, addGrant, deleteGrant } = useGrants({ stages, team, dSave, toast });
+  // Initial workspace load after auth (fetch + migrate + apply to state)
+  const { loading } = useDataLoad({ authed, setOrg, setProfile, setTeam, setStages, setFunderTypes, setComplianceDocs, setGrants, dSave, toast });
 
   // Auto-open the OVERVIEW tour the first time a member signs in. No artificial
   // delay — the TourOverlay polls for the target element internally, so it
@@ -634,62 +635,7 @@ function AppInner() {
     })();
   }, [grants, runAI, currentMember?.id]);
 
-  // ── Load data after auth ──
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [orgData, grantsData, teamData, profileData, pipeConfig, compData] = await Promise.all([
-        getOrg(),
-        getGrants(),
-        getTeam(),
-        getProfile(),
-        getPipelineConfig(),
-        getCompliance().catch(() => []),
-      ]);
-      setOrg(orgData);
-      applyOrgTheme(orgData);
-      setComplianceDocs(compData || []);
 
-      // Migrate existing grants: backfill funderBudget/askSource for pre-redesign grants
-      const PRE_SUB = ["scouted", "vetting", "qualifying", "drafting", "review"];
-      const raw = grantsData || [];
-      const migrated = raw.map(g => {
-        // Phase 1: backfill funderBudget for grants that don't have it yet
-        if (g.funderBudget === undefined) {
-          return { ...g, funderBudget: g.ask || null, askSource: g.ask ? "scout-aligned" : null, aiRecommendedAsk: null };
-        }
-        // Phase 2: for pre-submission grants where ask was pre-set from seed data (not AI-derived
-        // or user-overridden), reset ask to 0 so the AI draft can propose an ambitious ask
-        if (g.askSource === "scout-aligned" && PRE_SUB.includes(g.stage) && !g.aiDraft) {
-          return { ...g, ask: 0, funderBudget: g.funderBudget || g.ask || null, askSource: null };
-        }
-        return g;
-      });
-      setGrants(migrated);
-      migrated.forEach((g, i) => { if (g !== raw[i]) dSave(g.id, g); });
-
-      setProfile(profileData);
-
-      // Team: ensure "Unassigned" exists
-      const t = teamData || [];
-      if (!t.find(m => m.id === "team")) t.push({ id: "team", name: "Unassigned", initials: "\u2014", role: "none" });
-      setTeam(t);
-
-      // Pipeline config
-      if (pipeConfig) {
-        if (pipeConfig.stages) setStages(pipeConfig.stages);
-        if (pipeConfig.funder_types) setFunderTypes(pipeConfig.funder_types);
-      }
-    } catch (err) {
-      console.error("Failed to load data:", err);
-      toast(`Failed to load workspace: ${err.message}`, { type: "error", duration: 0 });
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (authed) loadData();
-  }, [authed, loadData]);
 
   // ── URL handling (simple pushState, no router) ──
   useEffect(() => {
