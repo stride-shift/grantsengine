@@ -1,0 +1,38 @@
+#+TITLE: grant/ — Quick Reference
+#+DATE: 2026-06-22
+
+* Overview
+Single-grant detail view plus the proposal authoring/submission cluster. Imports
+use the =@/= alias; the five files here import each other relatively (=./=).
+
+* Components
+| Component | File | Purpose |
+|-----------|------|---------|
+| GrantDetail | GrantDetail.jsx | Hub view: metadata, AI drafts, timeline, activity log, owner |
+| ProposalWorkspace | ProposalWorkspace.jsx | Section-by-section proposal editor + generation orchestration |
+| SectionCard | SectionCard.jsx | One proposal section: AI generate, edit, readability |
+| BudgetBuilder | BudgetBuilder.jsx | Line-item budget calculator driven by PTYPES |
+| AutoFillPanel | AutoFillPanel.jsx | Form detection, field mapping, application submission |
+
+* Key Patterns
+- *GrantDetail is the hub.* It composes the others: =./ProposalWorkspace=,
+  =./BudgetBuilder=, =./AutoFillPanel= (same folder), and pulls cross-folder
+  =@/components/ui/UploadZone=, =glossText= from =@/components/ui/JargonTip=, and
+  =downloadICS= from =@/components/calendar/Calendar=.
+- *ProposalWorkspace → SectionCard*: workspace orchestrates generation; each
+  section's result is stored in =g.aiSections= with a 3-entry history ring buffer.
+- *BudgetBuilder* maps the selected programme type's =PTYPES= table to editable
+  line items and writes back =ask= + =budgetTable=.
+- Shared AI widgets (=AICard=, =AILoadingPanel=) come from the barrel
+  =@/components/ui=.
+
+* Constraints & Gotchas
+- The =g.aiSections= entry shape is consumed by SectionCard, the preview renderer,
+  the .docx export, and editLearner — keep it consistent across write sites.
+- Error strings from AI calls must be detected with =isAIError= (=@/utils=) before
+  treating section text as content, or an error renders as proposal text.
+- AutoFillPanel is opened from GrantDetail (submission step), not independently
+  routed.
+
+---
+/Last Updated/: 2026-06-22

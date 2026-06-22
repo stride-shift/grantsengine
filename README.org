@@ -1,0 +1,84 @@
+#+TITLE: d-lab Grant Engine — Documentation Hub
+#+DATE: 2026-06-22
+
+* Read First
+This is the navigation hub. New to the repo? Read this, then ARCHITECTURE.org.
+
+d-lab Grant Engine is a React + Express app that manages a grant funding
+pipeline for d-lab NPC (a South African youth digital-skills NPO). It uses the
+OpenAI API (proxied through the Express backend) for proposal drafting, funder
+research, grant scouting, and pipeline intelligence; the server-side scraper
+additionally uses the Anthropic Claude API for parsing/verification.
+
+* Project Structure
+#+BEGIN_EXAMPLE
+grantsengine/
+├── index.html                  Vite entry
+├── vite.config.js · vercel.json · mcp.json
+├── package.json
+├── src/                        React 18 + Vite frontend
+│   ├── main.jsx                React mount point
+│   ├── App.jsx                 main views + inline AI functions (~2400 lines)
+│   ├── api.js                  frontend → backend API client
+│   ├── theme.js                design tokens (C, FONT, MONO)
+│   ├── utils.js                pure helpers
+│   ├── prompts.js              scoutPrompt active; rest LEGACY (App.jsx inlines)
+│   ├── docxGenerator.js        proposal → .docx export
+│   ├── editLearner.js          learns from user edits to AI output
+│   ├── grant-engine.monolith.jsx   original single-file artifact (reference)
+│   ├── components/             UI grouped by domain (imports use the @/ alias → src/)
+│   │   ├── ui/                 shared primitives barrel (index.jsx) + Toast, JargonTip, UploadZone
+│   │   ├── chrome/             TourOverlay, WelcomeTutorial, NorthernLights
+│   │   ├── auth/               Login, OrgSelector
+│   │   ├── dashboard/          Dashboard
+│   │   ├── pipeline/           Pipeline, ScoutPanel, Vetting, Archive   (see quick_reference.org)
+│   │   ├── grant/              GrantDetail, ProposalWorkspace, SectionCard, BudgetBuilder, AutoFillPanel (see quick_reference.org)
+│   │   └── funders/ · documents/ · calendar/ · settings/ · freebies/
+│   ├── data/                   org context, funder strategy, constants, seed
+│   ├── hooks/                  useAI.js
+│   └── __tests__/              vitest suites
+├── server/                     Express 5 backend (port 3001)
+│   ├── index.js · app.js       entry + express app wiring
+│   ├── db.js · schema.sql      Supabase Postgres pool + schema
+│   ├── routes/                 auth, orgs, data, ai, uploads, admin, gcal, autofill
+│   ├── scraper/                grant scraper (sources, scrapeGrants, poc)
+│   ├── extractors/             document/URL extraction
+│   ├── jobs/                   scout + deadline-reminder cron jobs
+│   ├── middleware/             auth, org-resolution
+│   └── lib/                    ssrfGuard
+├── api/                        Vercel serverless entry + cron
+├── playwright-service/         headless browser service for scraping
+├── public/ · dist/             static assets · build output
+└── scripts/                    build-standalone.js (single-HTML demo build)
+#+END_EXAMPLE
+
+* Quick Start
+#+BEGIN_EXAMPLE
+npm install
+npm run dev      # concurrently: Express on :3001 + Vite dev server
+npm run seed     # seed Supabase with initial pipeline data
+npm test         # vitest run
+npm run build    # vite production build
+npm start        # production: serve dist/ from Express
+#+END_EXAMPLE
+
+Requires a =.env= with Supabase credentials, =OPENAI_API_KEY=, and (for the
+scraper) =ANTHROPIC_API_KEY=.
+
+* Documentation Map
+| Doc | Scope |
+|-----|-------|
+| ARCHITECTURE.org | system design, tech stack, data flow, cross-cutting decisions |
+| PRODUCT_CONTEXT.org | present-state product, users, roles, intentional decisions |
+| DEFERRED.org | dormant + deferred features and reactivation paths |
+| DOCUMENTATION.org | the doc standard + procedure |
+| SETUP.org | doc-system bootstrap + portability |
+| SUBAGENT_PLAYBOOK.org | sub-agent dispatch + wave planning |
+| AGENT_AUDIT_WORKFLOW.org | audit + cleanup choreography |
+| server/ (1B) | backend ARCHITECTURE.org / API.org (created as documented) |
+
+Organisation, funding, and proposal-strategy context for AI prompts lives in
+=CLAUDE.md= and =src/data/context.js=.
+
+---
+/Last Updated/: 2026-06-22

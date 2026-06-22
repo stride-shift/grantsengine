@@ -1,0 +1,28 @@
+#+TITLE: Deferred & Dormant — d-lab Grant Engine
+#+DATE: 2026-06-22
+
+* Purpose
+Forward-looking counterpart to PRODUCT_CONTEXT.org: intentionally dormant +
+deferred features and their reactivation paths. The audit reads this to avoid
+tagging deliberately-postponed work as /Stale/.
+
+* Dormant Features (code present but inactive; reactivation path documented)
+| Feature | Why dormant | Reactivation path |
+|---------|-------------|-------------------|
+| =src/prompts.js= LEGACY exports | Superseded by inline prompts in App.jsx; only =scoutPrompt= wired in | Re-import and replace the corresponding inline prompt when consolidating prompt management |
+| =grant-engine.monolith.jsx= | Original single-file artifact build, kept as a working reference | Used directly only in the Claude-artifacts/standalone demo path |
+
+* Deferred (not yet built)
+| Item | Reason for deferral | Trigger to revisit |
+|------|---------------------|--------------------|
+| Split App.jsx into per-view files | Views share grant state; premature split adds prop-drilling | When a state layer (Context/Zustand) lands or the file becomes unworkable |
+| Client-side router | Single-page =view= toggle suffices today | When deep-linking or multiple top-level routes are needed |
+| TypeScript migration | Plain JSX works; migration cost not yet justified | When type-related defects or onboarding friction accumulate |
+| Per-module quick_reference.org files | Created as modules are documented, not at bootstrap | When a module gains 3+ files with non-obvious patterns (see DOCUMENTATION.org) |
+| Service-level server/ARCHITECTURE.org · API.org (1B) | Backend documented at 1A level for now | When backend cross-module decisions outgrow ARCHITECTURE.org |
+
+* Open Product Questions
+- <none yet>
+
+---
+/Last Updated/: 2026-06-22

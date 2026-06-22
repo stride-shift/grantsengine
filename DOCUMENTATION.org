@@ -1,0 +1,521 @@
+#+TITLE: Documentation Standard & Procedure
+#+DATE: 2026-05-30
+
+* Purpose
+
+The single authoritative reference for documentation in this codebase. It covers
+both the *standard* (Part I — principles and the tier hierarchy) and the
+*procedure* (Part II — how agents execute updates and syncs). Part I defines what
+good docs look like; Part II defines how to produce them. Both apply to every
+agent, main and sub.
+
+Model selection for sub-agent dispatch is *not* here — it lives in
+=.claude/CLAUDE.md= (canonical). Audit-specific workflows live in
+=AGENT_AUDIT_WORKFLOW.org=.
+
+* Agent Instructions
+
+- Any agent doing documentation work reads this file first.
+- When dispatching a sub-agent for a doc edit, point it at this file —
+  specifically *Part II → Procedure* and *Part II → QR Format Template*. Those
+  sections are self-contained; a sub-agent does not need anything else to produce
+  conforming output.
+- Sub-agents do NOT update =.org= files unless explicitly instructed.
+
+* PART I — PRINCIPLES (the standard)
+
+** 1. Present-State-Only
+
+Documentation represents the *current state* of the system, not its history.
+
+| Do | Don't |
+|----|-------|
+| Document what EXISTS now | Include "Recent Changes" sections |
+| Use present-tense language | Use "we added", "previously", "migrated from" |
+| Delete references to removed features | Keep "REMOVED in V5" markers or change logs |
+
+*Rationale*: Historical content wastes context-window tokens and creates
+confusion about what currently exists. Temporal content that has genuine forward
+value (intentionally dormant features, reactivation paths) lives in
+=DEFERRED.org=, not scattered through present-state docs.
+
+** 2. Layer Discipline
+
+Documentation follows a three-tier hierarchy.
+
+| Tier | Files | Purpose | Audience |
+|------|-------|---------|----------|
+| 1A — Project-Wide Strategic | =ALL_CAPS.org= at project root | Project-level overview, navigation, cross-cutting decisions | Main agent, humans |
+| 1B — Service/App Strategic | =ALL_CAPS.org= or =README.org= inside a service/app directory | Service- or app-scoped design, API contracts, deployment | Main agent, service sub-agents |
+| 2 — Quick References | =*/quick_reference.org= per module | Non-obvious patterns, constraints, component maps | Sub-agents, implementers |
+
+*Key rule*: Strategic docs (1A and 1B) stay LEAN. They name what exists and link
+to quick_references — they don't duplicate them, and they don't carry
+hand-maintained counts (Principle 6).
+
+** 3. AI-First Formatting
+
+Primary consumers are AI agents. Optimize for machine parsing.
+
+| Prefer | Over |
+|--------|------|
+| Tables | Prose paragraphs |
+| Bullet lists | Long sentences |
+| Structured hierarchies | ASCII art diagrams |
+| Explicit relationships | Spatial/visual positioning |
+
+** 4. Document the Non-Obvious
+
+Document what agents *cannot easily discover* by reading code or running a grep.
+
+| Document | Skip |
+|----------|------|
+| Data flow patterns (cascading useEffects, SSE streaming) | Individual function signatures |
+| Caching, streaming, and singleton patterns | TypeScript interfaces with clear field names |
+| External API limitations and workarounds | React props that mirror an interface |
+| Decision rationale ("why", not just "what") | Every useState variable |
+| Deviation from standard patterns | Standard error handling |
+| Cross-file relationships not obvious from imports | File-to-file imports (read the code) |
+
+*Test*: "Would an agent find this faster by reading the code?" If yes, skip it.
+
+*Exception*: Document code-level details when they have non-obvious semantics —
+e.g., enum values where 0=incomplete, 1=complete, 2=complete_pass.
+
+** 5. Single Source of Truth
+
+Each fact lives in exactly one file. Other files reference it, never duplicate it.
+
+| Do | Don't |
+|----|-------|
+| Assign a canonical home for each fact | Duplicate endpoint tables across multiple files |
+| Link to the canonical home from other files | Copy project trees into ARCHITECTURE.org AND README.org |
+| Name what exists and link to its home | Reproduce component inventories in strategic files |
+
+*Rationale*: Duplicated content drifts. Adding one endpoint should require
+updating one file, not six.
+
+** 6. No Hand-Maintained Counts
+
+Never write a number a tool can derive. Counts of files, components,
+endpoints, tables, tests, or tabs are the single most reliably-stale content
+type — they drift within days, and an agent gets the true number faster from
+=ls=, =wc=, or =grep= than from a doc that is probably already wrong.
+
+| Do | Don't |
+|----|-------|
+| "Components live in =components/quick_reference.org=" | "27 React components" |
+| "Endpoints documented in =API.org=" | "50 endpoints total" |
+| State a number only when the number IS the decision | Restate inventory sizes =ls \| wc -l= answers |
+
+*Exception*: numbers that carry meaning beyond counting — a 30-minute reap
+threshold, an enum where 2=complete_pass. Those are facts, not counts.
+
+** 7. Reconcile, Don't Append
+
+When a fact changes, rewrite the existing statement — do not add a new one
+beside it. A new Key Pattern or Constraints bullet that restates a fact
+already documented (in the same file or another) must replace or merge with
+the prior statement, not stack on it.
+
+*Rationale*: Append-only editing is how "Constraints & Gotchas" decays into a
+change-log ("X removed", "now via toast") and how one contract ends up stated
+three times in a single file. It is the slow-motion form of the
+contract-inversion failure (Part II): the old statement is never deleted, so
+the newest reader cannot tell which copy is current. Applies across files too
+— one canonical home, others link.
+
+* Tier Hierarchy & File Structure
+
+** Level 1A — Project-Wide Strategic Files
+
+=ALL_CAPS.org= naming at the project root.
+
+*** Core Files
+
+| File | Purpose | When to Read |
+|------|---------|--------------|
+| README.org | Navigation hub, quick start, links to all docs | First file for any agent |
+| ARCHITECTURE.org | System design, layer overview, data flow, key decisions | Understanding overall system |
+| DOCUMENTATION.org | Documentation standard + procedure (this file) | Before any documentation work |
+| PRODUCT_CONTEXT.org | Product, users, roles, feature lifecycle (present-state) | Before audits / flagging issues |
+| DEFERRED.org | Intentionally dormant + deferred features, reactivation paths | When assessing dormancy |
+| SETUP.org | Doc-system bootstrap, engine-vs-instance split, portability | Starting a new project |
+
+*** Optional Files
+
+| File | Add When |
+|------|----------|
+| DATABASE.org | 5+ tables or complex schema |
+| API.org | Multiple endpoints (1A-level canonical) |
+| COMPONENTS.org | Complex UI component hierarchy |
+| DEPLOYMENT.org | Multi-stage or multi-environment deployment |
+| INTEGRATIONS.org | 3+ external service integrations |
+
+*** When to Create / When NOT to Create
+
+| Create when | Do NOT create when |
+|-------------|-------------------|
+| Topic spans multiple modules | Topic only affects one module |
+| Main agents need it before module details | Content is configuration-only (a table in README.org suffices) |
+| Would make ARCHITECTURE.org exceed ~300 lines | |
+
+** Level 1B — Service/App Strategic Files
+
+=ALL_CAPS.org= or =README.org= inside a specific service or app directory. Same
+conventions as Level 1A, scoped to one service or app.
+
+*Examples in this repo*: =server/ARCHITECTURE.org=, =server/API.org=.
+
+| Create when | Do NOT create when |
+|-------------|-------------------|
+| Service/app has cross-cutting decisions affecting multiple internal modules | Content already covered by a Level 1A file |
+| Content would blow out a quick_reference sizing target | Topic only affects one module within the service |
+| Main agent needs it before diving into module details | |
+
+** Level 2 — Quick Reference Files
+
+Named exactly =quick_reference.org=, placed inside the module directory. One per
+module.
+
+| Create when | Do NOT create when |
+|-------------|-------------------|
+| Module has non-obvious patterns not self-evident from code | Module is a thin wrapper or re-export |
+| 3+ files with cross-file relationships worth mapping | Only 1-2 simple files with obvious logic |
+| External integration constraints | Pure configuration, no runtime code |
+| Configuration with non-obvious runtime behavior | Purpose fully captured by a few rows in a strategic file |
+
+*** Sizing Targets
+
+These are *soft* guides, not limits. Size follows the necessity of what the
+module needs documented: a content-heavy module may justifiably run longer, and
+a thin one should stay short even when "allowed" more.
+
+| Module complexity | Typical size |
+|-------------------|-------------|
+| Simple (3-5 files) | 50-100 lines |
+| Medium (5-15 files) | 100-200 lines |
+| Complex (15+ files) | 200-350 lines |
+
+Treat a quick reference past ~350 lines as a /prompt to look/, not a verdict:
+check whether the overage is genuine non-obvious content (keep it) or
+duplication and code-restatement (trim it). Length is a symptom to investigate,
+not a rule to enforce.
+
+*** What to Document in Quick References
+
+| Include | Exclude |
+|---------|---------|
+| Component inventory (name, file, purpose) | Line numbers (agents grep for these) |
+| Non-obvious data flow and caching patterns | TypeScript interface fields (self-documenting) |
+| External API constraints and workarounds | React prop interfaces (read the .tsx file) |
+| Cross-file relationships | Function signatures (grep for them) |
+| Algorithms not self-evident from code | Information already in a strategic file |
+| Module-specific architectural decisions with rationale | Standard error handling patterns |
+
+** Canonical Home Assignments
+
+Each fact type has one canonical home. Other files reference with a link or
+summary count — never a full copy.
+
+| Fact | Canonical Home | Notes |
+|------|---------------|-------|
+| Full endpoint list with API mappings | API.org (1A) or service-level API.org (1B) | Level 1B for service-specific endpoints |
+| Component inventory | =components/quick_reference.org= (2) | README.org links, no count |
+| Route / layout details | the owning module's =quick_reference.org= (2) | strategic files link, no count |
+| Project structure tree | README.org (1A) | Not duplicated elsewhere |
+| Tech stack and versions | ARCHITECTURE.org (1A) or service ARCHITECTURE.org (1B) | Level 1B for service-specific choices |
+| Design tokens and colours | =components/quick_reference.org= (2) | ARCHITECTURE.org links |
+| Deployment config and workflow | DEPLOYMENT.org (1A) or service-level README.org (1B) | Level 1B for service-specific steps |
+| TypeScript interfaces | Code files (=types.ts=) | Not reproduced in QRs |
+| Sub-agent model selection | =.claude/CLAUDE.md= | Playbook + audit workflow link here |
+| Dormant / deferred features | DEFERRED.org (1A) | PRODUCT_CONTEXT links, does not duplicate |
+
+** Architectural Decisions Placement
+
+| If the decision... | Document in |
+|--------------------|-------------|
+| Affects 2+ modules or the overall architecture | ARCHITECTURE.org (1A) |
+| Involves a technology choice (framework, library, protocol) | ARCHITECTURE.org (1A) |
+| Affects the whole service/app but not the broader project | Service/app strategic file (1B) |
+| Only affects one module's internal implementation | That module's quick_reference.org (2) |
+| Relates to an external API limitation | The module that calls that API (2) |
+
+Each ARCHITECTURE.org decision entry includes: Decision | Choice | Rationale |
+Constraints columns.
+
+** Markdown Files (outside the .org standard)
+
+=.md= files are not part of the documentation system and are never
+maintained by doc-sync.
+
+| Pattern | Status | Treatment |
+|---------|--------|-----------|
+| =README.md= (root) | Permanent | GitHub-facing stub deferring to README.org — GitHub and new developers look for it first |
+| =ALL_CAPS.md= at root | Temporary | Working/planning docs (brainstorms, plans, audit artifacts) — deleted or iced when their phase ends |
+| =docs/*.md= | Reference | Non-canonical context notes |
+
+Audits flag root =ALL_CAPS.md= files only to ask whether their phase has
+ended — never as missing documentation.
+
+** Example Tree (this repo)
+
+#+BEGIN_EXAMPLE
+grantsengine/
+├── README.org                    ← 1A (navigation, project tree)
+├── ARCHITECTURE.org              ← 1A
+├── PRODUCT_CONTEXT.org           ← 1A (present-state product)
+├── DEFERRED.org                  ← 1A (dormant + deferred)
+├── DOCUMENTATION.org             ← 1A (this file)
+├── SETUP.org                     ← 1A (doc-system bootstrap)
+├── SUBAGENT_PLAYBOOK.org         ← 1A (sub-agent dispatch)
+├── AGENT_AUDIT_WORKFLOW.org      ← 1A (audit choreography)
+├── src/                          ← React + Vite frontend (root app, no 1B split)
+│   ├── App.jsx                   ←   main views + inline AI functions (~2400 lines)
+│   ├── components/               ←   UI grouped by domain (ui/, chrome/, auth/, pipeline/, grant/, …)
+│   │   ├── pipeline/quick_reference.org ← 2
+│   │   └── grant/quick_reference.org    ← 2
+│   ├── data/quick_reference.org       ← 2
+│   └── hooks/quick_reference.org      ← 2
+└── server/                       ← Express 5 backend
+    ├── ARCHITECTURE.org          ← 1B
+    ├── API.org                   ← 1B
+    ├── routes/quick_reference.org     ← 2
+    ├── scraper/quick_reference.org    ← 2
+    ├── jobs/quick_reference.org       ← 2
+    └── middleware/quick_reference.org ← 2
+#+END_EXAMPLE
+
+The =.org= files at root exist now; the per-module =quick_reference.org= and the
+service-level =server/ARCHITECTURE.org= / =server/API.org= are created as those
+modules are documented, not at bootstrap.
+
+* PART II — PROCEDURE (how to execute)
+
+** Documentation Reading Order (Main Agent)
+
+1. README.org (1A) — navigation and quick start
+2. ARCHITECTURE.org (1A) — system design (if needed)
+3. DOCUMENTATION.org — before any doc maintenance (this file)
+4. Service/app-level strategic files (1B) — when diving into a specific service or app
+5. Specific quick_references (2) — only when diving into module details
+
+** Sub-Agent Rules for Documentation
+
+- Do NOT update documentation unless explicitly instructed.
+- Read the relevant =quick_reference.org= before modifying code in a module.
+- Follow patterns documented in quick_references (reuse existing utilities).
+- Only edit the file(s) specified — do not touch other files.
+
+*When instructed to update documentation*:
+- Verify against actual code, not other .org files.
+- Follow all five principles in Part I.
+- Update "Last Updated" date when making changes.
+- Present-state-only language throughout.
+
+** QR Format Template
+
+Each =quick_reference.org= follows this structure:
+
+#+BEGIN_EXAMPLE
+#+TITLE: Module Name - Quick Reference
+#+DATE: YYYY-MM-DD
+
+* Overview
+Brief 1-2 sentence description of the module's role.
+
+* Components
+| Component | File | Purpose |
+|-----------|------|---------|
+| ClassName | file.ext | 5-10 word description |
+
+File names only (e.g., geminiClient.js). No line numbers.
+
+* Key Patterns
+Non-obvious algorithms, data flows, caching strategies.
+Document the "why" and "how", not the "what".
+
+* Constraints & Gotchas
+- External API limitation X requires workaround Y
+- Module-level cache persists across tab navigation
+- EventSource can't send headers — auth token passed via query param
+
+* Configuration (if applicable)
+| Setting | Default | Purpose |
+|---------|---------|---------|
+
+---
+/Last Updated/: YYYY-MM-DD
+#+END_EXAMPLE
+
+** Documentation Sync Workflow
+
+Standard process for syncing docs after code changes. Parallel sub-agents +
+a main coordinating agent. The canonical automated executor is
+=.claude/workflows/doc-sync.js= (Scout scope → QR fan-out → L1B → L1A → read-only
+context notes, then a main-agent consistency grep + commit); the phases below
+describe the equivalent manual procedure. A contract *inversion* (behavior flip,
+not just an addition) is the workflow's main failure mode — it ripples to every
+doc that references the changed symbol, so the scout scopes by reference and the
+main agent runs a post-sync grep for the now-stale wording.
+
+*** Prerequisites
+
+Determine whether git history is trustworthy for this sync:
+
+| Mode | Meaning | Sub-agent strategy |
+|------|---------|--------------------|
+| Git-assisted | Recent commits accurately reflect changes | Sub-agents use =git diff= and =git log= to identify what changed, then validate against code |
+| Code-only | Git history is unreliable or unavailable | Sub-agents read code files directly and validate against the quick_reference |
+
+*** Phase 1: Quick References / Level 2 (parallel sub-agents)
+
+Deploy *one sub-agent per quick_reference.org file*, all in parallel. Each:
+
+1. *Read* the quick_reference.org to understand what is currently documented.
+2. *Identify changes* using git or direct code reading (per mode above).
+3. *Validate against actual code*:
+   - Documented components/files still exist
+   - New files or components not yet documented
+   - Removed items still documented
+   - Descriptions match current behavior
+   - New non-obvious patterns worth documenting
+   - Constraints & Gotchas still accurate
+   - *Inverted behavior* — statements the change CONTRADICTS, not just removed files
+     (flipped persistence, sync↔async, preview→commit). Reconcile, don't just add:
+     rewrite/delete the now-false statement. A contract inversion ripples to every
+     doc that *references* the symbol, even modules whose own code did not change.
+4. *Update the quick_reference.org* if stale or missing:
+   - Follow the QR format template above
+   - No line numbers, no interface reproduction
+   - Present-state-only, tables over prose, descriptions 5-10 words
+   - Update "Last Updated" date
+5. *Return a compact summary*:
+
+#+BEGIN_EXAMPLE
+MODULE: [module name]
+CHANGES MADE: [Yes/No]
+SUMMARY: [2-5 bullet points of what was found/changed]
+ARCHITECTURAL NOTES: [Items for strategic files, or "None"]
+#+END_EXAMPLE
+
+*Critical*: Each sub-agent edits ONLY its own quick_reference.org.
+
+*** Phase 2: Service/App Strategic Files / Level 1B (parallel sub-agents)
+
+After Phase 1, deploy sub-agents (one per affected service/app) to update Level
+1B files. Each reads the Phase 1 summaries relevant to its service/app.
+
+| File type | Update when sub-agents report... |
+|-----------|----------------------------------|
+| Service README.org | Structural changes, new modules, changed entry points |
+| Service/app ARCHITECTURE.org | New cross-cutting decisions within the service/app |
+| App API.org | New/removed endpoints, changed endpoint behavior |
+
+*Rules*:
+- Read the current file before editing (never edit blind).
+- Keep changes minimal — Level 1B files stay lean.
+- Only update counts and links for facts whose canonical home is a Level 2 QR.
+- Update "Last Updated" dates on any file touched.
+- Each sub-agent edits ONLY the Level 1B files for its assigned service/app.
+
+Return the same compact summary, noting which 1B files changed and any items that
+need to surface to Level 1A.
+
+*** Phase 3: Project-Wide Strategic Files / Level 1A (main agent)
+
+After Phases 1-2, the main agent reads all summaries and updates root-level
+files. Respect canonical homes — update counts and links, not duplicate detail.
+
+| File | Update when sub-agents report... |
+|------|----------------------------------|
+| ARCHITECTURE.org | New cross-cutting decisions, structural changes, tech stack changes |
+| API.org | New/removed endpoints, changed behavior (if 1A-level canonical) |
+| README.org | Structural changes, navigation updates (project tree is canonical here) |
+
+*Rules*: read before editing; keep changes minimal; update "Last Updated" dates.
+
+*** Phase 4: Commit
+
+#+BEGIN_EXAMPLE
+git add *.org **/quick_reference.org
+git commit -m "Sync .org documentation with current code"
+#+END_EXAMPLE
+
+*** Doc Sync Model Selection
+
+Model tiers are defined in =.claude/CLAUDE.md=. Their mapping to the
+=doc-sync.js= phases:
+
+| Phase | Tier | Reasoning |
+|-------|------|-----------|
+| Scout — resolve scope | Sonnet | Reads report + git; scopes by touched code AND by reference (contract flips) |
+| QR updates (L2) | Haiku | Bounded read-validate-edit per module, mechanical |
+| Level 1B strategic | Sonnet | Cross-module judgment within a service/app |
+| Level 1A strategic | Sonnet | Whole-project reconcile of counts/links from summaries (sub-agent, not the main agent) |
+| Context notes (PRODUCT_CONTEXT/DEFERRED) | Sonnet | Read-only drift detection; the main agent applies with rationale |
+| Consistency grep + commit | Main agent | Greps all .org for inverted-contract survivors, applies context notes, commits |
+
+** QR Splitting Guidelines
+
+*** When a Module Deserves Its Own QR
+
+Create a separate =quick_reference.org= when ALL of:
+1. It has 3+ files with a coherent purpose.
+2. A sub-agent could be scoped to ONLY that module without reading siblings.
+3. The module has at least one non-obvious pattern or gotcha.
+
+*** When NOT to Create a QR
+
+- The module is a thin wrapper or re-export.
+- The module has 1-2 simple files with obvious logic.
+- The module's purpose is fully captured by a few rows in a strategic file.
+
+*** Flagging Mechanism During Doc Sync
+
+During Phase 1, sub-agents include in ARCHITECTURAL NOTES:
+- "QR exceeds 350 lines — recommend splitting" (with suggested boundaries)
+- "QR covers 3+ distinct subdirectories — recommend splitting"
+- "New subdirectory has 3+ files with non-obvious patterns — recommend new QR"
+
+Sub-agents flag, main agent decides, sub-agents execute.
+
+** Common Violations
+
+| Violation | Example | Fix |
+|-----------|---------|-----|
+| Change logs | "Recent Changes: Added X" | Delete the section |
+| Tombstone markers | "some_field - REMOVED in V5" | Delete the row |
+| Historical language | "We migrated from V4 to V5" | Rewrite in present tense or delete |
+| Layer bleed | 100-line algorithm details in ARCHITECTURE.org | Move to quick_reference, add link |
+| Stale references | Link to deleted file or removed feature | Delete the reference |
+| Contradicted behavior | Doc still says "preview only / persists nothing" after the endpoint now auto-persists | Rewrite/delete the stale claim — adding the new behavior beside the old one is the bug. A behavior *inversion* makes the old wording false in every doc that references it |
+| Hand-maintained count | "27 components", "50 endpoints" | Delete the number; name the category and link (Principle 6) |
+| Append-only restatement | Same contract stated 3× as it evolved | Rewrite the existing statement; one canonical home (Principle 7) |
+| Verbose prose | Paragraph explaining a method | Convert to table row |
+| Transcribed code | TypeScript interface reproduced in QR | Delete — agents read the code directly |
+| Duplicated facts | Same endpoint table in API.org AND backend QR | Keep in canonical home, link from others |
+| Exhaustive inventories | Every useState, every function listed | Keep only non-obvious items |
+| Line numbers in tables | file.ext:123 | Use file name only — agents grep |
+| Wrong tier placement | Service-specific deploy steps in root DEPLOYMENT.org | Move to Level 1B service README.org |
+
+** Quick Checklist
+
+Before committing documentation changes:
+
+- [ ] No "Recent Changes" or historical sections
+- [ ] No "REMOVED" or "deprecated" markers
+- [ ] Present-tense language throughout
+- [ ] Only non-obvious content documented (no transcribed code)
+- [ ] Each fact lives in its canonical home only
+- [ ] Level 1A strategic docs are lean (details in Level 1B or quick_refs)
+- [ ] Level 1B files exist for services/apps with multi-module scope decisions
+- [ ] Quick references include Constraints & Gotchas section
+- [ ] Quick references within sizing targets
+- [ ] Tables used instead of prose where possible
+- [ ] No hand-maintained counts (name the category, link to its home)
+- [ ] No fact stated twice — additions reconcile with prior statements
+- [ ] "Last Updated" date is current
+
+---
+/Last Updated/: 2026-06-22

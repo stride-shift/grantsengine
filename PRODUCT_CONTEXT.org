@@ -1,0 +1,61 @@
+#+TITLE: Product Context — d-lab Grant Engine
+#+DATE: 2026-06-22
+
+* Purpose
+Present-state product context. Dormant/deferred features live in DEFERRED.org.
+Read this before audits and before flagging code as an "issue" — several
+properties below are intentional.
+
+* What It Is
+An internal tool for d-lab NPC's grant team to manage the funding pipeline:
+scout opportunities, vet and shortlist them, draft AI-assisted proposals and
+funder research, build budgets matched to d-lab's 8 programme types, track
+deadlines, and store supporting documents. It is multi-tenant by organisation
+slug but used primarily by one org (d-lab).
+
+* Users & Roles
+| Role | Scope | Can do |
+|------|-------|--------|
+| Org admin | One organisation | Manage members, org profile/onboarding, all grant + AI features |
+| Member | One organisation | Work the pipeline: scout, vet, draft, budget, track deadlines |
+
+Both authenticate per-org (=:slug=) with bcrypt-hashed passwords; password reset
+is email-based via Resend.
+
+* Feature Lifecycle
+| Feature | Status | Note |
+|---------|--------|------|
+| Pipeline + stage gates | Active | STAGES/GATES in constants.js; per-stage gate criteria |
+| Grant detail + vetting | Active | GrantDetail, Vetting; inline apply-URL edit |
+| AI proposal drafting | Active | Inline prompts in App.jsx via OpenAI proxy |
+| Funder research / intel | Active | Funders view; web-search via gpt-4o Responses API |
+| Grant scouting | Active | ScoutPanel + scoutPrompt; server scout job + scraper |
+| Server-side scraper | Active | sources.js, scrapeGrants.js; Anthropic Haiku parse/verify |
+| Budget builder | Active | Programme-type matched budgets (detectType) |
+| Proposal workspace + .docx export | Active | ProposalWorkspace, docxGenerator.js |
+| Document vault + uploads | Active | DocVault, UploadZone; URL/file/YouTube extraction |
+| Deadline reminders | Active | server/jobs/deadlineReminders.js (cron + email) |
+| Calendar / conferences / freebies | Active | Calendar, Freebies; conference + freebie data |
+| Org profile + onboarding | Active | WelcomeTutorial, TourOverlay, OrgSelector |
+| Edit-learning | Active | editLearner.js adapts to user edits of AI output |
+| Admin panel | Active | Admin.jsx member + org management |
+
+* Intentional Decisions (do not re-flag)
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Monolithic App.jsx (~2400 lines) | Kept as one file | Views tightly coupled to shared grant state; splitting deferred (see DEFERRED.org) |
+| prompts.js mostly LEGACY | Only scoutPrompt imported | App.jsx inlines its own prompts; LEGACY exports kept as reference, not dead by accident |
+| grant-engine.monolith.jsx | Kept in src/ | Working single-file reference that runs in Claude artifacts — intentional, not stale |
+| No TypeScript | Plain JSX | Project predates a TS migration; not a defect |
+| No router | =view= state toggle | Single-page scope; router deferred |
+| Inline styles, no CSS framework | Design tokens in theme.js | Enables standalone single-HTML demo build |
+| CSP disabled in Helmet | =contentSecurityPolicy: false= | Vite injects inline scripts; intentional in app.js |
+| ZAR currency, B-BBEE/SETA/NPO domain terms | Throughout | South African NPO context — not typos or i18n gaps |
+
+* Stable Reference Data
+Org/funding facts (financial model, GIDF cornerstone funder, 8 programme types
+with exact budgets, relationship owners, proposal strategy) are canonical in
+=CLAUDE.md= and =src/data/context.js=. Do not duplicate them here.
+
+---
+/Last Updated/: 2026-06-22

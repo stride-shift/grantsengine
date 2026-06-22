@@ -1,0 +1,35 @@
+#+TITLE: pipeline/ — Quick Reference
+#+DATE: 2026-06-22
+
+* Overview
+The grant pipeline board and its stage-scoped sibling views. Imports use the =@/=
+alias; same-folder siblings stay relative (=./=).
+
+* Components
+| Component | File | Purpose |
+|-----------|------|---------|
+| Pipeline | Pipeline.jsx | Kanban/list board across all stages; filtering, batch ops, gate checks |
+| ScoutPanel | ScoutPanel.jsx | AI grant scouting panel — searches, scores, verifies URLs |
+| Vetting | Vetting.jsx | Checklist view for =scouted=/=vetting= grants before they enter the pipeline |
+| Archive | Archive.jsx | Browser for closed grants (won/lost/deferred/archived) |
+
+* Key Patterns
+- *ScoutPanel is a =forwardRef= child of Pipeline*, driven imperatively from the
+  board — it is launched from Pipeline, never navigated to on its own.
+- *=CLOSED_STAGES= is imported from =@/data/constants=* (single source of truth).
+  Pipeline, Archive, and ScoutPanel all consume it — do not redefine locally.
+- *Vetting approve → =qualifying=*: a fully-vetted grant advances to the
+  =qualifying= stage; rejection sets =archived= and logs the reason.
+- *Scout dedup*: scouted results are de-duplicated against existing grants via
+  =normaliseFunder= (from =@/utils=) before display.
+
+* Constraints & Gotchas
+- Scout market =both= fires two sequential AI calls (SA + global); they are not
+  run concurrently.
+- Stage gates come from =GATES= in =@/data/constants=; there is no
+  =qualifying→drafting= gate (any user may advance that step).
+- Pipeline (~1500 lines) is the largest view; ScoutPanel hooks into its state via
+  the ref, so changing one often touches the other.
+
+---
+/Last Updated/: 2026-06-22

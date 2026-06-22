@@ -1,0 +1,63 @@
+#+TITLE: Architecture — d-lab Grant Engine
+#+DATE: 2026-06-22
+
+* System Overview
+A single-page React frontend talks to an Express 5 backend over a REST API
+namespaced per organisation (=/api/org/:slug/...=). The backend owns all
+persistence (Supabase Postgres) and all secrets: AI calls are proxied so the
+OpenAI and Anthropic keys never reach the browser. AI responses are normalised
+to an Anthropic-style ={ content: [...] }= shape regardless of provider, so the
+UI has one rendering path. Multi-tenant by org slug; cron jobs run scouting and
+deadline reminders server-side.
+
+* Tech Stack
+| Layer | Choice | Note |
+|-------|--------|------|
+| Frontend | React 18 + Vite | No TypeScript, no router (=view= state toggles screens) |
+| Styling | Inline styles + design tokens | =src/theme.js= (C object); no CSS framework |
+| Backend | Express 5 (port 3001) | =server/app.js= wires routes + security middleware |
+| Database | Supabase Postgres (=pg= pool) | =server/db.js=, schema in =server/schema.sql= |
+| AI — app | OpenAI =gpt-4o-mini= (default), =gpt-4o= (web-search) | Proxied via =server/routes/ai.js= |
+| AI — scraper | Anthropic Claude (Haiku) | Parsing/verification in =server/scraper/= |
+| Security | Helmet, CORS, express-rate-limit | Rate limits on auth, AI, upload endpoints |
+| Auth | bcryptjs password hashing | Org + member login flows |
+| Email | Resend | Password reset, deadline reminders |
+| Docs export | =docx= library | =src/docxGenerator.js= |
+| Scheduling | node-cron + Vercel cron | =server/jobs/=, =api/cron= |
+| Deploy | Vercel | =vercel.json=; Express serves =dist/= in production |
+
+* Data Flow
+| Step | Path |
+|------|------|
+| Load | =GET /api/org/:slug/grants= → Supabase → frontend state |
+| Mutation | =up(id, changes)= → =PUT /api/org/:slug/grants/:id= → Supabase |
+| AI call | =api(system,user,search,maxTokens)= → =/api/org/:slug/ai/messages= → OpenAI → normalised ={content:[...]}= |
+| Scout | JSON array → parsed → cards with "+ Add" → new grant via API |
+| Context | =context.js= (CTX/CTX_SLIM) + =funderStrategy.js= + server org profile → injected as =orgCtx= into every prompt |
+
+* Cross-Cutting Decisions
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Monolithic App.jsx | All views + AI functions in one ~2400-line file | Views are tightly coupled to shared grant state; early splitting adds prop-drilling overhead |
+| AI proxied through backend | No provider keys in the browser | Secret safety + central rate limiting + response normalisation |
+| Provider-normalised AI shape | All responses rendered as ={content:[...]}= | One UI render path despite OpenAI/Anthropic split |
+| Inline prompts in App.jsx | =prompts.js= mostly LEGACY; only =scoutPrompt= active | Prompts tuned in place alongside the calling code |
+| Multi-tenant by org slug | Every route + AI call scoped to =:slug= | Supports more than one organisation on one deployment |
+| Inline styles + tokens | No CSS framework | Portability to the standalone single-HTML demo build |
+| No router | =view= state toggle (Dashboard/Pipeline/Detail/Docs/Tools) | Single-page scope does not yet justify routing |
+| Components grouped by domain | =src/components/<domain>/= + a =@/= Vite alias (→ =/src=) | Related screens co-located; =@/= keeps imports depth-independent so future moves don't churn relative paths. Same-folder siblings stay =./=; the shared-primitive barrel is =@/components/ui= |
+
+* Key Domain Logic
+| Concept | Where | Note |
+|---------|-------|------|
+| Pipeline stages + gates | =src/data/constants.js= (STAGES, GATES) | Stage-gate criteria per stage |
+| Funder strategy | =funderStrategy(grant)= | Returns lead/hook/lang/structure/budgetEmphasis per funder type |
+| Programme detection | =detectType(grant)= | Maps grant notes to one of 8 programme types with exact budgets |
+| Fit score | from =g.on= win/loss factors | Comma-separated string |
+| Org context for prompts | =src/data/context.js= | CTX (full) + CTX_SLIM injected into prompts |
+
+Programme budgets, funder relationships, and proposal strategy are documented in
+=CLAUDE.md= (the org-knowledge canonical home), not duplicated here.
+
+---
+/Last Updated/: 2026-06-22

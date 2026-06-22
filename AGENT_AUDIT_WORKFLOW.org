@@ -1,0 +1,692 @@
+#+TITLE: Agent-Driven Audit & Cleanup Workflow
+#+DATE: 2026-05-08
+
+A repeatable workflow for auditing, cleaning, and documenting any module
+(frontend or backend) using a coordinating agent with parallel sub-agents.
+
+Two passes: *macro* (structural — placement, lifecycle, scope) runs
+first; *micro* (code health — function-level signals) runs after macro
+settles. Macro is skippable when nothing structural is suspected; micro
+runs every audit.
+
+For sub-agent coordination mechanics (model selection, wave planning,
+return formats), see =SUBAGENT_PLAYBOOK.org=. For the business context
+that distinguishes intentional design from real issues, see
+=PRODUCT_CONTEXT.org= (present-state product, intentional decisions) and
+=DEFERRED.org= (dormant + deferred features, reactivation paths) — audit
+agents must consult both before flagging anything dormant.
+
+* Two modes: Automated (default) vs Manual (this doc)
+
+There are now two ways to run this audit. They do the *same activity*
+(parallel investigation + classification) under two different
+orchestrators.
+
+| Mode | Orchestrator | Use when |
+|------+--------------+----------|
+| *Automated* (default) | Dynamic-workflow scripts in =.claude/workflows/= (=audit-macro=, =audit-micro=) | The audit is well-specified and repeatable, you want it to scale across many modules, and you're fine reading the report after a background run. *Most audits.* |
+| *Manual* (this document) | Main agent + =SUBAGENT_PLAYBOOK.org=, turn-by-turn | The shape is unknown/exploratory, you want to reason and course-correct between rounds, *or* the work is a Tier-3 holistic restructure (deciding new domain boundaries) that can't be safely fanned out. |
+
+The two are not rivals — the automated flow *delegates back* to this
+manual procedure for the cases it can't do well (holistic Act-1
+boundary decisions, anything needing mid-run human steering). Workflows
+can't pause for input, so anything requiring a decision mid-stream
+belongs here.
+
+** The automated flows (v1 — read-only)
+
+Both scripts are READ-ONLY in v1: they discover, classify, and report;
+they apply nothing. Each takes an optional =scope= arg (a path slice
+like ="services/api="; default = whole repo) and detects repo topology
+at runtime, so one script serves single-app and monorepo shapes alike.
+
+| Script | Mirrors | What it does |
+|--------+---------+--------------|
+| =audit-macro= | Phases 1–2 + the Phase-2 spec | Topology scout → per-domain architectural review → consolidated report + restructuring spec. *No* execution (Phase 3 stays here, main-agent-driven, behind the human gate). |
+| =audit-micro= | Phases 4–5 (read-only slice) | Re-scout the *settled* tree → per-module code-health audit → screen-first adversarial verify committee (all-haiku) → focused plan. Tags each finding's auto-fix disposition but applies nothing. |
+
+*The macro→micro barrier is mandatory and lives between the two scripts.*
+Run =audit-macro= first; apply its approved structural changes via the
+manual Phase 3; get tests green and re-baseline; *then* run
+=audit-micro= against the new layout. Micro file:line references are
+only valid once the walls have stopped moving.
+
+This document is the canonical manual procedure and the source the
+flows draw their phase logic from.
+
+** Calibration cadence (building trust in the automated flows)
+
+The automated flows are still earning trust; until they have a track
+record, treat every run as a calibration run:
+
+- Run them every few days when time allows — they are read-only, so a
+  run costs tokens, not risk.
+- Grade the findings against your own knowledge of the module: count
+  false positives and missed issues.
+- Ask the orchestrating agent to critique the flow itself and recommend
+  improvements to the workflow scripts.
+- Fold accepted improvements back into =.claude/workflows/= and this doc.
+
+* Overview
+
+#+begin_example
+Phase 1: Inventory                  → Quick structure scan (1 Sonnet agent)
+Phase 2: Macro Pass                 → Structural critique (parallel Sonnet) [SKIPPABLE]
+Phase 3: Macro Cleanup Waves        → Moves, renames, deletions (parallel + verify)
+Phase 4: Micro Audit + QR Updates   → Code review + QR sync (parallel Sonnet)
+Phase 5: Consolidated Report        → 2x2 + lifecycle axis, user reviews
+Phase 6: PRODUCT_CONTEXT Feedback   → Capture user's "intentional" rationales back into PRODUCT_CONTEXT.org
+Phase 7: Micro Cleanup Waves        → Fix approved items (waves by classification)
+Phase 8: Verify + Test              → Syntax check, test suite, fix broken mocks
+Phase 9: Doc Sync                   → Re-sync QRs, service/app docs, root docs
+Phase 10: Commit                    → Single commit with all changes
+#+end_example
+
+When skipping Phase 2/3 (no structural concerns since the last macro
+pass), the workflow runs 1 → 4 → 5 → 6 → 7 → 8 → 9 → 10 directly.
+
+* Lifecycle / Intent Axis
+
+Every finding (macro and micro) carries a lifecycle tag derived from
+=PRODUCT_CONTEXT.org= (intentional decisions) and =DEFERRED.org=
+(dormancy + deferral). This is what stops the audit from re-flagging
+intentional dormancy each cycle.
+
+| Tag | Meaning | What to do |
+|-----+---------+-----------|
+| *Active* | Currently used in the production code path | Treat normally — flag real issues. |
+| *Intentionally Dormant* | Stubbed/disabled by design, with a documented activation trigger in =DEFERRED.org= | Do not flag as an issue. If the rationale is missing or vague, surface as a /DEFERRED alignment/ note. |
+| *Scheduled for Removal* | Known deletion target (in =DEFERRED.org=) | Either skip (if removal is imminent) or fold into this audit's deletion wave. |
+| *Stale* | Not used, no documented intent | Real finding. Surface in the report. |
+
+If an agent cannot determine intent from =PRODUCT_CONTEXT.org= or
+=DEFERRED.org=, default to *Stale* and surface for user review — better
+to ask than silently drop a real issue.
+
+* Phase 1: Inventory
+
+*Goal:* Build a mental map of the target module before dispatching work.
+
+*Agent:* 1 Sonnet (Explore type)
+
+*What it returns:*
+- Directory tree with file counts
+- Line counts per source file (sorted descending)
+- List of all .org/.md documentation files
+- Empty directories, stale-looking files, obvious issues
+
+*Why this matters:* the coordinating agent uses this to design the
+sub-agent split for Phase 2 (if running) and Phase 4. Without it, you're
+guessing at file sizes and boundaries.
+
+* Phase 2: Macro Pass
+
+*Goal:* Critique the /shape/ of the project — what exists where, what
+shouldn't exist at all, what's coupled across boundaries, what's
+intentionally dormant. The 2x2 micro framework cannot surface these
+findings; this is where they live.
+
+*Skip when:* nothing structural is suspected since the last macro pass.
+Macro runs on a slower cadence than micro.
+
+*Agents:* 1-2 Sonnet agents in parallel (parallelize by /domain/, not
+by file ownership — e.g. Agent A: top-level layout + dormancy; Agent B:
+cross-service coupling + naming).
+
+** Inputs
+
+Each macro agent reads:
+- =README.org=, =ARCHITECTURE.org=, =PRODUCT_CONTEXT.org=, =DEFERRED.org= — full project intent
+- All Tier 1B service docs and Tier 2 quick references
+- Phase 1 inventory output
+
+And runs these tools (the .org files alone aren't enough):
+- =git log --since="3 months ago" --name-only -- <path>= over candidate
+  "stale" trees — abandoned-looking directories might just be stable.
+  Recency tells you which trees are alive.
+- =rg -l "<symbol>"= or =rg "<path>"= for any directory or symbol the
+  agent proposes to delete or move — verifies cross-references *before*
+  recommending action.
+
+** What to evaluate
+
+| Dimension | Examples |
+|-----------+----------|
+| *Top-level layout* | Are config files (Firebase, Docker, CI) in the right tier? Does the root convey project shape, or is it cluttered with generated artifacts and historical planning docs? |
+| *Directory placement* | Does =services/foo/= belong inside =backend/= or at root? Is shared code colocated with one consumer when it has multiple? |
+| *Dormant or stale trees* | Whole directories that look unused. Cross-check =DEFERRED.org= (dormant + scheduled-for-removal) — many are intentional. Flag what isn't. |
+| *Cross-service coupling* | Backend ↔ frontend type drift, env var sprawl, business rules duplicated across services. |
+| *Naming + structural consistency* | Inconsistent casing, plurals, or layering between sibling modules. |
+| *Outlived planning docs* | Top-level =PLAN.md=, audit artifacts, historical READMEs. |
+
+** Output format
+
+The macro agent returns one table (placement findings don't fit the 2x2):
+
+| # | Finding | Type | Lifecycle | Affected Paths | Cross-References | Suggested Action |
+
+Where:
+- *Type*: Placement | Dormancy | Coupling | Naming | Outlived Doc
+- *Lifecycle*: Active | Intentionally Dormant | Scheduled for Removal | Stale (see /Lifecycle Axis/ above)
+- *Cross-References*: result of the =rg= check — what imports or links to this
+- *Suggested Action*: Move | Rename | Delete | Archive | Decouple | No-op (note in PRODUCT_CONTEXT)
+
+Plus a /PRODUCT_CONTEXT alignment/ block: items that should be added to
+=PRODUCT_CONTEXT.org= regardless of audit action (e.g., dormant features
+not yet documented).
+
+** User review gate
+
+Same pattern as Phase 5. User marks each finding as *do, skip, defer*.
+Skips with a rationale feed Phase 6.
+
+* Phase 3: Macro Cleanup Waves
+
+Macro cleanup is mostly =git mv=, =rm -r=, and import-path updates.
+
+*** Recommended wave ordering
+
+#+begin_example
+Wave 1: Deletions               (no path conflicts — files are gone)
+Wave 2: Moves and renames       (one agent per move, no overlap)
+Wave 3: Import-path fixups      (single broad agent — runs after all moves)
+#+end_example
+
+Verify with build/typecheck after each wave.
+
+*After Phase 3, the file layout is settled.* Phase 4 (micro) runs
+against the new layout, so micro's file:line references stay valid
+through cleanup. This is the load-bearing reason macro must precede
+micro.
+
+* Phase 4: Micro Audit + Quick Reference Updates
+
+*Goal:* Verify documentation accuracy against code AND identify code
+issues in a single pass, on the layout that Phase 3 settled.
+
+*Prerequisite:* Sub-agents must read =DOCUMENTATION.org= → Part II (or
+receive its key rules in their prompt) before editing any =.org= files.
+This ensures consistent formatting, present-state-only language, and
+sizing targets. Sub-agents must also read =PRODUCT_CONTEXT.org= to
+assign the lifecycle tag and avoid flagging intentional design
+constraints as issues.
+
+*Agents:* 2-4 Sonnet agents in parallel.
+
+** Sub-Agent Design Rules
+
+*Split by file ownership, not by task type.* Each agent owns a set of
+source files and the documentation that covers them. This prevents
+merge conflicts.
+
+| Scenario | Strategy |
+|----------+----------|
+| Multiple QR files (e.g., frontend =core/= + =meeting-bank/=) | One agent per QR — each reads its files and edits its own QR |
+| Single QR file (e.g., backend with one =quick_reference.org=) | Agents do read-only audits and report findings; one follow-up agent writes the QR |
+| Level 1A/1B strategic files (ARCHITECTURE, API.org, README.org, etc.) | Dedicated agent runs AFTER QR agents, reads updated QRs for current truth |
+
+*Each agent does two things:*
+1. *Edits* the QR it owns (or reports if it doesn't own one)
+2. *Reports* code issues using the classification framework and criteria below
+
+** Sub-Agent Output Format
+
+Each audit agent classifies findings into four tables using the 2x2
+matrix. The coordinating agent defines what "critical" means for this
+module in the sub-agent prompt (based on Phase 1 findings).
+
+Every row carries a *Lifecycle* column (Active | Intentionally Dormant |
+Scheduled for Removal | Stale) per the rubric in /Lifecycle Axis/ above.
+
+*** Table 1: Critical + Logical (highest priority)
+
+All enrichment attributes are required:
+
+| File:Line | Issue | Lifecycle | Blast Radius | Coupling | Stateful? | Test Coverage | Suggested Fix |
+
+*** Table 2: Critical + Mechanical
+
+| File:Line | Issue | Lifecycle | Suggested Fix |
+
+*** Table 3: Peripheral + Logical
+
+Enrichment attributes optional — include when relevant:
+
+| File:Line | Issue | Lifecycle | Enrichment (if any) | Suggested Fix |
+
+*** Table 4: Peripheral + Mechanical
+
+| File:Line | Issue | Lifecycle | Suggested Fix |
+
+*** QR Accuracy Report
+
+List claims in =quick_reference.org= that are inaccurate for the
+agent's files. Format: "Claim X says Y but code actually does Z."
+
+*** PRODUCT_CONTEXT Alignment
+
+Items the agent saw whose lifecycle is /Intentionally Dormant/ or
+/Scheduled for Removal/ but whose rationale is *missing or vague* in
+=PRODUCT_CONTEXT.org=. Format: "Feature X is dormant in code but not
+documented as intentional — consider adding."
+
+*** Architectural Notes
+
+Bullet points for anything that should be escalated to service-level or
+project-level docs.
+
+See =SUBAGENT_PLAYBOOK.org= for wave design, model selection, and
+coordination patterns.
+
+** Finding Classification Framework
+
+Every finding from audit agents must be classified on three axes:
+- *Mechanical vs Logical* (does it change runtime behavior?)
+- *Critical vs Peripheral* (is it on the critical path?)
+- *Lifecycle* (is the underlying code Active, Intentionally Dormant,
+  Scheduled for Removal, or Stale?)
+
+The first two axes form the 2x2 matrix that drives prioritization. The
+third axis is a filter — Intentionally Dormant items drop off the
+priority list automatically.
+
+*** Axis 1: Mechanical vs Logical
+
+| Type | Definition | Examples |
+|------+------------+----------|
+| *Mechanical* | Changes that do not alter runtime behavior | Renames, dead code removal, import cleanup, formatting, type annotations, simple restructuring, moving constants |
+| *Logical* | Changes that alter runtime behavior or correctness | Algorithm changes, state management fixes, security fixes, error handling improvements, race condition fixes, data flow changes, business rule corrections |
+
+*** Axis 2: Critical vs Peripheral
+
+What counts as "critical" depends on the module being audited. The
+coordinating agent defines this in the sub-agent prompt based on Phase 1
+findings.
+
+| Type | Definition | Backend examples | Frontend examples |
+|------+------------+------------------+-------------------|
+| *Critical* | Primary data flow, auth, persistence, core user-facing paths | Auth, CRUD, data pipeline, sync, storage, API routes on the critical path | State management, data fetching hooks, routing, core interactive components |
+| *Peripheral* | Supporting, experimental, or rarely-hit paths | Debug endpoints, admin utils, prompt templates, cost tracking, experimental features | Color constants, debug tabs, helper components, formatting utils |
+
+*** The 2x2 Matrix
+
+#+begin_example
+                    Critical                Peripheral
+              ┌─────────────────────┬─────────────────────┐
+  Logical     │  HIGHEST PRIORITY   │  Review when time   │
+              │  User must review   │  allows             │
+              │  + enrichment attrs │                     │
+              ├─────────────────────┼─────────────────────┤
+  Mechanical  │  Important but      │  Lowest priority    │
+              │  safe to delegate   │  Batch and approve  │
+              └─────────────────────┴─────────────────────┘
+#+end_example
+
+*** Enrichment Attributes
+
+Apply selectively to *Critical + Logical* findings.
+
+| Attribute | What it answers | When to include |
+|-----------+-----------------+-----------------|
+| *Blast radius* | If this breaks, how many consumers or paths are affected? | All critical+logical items |
+| *Coupling* | If this changes, what else must change? | Items that touch shared interfaces, imports, or data contracts |
+| *Stateful?* | Does this hold or mutate state across calls? (caches, DB, sessions, queues) | Items involving persistence, caches, background tasks, or mutable globals |
+| *Test coverage* | Is this tested? What's the gap? | All critical+logical items — identifies where the user is flying blind |
+
+** Code Health Criteria
+
+Audit agents should evaluate code against these maintainability
+signals. These are not hard limits — they are indicators that a
+function or file may benefit from restructuring.
+
+*The driving question is always: "Can someone unfamiliar with this code
+understand what a function does without scrolling?"*
+
+| Signal | What to look for | Why it matters |
+|--------+------------------+----------------|
+| *Function length* | Functions where the body spans well beyond a single screen (~40-60 lines depending on language). Flag functions with natural split points — labeled steps, sequential phases, or blocks guarded by comments. | Long functions accumulate responsibilities. |
+| *Nesting depth* | Deeply nested control flow (3+ levels of =if=/=try=/=for=/=with= or equivalent). Look for chains that can be flattened with early returns, guard clauses, or helper extraction. | Deep nesting forces the reader to hold multiple conditions in their head simultaneously. |
+| *Parameter count* | Functions taking many parameters (roughly 5+). Consider whether a subset of params naturally groups into a data object. | High parameter counts often signal multiple responsibilities or a missing abstraction. |
+| *Mixed abstraction levels* | A single function body that interleaves low-level operations (raw API calls, byte manipulation, SQL queries) with high-level business logic. | Mixing levels makes it hard to reason about what the function "does" at any one level. |
+| *Duplication* | Near-identical blocks appearing in multiple functions or files. | Duplicated logic must be maintained in lockstep. |
+| *Dead code* | Unreachable branches, unused functions, commented-out code, variables assigned but never read. | Dead code misleads readers into thinking it matters. (Cross-check lifecycle — "dead code" in /Intentionally Dormant/ areas is not really dead.) |
+| *Error handling consistency* | Different strategies for the same kind of error within a module. Also flag bare =except= clauses that hide bugs. | Inconsistent error handling creates surprises for callers. |
+
+*How to use these signals:*
+- For each flagged item, note the function name, the signal triggered,
+  whether there's a natural split point, and the lifecycle tag.
+- Don't flag things that are fine in context — a 50-line function with
+  no nesting and a single responsibility doesn't need splitting just
+  because it's 50 lines.
+- Prioritize items where multiple signals overlap.
+
+** Parallel QR Editing — Safe Patterns
+
+| Pattern | Safe? | Why |
+|---------+-------+-----|
+| Agent A edits =core/quick_reference.org=, Agent B edits =meeting-bank/quick_reference.org= | Yes | Different files |
+| Agent A and Agent B both edit =quick_reference.org= | No | Edit conflicts |
+| Agent A edits QR sections 1-3, Agent B edits sections 4-6 | Risky | Edits near section boundaries can collide |
+
+*Rule of thumb:* one agent per file. If only one QR exists, use
+read-only reporters + a single writer agent.
+
+** Level 1A/1B Strategic File Agent (runs after QR agents)
+
+Reads the freshly-updated QRs and verifies Level 1B service/app docs
+(README.org, API.org, ARCHITECTURE.org) and Level 1A root docs
+(ARCHITECTURE, DEPLOYMENT) against them. This agent can also:
+- Delete redundant files (e.g., COMPONENTS.org if QRs cover it)
+- Assess staleness of planning docs, unused config files
+
+** Documentation Rules for Sub-Agents
+
+When including documentation rules in sub-agent prompts, include these
+key points from =DOCUMENTATION.org= → Part II. Sub-agents should also
+read =DOCUMENTATION.org= for full context.
+
+- *Present-state-only*: no "we removed", "previously", change logs, or tombstone markers
+- *Document the non-obvious*: skip what agents can find by reading code or grepping
+- *Tables over prose*, descriptions 5-10 words max
+- *No line numbers* in component tables
+- *No TypeScript interfaces* reproduced in docs
+- *Single source of truth*: don't duplicate facts from other files
+- *Sizing targets*: simple modules 50-100 lines, medium 100-200, complex 200-350
+- *Update "Last Updated" date* on any file touched
+
+* Phase 5: Consolidated Audit Report
+
+The *coordinating agent* (not a sub-agent) synthesizes all sub-agent
+reports into a single consolidated report. This is the primary
+deliverable the user reviews before approving cleanup work.
+
+** Report Structure
+
+Merge sub-agent findings into unified tables, deduplicating and
+grouping related items by domain (e.g., "Authorization & Security,"
+"Data Integrity & Race Conditions," "Pipeline & Orchestration"). The
+user sees one report, not N sub-agent dumps.
+
+Items tagged *Intentionally Dormant* or *Scheduled for Removal* are
+moved to an appendix — they are not priority work, but they remain
+visible so the user can sanity-check the lifecycle assignments.
+
+*** Table 1: Critical + Logical — grouped by domain
+
+Each item has all enrichment attributes:
+
+| # | File:Line | Issue | Lifecycle | Blast Radius | Coupling | Stateful? | Test Coverage | Suggested Fix |
+
+*** Table 2: Critical + Mechanical
+
+| # | File:Line | Issue | Lifecycle | Suggested Fix |
+
+*** Table 3: Peripheral + Logical
+
+| # | File:Line | Issue | Lifecycle | Enrichment (if any) | Suggested Fix |
+
+*** Table 4: Peripheral + Mechanical
+
+| # | File:Line | Issue | Lifecycle | Suggested Fix |
+
+*** Appendix: Items dropped on lifecycle grounds
+
+| # | File:Line | Issue | Lifecycle | Note |
+
+*** QR Accuracy Issues
+
+| QR Claim | Reality |
+
+*** PRODUCT_CONTEXT Alignment Notes
+
+Merged from all sub-agents — the input to Phase 6.
+
+| Item | Current PRODUCT_CONTEXT state | Suggested addition |
+
+*** Architectural Notes
+
+Bullet points for service/project-level doc updates.
+
+** User Review
+
+*Present the full report to the user.* The user decides:
+- Which items to fix and which to skip or defer
+- Any additional context or constraints (e.g., "this is single-tenant,
+  skip multi-org checks")
+- Priority ordering if time is limited
+
+For each *skip*, the user notes the rationale (e.g., "this is
+intentional — Stripe is dormant until subdomain launch"). These
+rationales are the input to Phase 6.
+
+Record user decisions in a temporary plan file (e.g., =AUDIT_PLAN.md=
+in the module root) so cleanup agents can reference it. The plan file
+is deleted as part of Phase 10's commit.
+
+** Pre-Cleanup Commit
+
+Before dispatching any cleanup agents, commit all current uncommitted
+changes. This creates a clean rollback point if anything breaks during
+cleanup.
+
+#+begin_example
+git add -A
+git commit -m "pre-audit snapshot: [describe current state]"
+#+end_example
+
+* Phase 6: PRODUCT_CONTEXT Feedback Loop
+
+*Goal:* When the user reviews the audit report (Phase 5) and marks an
+item as "skip — this is intentional," that rationale becomes durable
+product context. Future audits then stop re-flagging the same items.
+
+This is the audit's /learning/ step. Skipping it leaves
+=PRODUCT_CONTEXT.org= stale and forces the user to re-explain the same
+dormancy rationale audit after audit.
+
+*Agent:* 1 Sonnet (general-purpose).
+
+*Inputs:*
+- =AUDIT_PLAN.md= (the user's annotations from Phase 5)
+- The Phase 5 /PRODUCT_CONTEXT Alignment Notes/ table
+- Current =PRODUCT_CONTEXT.org= and =DEFERRED.org=
+
+*What it does:*
+1. Extracts items the user marked as skip-with-rationale.
+2. Categorizes each rationale: Intentionally Dormant / Scheduled for
+   Removal / Out of Scope / Constraint / Intentional Design Decision.
+3. Drafts proposed additions, routing by category: dormancy, deferral,
+   and scheduled removal go to =DEFERRED.org=; intentional design
+   decisions, constraints, and scope go to =PRODUCT_CONTEXT.org=.
+4. Presents the diff to the user for approval before writing.
+5. On approval, applies the diff.
+
+This step runs even if the audit produced no skips — the agent should
+also check whether any /Intentionally Dormant/ items surfaced in the
+report had thin or missing rationale in =PRODUCT_CONTEXT.org= and
+propose strengthening those entries.
+
+* Phase 7: Code Cleanup
+
+*Goal:* Execute the approved cleanup plan using parallel sub-agents.
+
+*Important:* Code cleanup agents must NOT edit =.org= files.
+Documentation is synced separately in Phase 9 after all code changes
+are complete. This avoids conflicts where multiple agents in different
+waves would need to update the same QR file.
+
+*Dispatch mode:* waves MUST run foreground parallel — multiple
+=Agent()= calls in a single main-agent message. Do NOT use
+=run_in_background: true= for wave agents. Each background completion
+fires its own billed main-agent turn; a 4-agent wave in background = 4×
+the cost of the same wave in foreground parallel, which returns all
+results in one synthesis turn. See =SUBAGENT_PLAYBOOK.org= /Background
++ Foreground/.
+
+** Wave Design
+
+Group changes into waves where *no two agents in the same wave edit
+the same file.* Use the 2x2 classification to order waves — fix
+critical+logical first, mechanical last.
+
+*** Recommended wave ordering
+
+#+begin_example
+Wave 1: Critical + Logical     (highest impact, needs user's decisions fresh)
+Wave 2: Critical + Logical     (continued, if Wave 1 was split by file ownership)
+Wave 3: Mechanical cleanup     (all tables 2 + 4, split by file ownership)
+Wave 4: Peripheral + Logical   (lower priority, can be dropped if time is short)
+#+end_example
+
+Within each wave, split by file ownership — no two agents in the same
+wave edit the same file:
+
+#+begin_example
+Wave 1 (parallel):  Agent A edits files {1,2,3}
+                    Agent B edits files {4,5,6}
+                    Agent C edits files {7,8,9}
+
+Wave 2 (parallel):  Agent D edits files {1,4,7}  ← touches Wave 1 files, safe because sequential
+                    Agent E edits files {2,5}
+
+Wave 3 (sequential): Agent F does broad rename (touches everything, must be last)
+#+end_example
+
+** Common Wave Patterns
+
+| Task Type | Wave Position | Why |
+|-----------+---------------+-----|
+| Security / auth fixes | Wave 1 | Critical+logical, highest priority |
+| Data integrity / race conditions | Wave 1 | Critical+logical |
+| Pipeline / orchestration fixes | Wave 2 | Critical+logical, may depend on Wave 1 storage changes |
+| Dead code deletion | Mechanical wave | No dependencies, safe to parallelize |
+| Shared utility extraction | Mechanical wave | Creates new files, updates consumers |
+| Import cleanup / formatting | Mechanical wave | Localized to specific files |
+| Cross-cutting renames (within files) | Last wave | Touches many files, must see final state |
+
+(Directory renames and cross-cutting moves are handled in Phase 3, not
+here. Phase 7 is intra-file changes only.)
+
+** Conflict Detection Checklist
+
+Before launching a wave, verify:
+- [ ] No two agents edit the same file
+- [ ] No agent reads a file that another agent is actively rewriting
+- [ ] Build/type-check verification runs after each wave
+
+* Phase 8: Verify + Test
+
+After all waves complete:
+
+1. *Syntax check:* compile all source files (=python -m py_compile=, =npx tsc --noEmit=, etc.)
+2. *Test suite:* run existing tests (=pytest=, =npm test=, etc.)
+3. *Fix test breakage:* audit changes often break existing test mocks
+   (e.g., a function moved or its signature changed). Update test mocks
+   to match the new code — this is expected, not a sign of a bad change.
+4. *Re-run tests:* confirm all tests pass after fixes.
+5. *Manual QA:* user tests the running app (optional, depends on change scope).
+6. *Fix collisions:* if parallel agents caused import conflicts, fix manually.
+
+* Phase 9: Doc Sync
+
+*Goal:* Re-sync all =.org= documentation with the post-cleanup
+codebase. Phase 4 updated docs against the pre-cleanup state; this
+phase catches everything that changed during Phases 7-8.
+
+*Mode:* Git-assisted — sub-agents use =git diff HEAD= to identify what
+changed, then validate against actual code. See
+=DOCUMENTATION.org= § "Documentation Sync Workflow" for the
+full protocol.
+
+Three tiers are updated in sequence: Level 2 first (QRs), then Level 1B
+(service/app strategic), then Level 1A (project-wide strategic).
+
+*Additional check:* verify that any item moved into
+=PRODUCT_CONTEXT.org= during Phase 6 is not duplicated in QRs or
+service-level docs (single source of truth).
+
+** Step 1: Level 2 — Quick References (parallel Sonnet agents)
+
+One sub-agent per =quick_reference.org=, all in parallel. Each agent:
+
+1. Reads its QR to understand what's currently documented
+2. Runs =git diff HEAD -- <module path>= to see code changes
+3. Validates every claim against actual code (files exist, names match, patterns accurate)
+4. Updates the QR if anything is stale or missing
+5. Returns a structured summary:
+
+#+begin_example
+MODULE: [module name]
+CHANGES MADE: Yes/No
+SUMMARY: [2-5 bullet points]
+ARCHITECTURAL NOTES: [Items for Level 1B/1A docs, or "None"]
+#+end_example
+
+Each agent receives the documentation rules from Phase 4
+(present-state-only, tables over prose, etc.) in its prompt.
+
+*Critical:* each sub-agent edits ONLY its own =quick_reference.org=. No
+other files.
+
+** Step 2: Level 1B — Service/App Strategic Files (parallel Sonnet agents)
+
+After QR agents complete, one agent per service or app updates its
+local strategic files (=README.org=, =API.org=, =ARCHITECTURE.org= at
+the service/app level). Each agent reads the Step 1 QR summaries and
+validates against current code.
+
+| File | Update when sub-agents report... |
+|------+----------------------------------|
+| Service/app README.org | Structural changes, new endpoints, removed components |
+| API.org | Endpoint signature changes, new routes, removed routes |
+| Service/app ARCHITECTURE.org | Internal design decisions, dependency changes |
+
+** Step 3: Level 1A — Project-Wide Strategic Files (main agent or 1 Sonnet agent)
+
+After Steps 1 and 2 complete, update root-level strategic docs based
+on the combined ARCHITECTURAL NOTES from both prior steps.
+
+| File | Update when sub-agents report... |
+|------+----------------------------------|
+| README.org | Structural changes (new/removed dirs, project tree updates) |
+| ARCHITECTURE.org | New cross-cutting decisions, interface changes, tech stack changes |
+| PRODUCT_CONTEXT.org | (Already updated in Phase 6 — verify no drift introduced by code cleanup) |
+
+Level 1A updates are usually small after an audit (counts, dates,
+removed references). The coordinating agent can often handle this
+directly without a sub-agent.
+
+* Phase 10: Commit
+
+Single commit covering all changes:
+
+#+begin_example
+git add -A
+git commit -m "audit: [module] — dead code removal, doc sync, structural cleanup"
+#+end_example
+
+Delete =AUDIT_PLAN.md= as part of this commit.
+
+* Anti-Patterns
+
+| Don't | Do Instead |
+|-------+------------|
+| Run micro before macro | Macro changes invalidate micro file:line refs — always macro first. |
+| Flag dormant features as issues without checking PRODUCT_CONTEXT | Lifecycle axis is mandatory. If unsure, default to Stale and surface for user review. |
+| Skip Phase 6 because "nothing surprising came up" | Even one user skip-rationale is worth capturing — the loop only works if it runs. |
+| Give one agent 3000+ lines to audit AND edit | Split into read-only reporters + one writer |
+| Have two agents edit the same file in parallel | Assign file ownership per agent |
+| Let sub-agents report to you so you update docs | Have sub-agents do the edits directly (saves context) |
+| Run broad renames mid-workflow | Save renames for Phase 3 (macro) or Phase 7's final wave |
+| Skip type-checking between waves | Always verify before launching next wave |
+| Dispatch cleanup without user review | Present findings first, let user decide scope |
+| Update .org files during code cleanup waves | Defer all doc updates to Phase 9 (Doc Sync) |
+| Launch doc sync agents without documentation rules | Include DOCUMENTATION.org rules in every doc agent prompt |
+| Dump N sub-agent reports to the user | Coordinating agent synthesizes into one consolidated report |
+| Start cleanup without a pre-audit commit | Always commit current state first — clean rollback point |
+| Mix mechanical and logical fixes in the same wave | Logical first (needs attention), mechanical last (batch approval) |
+| Report findings without classification | Every finding gets mechanical/logical + critical/peripheral + lifecycle |
+
+-----
+
+/Last Updated: 2026-06-12/
