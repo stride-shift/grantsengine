@@ -61,6 +61,10 @@ export default function useSession() {
     const data = await loginWithEmail(email, password);
     setOrgSlug(data.slug || data.org?.slug || null);
     setCurrentMember(data.member || null);
+    // Clear any login-screen state so a successful login can't be overridden by a
+    // stale selectingOrg/loggingIn flag (matches handleLogin/handleMemberLogin).
+    setSelectingOrg(false);
+    setLoggingIn(false);
     setAuthed(true);
     return data;
   };

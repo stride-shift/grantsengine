@@ -9,8 +9,9 @@ vi.mock("@/api", () => ({
   login: vi.fn(),
   setPassword: vi.fn(),
   memberLogin: vi.fn(),
+  loginWithEmail: vi.fn(),
 }));
-import { isLoggedIn, getAuth, login, setPassword, memberLogin } from "@/api";
+import { isLoggedIn, getAuth, login, setPassword, memberLogin, loginWithEmail } from "@/api";
 import useSession from "@/hooks/useSession";
 
 beforeEach(() => {
@@ -33,6 +34,22 @@ describe("useSession", () => {
     const { result } = renderHook(() => useSession());
     act(() => result.current.goToPicker());
     expect(result.current.selectingOrg).toBe(true);
+  });
+
+  it("handleEmailLogin authenticates and clears a stale selectingOrg (regression)", async () => {
+    // Repro: user had toggled the picker (selectingOrg=true), then signs in by email.
+    // The successful login must clear it so the app — not OrgSelector — renders.
+    loginWithEmail.mockResolvedValue({ slug: "dlab", member: { id: "alison" } });
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.goToPicker());
+    expect(result.current.selectingOrg).toBe(true);
+
+    await act(async () => { await result.current.handleEmailLogin("alison@d-lab.co.za", "pw"); });
+
+    expect(result.current.authed).toBe(true);
+    expect(result.current.orgSlug).toBe("dlab");
+    expect(result.current.selectingOrg).toBe(false);
+    expect(result.current.loggingIn).toBe(false);
   });
 
   it("starts authed (with org slug) when already logged in", () => {

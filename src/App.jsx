@@ -403,14 +403,16 @@ function AppInner() {
     return <OrgSelector superAdmin onSelect={handleOrgSelect} />;
   }
 
-  // Not authed. Primary path is the email-login screen; the org/member picker is
-  // a fallback (goToPicker), and the legacy member login also serves the
-  // password-reset deep-link (loggingIn defaults true when ?reset= is present).
-  if (selectingOrg) {
+  // Login screens render ONLY when not authenticated — a successful login (authed)
+  // always proceeds to the app, so a stale selectingOrg/loggingIn flag can never
+  // surface the org picker over a signed-in session. Primary path is email login;
+  // the org/member picker is a fallback (goToPicker); loggingIn also serves the
+  // password-reset deep-link (it defaults true when ?reset= is present).
+  if (!authed && selectingOrg) {
     return <OrgSelector onSelect={handleOrgSelect} />;
   }
 
-  if (loggingIn) {
+  if (!authed && loggingIn) {
     return (
       <Login
         slug={orgSlug}
