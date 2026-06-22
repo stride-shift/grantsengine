@@ -7,10 +7,11 @@ import {
   memberLogin,
   getGrants, saveGrant, addGrant as apiAddGrant, removeGrant,
   getTeam, getProfile, updateProfile as apiUpdateProfile, getPipelineConfig, getOrg, updateOrg as apiUpdateOrg, checkHealth, api, verifyUrls,
-  getCompliance, updateComplianceDoc, createComplianceDoc,
+  getCompliance,
 } from "./api";
 import useAI from "./hooks/useAI";
 import useSave from "./hooks/useSave";
+import useComplianceDocs from "./hooks/useComplianceDocs";
 
 import OrgSelector from "@/components/auth/OrgSelector";
 import Login from "@/components/auth/Login";
@@ -323,7 +324,7 @@ function AppInner() {
   // Global search — sidebar input that surfaces any grant by funder, name, notes, type
   const [globalQ, setGlobalQ] = useState("");
   const [loading, setLoading] = useState(false);
-  const [complianceDocs, setComplianceDocs] = useState([]);
+  const { complianceDocs, setComplianceDocs, upsertCompDoc } = useComplianceDocs(toast);
   // Phase 12: which tour (if any) is currently running. null = no tour.
   const [activeTour, setActiveTour] = useState(null);
 
@@ -882,24 +883,6 @@ function AppInner() {
         },
       },
     });
-  };
-
-  // ── Compliance doc mutations ──
-  const upsertCompDoc = async (doc) => {
-    try {
-      if (doc.id) {
-        await updateComplianceDoc(doc.id, doc);
-      } else {
-        const result = await createComplianceDoc(doc);
-        doc = { ...doc, id: result.id };
-      }
-      const updated = await getCompliance().catch(() => []);
-      setComplianceDocs(updated || []);
-      toast(`${doc.name} updated`, { type: "success", duration: 2000 });
-    } catch (err) {
-      console.error("Compliance doc update failed:", err);
-      toast(`Failed to update ${doc.name}`, { type: "error" });
-    }
   };
 
   // ── Render ──
