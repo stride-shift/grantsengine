@@ -44,6 +44,12 @@ app.use('/api/org/:slug/auth/request-reset', rateLimit({
   message: { error: 'Too many password reset attempts. Try again in 1 hour.' },
   standardHeaders: true, legacyHeaders: false,
 }));
+// Email-based (org-agnostic) reset request — same 5/hour cap
+app.use('/api/auth/request-reset', rateLimit({
+  windowMs: 60 * 60 * 1000, max: 5,
+  message: { error: 'Too many password reset attempts. Try again in 1 hour.' },
+  standardHeaders: true, legacyHeaders: false,
+}));
 app.use('/api/org/:slug/ai/messages', rateLimit({
   windowMs: 60 * 1000, max: 30,
   message: { error: 'AI rate limit reached. Wait a moment before trying again.' },

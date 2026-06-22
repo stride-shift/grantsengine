@@ -135,6 +135,18 @@ export const loginWithEmail = async (email, password) => {
   return data;
 };
 
+// Email-only password reset request (org-agnostic). The server resolves the
+// member from the email and emails the reset link. Anti-enumeration: the server
+// always responds ok, and we never surface whether the email exists.
+export const requestPasswordResetByEmail = async (email) => {
+  const res = await fetch('/api/auth/request-reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return res.json().catch(() => ({ ok: true }));
+};
+
 // Authenticated password set/change (self or director). First-time setup for a
 // member with no password uses the emailed reset link instead (see requestPasswordReset).
 export const memberSetPassword = async (slug, memberId, password) => {

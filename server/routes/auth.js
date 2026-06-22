@@ -136,6 +136,37 @@ router.post('/auth/login', w(async (req, res) => {
   });
 }));
 
+// ── Email-based password reset request (org-agnostic) ──
+// Resolves the member from a globally-unique email and emails the existing
+// reset-link deep-link (?reset=<token>&slug=<slug>). ALWAYS returns ok — never
+// reveals whether the email exists. Not gated on having a password, so it also
+// serves as a first-time password-setup link.
+router.post('/auth/request-reset', w(async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+
+  const row = await getOrgAndMemberByEmail(email);
+  if (!row) return res.json({ ok: true }); // anti-enumeration — same response either way
+
+  const token = await createResetToken(row.member_id, row.org_id);
+  const origin = req.headers.origin || `${req.protocol}://${req.headers.host}`;
+  const resetUrl = `${origin}?reset=${token}&slug=${row.slug}`;
+
+  try {
+    await sendResetEmail(email, resetUrl, row.name);
+  } catch (err) {
+    console.error('[auth] Failed to send reset email:', err.message);
+    // Still return ok — don't reveal email delivery status
+  }
+
+  await logActivity(row.org_id, 'password_reset_requested', {
+    memberId: row.member_id,
+    meta: { member_name: row.name, method: 'email-only' },
+  });
+
+  res.json({ ok: true });
+}));
+
 // ── Member-level (individual login) — legacy / migration fallback ──
 
 router.post('/org/:slug/auth/member-login', w(async (req, res) => {

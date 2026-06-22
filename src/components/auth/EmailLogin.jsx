@@ -4,10 +4,14 @@ import NorthernLights from "@/components/chrome/NorthernLights";
 import useEmailLogin from "@/hooks/useEmailLogin";
 
 /* Primary login: email + password only. The org is resolved server-side from the
-   email (no org/member picker). A small link drops to the legacy picker (fallback
-   for members not yet backfilled with an email). Render-only — logic in useEmailLogin. */
-export default function EmailLogin({ onLogin, onUsePicker, onForgot }) {
-  const { email, setEmail, password, setPassword, err, busy, submit } = useEmailLogin({ onEmailLogin: onLogin });
+   email (no org/member picker). "Forgot password?" fires an email-only reset from
+   the typed email — no org/member selection. A small link drops to the legacy picker
+   (fallback for members not yet backfilled with an email). Render-only. */
+export default function EmailLogin({ onLogin, onUsePicker }) {
+  const {
+    email, setEmail, password, setPassword, err, busy, submit,
+    forgotErr, forgotSent, forgotBusy, requestReset,
+  } = useEmailLogin({ onEmailLogin: onLogin });
 
   const inputStyle = {
     width: "100%", boxSizing: "border-box", padding: "10px 12px", fontSize: 14,
@@ -44,13 +48,20 @@ export default function EmailLogin({ onLogin, onUsePicker, onForgot }) {
           </label>
         </div>
 
-        {onForgot && (
+        {!forgotSent && (
           <div style={{ textAlign: "right", marginTop: 8 }}>
-            <button type="button" onClick={onForgot}
+            <button type="button" onClick={requestReset} disabled={forgotBusy}
               style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)",
-                fontSize: 12, fontFamily: FONT, cursor: "pointer", padding: 0 }}>
-              Forgot password?
+                fontSize: 12, fontFamily: FONT, cursor: forgotBusy ? "default" : "pointer", padding: 0 }}>
+              {forgotBusy ? "Sending…" : "Forgot password?"}
             </button>
+          </div>
+        )}
+
+        {forgotErr && <div style={{ fontSize: 12, color: "#FBBF24", marginTop: 8 }}>{forgotErr}</div>}
+        {forgotSent && (
+          <div style={{ fontSize: 12, color: "#4ADE80", marginTop: 10, lineHeight: 1.5 }}>
+            If an account exists for that email, a reset link is on its way — check your inbox.
           </div>
         )}
 

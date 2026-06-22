@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { loginWithEmail } from "@/api";
+import { loginWithEmail, requestPasswordResetByEmail } from "@/api";
 
 beforeEach(() => {
   localStorage.clear();
@@ -41,5 +41,20 @@ describe("loginWithEmail", () => {
     });
     await expect(loginWithEmail("a@x.com", "bad")).rejects.toThrow("Invalid email or password");
     expect(localStorage.getItem("gt_token")).toBe(null);
+  });
+});
+
+describe("requestPasswordResetByEmail", () => {
+  it("POSTs the email to /api/auth/request-reset", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+    const data = await requestPasswordResetByEmail("alison@d-lab.co.za");
+    expect(global.fetch).toHaveBeenCalledWith("/api/auth/request-reset", expect.objectContaining({ method: "POST" }));
+    expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toEqual({ email: "alison@d-lab.co.za" });
+    expect(data).toEqual({ ok: true });
+  });
+
+  it("resolves ok-shaped even when the response body is unparseable (anti-enumeration)", async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, json: async () => { throw new Error("no body"); } });
+    await expect(requestPasswordResetByEmail("x@y.com")).resolves.toEqual({ ok: true });
   });
 });
