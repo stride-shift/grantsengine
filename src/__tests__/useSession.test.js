@@ -20,11 +20,19 @@ beforeEach(() => {
 });
 
 describe("useSession", () => {
-  it("starts logged-out: selectingOrg, not authed, no resetParams", () => {
+  it("starts logged-out on the email-login screen (not the org picker)", () => {
+    // Primary path is now email+password; the org/member picker is a fallback
+    // reached via goToPicker — so selectingOrg defaults to false.
     const { result } = renderHook(() => useSession());
     expect(result.current.authed).toBe(false);
-    expect(result.current.selectingOrg).toBe(true);
+    expect(result.current.selectingOrg).toBe(false);
     expect(result.current.resetParams).toBe(null);
+  });
+
+  it("goToPicker switches to the legacy org/member picker", () => {
+    const { result } = renderHook(() => useSession());
+    act(() => result.current.goToPicker());
+    expect(result.current.selectingOrg).toBe(true);
   });
 
   it("starts authed (with org slug) when already logged in", () => {

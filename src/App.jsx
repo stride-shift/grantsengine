@@ -17,6 +17,7 @@ import usePipelineHygiene from "./hooks/usePipelineHygiene";
 
 import OrgSelector from "@/components/auth/OrgSelector";
 import Login from "@/components/auth/Login";
+import EmailLogin from "@/components/auth/EmailLogin";
 import { ToastProvider, useToast } from "@/components/ui/Toast";
 import TourOverlay from "@/components/chrome/TourOverlay";
 import { hasSeenOverview } from "./data/tourSteps";
@@ -301,7 +302,8 @@ function AppInner() {
   // ── Auth/org session (state + login handlers; teardown stays in resetSession) ──
   const {
     authed, orgSlug, currentMember, needsPassword, loggingIn, selectingOrg, resetParams,
-    handleOrgSelect, handleLogin, handleMemberLogin, goBackToOrgSelect, clearAuthState,
+    handleOrgSelect, handleLogin, handleMemberLogin, handleEmailLogin, goToPicker,
+    goBackToOrgSelect, clearAuthState,
   } = useSession();
   // View/selection state + URL sync (pushState/popstate)
   const { view, sel, setView, setSel } = useRouting({ orgSlug, authed });
@@ -395,12 +397,14 @@ function AppInner() {
 
   // ── Render ──
 
-  // Not authed: show org selector or login
+  // Not authed. Primary path is the email-login screen; the org/member picker is
+  // a fallback (goToPicker), and the legacy member login also serves the
+  // password-reset deep-link (loggingIn defaults true when ?reset= is present).
   if (selectingOrg) {
     return <OrgSelector onSelect={handleOrgSelect} />;
   }
 
-  if (loggingIn || !authed) {
+  if (loggingIn) {
     return (
       <Login
         slug={orgSlug}
@@ -410,6 +414,10 @@ function AppInner() {
         onBack={goBackToOrgSelect}
       />
     );
+  }
+
+  if (!authed) {
+    return <EmailLogin onLogin={handleEmailLogin} onUsePicker={goToPicker} />;
   }
 
   if (loading) {

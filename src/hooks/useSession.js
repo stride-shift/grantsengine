@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { isLoggedIn, getAuth, getCurrentMember, login, setPassword, memberLogin } from "@/api";
+import { isLoggedIn, getAuth, getCurrentMember, login, setPassword, memberLogin, loginWithEmail } from "@/api";
 
 /**
  * Auth/org session state + login handlers, extracted from App.jsx. The
@@ -22,7 +22,9 @@ export default function useSession() {
   const [authed, setAuthed] = useState(isLoggedIn());
   const [orgSlug, setOrgSlug] = useState(getAuth().slug || (resetParams ? resetParams.slug : null));
   const [currentMember, setCurrentMember] = useState(getCurrentMember());
-  const [selectingOrg, setSelectingOrg] = useState(!isLoggedIn() && !resetParams);
+  // Default to the email-login screen; the org/member picker is now a fallback
+  // (reached via goToPicker) used until every member has a backfilled email.
+  const [selectingOrg, setSelectingOrg] = useState(false);
   const [needsPassword, setNeedsPassword] = useState(false);
   const [loggingIn, setLoggingIn] = useState(!!resetParams);
 
@@ -53,6 +55,19 @@ export default function useSession() {
     setNeedsPassword(false);
   };
 
+  // Primary path: email + password → server resolves the org. loginWithEmail has
+  // already persisted token+slug+member to localStorage; mirror that into state.
+  const handleEmailLogin = async (email, password) => {
+    const data = await loginWithEmail(email, password);
+    setOrgSlug(data.slug || data.org?.slug || null);
+    setCurrentMember(data.member || null);
+    setAuthed(true);
+    return data;
+  };
+
+  // Fallback entry: show the legacy org/member picker (migration aid).
+  const goToPicker = () => { setSelectingOrg(true); };
+
   const goBackToOrgSelect = () => {
     setSelectingOrg(true);
     setLoggingIn(false);
@@ -69,6 +84,7 @@ export default function useSession() {
 
   return {
     authed, orgSlug, currentMember, needsPassword, loggingIn, selectingOrg, resetParams,
-    handleOrgSelect, handleLogin, handleMemberLogin, goBackToOrgSelect, clearAuthState,
+    handleOrgSelect, handleLogin, handleMemberLogin, handleEmailLogin, goToPicker,
+    goBackToOrgSelect, clearAuthState,
   };
 }
