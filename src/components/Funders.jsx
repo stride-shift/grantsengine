@@ -15,6 +15,9 @@ const REL_OWNERS = {
   "get it done": "nolan", "gidf": "nolan", "inkcubeko": "nolan", "ccba": "nolan", "coca-cola": "nolan", "telkom": "nolan", "sage": "nolan", "tk foundation": "nolan",
 };
 
+/* ── Funder type colors (module scope — constant across renders) ── */
+const FTYPE_COLORS = { "Corporate CSI": C.primary, "Government/SETA": C.blue, "International": C.purple, "Foundation": C.amber, "Tech Company": C.teal, "Partnership": C.purple };
+
 function getRelOwner(funderName) {
   const n = (funderName || "").toLowerCase();
   for (const [key, ownerId] of Object.entries(REL_OWNERS)) {
@@ -92,7 +95,7 @@ const StrategyPanel = ({ grant }) => {
   );
 };
 
-export default function Funders({ grants, team, stages, onSelectGrant, onNavigate, onLaunchTour }) {
+export default function Funders({ grants, stages, onSelectGrant }) {
   const [expandedFunder, setExpandedFunder] = useState(null);
   const [filterType, setFilterType] = useState("all");
   const [q, setQ] = useState("");
@@ -102,7 +105,7 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
   useEffect(() => {
     kvGet("funder_owners").then(data => {
       if (data && typeof data === "object") {
-        setFunderOwners(data.value || data);
+        setFunderOwners(data);
       }
     }).catch(() => {});
   }, []);
@@ -180,8 +183,6 @@ export default function Funders({ grants, team, stages, onSelectGrant, onNavigat
     const lost = grants.filter(g => g.stage === "lost");
     return { total, returning, types, totalPipeline, wonCount: won.length, lostCount: lost.length, wonVal: won.reduce((s, g) => s + effectiveAsk(g), 0) };
   }, [funderData, grants]);
-
-  const FTYPE_COLORS = { "Corporate CSI": C.primary, "Government/SETA": C.blue, "International": C.purple, "Foundation": C.amber, "Tech Company": C.teal, "Partnership": C.purple };
 
   return (
     <div style={{ padding: "16px 16px", height: "100%", overflow: "auto" }}>

@@ -241,7 +241,7 @@ function BudgetTable({ bt }) {
    Individual section of a section-by-section proposal.
    States: empty / loading / view / edit / error
 */
-export default function SectionCard({ name, index, total, section, busy, onGenerate, onSave, onRestore, budgetTable, isLocked = false }) {
+export default function SectionCard({ name, index, section, busy, onGenerate, onSave, onRestore, budgetTable, isLocked = false }) {
   const hasText = section?.text && !section.text.startsWith("Error");
   const isError = section?.text && (section.text.startsWith("Error") || section.text.startsWith("Rate limit") || section.text.startsWith("Connection"));
   const [expanded, setExpanded] = useState(!hasText);
@@ -278,14 +278,15 @@ export default function SectionCard({ name, index, total, section, busy, onGener
   const statusColor = busy ? C.purple : hasText ? (section.isManualEdit ? C.amber : C.ok) : isError ? C.red : C.t4;
   const statusBg = busy ? C.purpleSoft : hasText ? (section.isManualEdit ? C.amberSoft : C.okSoft) : isError ? C.redSoft : C.raised;
 
-  const isBudget = name.toLowerCase().includes("budget");
+  const nameLower = name.toLowerCase();
+  const isBudget = nameLower.includes("budget");
 
   // Loading step title — match section name to loading steps
-  const loadTitle = name.toLowerCase().includes("cover") ? "Cover Letter"
-    : name.toLowerCase().includes("summary") ? "Executive Summary"
-    : name.toLowerCase().includes("budget") ? "Budget"
-    : name.toLowerCase().includes("impact") || name.toLowerCase().includes("outcome") ? "Impact"
-    : name.toLowerCase().includes("programme") || name.toLowerCase().includes("program") ? "Programme"
+  const loadTitle = nameLower.includes("cover") ? "Cover Letter"
+    : nameLower.includes("summary") ? "Executive Summary"
+    : nameLower.includes("budget") ? "Budget"
+    : nameLower.includes("impact") || nameLower.includes("outcome") ? "Impact"
+    : nameLower.includes("programme") || nameLower.includes("program") ? "Programme"
     : name;
 
   return (
@@ -421,9 +422,9 @@ export default function SectionCard({ name, index, total, section, busy, onGener
                   }}
                   onFocus={e => { e.target.style.borderColor = C.primary; }}
                   onBlur={e => { e.target.style.borderColor = C.line; }}
-                  onKeyDown={e => { if (e.key === "Enter") { onGenerate(instructions); setShowInstructions(false); } }}
+                  onKeyDown={e => { if (e.key === "Enter") { onGenerate(instructions || undefined); setShowInstructions(false); } }}
                 />
-                <Btn onClick={() => { onGenerate(instructions); setShowInstructions(false); }}
+                <Btn onClick={() => { onGenerate(instructions || undefined); setShowInstructions(false); }}
                   v="ghost" style={{ fontSize: 11, padding: "5px 10px" }}>{"\u21bb"} Regen</Btn>
                 <button onClick={() => setShowInstructions(false)}
                   style={{ background: "none", border: "none", fontSize: 11, color: C.t4, cursor: "pointer", fontFamily: FONT }}>Cancel</button>
@@ -500,7 +501,7 @@ export default function SectionCard({ name, index, total, section, busy, onGener
             <div style={{ fontSize: 12, color: C.t4, marginBottom: 8 }}>
               Section not yet generated
             </div>
-            <Btn onClick={() => onGenerate()} v="primary" style={{ fontSize: 12, padding: "7px 18px" }}>
+            <Btn onClick={() => onGenerate(instructions || undefined)} v="primary" style={{ fontSize: 12, padding: "7px 18px" }}>
               Generate {name}
             </Btn>
           </div>

@@ -246,10 +246,6 @@ export const uploadOrgLogo = async (file) => {
   const form = new FormData();
   form.append('logo', file);
   const res = await f('/logo', { method: 'PUT', body: form });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Logo upload failed');
-  }
   return res.json();
 };
 
@@ -347,7 +343,6 @@ export const getCompliance = async () => {
 export const updateComplianceDoc = async (id, data) => {
   const res = await f(`/compliance/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
   return res.json();
@@ -356,7 +351,6 @@ export const updateComplianceDoc = async (id, data) => {
 export const createComplianceDoc = async (data) => {
   const res = await f('/compliance', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
   return res.json();
@@ -470,10 +464,6 @@ export const uploadFile = async (file, grantId, category, visibility) => {
   if (category) form.append('category', category);
   if (visibility) form.append('visibility', visibility);
   const res = await f('/uploads', { method: 'POST', body: form });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Upload failed');
-  }
   return res.json();
 };
 
@@ -482,10 +472,6 @@ export const addYouTubeUrl = async (url, grantId, category) => {
     method: 'POST',
     body: JSON.stringify({ url, grant_id: grantId, category }),
   });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'YouTube add failed');
-  }
   return res.json();
 };
 

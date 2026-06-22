@@ -108,15 +108,24 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState("pm");
-  const [editId, setEditId] = useState(null);
+  // Single active inline action — only one row's action panel is open at a time.
+  // Shape: { id, mode } | null, where mode is 'edit' | 'reset' | 'delete'.
+  const [activeAction, setActiveAction] = useState(null);
   const [editRole, setEditRole] = useState("");
-  const [resetId, setResetId] = useState(null);
   const [resetPw, setResetPw] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState(null);
 
   const realTeam = useMemo(() => (team || []).filter(t => t.id !== "team"), [team]);
+
+  // Grants carrying any AI-generated content — used by both the reset handler
+  // and the confirm button's count label.
+  const withAI = useMemo(
+    () => grants.filter(g =>
+      g.aiResearch || g.aiDraft || g.aiFitscore || g.aiFollowup || g.aiWinloss || g.aiSections || g.aiResearchStructured
+    ),
+    [grants]
+  );
 
   const loadData = async () => {
     try {
@@ -166,7 +175,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
     setActionBusy(true);
     try {
       await upsertTeamMember({ id: memberId, role: editRole });
-      setEditId(null);
+      setActiveAction(null);
       flash("Role updated");
       onTeamChanged?.();
     } catch (e) { flash(`Error: ${e.message}`); }
@@ -177,8 +186,8 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
     if (!resetPw || resetPw.length < 6) { flash("Password must be 6+ characters"); return; }
     setActionBusy(true);
     try {
-      await adminResetPassword(resetId, resetPw);
-      setResetId(null); setResetPw("");
+      await adminResetPassword(activeAction?.id, resetPw);
+      setActiveAction(null); setResetPw("");
       flash("Password reset");
     } catch (e) { flash(`Error: ${e.message}`); }
     setActionBusy(false);
@@ -188,7 +197,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
     setActionBusy(true);
     try {
       await deleteTeamMember(id);
-      setConfirmDelete(null);
+      setActiveAction(null);
       flash("User removed");
       onTeamChanged?.();
     } catch (e) { flash(`Error: ${e.message}`); }
@@ -269,9 +278,9 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
           {realTeam.map(m => {
             const isMe = m.id === currentMember?.id;
             const isOnline = activeSessions.some(s => s.member_id === m.id);
-            const isEditing = editId === m.id;
-            const isResetting = resetId === m.id;
-            const isDeleting = confirmDelete === m.id;
+            const isEditing = activeAction?.id === m.id && activeAction?.mode === "edit";
+            const isResetting = activeAction?.id === m.id && activeAction?.mode === "reset";
+            const isDeleting = activeAction?.id === m.id && activeAction?.mode === "delete";
 
             return (
               <div key={m.id} style={{
@@ -305,7 +314,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
                   {/* Action buttons — don't show for self */}
                   {!isMe && (
                     <div style={{ display: "flex", gap: 4 }}>
-                      <button onClick={() => { setEditId(isEditing ? null : m.id); setEditRole(m.role); setResetId(null); setConfirmDelete(null); }}
+                      <button onClick={() => { setActiveAction(isEditing ? null : { id: m.id, mode: "edit" }); setEditRole(m.role); }}
                         title="Change role"
                         style={{
                           width: 28, height: 28, borderRadius: 7, border: "none", cursor: "pointer",
@@ -314,7 +323,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
                           fontFamily: FONT, transition: "all 0.15s",
                         }}
                       >{"\u270E"}</button>
-                      <button onClick={() => { setResetId(isResetting ? null : m.id); setResetPw(""); setEditId(null); setConfirmDelete(null); }}
+                      <button onClick={() => { setActiveAction(isResetting ? null : { id: m.id, mode: "reset" }); setResetPw(""); }}
                         title="Reset password"
                         style={{
                           width: 28, height: 28, borderRadius: 7, border: "none", cursor: "pointer",
@@ -323,7 +332,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
                           fontFamily: MONO, transition: "all 0.15s",
                         }}
                       >{"\u26BF"}</button>
-                      <button onClick={() => { setConfirmDelete(isDeleting ? null : m.id); setEditId(null); setResetId(null); }}
+                      <button onClick={() => { setActiveAction(isDeleting ? null : { id: m.id, mode: "delete" }); }}
                         title="Remove user"
                         style={{
                           width: 28, height: 28, borderRadius: 7, border: "none", cursor: "pointer",
@@ -352,7 +361,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
                     </select>
                     <Btn v="primary" onClick={() => handleRoleChange(m.id)} disabled={actionBusy || editRole === m.role}
                       style={{ fontSize: 11, padding: "4px 10px" }}>Save</Btn>
-                    <Btn v="ghost" onClick={() => setEditId(null)} style={{ fontSize: 11, padding: "4px 10px" }}>Cancel</Btn>
+                    <Btn v="ghost" onClick={() => setActiveAction(null)} style={{ fontSize: 11, padding: "4px 10px" }}>Cancel</Btn>
                   </div>
                 )}
 
@@ -364,7 +373,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
                       style={{ width: 180, padding: "5px 10px", fontSize: 12 }} />
                     <Btn v="primary" onClick={handleResetPassword} disabled={actionBusy || resetPw.length < 6}
                       style={{ fontSize: 11, padding: "4px 10px" }}>Reset</Btn>
-                    <Btn v="ghost" onClick={() => { setResetId(null); setResetPw(""); }} style={{ fontSize: 11, padding: "4px 10px" }}>Cancel</Btn>
+                    <Btn v="ghost" onClick={() => { setActiveAction(null); setResetPw(""); }} style={{ fontSize: 11, padding: "4px 10px" }}>Cancel</Btn>
                   </div>
                 )}
 
@@ -374,7 +383,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
                     <span style={{ fontSize: 12, fontWeight: 600, color: C.red }}>Remove {m.name}?</span>
                     <Btn v="danger" onClick={() => handleDelete(m.id)} disabled={actionBusy}
                       style={{ fontSize: 11, padding: "4px 10px" }}>{actionBusy ? "Removing..." : "Yes, remove"}</Btn>
-                    <Btn v="ghost" onClick={() => setConfirmDelete(null)} style={{ fontSize: 11, padding: "4px 10px" }}>Cancel</Btn>
+                    <Btn v="ghost" onClick={() => setActiveAction(null)} style={{ fontSize: 11, padding: "4px 10px" }}>Cancel</Btn>
                   </div>
                 )}
               </div>
@@ -410,10 +419,6 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
                   setResetBusy(true);
                   setResetProgress({ done: 0, total: grants.length });
                   try {
-                    // Count grants with AI content
-                    const withAI = grants.filter(g =>
-                      g.aiResearch || g.aiDraft || g.aiFitscore || g.aiFollowup || g.aiWinloss || g.aiSections || g.aiResearchStructured
-                    );
                     let done = 0;
                     for (const g of withAI) {
                       const cleaned = { ...g, ...AI_FIELDS };
@@ -433,7 +438,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
                 }} style={{ fontSize: 12, padding: "6px 14px" }}>
                   {resetBusy
                     ? `${resetProgress?.done || 0}/${resetProgress?.total || "?"}...`
-                    : `Yes, reset ${grants.filter(g => g.aiResearch || g.aiDraft || g.aiFitscore || g.aiFollowup || g.aiWinloss || g.aiSections || g.aiResearchStructured).length} grants`}
+                    : `Yes, reset ${withAI.length} grants`}
                 </Btn>
                 <Btn v="ghost" onClick={() => setConfirmReset(false)} disabled={resetBusy}
                   style={{ fontSize: 12, padding: "6px 14px" }}>

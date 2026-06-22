@@ -17,6 +17,10 @@ export const DeadlineBadge = ({ d, deadline, size = "sm", stage }) => {
   if (d === null) return null;
   // Use stage-aware context if stage is provided, otherwise fall back to raw urgency
   const ctx = stage ? deadlineCtx(d, stage) : null;
+  if (ctx && ctx.severity === "ok" && d < 0) {
+    // Post-submission, past deadline — don't show badge at all (it's fine)
+    return null;
+  }
   const col = ctx ? ctx.color : urgC(d);
   const bg = ctx ? ctx.bg : (d < 0 ? C.redSoft : d <= 14 ? C.amberSoft : C.warm200);
   const pulse = ctx ? ctx.severity === "critical" : (d >= 0 && d <= 3);
@@ -24,10 +28,6 @@ export const DeadlineBadge = ({ d, deadline, size = "sm", stage }) => {
   const icon = ctx ? ctx.icon : (d < 0 ? "\u26a0" : "");
   const dateStr = deadline ? new Date(deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short" }) : null;
   const isSm = size === "sm";
-  if (ctx && ctx.severity === "ok" && d < 0) {
-    // Post-submission, past deadline — don't show badge at all (it's fine)
-    return null;
-  }
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 4,
@@ -63,7 +63,7 @@ export const Sparkline = ({ data, color = C.primary, w = 80, h = 24 }) => {
   if (!data || data.length < 2) return null;
   const mn = Math.min(...data), mx = Math.max(...data), rng = mx - mn || 1;
   const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - mn) / rng) * (h - 4) - 2}`).join(" ");
-  return (<svg width={w} height={h} style={{ display: "block" }}><polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" /><circle cx={(data.length - 1) / (data.length - 1) * w} cy={h - ((data[data.length - 1] - mn) / rng) * (h - 4) - 2} r={2.5} fill={color} /></svg>);
+  return (<svg width={w} height={h} style={{ display: "block" }}><polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" /><circle cx={w} cy={h - ((data[data.length - 1] - mn) / rng) * (h - 4) - 2} r={2.5} fill={color} /></svg>);
 };
 
 export const Timeline = ({ grants, stages, team, onClickGrant }) => {
@@ -242,8 +242,7 @@ export const RoleBadge = ({ role }) => {
 };
 
 export const downloadDoc = (text, filename) => {
-  const lt = String.fromCharCode(60);
-  const escaped = text.replace(/&/g,"&amp;").replace(new RegExp(lt, "g"),"&lt;").replace(/>/g,"&gt;")
+  const escaped = text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
     .replace(/\u2550{3,}.*\n?/g, "<hr>")
     .replace(/^(\d+)\.\s+(.+)$/gm, "<h2>$1. $2</h2>")
     .replace(/^([A-Z][A-Z\s&/]{4,})$/gm, "<h2>$1</h2>")
@@ -276,7 +275,7 @@ export const DownloadBtn = ({ text, filename, label, onDocx }) => (
 );
 
 /* ── AI loading steps per action type ── */
-export const AI_LOAD_STEPS = {
+const AI_LOAD_STEPS = {
   "Draft Proposal": [
     "Analysing grant requirements...",
     "Matching programme type to funder priorities...",

@@ -16,6 +16,28 @@ const isFullyVetted = (g) => {
   return VETTING_CHECKS.every(c => v[c.key] === true);
 };
 
+/* ── A single vetting-check row: toggle button + inline contextual data (children) ── */
+function VettingCheckButton({ grantId, checkKey, checked, label, icon, onToggle, children }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <button onClick={() => onToggle(grantId, checkKey)}
+        aria-pressed={!!checked}
+        aria-label={`${label} — ${checked ? "verified" : "not verified"}`}
+        style={{
+          display: "flex", alignItems: "center", gap: 5, padding: "6px 12px",
+          fontSize: 11, fontWeight: 600, fontFamily: FONT, borderRadius: 6, minWidth: 120,
+          border: `1px solid ${checked ? C.ok + "40" : C.line}`,
+          background: checked ? C.okSoft : C.white,
+          color: checked ? C.ok : C.t3, cursor: "pointer",
+        }}>
+        <span aria-hidden="true" style={{ fontSize: 13 }}>{checked ? "✓" : icon}</span>
+        {label}
+      </button>
+      {children}
+    </div>
+  );
+}
+
 /* ── Main component ── */
 export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateGrant, onNavigate, onLaunchTour }) {
   const [filter, setFilter] = useState("all"); // "all" | "mine" | "unvetted" | "vetted"
@@ -79,19 +101,21 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
   const approveGrant = (grantId) => {
     const g = grants.find(x => x.id === grantId);
     if (!g || !isFullyVetted(g)) return;
-    onUpdateGrant(grantId, { stage: "vetting" });
+    onUpdateGrant(grantId, { stage: "qualifying" });
   };
 
-  const rejectGrant = (grantId, reason) => {
-    onUpdateGrant(grantId, {
+  const rejectGrant = (grant, reason) => {
+    if (!grant) return;
+    onUpdateGrant(grant.id, {
       stage: "archived",
-      log: [...(grants.find(x => x.id === grantId)?.log || []), { d: new Date().toISOString().slice(0, 10), t: `Rejected in vetting: ${reason || "not relevant"}` }],
+      log: [...(grant.log || []), { d: new Date().toISOString().slice(0, 10), t: `Rejected in vetting: ${reason || "not relevant"}` }],
     });
   };
 
   const bulkReject = () => {
     for (const id of selectedIds) {
-      rejectGrant(id, bulkRejectReason || "bulk rejected");
+      const g = grants.find(x => x.id === id);
+      rejectGrant(g, bulkRejectReason || "bulk rejected");
     }
     setSelectedIds(new Set());
     setBulkRejectOpen(false);
@@ -102,7 +126,7 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
     for (const id of selectedIds) {
       const g = grants.find(x => x.id === id);
       if (g && isFullyVetted(g)) {
-        onUpdateGrant(id, { stage: "vetting" });
+        onUpdateGrant(id, { stage: "qualifying" });
       }
     }
     setSelectedIds(new Set());
@@ -319,20 +343,7 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
                   {/* Vetting checklist — each item shows relevant data inline */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {/* 1. Link works */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <button onClick={() => toggleCheck(g.id, "urlVerified")}
-                        aria-pressed={!!vetting.urlVerified}
-                        aria-label={`Link works — ${vetting.urlVerified ? "verified" : "not verified"}`}
-                        style={{
-                        display: "flex", alignItems: "center", gap: 5, padding: "6px 12px",
-                        fontSize: 11, fontWeight: 600, fontFamily: FONT, borderRadius: 6, minWidth: 120,
-                        border: `1px solid ${vetting.urlVerified ? C.ok + "40" : C.line}`,
-                        background: vetting.urlVerified ? C.okSoft : C.white,
-                        color: vetting.urlVerified ? C.ok : C.t3, cursor: "pointer",
-                      }}>
-                        <span aria-hidden="true" style={{ fontSize: 13 }}>{vetting.urlVerified ? "✓" : "🔗"}</span>
-                        Link works
-                      </button>
+                    <VettingCheckButton grantId={g.id} checkKey="urlVerified" checked={vetting.urlVerified} label="Link works" icon="🔗" onToggle={toggleCheck}>
                       {editingUrlFor === g.id ? (
                         <div style={{ display: "flex", gap: 4, flex: 1, alignItems: "center" }}>
                           <input type="url" value={editUrlValue} autoFocus
@@ -367,66 +378,27 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
                           </button>
                         </>
                       )}
-                    </div>
+                    </VettingCheckButton>
 
                     {/* 2. Deadline correct */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <button onClick={() => toggleCheck(g.id, "deadlineVerified")}
-                        aria-pressed={!!vetting.deadlineVerified}
-                        aria-label={`Deadline correct — ${vetting.deadlineVerified ? "verified" : "not verified"}`}
-                        style={{
-                        display: "flex", alignItems: "center", gap: 5, padding: "6px 12px",
-                        fontSize: 11, fontWeight: 600, fontFamily: FONT, borderRadius: 6, minWidth: 120,
-                        border: `1px solid ${vetting.deadlineVerified ? C.ok + "40" : C.line}`,
-                        background: vetting.deadlineVerified ? C.okSoft : C.white,
-                        color: vetting.deadlineVerified ? C.ok : C.t3, cursor: "pointer",
-                      }}>
-                        <span aria-hidden="true" style={{ fontSize: 13 }}>{vetting.deadlineVerified ? "✓" : "📅"}</span>
-                        Deadline correct
-                      </button>
+                    <VettingCheckButton grantId={g.id} checkKey="deadlineVerified" checked={vetting.deadlineVerified} label="Deadline correct" icon="📅" onToggle={toggleCheck}>
                       {g.deadline ? (
-                        <span style={{ fontSize: 11, color: daysLeft !== null && daysLeft < 0 ? C.red : daysLeft < 14 ? C.amber : C.t2, fontWeight: 600 }}>
+                        <span style={{ fontSize: 11, color: daysLeft !== null && daysLeft < 0 ? C.red : daysLeft !== null && daysLeft < 14 ? C.amber : C.t2, fontWeight: 600 }}>
                           {new Date(g.deadline).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                           {daysLeft !== null && <span style={{ fontWeight: 400, color: C.t3 }}> ({daysLeft > 0 ? daysLeft + "d left" : "overdue"})</span>}
                         </span>
                       ) : (
                         <span style={{ fontSize: 11, color: C.amber, fontStyle: "italic" }}>No deadline set</span>
                       )}
-                    </div>
+                    </VettingCheckButton>
 
                     {/* 3. Funder is real */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <button onClick={() => toggleCheck(g.id, "funderVerified")}
-                        aria-pressed={!!vetting.funderVerified}
-                        aria-label={`Funder is real — ${vetting.funderVerified ? "verified" : "not verified"}`}
-                        style={{
-                        display: "flex", alignItems: "center", gap: 5, padding: "6px 12px",
-                        fontSize: 11, fontWeight: 600, fontFamily: FONT, borderRadius: 6, minWidth: 120,
-                        border: `1px solid ${vetting.funderVerified ? C.ok + "40" : C.line}`,
-                        background: vetting.funderVerified ? C.okSoft : C.white,
-                        color: vetting.funderVerified ? C.ok : C.t3, cursor: "pointer",
-                      }}>
-                        <span aria-hidden="true" style={{ fontSize: 13 }}>{vetting.funderVerified ? "✓" : "🏢"}</span>
-                        Funder is real
-                      </button>
+                    <VettingCheckButton grantId={g.id} checkKey="funderVerified" checked={vetting.funderVerified} label="Funder is real" icon="🏢" onToggle={toggleCheck}>
                       <span style={{ fontSize: 11, color: C.t2 }}>{g.funder}</span>
-                    </div>
+                    </VettingCheckButton>
 
                     {/* 4. Sector relevant */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <button onClick={() => toggleCheck(g.id, "sectorRelevant")}
-                        aria-pressed={!!vetting.sectorRelevant}
-                        aria-label={`Sector relevant — ${vetting.sectorRelevant ? "verified" : "not verified"}`}
-                        style={{
-                        display: "flex", alignItems: "center", gap: 5, padding: "6px 12px",
-                        fontSize: 11, fontWeight: 600, fontFamily: FONT, borderRadius: 6, minWidth: 120,
-                        border: `1px solid ${vetting.sectorRelevant ? C.ok + "40" : C.line}`,
-                        background: vetting.sectorRelevant ? C.okSoft : C.white,
-                        color: vetting.sectorRelevant ? C.ok : C.t3, cursor: "pointer",
-                      }}>
-                        <span aria-hidden="true" style={{ fontSize: 13 }}>{vetting.sectorRelevant ? "✓" : "🎯"}</span>
-                        Sector relevant
-                      </button>
+                    <VettingCheckButton grantId={g.id} checkKey="sectorRelevant" checked={vetting.sectorRelevant} label="Sector relevant" icon="🎯" onToggle={toggleCheck}>
                       {g.focus && g.focus.length > 0 && (
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                           {g.focus.slice(0, 4).map((f, i) => (
@@ -434,7 +406,7 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
                           ))}
                         </div>
                       )}
-                    </div>
+                    </VettingCheckButton>
                   </div>
 
                   {/* Progress bar */}
@@ -451,7 +423,7 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
 
                 {/* Actions */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-                  <span title={!vetted ? "Complete all 4 verification checks to approve" : "Move to vetting stage"}>
+                  <span title={!vetted ? "Complete all 4 verification checks to approve" : "Move to qualifying stage"}>
                   <Btn
                     v="primary"
                     disabled={!vetted}
@@ -469,7 +441,7 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
                     style={{ fontSize: 11, padding: "6px 14px", color: C.red, borderColor: C.red + "30" }}
                     onClick={() => {
                       if (window.confirm(`Reject "${g.name}"? It will be moved to archived.`)) {
-                        rejectGrant(g.id, "rejected in vetting");
+                        rejectGrant(g, "rejected in vetting");
                       }
                     }}
                   >

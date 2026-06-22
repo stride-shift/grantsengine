@@ -129,10 +129,9 @@ export default function Calendar({ grants, team, stages, onSelectGrant, onLaunch
   const monthGrid = useMemo(() => {
     const year = current.getFullYear(), month = current.getMonth();
     const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
     let start = startOfWeek(firstDay);
     const weeks = [];
-    while (start <= lastDay || weeks.length < 6) {
+    while (weeks.length < 6) {
       const week = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date(start);
@@ -141,7 +140,6 @@ export default function Calendar({ grants, team, stages, onSelectGrant, onLaunch
       }
       weeks.push(week);
       start.setDate(start.getDate() + 7);
-      if (weeks.length >= 6) break;
     }
     return weeks;
   }, [current]);
@@ -309,14 +307,17 @@ export default function Calendar({ grants, team, stages, onSelectGrant, onLaunch
 
   // ── List view ──
   const ListView = () => {
-    const grouped = {};
-    for (const evt of upcomingEvents) {
-      const d = parseLocalDate(evt.date);
-      if (!d) continue;
-      const monthKey = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-      if (!grouped[monthKey]) grouped[monthKey] = [];
-      grouped[monthKey].push(evt);
-    }
+    const grouped = useMemo(() => {
+      const g = {};
+      for (const evt of upcomingEvents) {
+        const d = parseLocalDate(evt.date);
+        if (!d) continue;
+        const monthKey = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+        if (!g[monthKey]) g[monthKey] = [];
+        g[monthKey].push(evt);
+      }
+      return g;
+    }, [upcomingEvents]);
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 16 }}>
         {Object.entries(grouped).map(([month, evts]) => (
@@ -330,6 +331,7 @@ export default function Calendar({ grants, team, stages, onSelectGrant, onLaunch
                 const m = teamById.get(evt.grant.owner);
                 const days = dL(evt.date);
                 const dlCtx = deadlineCtx(days, evt.grant.stage);
+                const ask = effectiveAsk(evt.grant);
                 return (
                   <div key={`${evt.grant.id}-${i}`}
                     onClick={() => onSelectGrant?.(evt.grant.id)}
@@ -368,8 +370,8 @@ export default function Calendar({ grants, team, stages, onSelectGrant, onLaunch
                     </span>
                     {/* Right */}
                     <div style={{ textAlign: "right", flexShrink: 0, minWidth: 50 }}>
-                      {effectiveAsk(evt.grant) > 0 && (
-                        <div style={{ fontSize: 11, fontWeight: 600, fontFamily: MONO, color: "#333" }}>{fmtK(effectiveAsk(evt.grant))}</div>
+                      {ask > 0 && (
+                        <div style={{ fontSize: 11, fontWeight: 600, fontFamily: MONO, color: "#333" }}>{fmtK(ask)}</div>
                       )}
                       {dlCtx.label && (
                         <div style={{ fontSize: 9, fontWeight: 600, color: dlCtx.color }}>{dlCtx.label}</div>
@@ -404,13 +406,16 @@ export default function Calendar({ grants, team, stages, onSelectGrant, onLaunch
 
   // ── Stats ──
   const todayStr = fmtDate(today);
-  const thisWeekStart = startOfWeek(today);
-  const thisWeekEnd = new Date(thisWeekStart);
-  thisWeekEnd.setDate(thisWeekEnd.getDate() + 6);
-  const deadlinesThisWeek = filteredEvents.filter(e => { const d = parseLocalDate(e.date); return d && d >= thisWeekStart && d <= thisWeekEnd && e.type === "deadline"; }).length;
-  const deadlinesThisMonth = filteredEvents.filter(e => { const d = parseLocalDate(e.date); return d && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear() && e.type === "deadline"; }).length;
-  const overdueEvents = filteredEvents.filter(e => e.type === "deadline" && e.date < todayStr).sort((a, b) => b.date.localeCompare(a.date));
-  const overdueCount = overdueEvents.length;
+  const { deadlinesThisWeek, deadlinesThisMonth, overdueEvents, overdueCount } = useMemo(() => {
+    const thisWeekStart = startOfWeek(today);
+    const thisWeekEnd = new Date(thisWeekStart);
+    thisWeekEnd.setDate(thisWeekEnd.getDate() + 6);
+    const week = filteredEvents.filter(e => { const d = parseLocalDate(e.date); return d && d >= thisWeekStart && d <= thisWeekEnd && e.type === "deadline"; }).length;
+    const month = filteredEvents.filter(e => { const d = parseLocalDate(e.date); return d && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear() && e.type === "deadline"; }).length;
+    const overdue = filteredEvents.filter(e => e.type === "deadline" && e.date < todayStr).sort((a, b) => b.date.localeCompare(a.date));
+    return { deadlinesThisWeek: week, deadlinesThisMonth: month, overdueEvents: overdue, overdueCount: overdue.length };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredEvents, todayStr]);
 
   return (
     <div style={{ padding: "16px 12px", height: "100%", display: "flex", flexDirection: "column", fontFamily: FONT }}>

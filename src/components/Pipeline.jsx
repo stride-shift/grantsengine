@@ -3,7 +3,7 @@ import { C, FONT, MONO } from "../theme";
 import { fmtK, dL, uid, td, effectiveAsk, grantReadiness, isAIError } from "../utils";
 import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "./index";
 import { detectType, PTYPES } from "../data/funderStrategy";
-import { GATES, ROLES } from "../data/constants";
+import { GATES, ROLES, CLOSED_STAGES } from "../data/constants";
 import { uploadFile } from "../api";
 import ScoutPanel from "./ScoutPanel";
 
@@ -52,8 +52,6 @@ const GateIndicator = ({ stage, ownerRole }) => {
   );
 };
 
-const VIEW_OPTIONS = [["kanban", "Board"], ["list", "List"], ["person", "Person"]];
-const CLOSED_STAGES = ["won", "lost", "deferred", "archived"];
 const COMMON_FOCUS = ["Youth Employment", "Digital Skills", "AI/4IR", "Education", "Women", "Rural Dev", "STEM", "Entrepreneurship", "Work Readiness", "Leadership"];
 const GRANT_SOURCES = ["scout", "email", "relationship", "website", "referral", "other"];
 const AVATAR_COLORS = [
@@ -392,7 +390,6 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
   };
 
   const activeStages = STAGES.filter(s => !CLOSED_STAGES.includes(s.id));
-  const closedStages = STAGES.filter(s => CLOSED_STAGES.includes(s.id));
 
   return (
     <div style={{ padding: "16px 16px", height: "100%", display: "flex", flexDirection: "column" }}>
@@ -771,7 +768,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                 setUrlInput("");
                 setShowUrlTool(false);
               } catch (e) {
-                alert("Could not parse grant from URL. Try adding manually.");
+                onToast?.('Could not parse grant from URL. Try adding manually.', { type: 'error' });
               }
               setUrlBusy(false);
             }}
@@ -1336,8 +1333,6 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
             else if (isDueSoon) { statusText = d === 0 ? "Due today" : `Due in ${d} day${d !== 1 ? "s" : ""}`; statusColor = C.amber; statusBg = C.amberSoft; }
             else if (g.deadline && d !== null) { statusText = `${d}d left`; statusColor = C.t3; statusBg = C.raised; }
             else if (isClosed) { statusText = stg?.label || g.stage; statusColor = stg?.c || C.t4; statusBg = stg?.bg || C.raised; }
-            // Closed date display
-            const closedDaysAgo = g.log?.slice().reverse().find(l => l.t?.toLowerCase().includes("closed") || l.t?.toLowerCase().includes("archived"));
 
             return (
               <div key={g.id} onClick={() => {

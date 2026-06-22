@@ -178,7 +178,6 @@ export const detectGlossaryTerms = (text) => {
       hits.push({ term, definition: definition.replace(/^\(/, "").replace(/\)$/, ""), index: m.index });
       seen.add(term);
     }
-    regex.lastIndex = 0; // reset for next call (regex is shared)
   }
   // Sort by first appearance so the glossary follows the proposal's reading order
   hits.sort((a, b) => a.index - b.index);
@@ -211,8 +210,8 @@ export const applyGlossary = (text) => {
   if (!text || typeof text !== "string") return text;
   let out = text;
   for (const { regex, definition } of GLOSSARY) {
-    // Build a "match the term, then any whitespace, then NOT already a definition" pattern.
-    // We use the existing regex (must be non-global) and find its FIRST occurrence.
+    // Build a fresh global regex from the stored (non-global) source so exec can scan
+    // from lastIndex 0 without mutating the shared GLOSSARY entry.
     const flags = regex.flags.includes("g") ? regex.flags : regex.flags + "g";
     const globalRe = new RegExp(regex.source, flags);
     let firstMatch = null;

@@ -99,7 +99,8 @@ export default function BudgetBuilder({ grant, onUpdate }) {
   // Check if unsaved changes
   const hasChanges = useMemo(() => {
     if (!saved) return items.length > 0;
-    if (saved.typeNum !== typeNum || saved.cohorts !== cohorts || (saved.years || 1) !== years || saved.includeOrgContribution !== orgContrib) return true;
+    const savedYears = saved.years || 1;
+    if (saved.typeNum !== typeNum || saved.cohorts !== cohorts || savedYears !== years || saved.includeOrgContribution !== orgContrib) return true;
     if (saved.items.length !== items.length) return true;
     return saved.items.some((si, i) => si.label !== items[i]?.label || si.amount !== items[i]?.amount);
   }, [saved, typeNum, cohorts, years, orgContrib, items]);
@@ -146,6 +147,15 @@ export default function BudgetBuilder({ grant, onUpdate }) {
     onUpdate(g.id, { budgetTable: null, askYears: null });
   };
 
+  // Revert all state atoms to the last saved budget (Edit → Cancel)
+  const resetToSaved = () => {
+    setTypeNum(saved?.typeNum || null);
+    setCohorts(saved?.cohorts || 1);
+    setYears(saved?.years || 1);
+    setItems(saved?.items || []);
+    setOrgContrib(saved?.includeOrgContribution || false);
+  };
+
   // Item mutations
   const updateItem = (idx, field, value) => {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it));
@@ -155,7 +165,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
   };
   const addItem = () => {
     if (!newLabel.trim()) return;
-    setItems(prev => [...prev, { label: newLabel.trim(), amount: parseInt(newAmount) || 0, isCustom: true }]);
+    setItems(prev => [...prev, { label: newLabel.trim(), amount: newAmount || 0, isCustom: true }]);
     setNewLabel("");
     setNewAmount("");
     setAddingItem(false);
@@ -396,8 +406,8 @@ export default function BudgetBuilder({ grant, onUpdate }) {
                   />
                   <input
                     type="number"
-                    value={newAmount}
-                    onChange={e => setNewAmount(e.target.value)}
+                    value={newAmount || ""}
+                    onChange={e => setNewAmount(parseInt(e.target.value) || 0)}
                     placeholder="Amount"
                     style={{
                       width: 100, padding: "5px 8px", fontSize: 12, fontFamily: MONO,
@@ -562,7 +572,7 @@ export default function BudgetBuilder({ grant, onUpdate }) {
               <span style={{ fontSize: 10, color: C.amber, fontWeight: 600, marginRight: "auto" }}>Unsaved changes</span>
             )}
             {saved && editing && (
-              <button onClick={() => { setEditing(false); setTypeNum(saved.typeNum); setCohorts(saved.cohorts); setYears(saved.years || 1); setItems(saved.items); setOrgContrib(saved.includeOrgContribution); }}
+              <button onClick={() => { setEditing(false); resetToSaved(); }}
                 style={{ padding: "5px 12px", fontSize: 11, fontWeight: 600, color: C.t3, background: "none", border: `1px solid ${C.line}`, borderRadius: 6, cursor: "pointer", fontFamily: FONT }}>Cancel</button>
             )}
             <button onClick={clearBudget}

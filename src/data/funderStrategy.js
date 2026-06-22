@@ -18,6 +18,7 @@ const FUNDER_HISTORY = {
 
 export const isFunderReturning = name => {
   const n = (name || "").toLowerCase().trim();
+  if (!n) return false;
   return Object.keys(FUNDER_HISTORY).some(k => n.includes(k) || k.includes(n));
 };
 
@@ -32,88 +33,8 @@ export const PTYPES = {
   8: { label: "Bespoke Corporate — Leadership Accelerator", students: 25, cost: 2753418, perStudent: 92057, duration: "18 months", desc: "Bespoke leadership development for corporate graduate hires. 6-month online learning + 12-month coaching/mentoring extension. Monthly touchpoints: group coaching, individual coaching, reflection pods, mentor meetups. AI tools (Language Leveller, Cyborg Habits) embedded. Delivered via The Field Institute.", budget: "Design R452K + Delivery R2.3M for 25 participants (coaching, facilitation, AI tools, assessment, programme management)", table: [["Design & curriculum development","452,000"],["Delivery (25 participants × 18 months)","2,301,418"],["TOTAL","2,753,418"]] },
 };
 
-export const detectType = g => {
-  // Priority 1: explicit "Type N" in notes
-  const n = (g.notes || "").toLowerCase();
-  for (let i = 8; i >= 1; i--) { if (n.includes(`type ${i}`) || n.includes(`(type ${i})`)) return PTYPES[i]; }
-  // Priority 2: infer from ask amount (only when ask is set)
-  if (!g.ask || g.ask <= 0) return null;
-  if (g.ask <= 250000) return PTYPES[7];   // Sci-Bono short course (R232K)
-  if (g.ask <= 550000) return PTYPES[1];   // Partner-funded (R516K)
-  if (g.ask <= 700000) return PTYPES[5];   // Corporate (R651K)
-  if (g.ask <= 1100000) return PTYPES[4];  // FET High School (R1.08M)
-  if (g.ask <= 1400000) return PTYPES[3];  // With stipends (R1.24M)
-  return PTYPES[2];                         // Full-funded with stipends + laptops (R1.6M+)
-};
-
-export const multiCohortInfo = g => {
-  const n = (g.notes || "").toLowerCase();
-  const m = n.match(/(\d+)\s*[×x]?\s*type\s*(\d)/i) || n.match(/(\d+)\s*cohorts?/i);
-  return m ? { count: parseInt(m[1]), typeNum: m[2] ? parseInt(m[2]) : 1 } : null;
-};
-
-/**
- * Select the best PTYPE + cohort count that stays within the funder's budget.
- * Used by "Roll the Dice" to auto-populate the BudgetBuilder.
- * Returns { typeNum, cohorts } or null if no funderBudget.
- */
-export const selectOptimalBudget = g => {
-  // If notes already specify a type, respect that
-  const n = (g.notes || "").toLowerCase();
-  for (let i = 8; i >= 1; i--) {
-    if (n.includes(`type ${i}`) || n.includes(`(type ${i})`)) {
-      const mc = multiCohortInfo(g);
-      return { typeNum: i, cohorts: mc?.count || 1 };
-    }
-  }
-
-  // Check for "bespoke" or "leadership accelerator" keywords
-  if (n.includes("bespoke") || n.includes("leadership accelerator") || n.includes("grad programme")) {
-    return { typeNum: 8, cohorts: 1 };
-  }
-
-  const budget = g.funderBudget || g.ask || 0;
-  if (budget <= 0) return { typeNum: 1, cohorts: 1 }; // default
-
-  // Preferred types by funder category
-  const t = (g.type || "").toLowerCase();
-  let preferred;
-  if (t.includes("corporate")) preferred = [8, 5, 1, 7, 3];
-  else if (t.includes("government") || t.includes("seta")) preferred = [4, 1, 3, 7];
-  else if (t.includes("international")) preferred = [1, 3, 2];
-  else if (t.includes("tech")) preferred = [1, 5, 7];
-  else preferred = [1, 3, 5, 7, 4, 2]; // Foundation + default
-
-  // Prefer the FIRST viable option in the preferred list (strategic fit first)
-  // Only fall through to next type if the preferred one doesn't fit the budget at all
-  for (const num of preferred) {
-    const pt = PTYPES[num];
-    if (!pt || !pt.cost) continue; // skip Type 6 (no fixed cost)
-    const maxCohorts = Math.floor(budget / pt.cost);
-    if (maxCohorts >= 1) {
-      // Use as many cohorts as the budget supports for this strategically-preferred type
-      return { typeNum: num, cohorts: maxCohorts };
-    }
-  }
-
-  // If no preferred type fits, find whatever does
-  for (let num = 7; num >= 1; num--) {
-    const pt = PTYPES[num];
-    if (!pt || !pt.cost) continue;
-    if (budget >= pt.cost) return { typeNum: num, cohorts: Math.floor(budget / pt.cost) };
-  }
-
-  return { typeNum: 1, cohorts: 1 };
-};
-
-export const funderStrategy = g => {
-  const f = g.funder || "";
-  const t = g.type || "";
-  const focus = (g.focus || []).join(", ");
-  const returning = isFunderReturning(f);
-  const pt = detectType(g);
-  const mc = multiCohortInfo(g);
-  const angles = {
+// Funder-specific angle library (d-lab intelligence). See note at top of file.
+const FUNDER_ANGLES = {
     "Get It Done Foundation": { lead: "continuity of a proven, outcomes-driven youth employment system", hook: "Get It Done Foundation has invested R12.8M in d-lab over three consecutive years (R2.84M in 2023, R4.99M in 2024, R4.97M in 2025). This isn't a new pitch — it's a progress report. Your funding built a complete system: 4 cohorts across 3 provinces, 92% completion, 85% employment, and a proprietary AI toolkit that no other South African NPO has. The 2026 request (R4.97M) is continuity, not expansion — 49% of project budget, 35% of operating budget.", sections: ["Partnership Progress", "2025 Outcomes", "2026 Programme Plan", "Budget", "Sustainability & Growth", "Appendices"], lang: "continuity, investment, outcomes, system, proven, partnership", returning: true },
     "Get It Done": { lead: "continuity of a proven, outcomes-driven youth employment system", hook: "Get It Done Foundation has invested R12.8M in d-lab over three consecutive years (R2.84M in 2023, R4.99M in 2024, R4.97M in 2025). This isn't a new pitch — it's a progress report. Your funding built a complete system: 4 cohorts across 3 provinces, 92% completion, 85% employment, and a proprietary AI toolkit that no other South African NPO has. The 2026 request (R4.97M) is continuity, not expansion.", sections: ["Partnership Progress", "2025 Outcomes", "2026 Programme Plan", "Budget", "Sustainability & Growth", "Appendices"], lang: "continuity, investment, outcomes, system, proven, partnership", returning: true },
     "TK Foundation": { lead: "continued investment in scalable youth digital skills", hook: "TK Foundation signed a 3-year commitment to d-lab in April 2024 at R1M/year — an investment in building a system, not just running a programme. In the first year of that partnership, d-lab scaled from pilot to proof: 3 cohorts, 60 learners, 92% completion. Year 2 brings 4 cohorts across 4 provinces with the same model TK backed from the start.", sections: ["Partnership Year 1 Report", "Year 2 Plan", "Programme Impact", "Budget", "Scale Pathway"], lang: "partnership, scale, investment, system building, continuity", returning: true },
@@ -163,8 +84,97 @@ export const funderStrategy = g => {
     "Penreach": { lead: "joint delivery model for rural youth employment in Mpumalanga", hook: "Penreach's deep roots in Mpumalanga communities and d-lab's proven training system create a powerful joint delivery model. Penreach provides the local infrastructure, recruitment, and community trust; d-lab provides the curriculum, AI tools, coaching, and accreditation. Together, we've already proven this works — the 2025 cohort taught us that stipends are essential for retention in rural settings.", sections: ["Joint Delivery Model", "2025 Lessons Learned", "2026 Programme Plan", "Rural Impact", "Budget", "Sustainability"], lang: "partnership, rural delivery, community, joint model, Mpumalanga", returning: true },
     "ALT Capital": { lead: "alternative investment in human capital with measurable returns", hook: "ALT Capital's focus on alternative investment strategies extends naturally to human capital. d-lab's model delivers a measurable return: R25,800 invested per student produces an employed, AI-fluent professional within 9 months, with 85% employment within 3 months of graduation. The unit economics are proven across 3 provinces.", sections: ["Investment Thesis", "Unit Economics", "Evidence Base", "Scale Model", "Impact Measurement"], lang: "alternative capital, impact investment, human capital, unit economics, measurable returns" },
     "Sawabona Africa": { lead: "seeing and unlocking the potential in South Africa's youth", hook: "Sawabona — 'I see you' — captures exactly what d-lab does: we see potential in young people whom the economy has overlooked, and we convert that potential into employment. 92% completion, 85% employment, 29% placed before graduation. These aren't aspirations — they're audited outcomes from a system that works.", sections: ["Vision & Mission Alignment", "Programme Model", "Evidence of Impact", "Budget", "Sustainability"], lang: "potential, youth, empowerment, seeing, community, impact" },
-  };
-  const a = angles[f] || { lead: focus || "youth employment and digital skills", hook: `NO PRE-EXISTING FUNDER INTELLIGENCE for ${f}. Do NOT use generic alignment language like "aligns with our mission." Instead: use the funder research below to identify their SPECIFIC priorities, then open with a concrete connection between what they fund and what the organisation delivers. If no research is available, lead with the organisation's strongest proof points from the context and let the numbers speak.`, sections: ["Impact", "Programme", "Budget", "Sustainability"], lang: "impact, youth, digital skills, employment", noIntel: true };
+};
+
+export const detectType = g => {
+  // Priority 1: explicit "Type N" in notes
+  const n = (g.notes || "").toLowerCase();
+  for (let i = 8; i >= 1; i--) { if (n.includes(`type ${i}`) || n.includes(`(type ${i})`)) return PTYPES[i]; }
+  // Priority 2: infer from ask amount (only when ask is set)
+  if (!g.ask || g.ask <= 0) return null;
+  if (g.ask <= 250000) return PTYPES[7];   // Sci-Bono short course (R232K)
+  if (g.ask <= 550000) return PTYPES[1];   // Partner-funded (R516K)
+  if (g.ask <= 700000) return PTYPES[5];   // Corporate (R651K)
+  if (g.ask <= 1100000) return PTYPES[4];  // FET High School (R1.08M)
+  if (g.ask <= 1400000) return PTYPES[3];  // With stipends (R1.24M)
+  return PTYPES[2];                         // Full-funded with stipends + laptops (R1.6M+)
+};
+
+export const multiCohortInfo = g => {
+  const n = (g.notes || "").toLowerCase();
+  const m = n.match(/(\d+)\s*[×x]?\s*type\s*(\d)/i) || n.match(/(\d+)\s*cohorts?/i);
+  return m ? { count: parseInt(m[1]), typeNum: m[2] ? parseInt(m[2]) : 1 } : null;
+};
+
+/**
+ * Select the best PTYPE + cohort count that stays within the funder's budget.
+ * Used by "Roll the Dice" to auto-populate the BudgetBuilder.
+ * Returns { typeNum, cohorts } or null if no funderBudget.
+ */
+export const selectOptimalBudget = g => {
+  const n = (g.notes || "").toLowerCase();
+
+  // If notes already specify an explicit "Type N", respect that. detectType()
+  // performs the same notes scan; reuse it and recover the typeNum from PTYPES.
+  // Gate on the explicit notes marker so we don't pick up detectType's ask-based
+  // inference here (that path is handled by the budget logic below).
+  const hasExplicitType = /\(?type [1-8]\)?/.test(n);
+  if (hasExplicitType) {
+    const detected = detectType(g);
+    const typeNum = detected ? Number(Object.keys(PTYPES).find(k => PTYPES[k] === detected)) : null;
+    if (typeNum) {
+      const mc = multiCohortInfo(g);
+      return { typeNum, cohorts: mc?.count || 1 };
+    }
+  }
+
+  // Check for "bespoke" or "leadership accelerator" keywords
+  if (n.includes("bespoke") || n.includes("leadership accelerator") || n.includes("grad programme")) {
+    return { typeNum: 8, cohorts: 1 };
+  }
+
+  const budget = g.funderBudget || g.ask || 0;
+  if (budget <= 0) return { typeNum: 1, cohorts: 1 }; // default
+
+  // Preferred types by funder category
+  const t = (g.type || "").toLowerCase();
+  let preferred;
+  if (t.includes("corporate")) preferred = [8, 5, 1, 7, 3];
+  else if (t.includes("government") || t.includes("seta")) preferred = [4, 1, 3, 7];
+  else if (t.includes("international")) preferred = [1, 3, 2];
+  else if (t.includes("tech")) preferred = [1, 5, 7];
+  else preferred = [1, 3, 5, 7, 4, 2]; // Foundation + default
+
+  // Prefer the FIRST viable option in the preferred list (strategic fit first)
+  // Only fall through to next type if the preferred one doesn't fit the budget at all
+  for (const num of preferred) {
+    const pt = PTYPES[num];
+    if (!pt || !pt.cost) continue; // skip Type 6 (no fixed cost)
+    const maxCohorts = Math.floor(budget / pt.cost);
+    if (maxCohorts >= 1) {
+      // Use as many cohorts as the budget supports for this strategically-preferred type
+      return { typeNum: num, cohorts: maxCohorts };
+    }
+  }
+
+  // If no preferred type fits, find whatever does
+  for (let num = 7; num >= 1; num--) {
+    const pt = PTYPES[num];
+    if (!pt || !pt.cost) continue;
+    if (budget >= pt.cost) return { typeNum: num, cohorts: Math.floor(budget / pt.cost) };
+  }
+
+  return { typeNum: 1, cohorts: 1 };
+};
+
+export const funderStrategy = g => {
+  const f = g.funder || "";
+  const t = g.type || "";
+  const focus = (g.focus || []).join(", ");
+  const returning = isFunderReturning(f);
+  const pt = detectType(g);
+  const mc = multiCohortInfo(g);
+  const a = FUNDER_ANGLES[f] || { lead: focus || "youth employment and digital skills", hook: `NO PRE-EXISTING FUNDER INTELLIGENCE for ${f}. Do NOT use generic alignment language like "aligns with our mission." Instead: use the funder research below to identify their SPECIFIC priorities, then open with a concrete connection between what they fund and what the organisation delivers. If no research is available, lead with the organisation's strongest proof points from the context and let the numbers speak.`, sections: ["Impact", "Programme", "Budget", "Sustainability"], lang: "impact, youth, digital skills, employment", noIntel: true };
   const structures = {
     "Corporate CSI": ["Cover Letter", "Executive Summary", "B-BBEE Value Proposition", "Programme Overview", "Impact & Outcomes", "Budget", "Brand Alignment & Visibility", "Sustainability", "Appendices"],
     "Government/SETA": ["Cover Letter", "Executive Summary", "Regulatory Alignment (NQF/SAQA/NSDP)", "Organisational Capacity", "Programme Description", "Accreditation & Quality Assurance", "Budget & Value for Money", "M&E Framework", "Transformation & Equity", "Appendices"],
@@ -185,7 +195,7 @@ export const funderStrategy = g => {
   const targetPages = a.targetPages || pageDefaults[t] || 8;
   const formatNotes = a.formatNotes || "";
   // Funder-specific sections override generic type structure when they include Cover Letter (= full structure, not just hints)
-  const funderHasFullStructure = a.sections && a.sections.length >= 4 && a.sections.some(s => s.toLowerCase().includes("cover") || s.toLowerCase().includes("budget"));
+  const funderHasFullStructure = !a.noIntel && a.sections && a.sections.length >= 4 && a.sections.some(s => s.toLowerCase().includes("cover") || s.toLowerCase().includes("budget"));
   const structure = funderHasFullStructure ? a.sections : (structures[t] || structures["Foundation"]);
   return { ...a, returning, pt, mc, structure, targetPages, formatNotes };
 };

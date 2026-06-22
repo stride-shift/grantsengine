@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, forwardRef, useImperativeHandle } from "react";
 import { C, FONT, MONO } from "../theme";
-import { uid, td, isGroundingRedirect, isUsableUrl, normaliseFunder as utilNormaliseFunder } from "../utils";
+import { uid, td, isGroundingRedirect, isUsableUrl, normaliseFunder } from "../utils";
 import { Btn } from "./index";
 import { scoutPrompt, scoutBriefPrompt } from "../prompts";
 import { kvGet, kvSet, verifyUrls } from "../api";
+import { CLOSED_STAGES } from "../data/constants";
 
 /* ── Constants ── */
 const SCOUT_TYPE_MAP = { corporate: "Corporate CSI", csi: "Corporate CSI", government: "Government/SETA", seta: "Government/SETA", international: "International", foundation: "Foundation", tech: "Tech Company", credit: "Tech Credit", "in-kind": "In-Kind", partnership: "Partnership", development: "Development Agency", impact: "Impact Investor" };
@@ -192,9 +193,6 @@ const SCOUT_FALLBACK = [
 ];
 
 /* ── Scout data-quality helpers ── */
-// Re-export the shared util so callers in this file keep working.
-const normaliseFunder = utilNormaliseFunder;
-
 // Levenshtein distance for fuzzy title matching
 const levenshtein = (a, b) => {
   if (a === b) return 0;
@@ -230,6 +228,12 @@ const isHomepageOnly = (url) => {
   } catch { return false; }
 };
 
+// Detect an AI/API error string so we never persist or display it as a real result
+const isApiErrorString = (s) => {
+  if (!s) return false;
+  return /^(Rate limit reached|Error[: (]|Connection error:|The AI service is temporarily overloaded|No response|Request failed after)/i.test(s.trim());
+};
+
 const parseScoutResults = (text) => {
   try {
     const clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
@@ -242,8 +246,6 @@ const parseScoutResults = (text) => {
   } catch (e) { /* fall through */ }
   return null;
 };
-
-const CLOSED_STAGES = ["won", "lost", "deferred", "archived"];
 
 /* ── ScoutPanel Component ── */
 const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGrant, onShowAdd, onShowUrlTool, onScoutingChange, api }, ref) {
@@ -266,14 +268,13 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
 
   // Load scout brief + rejections from KV store on mount
   useEffect(() => {
-    const errRe = /^(Rate limit reached|Error[: (]|Connection error:|The AI service is temporarily overloaded|No response|Request failed after)/i;
     Promise.all([
       kvGet("scout_brief").catch(() => null),
       kvGet("scout_rejections").catch(() => null),
     ]).then(([brief, rejections]) => {
       if (brief) {
         const text = (typeof brief === "string" ? brief : brief.value || "").trim();
-        if (text && !errRe.test(text)) setScoutBrief(text);
+        if (text && !isApiErrorString(text)) setScoutBrief(text);
         else if (text) kvSet("scout_brief", "").catch(() => {}); // purge stale error string
       }
       if (Array.isArray(rejections)) setScoutRejections(rejections);
@@ -308,11 +309,16 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
     else if (scoutFitFilter === "medium") results = results.filter(s => s.fitScore >= 40);
     // Phase 2: hide low-confidence results unless user explicitly opts in
     if (!showUncertain) results = results.filter(s => s.confidence !== "low");
-    if (scoutSort === "fit") results.sort((a, b) => b.fitScore - a.fitScore);
-    else if (scoutSort === "deadline") results.sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999"));
-    else if (scoutSort === "budget") results.sort((a, b) => (Number(b.funderBudget || b.ask) || 0) - (Number(a.funderBudget || a.ask) || 0));
-    // Always push rejected to bottom
-    results.sort((a, b) => (a.rejected ? 1 : 0) - (b.rejected ? 1 : 0));
+    // Single comparator: rejected cards always sort to bottom, then by selected criterion
+    const bySort = (a, b) => {
+      if (scoutSort === "deadline") return (a.deadline || "9999").localeCompare(b.deadline || "9999");
+      if (scoutSort === "budget") return (Number(b.funderBudget || b.ask) || 0) - (Number(a.funderBudget || a.ask) || 0);
+      return b.fitScore - a.fitScore; // default: fit
+    };
+    results.sort((a, b) => {
+      const r = (a.rejected ? 1 : 0) - (b.rejected ? 1 : 0);
+      return r !== 0 ? r : bySort(a, b);
+    });
     return results;
   }, [scoutResults, scoutFitFilter, scoutSort, showUncertain]);
 
@@ -323,10 +329,6 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
   );
 
   /* ── Scout Brief: generate org identity distillation ── */
-  const isApiErrorString = (s) => {
-    if (!s) return false;
-    return /^(Rate limit reached|Error[: (]|Connection error:|The AI service is temporarily overloaded|No response|Request failed after)/i.test(s.trim());
-  };
   const generateScoutBrief = async () => {
     if (!orgContext) return "";
     setScoutBriefLoading(true);
@@ -374,10 +376,9 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
     setScouting(true);
     setScoutResults([]);
     setRejectingIdx(null);
-    const existing = grants
-      .filter(g => !CLOSED_STAGES.includes(g.stage))
-      .map(g => g.funder.toLowerCase());
-    const existingNormalised = new Set(grants.filter(g => !CLOSED_STAGES.includes(g.stage)).map(g => normaliseFunder(g.funder)));
+    const activeGrants = grants.filter(g => !CLOSED_STAGES.includes(g.stage));
+    const existing = activeGrants.map(g => g.funder.toLowerCase());
+    const existingNormalised = new Set(activeGrants.map(g => normaliseFunder(g.funder)));
     const existingFunders = [...new Set(existing)].join(", ");
 
     // Auto-generate scout brief if empty

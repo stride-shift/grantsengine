@@ -24,6 +24,9 @@ const ORG_DOC_CAT_MAP = {
   Org: "org",
 };
 
+/* ── Role → permission level ── */
+const ROLE_LEVELS = { director: 3, board: 3, hop: 2, pm: 1, coord: 1, comms: 0 };
+
 function formatBytes(bytes) {
   if (!bytes) return "—";
   if (bytes < 1024) return `${bytes} B`;
@@ -39,7 +42,6 @@ function daysSince(dateStr) {
 }
 
 export default function DocVault({ grants, complianceDocs, currentMember, onLaunchTour }) {
-  const ROLE_LEVELS = { director: 3, board: 3, hop: 2, pm: 1, coord: 1, comms: 0 };
   const memberLevel = ROLE_LEVELS[currentMember?.role] || 0;
   const isAdmin = memberLevel >= 2;
   const [uploads, setUploads] = useState([]);
@@ -99,8 +101,6 @@ export default function DocVault({ grants, complianceDocs, currentMember, onLaun
 
   // Compliance doc status — which required docs are uploaded
   const complianceStatus = useMemo(() => {
-    const uploaded = new Set(uploads.map(u => u.category).filter(Boolean));
-    const compUploaded = uploads.filter(u => u.category === "compliance" || u.category === "governance" || u.category === "financial");
     return {
       total: ORG_DOCS.length,
       uploaded: complianceDocs?.length || 0,
@@ -471,12 +471,7 @@ export default function DocVault({ grants, complianceDocs, currentMember, onLaun
                   ))}
                 </select>
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm(`Delete "${doc.original_name}"?`)) {
-                      deleteUpload(doc.id).then(() => setUploads(prev => prev.filter(u => u.id !== doc.id))).catch(err => alert("Delete failed: " + err.message));
-                    }
-                  }}
+                  onClick={(e) => handleDelete(doc.id, e)}
                   style={{
                     fontSize: 14, color: C.t4, background: "none", border: "none",
                     cursor: "pointer", fontFamily: FONT, padding: "4px 8px", flexShrink: 0,

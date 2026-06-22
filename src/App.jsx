@@ -1,17 +1,16 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
-import { C, FONT, MONO, injectFonts, applyOrgTheme, resetTheme } from "./theme";
-import { uid, td, dL, addD, effectiveAsk, isUsableUrl, isHomepageOnly, normaliseFunder, grantCompleteness, sanitizeNotes, detectUnsolicited, isAIError } from "./utils";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense, Component } from "react";
+import { C, FONT, injectFonts, applyOrgTheme, resetTheme } from "./theme";
+import { uid, td, dL, addD, isUsableUrl, isHomepageOnly, normaliseFunder, grantCompleteness, sanitizeNotes, detectUnsolicited, isAIError } from "./utils";
 import { CAD } from "./data/constants";
 import {
   isLoggedIn, getAuth, setAuth, getCurrentMember, login, logout, setPassword,
   memberLogin,
   getGrants, saveGrant, addGrant as apiAddGrant, removeGrant,
-  getTeam, getProfile, getPipelineConfig, getOrg, updateOrg as apiUpdateOrg, checkHealth, api, verifyUrls,
+  getTeam, getProfile, updateProfile as apiUpdateProfile, getPipelineConfig, getOrg, updateOrg as apiUpdateOrg, checkHealth, api, verifyUrls,
   getCompliance, updateComplianceDoc, createComplianceDoc,
 } from "./api";
 import useAI from "./hooks/useAI";
 
-import { Component } from "react";
 import OrgSelector from "./components/OrgSelector";
 import Login from "./components/Login";
 import { ToastProvider, useToast } from "./components/Toast";
@@ -216,8 +215,6 @@ function HelpButton({ currentView, selectedGrant, onLaunch }) {
   );
 }
 import geLogo from "./grants-engine-logo.png";
-import dlabLogo from "./dlab.png";
-import geIcon from "./ge-icon.png";
 import NorthernLights from "./components/NorthernLights";
 
 // Error boundary — prevents white screen on component crash
@@ -299,14 +296,13 @@ function AppInner() {
   const toast = useToast();
   // ── Auth state ──
   const [authed, setAuthed] = useState(isLoggedIn());
+  const params = new URLSearchParams(window.location.search);
   const [orgSlug, setOrgSlug] = useState(getAuth().slug || (() => {
-    const params = new URLSearchParams(window.location.search);
     return params.get("reset") && params.get("slug") ? params.get("slug") : null;
   })());
   const [currentMember, setCurrentMember] = useState(getCurrentMember());
   // Check for password reset link — auto-select org and go to login
   const resetParams = (() => {
-    const params = new URLSearchParams(window.location.search);
     return params.get("reset") && params.get("slug") ? { token: params.get("reset"), slug: params.get("slug") } : null;
   })();
   const [selectingOrg, setSelectingOrg] = useState(!isLoggedIn() && !resetParams);
@@ -1276,7 +1272,6 @@ function AppInner() {
             complianceDocs={complianceDocs}
             onUpsertCompDoc={upsertCompDoc}
             onUpdateProfile={async (data) => {
-              const { updateProfile: apiUpdateProfile } = await import("./api");
               await apiUpdateProfile(data);
               const newProfile = await getProfile();
               setProfile(newProfile);

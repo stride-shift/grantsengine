@@ -15,6 +15,9 @@ export const STAGES = [
   { id: "archived",   label: "Not Relevant",  c: "#D1D5DB", bg: "#F9FAFB" },
 ];
 
+// Stages that represent a closed/terminal grant (no longer active in the pipeline).
+export const CLOSED_STAGES = ['won', 'lost', 'deferred', 'archived'];
+
 export const FTYPES = ["Corporate CSI", "Government/SETA", "International", "Foundation", "Tech Company", "Partnership"];
 export const WFAC = ["Outcome data", "Budget fit", "Geographic match", "Relationship", "AI angle", "Rural focus", "Gender angle", "Employment commitment", "Co-funding", "SETA alignment", "Replicable model", "Tech platform"];
 export const LFAC = ["Budget too high", "Outside focus", "Track record", "Geography", "Missing docs", "Competitive", "Timing missed", "Insufficient detail", "Org too small", "Already funded similar"];
@@ -107,7 +110,7 @@ export const GATES = {
 
 // Agent personas for AI emulation — LEGACY fallback
 // Active app uses team data from DB; these are only used if team data is missing
-export const PERSONAS = {
+const PERSONAS = {
   director: "You are the Director. Strategic thinker focused on programme impact, sustainability, and mission alignment. Direct, analytical. Push for clarity on budgets and measurable impact.",
   board: "You are a Board Member (Governance & Finance). Focus on governance, financial prudence, risk, and compliance. Ask tough questions about budgets, funder relationships, and legal requirements.",
   hop: "You are the Head of Programmes. Oversee programme delivery. Focus on operational feasibility, realistic timelines, curriculum readiness. Push back on overcommitting resources.",

@@ -72,6 +72,11 @@ export default function WelcomeTutorial({ open, onClose }) {
   const [step, setStep] = useState(0);
   const dialogRef = useRef(null);
 
+  const finish = () => {
+    markTutorialSeen();
+    onClose?.();
+  };
+
   useEffect(() => {
     if (open) setStep(0);
   }, [open]);
@@ -90,11 +95,6 @@ export default function WelcomeTutorial({ open, onClose }) {
 
   const s = STEPS[step];
   const last = step === STEPS.length - 1;
-
-  const finish = () => {
-    markTutorialSeen();
-    onClose?.();
-  };
 
   return (
     <div style={{
@@ -117,7 +117,7 @@ export default function WelcomeTutorial({ open, onClose }) {
         <div style={{ height: 4, background: C.line }}>
           <div style={{
             height: "100%", width: `${((step + 1) / STEPS.length) * 100}%`,
-            background: `linear-gradient(90deg, ${C.primary}, ${C.primaryDark || C.primary})`,
+            background: `linear-gradient(90deg, ${C.primary}, ${C.primaryDark})`,
             transition: "width 0.3s ease",
           }} />
         </div>
@@ -176,7 +176,7 @@ export default function WelcomeTutorial({ open, onClose }) {
             )}
             <button onClick={() => last ? finish() : setStep(step + 1)} style={{
               fontSize: 13, fontWeight: 700, color: C.white,
-              background: `linear-gradient(135deg, ${C.primary}, ${C.primaryDark || C.primary})`,
+              background: `linear-gradient(135deg, ${C.primary}, ${C.primaryDark})`,
               border: "none", borderRadius: 8, padding: "8px 20px",
               cursor: "pointer", fontFamily: FONT,
             }}>

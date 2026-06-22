@@ -40,6 +40,90 @@ function faviconUrl(website) {
   } catch { return null; }
 }
 
+/* ── Header (shared across views) ── */
+function OrgHeader() {
+  return (
+    <div style={{
+      position: "fixed", top: 0, left: 0, right: 0, height: 80, zIndex: 10,
+      background: "rgba(0,0,0,0.5)", backdropFilter: "blur(16px)",
+      display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px",
+      boxShadow: "0 2px 12px rgba(0, 0, 0, 0.3)", pointerEvents: "auto",
+    }}>
+      {/* Grants Engine logo — left */}
+      <img src={geLogo} alt="Grants Engine" style={{ height: 50, objectFit: "contain" }} />
+    </div>
+  );
+}
+
+/* ── Delete confirmation modal ── */
+function DeleteConfirmModal({ target, confirmSlug, onConfirmChange, onConfirm, onCancel, deleting, err }) {
+  if (!target) return null;
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(55, 65, 81, 0.5)", zIndex: 9999, pointerEvents: "auto",
+      display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT,
+    }} onClick={() => { if (!deleting) onCancel(); }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: 420, background: C.white, borderRadius: 14, padding: 28, boxShadow: C.cardShadowLg,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, background: C.redSoft,
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
+          }}>🗑</div>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: C.dark }}>Delete Organisation</div>
+            <div style={{ fontSize: 12, color: C.t3 }}>This action is permanent and cannot be undone</div>
+          </div>
+        </div>
+
+        <div style={{
+          background: C.redSoft, border: `1px solid ${C.red}30`, borderRadius: 8, padding: "12px 16px",
+          marginBottom: 20, fontSize: 13, color: C.red, lineHeight: 1.5,
+        }}>
+          This will permanently delete <strong>{target.name}</strong> and all its data including grants, proposals, team members, documents, and settings.
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 4 }}>
+            Type <span style={{ fontFamily: MONO, background: C.raised, padding: "1px 6px", borderRadius: 4 }}>{target.slug}</span> to confirm
+          </label>
+          <input value={confirmSlug} onChange={e => onConfirmChange(e.target.value)} autoFocus
+            placeholder={target.slug}
+            style={{
+              width: "100%", padding: "8px 12px", fontSize: 14, fontFamily: MONO,
+              border: `1px solid ${confirmSlug === target.slug ? C.primary : C.line}`,
+              borderRadius: 8, boxSizing: "border-box",
+            }} />
+        </div>
+
+        {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onConfirm}
+            disabled={deleting || confirmSlug !== target.slug}
+            style={{
+              flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600, fontFamily: FONT,
+              background: confirmSlug === target.slug ? C.primary : C.raised,
+              color: confirmSlug === target.slug ? C.white : C.t4,
+              border: "none", borderRadius: 8, cursor: confirmSlug === target.slug ? "pointer" : "not-allowed",
+              transition: "all 0.2s",
+            }}>
+            {deleting ? "Deleting..." : "Delete Forever"}
+          </button>
+          <button onClick={onCancel}
+            disabled={deleting}
+            style={{
+              padding: "10px 16px", fontSize: 14, fontWeight: 600, fontFamily: FONT,
+              background: "none", color: C.t3, border: `1px solid ${C.line}`, borderRadius: 8,
+              cursor: "pointer",
+            }}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OrgSelector({ onSelect }) {
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,26 +199,13 @@ export default function OrgSelector({ onSelect }) {
 
   const fav = faviconUrl(website);
 
-  // ── Header (shared across views) ──
-  const header = (
-    <div style={{
-      position: "fixed", top: 0, left: 0, right: 0, height: 80, zIndex: 10,
-      background: "rgba(0,0,0,0.5)", backdropFilter: "blur(16px)",
-      display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px",
-      boxShadow: "0 2px 12px rgba(0, 0, 0, 0.3)", pointerEvents: "auto",
-    }}>
-      {/* Grants Engine logo — left */}
-            <img src={geLogo} alt="Grants Engine" style={{ height: 50, objectFit: "contain" }} />
-    </div>
-  );
-
   // ── Logo step UI ──
   if (logoStep) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", background: "#000", fontFamily: FONT, position: "relative" }}>
         <div style={{ position: "fixed", inset: 0, zIndex: 0 }}><NorthernLights /></div>
         <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, pointerEvents: "none", padding: "100px 0 40px" }}>
-        {header}
+        <OrgHeader />
         <div style={{ width: "90%", maxWidth: 420, background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: "28px 24px", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", textAlign: "center", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.12)", pointerEvents: "auto" }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Almost Done</div>
           <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Add Company Logo</div>
@@ -199,76 +270,23 @@ export default function OrgSelector({ onSelect }) {
   }
 
   // ── Delete confirmation modal ──
-  const deleteModal = deleteTarget && (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(55, 65, 81, 0.5)", zIndex: 9999, pointerEvents: "auto",
-      display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT,
-    }} onClick={() => { if (!deleting) { setDeleteTarget(null); setConfirmSlug(""); setDeleteErr(""); } }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        width: 420, background: C.white, borderRadius: 14, padding: 28, boxShadow: C.cardShadowLg,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10, background: C.redSoft,
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
-          }}>🗑</div>
-          <div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: C.dark }}>Delete Organisation</div>
-            <div style={{ fontSize: 12, color: C.t3 }}>This action is permanent and cannot be undone</div>
-          </div>
-        </div>
-
-        <div style={{
-          background: C.redSoft, border: `1px solid ${C.red}30`, borderRadius: 8, padding: "12px 16px",
-          marginBottom: 20, fontSize: 13, color: C.red, lineHeight: 1.5,
-        }}>
-          This will permanently delete <strong>{deleteTarget.name}</strong> and all its data including grants, proposals, team members, documents, and settings.
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 4 }}>
-            Type <span style={{ fontFamily: MONO, background: C.raised, padding: "1px 6px", borderRadius: 4 }}>{deleteTarget.slug}</span> to confirm
-          </label>
-          <input value={confirmSlug} onChange={e => setConfirmSlug(e.target.value)} autoFocus
-            placeholder={deleteTarget.slug}
-            style={{
-              width: "100%", padding: "8px 12px", fontSize: 14, fontFamily: MONO,
-              border: `1px solid ${confirmSlug === deleteTarget.slug ? C.primary : C.line}`,
-              borderRadius: 8, boxSizing: "border-box",
-            }} />
-        </div>
-
-        {deleteErr && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{deleteErr}</div>}
-
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={doDelete}
-            disabled={deleting || confirmSlug !== deleteTarget.slug}
-            style={{
-              flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600, fontFamily: FONT,
-              background: confirmSlug === deleteTarget.slug ? C.primary : C.raised,
-              color: confirmSlug === deleteTarget.slug ? C.white : C.t4,
-              border: "none", borderRadius: 8, cursor: confirmSlug === deleteTarget.slug ? "pointer" : "not-allowed",
-              transition: "all 0.2s",
-            }}>
-            {deleting ? "Deleting..." : "Delete Forever"}
-          </button>
-          <button onClick={() => { setDeleteTarget(null); setConfirmSlug(""); setDeleteErr(""); }}
-            disabled={deleting}
-            style={{
-              padding: "10px 16px", fontSize: 14, fontWeight: 600, fontFamily: FONT,
-              background: "none", color: C.t3, border: `1px solid ${C.line}`, borderRadius: 8,
-              cursor: "pointer",
-            }}>Cancel</button>
-        </div>
-      </div>
-    </div>
+  const deleteModal = (
+    <DeleteConfirmModal
+      target={deleteTarget}
+      confirmSlug={confirmSlug}
+      onConfirmChange={setConfirmSlug}
+      onConfirm={doDelete}
+      onCancel={() => { setDeleteTarget(null); setConfirmSlug(""); setDeleteErr(""); }}
+      deleting={deleting}
+      err={deleteErr}
+    />
   );
 
   // ── Main selector UI ──
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", background: "#000", fontFamily: FONT, position: "relative" }}>
       <div style={{ position: "fixed", inset: 0, zIndex: 0 }}><NorthernLights /></div>
-      {header}
+      <OrgHeader />
       {deleteModal}
       <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, pointerEvents: "none", padding: "100px 0 40px" }}>
 
@@ -355,8 +373,6 @@ export default function OrgSelector({ onSelect }) {
                           display: "flex", alignItems: "center", justifyContent: "center",
                           fontSize: 16, color: C.red, transition: "all 0.2s",
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.background = C.redSoft; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = C.redSoft; }}
                       >✕</button>
                     )}
                   </div>

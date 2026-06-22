@@ -3,7 +3,7 @@ import { C, FONT, MONO } from "../theme";
 import { Btn, CopyBtn, DownloadBtn } from "./index";
 import { assembleText, effectiveAsk, isAIError, cleanProposalText, validateProposalBreaks, readabilityScore, readabilityLabel } from "../utils";
 import { buildGlossaryAppendix } from "../data/glossary";
-import { funderStrategy, detectType, PTYPES } from "../data/funderStrategy";
+import { funderStrategy, PTYPES } from "../data/funderStrategy";
 import SectionCard from "./SectionCard";
 import { analyzeEditInBackground } from "../editLearner";
 
@@ -370,11 +370,24 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
   // ── Copy all assembled text ──
   // If the user has opted in to a glossary appendix, build it from the assembled text
   // and append. Only adds when at least one glossary term actually appears.
-  const assembledText = (() => {
-    const base = assembleText(sections, order);
-    if (!g.includeGlossary) return base;
-    const appendix = buildGlossaryAppendix(base);
-    return appendix ? (base + "\n\n" + appendix) : base;
+  // The appendix is built once from the base text and reused both here and by the
+  // glossary toggle button below (it only ever repeats terms already in the base, so
+  // detecting terms on base vs base+appendix yields the same set).
+  const assembledBase = assembleText(sections, order);
+  const glossaryAppendix = buildGlossaryAppendix(assembledBase);
+  const assembledText = (g.includeGlossary && glossaryAppendix)
+    ? (assembledBase + "\n\n" + glossaryAppendix)
+    : assembledBase;
+
+  // ── Readability badge (Flesch Reading Ease) ──
+  // Donor-facing proposals should land in "plain English" or "fairly difficult".
+  const readabilityBadgeProps = (() => {
+    if (assembledText.length <= 500) return null;
+    const score = readabilityScore(assembledText);
+    const meta = readabilityLabel(score);
+    if (score === null || !meta) return null;
+    const toneColor = meta.tone === "ok" ? C.ok : meta.tone === "amber" ? C.amber : C.red;
+    return { score, meta, toneColor };
   })();
 
   // ── Legacy migration: grant has aiDraft but no aiSections ──
@@ -382,7 +395,7 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
   const migrateToSections = useCallback(() => {
     const text = g.aiDraft;
     const newSections = {};
-    let remaining = text;
+    const fullText = text;
 
     for (let i = 0; i < order.length; i++) {
       const name = order[i];
@@ -395,21 +408,21 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
       let matchIdx = -1;
       let matchLen = 0;
       for (const p of patterns) {
-        const m = remaining.match(p);
+        const m = fullText.match(p);
         if (m) { matchIdx = m.index; matchLen = m[0].length; break; }
       }
 
       if (matchIdx >= 0) {
         const startIdx = matchIdx + matchLen;
         // Find next section header
-        let endIdx = remaining.length;
+        let endIdx = fullText.length;
         for (let j = i + 1; j < order.length; j++) {
           const nextEsc = order[j].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
           const nextP = new RegExp(`(?:^|\\n)\\s*(?:\\d+\\.?\\s*)?${nextEsc}\\s*\\n`, "i");
-          const nextM = remaining.slice(startIdx).match(nextP);
+          const nextM = fullText.slice(startIdx).match(nextP);
           if (nextM) { endIdx = startIdx + nextM.index; break; }
         }
-        const sectionText = remaining.slice(startIdx, endIdx).replace(/^[\s=\-]+/, "").trim();
+        const sectionText = fullText.slice(startIdx, endIdx).replace(/^[\s=\-]+/, "").trim();
         if (sectionText) {
           newSections[name] = {
             text: sectionText,
@@ -456,22 +469,15 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
               }} />
             </div>
             {g.aiSectionsAt && <span style={{ fontSize: 10, fontFamily: MONO, color: C.t4 }}>Last full run: {new Date(g.aiSectionsAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}</span>}
-            {/* Readability — Flesch Reading Ease on the assembled proposal.
-                Donor-facing proposals should land in "plain English" or "fairly difficult". */}
-            {assembledText && assembledText.length > 500 && (() => {
-              const score = readabilityScore(assembledText);
-              const meta = readabilityLabel(score);
-              if (score === null || !meta) return null;
-              const toneColor = meta.tone === "ok" ? C.ok : meta.tone === "amber" ? C.amber : C.red;
-              return (
-                <span title={meta.note} style={{
-                  fontSize: 10, fontFamily: MONO, color: toneColor, fontWeight: 700,
-                  padding: "1px 6px", borderRadius: 4, background: `${toneColor}10`,
-                }}>
-                  Readability: {score} · {meta.label}
-                </span>
-              );
-            })()}
+            {/* Readability — Flesch Reading Ease on the assembled proposal. */}
+            {readabilityBadgeProps && (
+              <span title={readabilityBadgeProps.meta.note} style={{
+                fontSize: 10, fontFamily: MONO, color: readabilityBadgeProps.toneColor, fontWeight: 700,
+                padding: "1px 6px", borderRadius: 4, background: `${readabilityBadgeProps.toneColor}10`,
+              }}>
+                Readability: {readabilityBadgeProps.score} · {readabilityBadgeProps.meta.label}
+              </span>
+            )}
           </div>
         </div>
 
@@ -500,8 +506,7 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
                   acronyms to the proposal so international or non-specialist
                   funders aren't tripped up by B-BBEE, POPIA, SETA, etc. */}
               {(() => {
-                const previewAppendix = assembledText ? buildGlossaryAppendix(assembledText) : "";
-                const hasTerms = !!previewAppendix;
+                const hasTerms = !!glossaryAppendix;
                 const on = !!g.includeGlossary;
                 const disabled = !hasTerms && !on;
                 return (

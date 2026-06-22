@@ -42,7 +42,7 @@ export const parseStructuredResearch = (raw) => {
 };
 
 // ── Post-processing filter for banned phrases that the AI ignores ──
-// Gemini sometimes uses these despite explicit prompt-level bans.
+// The AI model sometimes uses these despite explicit prompt-level bans.
 // This is the last line of defence — it removes entire sentences containing banned patterns.
 
 // Sentences starting with these words get REMOVED ENTIRELY (the whole sentence, not just the word)
@@ -84,7 +84,7 @@ export const cleanProposalText = (text) => {
   }
   // 4. Clean up artifacts: double spaces, blank lines, leading punctuation
   cleaned = cleaned.replace(/\n\s*[,;]\s/g, "\n").replace(/  +/g, " ").replace(/\n{3,}/g, "\n\n").replace(/\n +/g, "\n").trim();
-  // 5. Phase 6: insert bracketed definitions for internal/sector jargon on first use
+  // 5. insert bracketed definitions for internal/sector jargon on first use
   cleaned = applyGlossary(cleaned);
   return cleaned;
 };
@@ -92,6 +92,8 @@ export const cleanProposalText = (text) => {
 // Phase 2 / URL hygiene: detect Gemini grounding-redirect URLs.
 // These are tracking URLs Gemini returns when grounded with Google Search.
 // They only resolve inside a Gemini session — useless as application links.
+// Retained for backward-compatibility with data persisted before the migration
+// from Gemini to OpenAI.
 export const isGroundingRedirect = (url) => {
   if (!url || typeof url !== "string") return false;
   return /vertexaisearch\.cloud\.google\.com|\/grounding-api-redirect\/|google\.com\/url\?/i.test(url);
@@ -207,11 +209,11 @@ export const validateProposalBreaks = (text) => {
   const issues = [];
   if (!text || typeof text !== "string") return { issues: [], score: 100 };
 
-  const stripCode = text;
-  const hasTable = /\|.*\|.*\|/m.test(stripCode); // any markdown table at all
-  const hasStat = /\[STAT:\s*[^|\]]+\|[^\]]+\]/i.test(stripCode); // any stat callout
-  const hasHeaders = /^#{1,6}\s+\S/m.test(stripCode); // markdown headers
-  const wordCount = stripCode.split(/\s+/).filter(Boolean).length;
+  const doc = text;
+  const hasTable = /\|.*\|.*\|/m.test(doc); // any markdown table at all
+  const hasStat = /\[STAT:\s*[^|\]]+\|[^\]]+\]/i.test(doc); // any stat callout
+  const hasHeaders = /^#{1,6}\s+\S/m.test(doc); // markdown headers
+  const wordCount = doc.split(/\s+/).filter(Boolean).length;
 
   if (wordCount < 200) return { issues: [], score: 100 }; // too short to need breaks
 
@@ -226,7 +228,7 @@ export const validateProposalBreaks = (text) => {
   }
 
   // Paragraph-by-paragraph check
-  const paras = stripCode.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
+  const paras = doc.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
   let longParaCount = 0;
   for (const p of paras) {
     if (/^[#|]/.test(p)) continue; // skip headers and tables
@@ -239,7 +241,7 @@ export const validateProposalBreaks = (text) => {
 
   // Run-without-break check: longest stretch of plain prose without ANY visual relief
   let longestRun = 0, currentRun = 0;
-  for (const line of stripCode.split(/\n+/)) {
+  for (const line of doc.split(/\n+/)) {
     const t = line.trim();
     if (!t) continue;
     const isBreak = /^#{1,6}\s/.test(t) || /^\|.*\|/.test(t) || /^\[STAT:/.test(t) || /^[-*]\s/.test(t);
@@ -320,7 +322,7 @@ export const detectSubmissionMethod = (grant) => {
   if (/\b(online portal|online form|application form|submission portal|apply online|web form|e-form|form online)\b/.test(blob)) {
     return { method: "form", recipient: null, label: "Online application form", desc: "Fill the funder's form on their site." };
   }
-  if (/\b(letter of inquiry|\bloi\b)\b/.test(blob)) {
+  if (/\b(letter of inquiry|loi)\b/.test(blob)) {
     return { method: "loi", recipient, label: "Letter of inquiry first", desc: "Send a short pitch first; full proposal only on invitation." };
   }
   if (recipient || /\b(email|e-mail|enquiry|inquiry)\b/.test(blob)) {
@@ -472,7 +474,7 @@ export const grantReadiness = (g, complianceDocs = []) => {
   } else if (stage === "qualifying") {
     nextAction = !g.aiFitscore ? "Run Fit Score to evaluate fit" : !g.aiResearch ? "Run Funder Research before drafting" : "Ready to move to Drafting";
   } else if (stage === "drafting") {
-    nextAction = !g.aiDraft ? "Generate a draft proposal" : missing.includes(`${required?.length || 0} docs missing`) ? "Upload missing compliance documents" : "Submit draft for review";
+    nextAction = !g.aiDraft ? "Generate a draft proposal" : missing.some(m => m.endsWith("docs missing")) ? "Upload missing compliance documents" : "Submit draft for review";
   } else if (stage === "review") {
     const gate = GATES["review->submitted"];
     nextAction = gate ? `${gate.label}` : "Awaiting review approval";

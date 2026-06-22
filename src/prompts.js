@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════
    Grant Engine — AI Prompt Templates
 
-   `scoutPrompt` and `scoutBriefPrompt` are active — used by Pipeline.jsx and server/jobs/scout.js.
+   `scoutPrompt` is used by Pipeline/ScoutPanel and server/jobs/scout.js. `scoutBriefPrompt` is used by ScoutPanel only.
    All other AI prompts live inline in src/hooks/useAI.js (draft, research, fit score,
    follow-up, review, brief, report, conference, URL extract, full application).
    ═══════════════════════════════════════ */
@@ -27,7 +27,7 @@ Be specific and opinionated. This brief is used to FILTER grant opportunities �
 });
 
 // ── REJECTION BLOCK: converts accumulated rejections into prompt text ──
-export const buildRejectionBlock = (rejections) => {
+const buildRejectionBlock = (rejections) => {
   if (!rejections || rejections.length === 0) return "";
 
   // Cap at 50 most recent
@@ -50,6 +50,19 @@ export const buildRejectionBlock = (rejections) => {
   if (deadLinks.length) block += `DEAD LINKS: These funders had broken/dead URLs: ${deadLinks.join(", ")}. Double-check all URLs are real and accessible.\n`;
   block += `DO NOT return opportunities in the rejected sectors above. Prioritise opportunities that match the Scout Brief.\n`;
   return block;
+};
+
+// ── SEARCH SCOPE: build the user-facing search directive from market + keywords ──
+const buildSearchScope = (market, keywords) => {
+  if (keywords) {
+    return `Search for opportunities matching: "${keywords}". ${market === "sa" ? "Focus on South African sources." : market === "global" ? "Focus on international/global sources. Do NOT return South African domestic funders." : "Search both South African and international sources."} Include all opportunity types: grants, corporate programmes, tech credits (Google Ad Grants, AWS credits, Microsoft Nonprofit), SaaS nonprofit tiers, in-kind support, partnerships, and government programmes.`;
+  } else if (market === "sa") {
+    return "Search for open grants in South Africa for NPOs matching the organisation profile below, 2026. Focus on SETA windows, corporate CSI open calls, SA foundation rounds, and government funding.";
+  } else if (market === "global") {
+    return "Search for international and global grant opportunities for the organisation described below, 2026. Search across: global foundations, bilateral development agencies (USAID, DFID, GIZ, etc.), multilateral programmes (World Bank, UNDP, ILO), global tech companies (Google.org, Microsoft, Cisco), impact investors, and international NGO grant-makers that fund skills development, youth employment, or digital inclusion in Africa. Do NOT return any South African domestic funders.";
+  } else {
+    return "Search for open grants for the organisation described below, 2026. Include both SA domestic funders (SETAs, corporate CSI, foundations) AND international funders (global foundations, tech companies, development agencies). Also include nonprofit tech credits, SaaS nonprofit tiers, and in-kind opportunities.";
+  }
 };
 
 // ── SCOUT ──
@@ -93,13 +106,7 @@ export const scoutPrompt = ({ existingFunders, market = "both", orgContext = "",
     ? `\nPRIMARY SEARCH DIRECTIVE: The user is specifically searching for: "${keywords}". This takes priority over the org profile. Find opportunities matching these keywords. The org context below is for fit scoring only — do NOT restrict results to the org's usual focus areas unless the keywords overlap.`
     : "";
 
-  const searchScope = keywords
-    ? `Search for opportunities matching: "${keywords}". ${market === "sa" ? "Focus on South African sources." : market === "global" ? "Focus on international/global sources. Do NOT return South African domestic funders." : "Search both South African and international sources."} Include all opportunity types: grants, corporate programmes, tech credits (Google Ad Grants, AWS credits, Microsoft Nonprofit), SaaS nonprofit tiers, in-kind support, partnerships, and government programmes.`
-    : market === "sa"
-    ? "Search for open grants in South Africa for NPOs matching the organisation profile below, 2026. Focus on SETA windows, corporate CSI open calls, SA foundation rounds, and government funding."
-    : market === "global"
-    ? "Search for international and global grant opportunities for the organisation described below, 2026. Search across: global foundations, bilateral development agencies (USAID, DFID, GIZ, etc.), multilateral programmes (World Bank, UNDP, ILO), global tech companies (Google.org, Microsoft, Cisco), impact investors, and international NGO grant-makers that fund skills development, youth employment, or digital inclusion in Africa. Do NOT return any South African domestic funders."
-    : "Search for open grants for the organisation described below, 2026. Include both SA domestic funders (SETAs, corporate CSI, foundations) AND international funders (global foundations, tech companies, development agencies). Also include nonprofit tech credits, SaaS nonprofit tiers, and in-kind opportunities.";
+  const searchScope = buildSearchScope(market, keywords);
 
   return {
     system: `${m.role}

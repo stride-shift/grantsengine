@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { C, FONT, MONO, resetTheme } from "../theme";
 import { Btn, Label, Avatar, RoleBadge } from "./index";
 import UploadZone from "./UploadZone";
-import { checkHealth, getUploads, uploadFile, uploadOrgLogo, memberSetPassword } from "../api";
+import { checkHealth, getUploads, uploadFile, uploadOrgLogo, memberSetPassword, getGcalStatus, syncAllToGcal, disconnectGcal, getGcalAuthUrl } from "../api";
 import { ORG_DOCS } from "../data/constants";
 
 // ── Compliance doc status helpers ──
@@ -377,7 +377,7 @@ function ProgrammesEditor({ programmes, onChange }) {
   );
 }
 
-export default function Settings({ org, profile, team, currentMember, complianceDocs = [], onUpsertCompDoc, onUpdateProfile, onUpdateOrg, onLogout, onLaunchTour }) {
+export default function Settings({ org, profile, team, currentMember, complianceDocs = [], onUpsertCompDoc, onUpdateProfile, onUpdateOrg, onLogout }) {
   const [serverStatus, setServerStatus] = useState(null);
   const [uploads, setUploads] = useState([]);
   const [expanded, setExpanded] = useState(null); // doc_id of expanded row
@@ -396,20 +396,16 @@ export default function Settings({ org, profile, team, currentMember, compliance
   // ── Google Calendar state ──
   const [gcalConnected, setGcalConnected] = useState(false);
   const [gcalLoading, setGcalLoading] = useState(false);
-  const [gcalSyncing, setGcalSyncing] = useState(false);
   const [gcalMsg, setGcalMsg] = useState("");
 
   useEffect(() => {
-    import("../api").then(({ getGcalStatus }) => {
-      getGcalStatus().then(d => setGcalConnected(d.connected)).catch(() => {});
-    });
+    getGcalStatus().then(d => setGcalConnected(d.connected)).catch(() => {});
     // Listen for OAuth callback
     const handler = async (e) => {
       if (e.data === "gcal-connected") {
         setGcalConnected(true);
         setGcalMsg("Connected! Syncing deadlines...");
         try {
-          const { syncAllToGcal } = await import("../api");
           const r = await syncAllToGcal();
           setGcalMsg(`Connected — ${r.synced} deadline${r.synced !== 1 ? "s" : ""} synced to your calendar`);
         } catch { setGcalMsg("Connected — auto-sync failed, try again later"); }
@@ -532,6 +528,52 @@ export default function Settings({ org, profile, team, currentMember, compliance
     });
   };
 
+  // ── Branding handlers ──
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      const result = await uploadOrgLogo(file);
+      if (result?.logo_url && onUpdateOrg) {
+        await onUpdateOrg({ logo_url: result.logo_url });
+      }
+    } catch (err) {
+      console.error("Logo upload failed:", err);
+    }
+    setLogoUploading(false);
+    e.target.value = "";
+  };
+
+  const saveBrandColors = async () => {
+    if (!onUpdateOrg) return;
+    setBrandSaving(true);
+    setBrandMsg("");
+    try {
+      await onUpdateOrg({
+        primary_color: brandPrimary === "#4A7C59" ? null : brandPrimary,
+        primary_dark: null, // auto-derived
+        accent_color: brandAccent === "#C17817" ? null : brandAccent,
+      });
+      setBrandMsg("✓ Saved");
+      setTimeout(() => setBrandMsg(""), 2000);
+    } catch (err) {
+      setBrandMsg("Failed: " + err.message);
+    }
+    setBrandSaving(false);
+  };
+
+  const resetBrandColors = async () => {
+    setBrandPrimary("#4A7C59");
+    setBrandAccent("#C17817");
+    if (onUpdateOrg) {
+      await onUpdateOrg({ primary_color: null, primary_dark: null, accent_color: null });
+      resetTheme();
+    }
+    setBrandMsg("✓ Reset to defaults");
+    setTimeout(() => setBrandMsg(""), 2000);
+  };
+
   return (
     <div style={{ padding: "16px 16px", maxWidth: 800 }}>
       <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, color: C.dark, marginBottom: 6 }}>Settings</div>
@@ -606,21 +648,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
             )}
             <div>
               <input ref={logoRef} type="file" accept="image/*" style={{ display: "none" }}
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  setLogoUploading(true);
-                  try {
-                    const result = await uploadOrgLogo(file);
-                    if (result?.logo_url && onUpdateOrg) {
-                      await onUpdateOrg({ logo_url: result.logo_url });
-                    }
-                  } catch (err) {
-                    console.error("Logo upload failed:", err);
-                  }
-                  setLogoUploading(false);
-                  e.target.value = "";
-                }}
+                onChange={handleLogoUpload}
               />
               <Btn onClick={() => logoRef.current?.click()} v="ghost" disabled={logoUploading}
                 style={{ fontSize: 12, padding: "6px 14px" }}>
@@ -664,35 +692,10 @@ export default function Settings({ org, profile, team, currentMember, compliance
 
         {/* Actions */}
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <Btn v="primary" disabled={brandSaving} onClick={async () => {
-            if (!onUpdateOrg) return;
-            setBrandSaving(true);
-            setBrandMsg("");
-            try {
-              await onUpdateOrg({
-                primary_color: brandPrimary === "#4A7C59" ? null : brandPrimary,
-                primary_dark: null, // auto-derived
-                accent_color: brandAccent === "#C17817" ? null : brandAccent,
-              });
-              setBrandMsg("✓ Saved");
-              setTimeout(() => setBrandMsg(""), 2000);
-            } catch (err) {
-              setBrandMsg("Failed: " + err.message);
-            }
-            setBrandSaving(false);
-          }} style={{ fontSize: 12, padding: "7px 18px" }}>
+          <Btn v="primary" disabled={brandSaving} onClick={saveBrandColors} style={{ fontSize: 12, padding: "7px 18px" }}>
             {brandSaving ? "Saving..." : "Save Colours"}
           </Btn>
-          <button onClick={async () => {
-            setBrandPrimary("#4A7C59");
-            setBrandAccent("#C17817");
-            if (onUpdateOrg) {
-              await onUpdateOrg({ primary_color: null, primary_dark: null, accent_color: null });
-              resetTheme();
-            }
-            setBrandMsg("✓ Reset to defaults");
-            setTimeout(() => setBrandMsg(""), 2000);
-          }} style={{
+          <button onClick={resetBrandColors} style={{
             background: "none", border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 14px",
             fontSize: 12, color: C.t3, cursor: "pointer", fontFamily: FONT,
           }}>Reset to Defaults</button>
@@ -745,7 +748,6 @@ export default function Settings({ org, profile, team, currentMember, compliance
               <span style={{ fontSize: 12, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "4px 12px", borderRadius: 100 }}>✓ Connected</span>
               <span style={{ fontSize: 12, color: C.t3 }}>Deadlines sync automatically when set or changed.</span>
               <Btn v="ghost" style={{ fontSize: 11, padding: "5px 12px", color: C.red, borderColor: C.red + "30" }} onClick={async () => {
-                const { disconnectGcal } = await import("../api");
                 await disconnectGcal();
                 setGcalConnected(false); setGcalMsg("Disconnected");
               }}>Disconnect</Btn>
@@ -754,7 +756,6 @@ export default function Settings({ org, profile, team, currentMember, compliance
             <Btn v="primary" style={{ fontSize: 12, padding: "8px 16px" }} disabled={gcalLoading} onClick={async () => {
               setGcalLoading(true);
               try {
-                const { getGcalAuthUrl } = await import("../api");
                 const { url } = await getGcalAuthUrl();
                 window.open(url, "gcal-auth", "width=500,height=600");
               } catch (e) { setGcalMsg("Failed: " + e.message); }

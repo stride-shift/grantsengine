@@ -7,6 +7,26 @@ import { DOCS } from "../data/constants";
 import { buildGlossaryAppendix } from "../data/glossary";
 
 const CONFIDENCE_COLOR = { high: "#16A34A", medium: "#C17817", low: "#9CA3AF" };
+
+// Pure HTML helpers for the PDF export — lifted to module scope (no component-state closure).
+const escapeHtml = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const renderPara = (line) => {
+  const t = line.trim();
+  if (!t) return "<br/>";
+  if (t.startsWith("- ") || t.startsWith("• ") || t.startsWith("* ")) return `<li>${escapeHtml(t.slice(2))}</li>`;
+  if (t.startsWith("**") && t.endsWith("**")) return `<p style="font-weight:700;margin:12px 0 4px">${escapeHtml(t.replace(/\*\*/g, ""))}</p>`;
+  return `<p>${escapeHtml(t)}</p>`;
+};
+
+// Channel-header colour palette keyed by submission method. Used for the
+// Submission Center header block; fallback covers any unlisted method.
+const METHOD_PALETTE = {
+  email: { bg: C.blueSoft, border: `${C.blue}30`, color: C.blue },
+  form: { bg: `${C.primary}10`, border: `${C.primary}30`, color: C.primary },
+  unknown: { bg: C.warm100, border: C.line, color: C.t2 },
+};
+const METHOD_PALETTE_FALLBACK = { bg: C.amberSoft, border: `${C.amber}30`, color: C.amber };
+
 const STATUS_LABEL = {
   pending: "Pending",
   "ready-for-review": "Ready for review",
@@ -228,14 +248,6 @@ export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, on
     if (!text) return;
     const order = grant?.aiSectionsOrder || [];
     const sections = grant?.aiSections || {};
-    const renderPara = (line) => {
-      const t = line.trim();
-      if (!t) return "<br/>";
-      if (t.startsWith("- ") || t.startsWith("• ") || t.startsWith("* ")) return `<li>${escapeHtml(t.slice(2))}</li>`;
-      if (t.startsWith("**") && t.endsWith("**")) return `<p style="font-weight:700;margin:12px 0 4px">${escapeHtml(t.replace(/\*\*/g, ""))}</p>`;
-      return `<p>${escapeHtml(t)}</p>`;
-    };
-    const escapeHtml = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     const sectionsHtml = order.map((name, i) => {
       const sec = sections[name];
       if (!sec?.text) return "";
@@ -447,8 +459,6 @@ export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, on
   // apply link" as an explicit action — automatic searches were misfiring on
   // grants where no link existed (email/invitation/unknown channels), wasting
   // AI calls and frustrating users with useless red warnings.
-  const autoFindTriggeredRef = useRef(false);
-
   // (Removed: the auto-trigger on the "no URL" error condition. Users now
   // explicitly choose to search for the link — it's no longer forced on them
   // for every grant that happens to not have a URL yet.)
@@ -518,12 +528,6 @@ export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, on
     finally { setSubmitting(false); }
   };
 
-  const grouped = {
-    highConf: mappings.filter(m => m.confidence === "high"),
-    medConf: mappings.filter(m => m.confidence === "medium"),
-    lowConf: mappings.filter(m => m.confidence === "low"),
-  };
-
   return (
     <div style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000,
@@ -554,30 +558,17 @@ export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, on
           {submission.method !== "invitation" && (
             <div style={{ marginBottom: 16, display: "flex", flexDirection: "column", gap: 14 }}>
               {/* Channel header — always show, colour depends on method */}
-              {(() => {
-                const isExplicit = submission.method !== "unknown";
-                const palette = submission.method === "email"
-                  ? { bg: C.blueSoft, border: `${C.blue}30`, color: C.blue }
-                  : submission.method === "form"
-                  ? { bg: `${C.primary}10`, border: `${C.primary}30`, color: C.primary }
-                  : submission.method === "unknown"
-                  ? { bg: C.warm100, border: C.line, color: C.t2 }
-                  : { bg: C.amberSoft, border: `${C.amber}30`, color: C.amber };
-                return (
-                  <div style={{ padding: "14px 18px", background: palette.bg, border: `1px solid ${palette.border}`, borderRadius: 10 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: palette.color, marginBottom: 6 }}>
-                      {isExplicit ? submission.label : "Submission method unclear"}
-                    </div>
-                    <div style={{ fontSize: 13, color: C.t2, lineHeight: 1.6 }}>
-                      {isExplicit ? submission.desc : "The funder brief doesn't clearly say how to submit. Use the actions below to prepare the proposal and attachments — you can send via whichever channel the funder accepts."}
-                    </div>
-                  </div>
-                );
-              })()}
+              <div style={{ padding: "14px 18px", background: (METHOD_PALETTE[submission.method] ?? METHOD_PALETTE_FALLBACK).bg, border: `1px solid ${(METHOD_PALETTE[submission.method] ?? METHOD_PALETTE_FALLBACK).border}`, borderRadius: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: (METHOD_PALETTE[submission.method] ?? METHOD_PALETTE_FALLBACK).color, marginBottom: 6 }}>
+                  {submission.method !== "unknown" ? submission.label : "Submission method unclear"}
+                </div>
+                <div style={{ fontSize: 13, color: C.t2, lineHeight: 1.6 }}>
+                  {submission.method !== "unknown" ? submission.desc : "The funder brief doesn't clearly say how to submit. Use the actions below to prepare the proposal and attachments — you can send via whichever channel the funder accepts."}
+                </div>
+              </div>
 
               {/* Full submission flow — required docs, preview, method-specific actions */}
-              {true && (
-                <>
+              <>
                   <ApplicationDocuments
                     grant={grant}
                     docs={requiredDocs}
@@ -755,7 +746,6 @@ export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, on
                     )}
                   </div>
                 </>
-              )}
             </div>
           )}
 

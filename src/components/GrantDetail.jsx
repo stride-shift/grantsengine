@@ -389,7 +389,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   }, [grant?.id]);
 
   // Store research result — parse JSON structure, extract display text, persist both
-  const storeResearch = (grantId, rawResult) => {
+  const storeResearch = useCallback((grantId, rawResult) => {
     const structured = parseStructuredResearch(rawResult);
     const displayText = structured?.rawText || rawResult;
     const now = new Date().toISOString();
@@ -397,7 +397,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
     if (structured) updates.aiResearchStructured = structured;
     setAi(p => ({ ...p, research: displayText }));
     onUpdate(grantId, updates);
-  };
+  }, [onUpdate]);
 
   // Run research from child components (e.g. ProposalWorkspace gate)
   const runResearch = useCallback(async () => {
@@ -414,7 +414,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
       setAi(p => ({ ...p, research: `Error: ${e.message}` }));
     }
     setBusy(p => ({ ...p, research: false }));
-  }, [grant, onRunAI, onUpdate]);
+  }, [grant, onRunAI, onUpdate, storeResearch]);
 
   // Auto-log AI actions to activity feed — Phase 10: include actor attribution
   const aiLog = (action) => {
@@ -500,6 +500,11 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
     return missing;
   }, [g.type, compMap]);
 
+  // ── Grant readiness (computed once; used by sidebar, sticky bar, readiness bar) ──
+  const readiness = useMemo(() => {
+    try { return grantReadiness(g, complianceDocs); } catch { return null; }
+  }, [g, complianceDocs]);
+
   // ── Stage classification ──
   const isEarly = ["scouted", "vetting", "qualifying"].includes(g.stage);
   const isMiddle = ["drafting", "review"].includes(g.stage);
@@ -542,6 +547,85 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
 
   const proposalRef = useRef(null);
 
+  // ── Roll the Dice — full auto-generate chain ──
+  // Lifted to component scope (was recreated every render inside the workflow-strip IIFE).
+  const rollTheDice = useCallback(async () => {
+    setRollingDice(true);
+
+    try {
+      // Step 1: Fit Score
+      if (!fitDone) {
+        setDiceStep("Scoring fit...");
+        setBusy(p => ({ ...p, fitscore: true }));
+        try {
+          const rawFs = await onRunAI("fitscore", g);
+          const r = isAIError(rawFs) ? rawFs : cleanProposalText(rawFs);
+          setAi(p => ({ ...p, fitscore: r }));
+          if (!isAIError(r)) {
+            onUpdate(g.id, { aiFitscore: r, aiFitscoreAt: new Date().toISOString() });
+            aiLog("AI Fit Score calculated");
+          }
+        } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
+        setBusy(p => ({ ...p, fitscore: false }));
+      }
+
+      // Step 2: Research
+      if (!resDone) {
+        setDiceStep(`Researching ${g.funder}...`);
+        setBusy(p => ({ ...p, research: true }));
+        try {
+          const r = await onRunAI("research", g);
+          if (!isAIError(r)) {
+            storeResearch(g.id, cleanProposalText(r));
+            aiLog(`AI Funder Research completed for ${g.funder}`);
+          } else setAi(p => ({ ...p, research: r }));
+        } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
+        setBusy(p => ({ ...p, research: false }));
+      }
+
+      // Step 3: Auto-budget (if not already set)
+      if (!g.budgetTable) {
+        setDiceStep("Building budget...");
+        const { typeNum, cohorts } = selectOptimalBudget(g);
+        const pt = PTYPES[typeNum];
+        if (pt?.table) {
+          const parseAmt = s => {
+            if (!s || s === "varies") return 0;
+            return parseInt(String(s).replace(/[,\s]/g, "")) || 0;
+          };
+          const items = pt.table
+            .filter(([label]) => label !== "TOTAL")
+            .map(([label, amount]) => ({ label, amount: parseAmt(amount), isCustom: false }));
+          const studentsPerCohort = pt.students || 0;
+          const itemTotal = items.reduce((s, it) => s + (it.amount || 0), 0);
+          const subtotal = itemTotal * cohorts;
+          const total = subtotal;
+          const totalStudents = studentsPerCohort * cohorts;
+          const perStudent = totalStudents > 0 ? Math.round(total / totalStudents) : 0;
+          const budgetTable = {
+            typeNum, typeLabel: pt.label || "", cohorts, studentsPerCohort,
+            duration: pt.duration || "", items,
+            includeOrgContribution: false, subtotal, orgContribution: 0,
+            total, perStudent, savedAt: new Date().toISOString(),
+          };
+          onUpdate(g.id, { budgetTable, ask: total, askSource: "budget-builder", aiRecommendedAsk: total });
+          aiLog(`Auto-budget: Type ${typeNum}, ${cohorts} cohort${cohorts > 1 ? "s" : ""}, R${total.toLocaleString()}`);
+        }
+      }
+
+      // Step 4: Advance stage to drafting (so Proposal Workspace section renders) and trigger auto-generate
+      setDiceStep("Writing proposal...");
+      if (["scouted", "vetting", "qualifying"].includes(g.stage)) up("stage", "drafting");
+      // Scroll to proposal section after a tick
+      setTimeout(() => proposalRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+      // rollingDice stays true — ProposalWorkspace picks it up via autoGenerate prop
+
+    } catch (e) {
+      setDiceStep(`Error: ${e.message}`);
+      setRollingDice(false);
+    }
+  }, [fitDone, resDone, g, onRunAI, onUpdate, aiLog, storeResearch, up]);
+
   // SectionWrap moved to module scope (above the component) so it has a stable identity.
   // Defining it here would create a new function reference on every render of GrantDetail,
   // causing React to unmount + remount every child (including ProposalWorkspace) and wiping
@@ -563,7 +647,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           const stg = stages.find(s => s.id === g.stage);
           const dDays = g.deadline ? Math.ceil((new Date(g.deadline) - new Date()) / 86400000) : null;
           const deadlineColor = dDays === null ? C.t4 : dDays < 0 ? C.red : dDays <= 14 ? C.amber : C.dark;
-          const r = (() => { try { return grantReadiness(g, complianceDocs); } catch { return null; } })();
+          const r = readiness;
           const action = r?.nextAction;
           const jump = (sel) => { const el = document.querySelector(sel); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); };
           return (
@@ -669,11 +753,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         const deadlineColor = !g.deadline ? C.t4 : dDays < 0 ? C.red : dDays <= 14 ? C.amber : C.t2;
         const askLabel = g.ask > 0 ? `R${(g.ask / 1e6).toFixed(2).replace(/\.?0+$/, "")}M` : "Ask TBD";
         const readinessPct = (() => {
-          try {
-            const r = grantReadiness(g, complianceDocs);
-            const v = typeof r?.score === "number" ? r.score : null;
-            return v !== null && !Number.isNaN(v) ? Math.round(v) : null;
-          } catch { return null; }
+          const v = typeof readiness?.score === "number" ? readiness.score : null;
+          return v !== null && !Number.isNaN(v) ? Math.round(v) : null;
         })();
         return (<>
           {/* Spacer so the fixed strip doesn't overlap content below */}
@@ -1043,12 +1124,6 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.t3, letterSpacing: 1.2, textTransform: "uppercase" }}>About This Opportunity</div>
               {/* Phase 3: removed duplicate "Apply" link \u2014 header button at the top of the page is the single source of truth */}
-              {false && g.applyUrl && (
-                <a href={g.applyUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 11, fontWeight: 600, color: C.blue, textDecoration: "none", marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
-                  {"\u2197"} Apply
-                </a>
-              )}
             </div>
 
             {/* ── Strategic angle — from funderStrategy ── */}
@@ -1688,7 +1763,8 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
 
       {/* Readiness Bar — compact */}
       {!["won", "lost", "deferred", "archived"].includes(g.stage) && (() => {
-        const r = grantReadiness(g, complianceDocs);
+        const r = readiness;
+        if (!r) return null;
         const barColor = r.score >= 80 ? C.ok : r.score >= 50 ? C.amber : C.red;
         return (
           <div style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: C.warm100, border: `1px solid ${C.line}` }}>
@@ -1718,84 +1794,6 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
         const sectionCount = hasSections ? Object.values(g.aiSections).filter(s => s?.text && !isAIError(s.text)).length : 0;
         const sectionTotal = hasSections ? (g.aiSectionsOrder || funderStrategy(g).structure).length : 0;
         const anyBusy = busy.fitscore || busy.research || busy.draft || busy.generateAll || Object.values(busy.sections || {}).some(Boolean);
-
-        // ── Roll the Dice — full auto-generate chain ──
-        const rollTheDice = async () => {
-          setRollingDice(true);
-
-          try {
-            // Step 1: Fit Score
-            if (!fitDone) {
-              setDiceStep("Scoring fit...");
-              setBusy(p => ({ ...p, fitscore: true }));
-              try {
-                const rawFs = await onRunAI("fitscore", g);
-                const r = isAIError(rawFs) ? rawFs : cleanProposalText(rawFs);
-                setAi(p => ({ ...p, fitscore: r }));
-                if (!isAIError(r)) {
-                  onUpdate(g.id, { aiFitscore: r, aiFitscoreAt: new Date().toISOString() });
-                  aiLog("AI Fit Score calculated");
-                }
-              } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
-              setBusy(p => ({ ...p, fitscore: false }));
-            }
-
-            // Step 2: Research
-            if (!resDone) {
-              setDiceStep(`Researching ${g.funder}...`);
-              setBusy(p => ({ ...p, research: true }));
-              try {
-                const r = await onRunAI("research", g);
-                if (!isAIError(r)) {
-                  storeResearch(g.id, cleanProposalText(r));
-                  aiLog(`AI Funder Research completed for ${g.funder}`);
-                } else setAi(p => ({ ...p, research: r }));
-              } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
-              setBusy(p => ({ ...p, research: false }));
-            }
-
-            // Step 3: Auto-budget (if not already set)
-            if (!g.budgetTable) {
-              setDiceStep("Building budget...");
-              const { typeNum, cohorts } = selectOptimalBudget(g);
-              const pt = PTYPES[typeNum];
-              if (pt?.table) {
-                const parseAmt = s => {
-                  if (!s || s === "varies") return 0;
-                  return parseInt(String(s).replace(/[,\s]/g, "")) || 0;
-                };
-                const items = pt.table
-                  .filter(([label]) => label !== "TOTAL")
-                  .map(([label, amount]) => ({ label, amount: parseAmt(amount), isCustom: false }));
-                const studentsPerCohort = pt.students || 0;
-                const itemTotal = items.reduce((s, it) => s + (it.amount || 0), 0);
-                const subtotal = itemTotal * cohorts;
-                const total = subtotal;
-                const totalStudents = studentsPerCohort * cohorts;
-                const perStudent = totalStudents > 0 ? Math.round(total / totalStudents) : 0;
-                const budgetTable = {
-                  typeNum, typeLabel: pt.label || "", cohorts, studentsPerCohort,
-                  duration: pt.duration || "", items,
-                  includeOrgContribution: false, subtotal, orgContribution: 0,
-                  total, perStudent, savedAt: new Date().toISOString(),
-                };
-                onUpdate(g.id, { budgetTable, ask: total, askSource: "budget-builder", aiRecommendedAsk: total });
-                aiLog(`Auto-budget: Type ${typeNum}, ${cohorts} cohort${cohorts > 1 ? "s" : ""}, R${total.toLocaleString()}`);
-              }
-            }
-
-            // Step 4: Advance stage to drafting (so Proposal Workspace section renders) and trigger auto-generate
-            setDiceStep("Writing proposal...");
-            if (["scouted", "vetting", "qualifying"].includes(g.stage)) up("stage", "drafting");
-            // Scroll to proposal section after a tick
-            setTimeout(() => proposalRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-            // rollingDice stays true — ProposalWorkspace picks it up via autoGenerate prop
-
-          } catch (e) {
-            setDiceStep(`Error: ${e.message}`);
-            setRollingDice(false);
-          }
-        };
 
         const draftValue = hasSections && sectionTotal > 0
           ? `${sectionCount}/${sectionTotal}`

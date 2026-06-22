@@ -35,10 +35,10 @@ describe("isFunderReturning", () => {
     expect(isFunderReturning("Mastercard Foundation")).toBe(false);
   });
 
-  it("treats empty/null as matching (substring edge case)", () => {
-    // (null||"") → "" and every string .includes("") → true
-    expect(isFunderReturning("")).toBe(true);
-    expect(isFunderReturning(null)).toBe(true);
+  it("treats empty/null as not returning", () => {
+    expect(isFunderReturning("")).toBe(false);
+    expect(isFunderReturning(null)).toBe(false);
+    expect(isFunderReturning(undefined)).toBe(false);
   });
 });
 
@@ -145,7 +145,7 @@ describe("selectOptimalBudget", () => {
   });
 
   it("maximises cohorts within budget", () => {
-    // R2.5M budget, Foundation → prefers Type 1 (R516K) → 4 cohorts
+    // Foundation preferred order [1,3,5,7,4,2]; Type 1 fits 4x within R2.5M
     const result = selectOptimalBudget({ type: "Foundation", funderBudget: 2500000, notes: "" });
     expect(result.typeNum).toBe(1);
     expect(result.cohorts).toBe(4);

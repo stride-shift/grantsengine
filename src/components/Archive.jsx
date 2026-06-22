@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { C, FONT, MONO } from "../theme";
+import { CLOSED_STAGES } from "../data/constants";
 
 /* Closed proposals archive.
  *
@@ -8,8 +9,6 @@ import { C, FONT, MONO } from "../theme";
  * past proposals — sorted by closure date, grouped by outcome, searchable.
  * Doubles as the "Proposal Library" the team can mine for AI reference picks.
  */
-
-const CLOSED_STAGES = ["won", "lost", "deferred", "archived"];
 
 export default function Archive({ grants, team, stages, onSelectGrant }) {
   const [q, setQ] = useState("");

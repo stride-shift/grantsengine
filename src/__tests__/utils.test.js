@@ -38,8 +38,17 @@ describe("parseStructuredResearch", () => {
     expect(result.rawText).toBe("found it");
   });
 
-  it("returns null if no rawText field", () => {
+  it("synthesizes rawText from research fields when rawText is absent", () => {
     const json = JSON.stringify({ priorities: "youth", contacts: "John" });
+    const result = parseStructuredResearch(json);
+    expect(result).not.toBe(null);
+    expect(result.priorities).toBe("youth");
+    expect(result.rawText).toContain("youth");
+    expect(result.rawText).toContain("John");
+  });
+
+  it("returns null when object has no research fields", () => {
+    const json = JSON.stringify({ foo: "bar", baz: 1 });
     expect(parseStructuredResearch(json)).toBe(null);
   });
 

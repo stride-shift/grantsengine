@@ -61,6 +61,11 @@ const inputStyle = {
 };
 const inputClassName = "ge-dark-input";
 
+// Shared style for the back-arrow buttons on the password / setup / forgot steps.
+const backButtonStyle = {
+  background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.5)", padding: 0,
+};
+
 const focusBorder = (e) => e.target.style.borderColor = "#4ADE80";
 const blurBorder = (e) => e.target.style.borderColor = "rgba(255,255,255,0.15)";
 
@@ -228,9 +233,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
       {step === "password" && selected && (
         <Card width={380}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-            <button onClick={() => goBack()} style={{
-              background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.5)", padding: 0,
-            }}>{"\u2190"}</button>
+            <button onClick={() => goBack()} style={backButtonStyle}>{"\u2190"}</button>
             <Avatar member={selected} size={38} />
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{selected.name}</div>
@@ -271,9 +274,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
       {step === "setup" && selected && (
         <Card width={400}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-            <button onClick={() => goBack()} style={{
-              background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.5)", padding: 0,
-            }}>{"\u2190"}</button>
+            <button onClick={() => goBack()} style={backButtonStyle}>{"\u2190"}</button>
             <Avatar member={selected} size={38} />
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{selected.name}</div>
@@ -309,9 +310,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
       {step === "forgot" && selected && (
         <Card width={400}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-            <button onClick={() => { setErr(""); setStep("password"); }} style={{
-              background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.5)", padding: 0,
-            }}>{"\u2190"}</button>
+            <button onClick={() => { setErr(""); setStep("password"); }} style={backButtonStyle}>{"\u2190"}</button>
             <Avatar member={selected} size={38} />
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{selected.name}</div>

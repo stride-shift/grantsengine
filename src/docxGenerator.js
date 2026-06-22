@@ -14,6 +14,98 @@ const GREY_400 = "9CA3AF";
 const GREY_200 = "E5E7EB";
 const GREY_50 = "F9FAFB";
 
+// Page margins (inches) — identical across cover & content sections
+const MARGIN_TOP_IN = 1;
+const MARGIN_RIGHT_IN = 1.2;
+const MARGIN_BOTTOM_IN = 0.8;
+const MARGIN_LEFT_IN = 1.2;
+
+/**
+ * Build the Document (cover + branded content section), pack it to a blob,
+ * and trigger a download. Shared by generateDocx and generateDocxFromSections.
+ */
+async function buildDocument(docxModule, fileSaverModule, { orgName, grantName, filename, coverChildren, contentChildren }) {
+  const {
+    Document, Packer, Paragraph, TextRun,
+    AlignmentType, BorderStyle, Footer, Header,
+    PageNumber, SectionType, convertInchesToTwip,
+  } = docxModule;
+  const saveAs = fileSaverModule.saveAs || fileSaverModule.default;
+
+  const margin = {
+    top: convertInchesToTwip(MARGIN_TOP_IN),
+    right: convertInchesToTwip(MARGIN_RIGHT_IN),
+    bottom: convertInchesToTwip(MARGIN_BOTTOM_IN),
+    left: convertInchesToTwip(MARGIN_LEFT_IN),
+  };
+
+  const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: "Calibri", size: 22, color: GREY_800 },
+          paragraph: { spacing: { line: 360 } },
+        },
+      },
+    },
+    sections: [
+      // Cover page — no header/footer
+      {
+        properties: {
+          page: { margin },
+        },
+        children: coverChildren,
+      },
+      // Content — with branded header + page numbers
+      {
+        properties: {
+          type: SectionType.NEXT_PAGE,
+          page: {
+            margin,
+            pageNumbers: { start: 1 },
+          },
+        },
+        headers: {
+          default: new Header({
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: orgName, size: 16, color: SAGE, font: "Calibri", bold: true }),
+                  new TextRun({ text: `  ·  ${grantName}`, size: 16, color: GREY_400, font: "Calibri" }),
+                ],
+                alignment: AlignmentType.LEFT,
+                border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 } },
+                spacing: { after: 200 },
+              }),
+            ],
+          }),
+        },
+        footers: {
+          default: new Footer({
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: "Confidential", size: 16, color: GREY_400, font: "Calibri", italics: true }),
+                  new TextRun({ text: `  ·  ${orgName}  ·  Page `, size: 16, color: GREY_400, font: "Calibri" }),
+                  new TextRun({ children: [PageNumber.CURRENT], size: 16, color: GREY_400, font: "Calibri" }),
+                ],
+                alignment: AlignmentType.CENTER,
+                border: { top: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 } },
+                spacing: { before: 200 },
+              }),
+            ],
+          }),
+        },
+        children: contentChildren,
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const safeName = (filename || "proposal").replace(/[^a-zA-Z0-9_-]/g, "_");
+  saveAs(blob, `${safeName}.docx`);
+}
+
 /**
  * Parse AI-generated text into structured sections.
  * Detects COVER EMAIL / PROPOSAL markers, numbered headings, bullets, key-value pairs, paragraphs.
@@ -142,7 +234,7 @@ function buildRuns(docxModule, text, baseSize = 22, baseColor = GREY_800) {
  * Create a styled .docx from proposal text and download it.
  * @param {string} text - The raw proposal text
  * @param {string} filename - Base filename (without extension)
- * @param {object} meta - { grantName, funder, orgName, date, ask, stage, type }
+ * @param {object} meta - { grantName, funder, orgName, date, ask, type }
  */
 export async function generateDocx(text, filename, meta = {}) {
   const [docxModule, fileSaverModule] = await Promise.all([
@@ -151,12 +243,10 @@ export async function generateDocx(text, filename, meta = {}) {
   ]);
 
   const {
-    Document, Packer, Paragraph, TextRun,
-    AlignmentType, BorderStyle, Footer, Header,
+    Paragraph, TextRun,
+    AlignmentType, BorderStyle,
     Table, TableRow, TableCell, WidthType, ShadingType,
-    PageNumber, SectionType, convertInchesToTwip,
   } = docxModule;
-  const saveAs = fileSaverModule.saveAs || fileSaverModule.default;
 
   const sections = parseProposalText(text);
   const grantName = meta.grantName || filename || "Proposal";
@@ -421,83 +511,7 @@ export async function generateDocx(text, filename, meta = {}) {
   // ════════════════════════════════════
   //  BUILD DOCUMENT
   // ════════════════════════════════════
-  const doc = new Document({
-    styles: {
-      default: {
-        document: {
-          run: { font: "Calibri", size: 22, color: GREY_800 },
-          paragraph: { spacing: { line: 360 } },
-        },
-      },
-    },
-    sections: [
-      // Cover page — no header/footer
-      {
-        properties: {
-          page: {
-            margin: {
-              top: convertInchesToTwip(1),
-              right: convertInchesToTwip(1.2),
-              bottom: convertInchesToTwip(0.8),
-              left: convertInchesToTwip(1.2),
-            },
-          },
-        },
-        children: coverChildren,
-      },
-      // Content — with branded header + page numbers
-      {
-        properties: {
-          type: SectionType.NEXT_PAGE,
-          page: {
-            margin: {
-              top: convertInchesToTwip(1),
-              right: convertInchesToTwip(1.2),
-              bottom: convertInchesToTwip(0.8),
-              left: convertInchesToTwip(1.2),
-            },
-            pageNumbers: { start: 1 },
-          },
-        },
-        headers: {
-          default: new Header({
-            children: [
-              new Paragraph({
-                children: [
-                  new TextRun({ text: orgName, size: 16, color: SAGE, font: "Calibri", bold: true }),
-                  new TextRun({ text: `  \u00b7  ${grantName}`, size: 16, color: GREY_400, font: "Calibri" }),
-                ],
-                alignment: AlignmentType.LEFT,
-                border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 } },
-                spacing: { after: 200 },
-              }),
-            ],
-          }),
-        },
-        footers: {
-          default: new Footer({
-            children: [
-              new Paragraph({
-                children: [
-                  new TextRun({ text: "Confidential", size: 16, color: GREY_400, font: "Calibri", italics: true }),
-                  new TextRun({ text: `  \u00b7  ${orgName}  \u00b7  Page `, size: 16, color: GREY_400, font: "Calibri" }),
-                  new TextRun({ children: [PageNumber.CURRENT], size: 16, color: GREY_400, font: "Calibri" }),
-                ],
-                alignment: AlignmentType.CENTER,
-                border: { top: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 } },
-                spacing: { before: 200 },
-              }),
-            ],
-          }),
-        },
-        children: contentChildren,
-      },
-    ],
-  });
-
-  const blob = await Packer.toBlob(doc);
-  const safeName = (filename || "proposal").replace(/[^a-zA-Z0-9_-]/g, "_");
-  saveAs(blob, `${safeName}.docx`);
+  await buildDocument(docxModule, fileSaverModule, { orgName, grantName, filename, coverChildren, contentChildren });
 }
 
 /**
@@ -514,12 +528,10 @@ export async function generateDocxFromSections(sections, order, filename, meta =
   ]);
 
   const {
-    Document, Packer, Paragraph, TextRun,
-    AlignmentType, BorderStyle, Footer, Header,
+    Paragraph, TextRun,
+    AlignmentType, BorderStyle,
     Table, TableRow, TableCell, WidthType, ShadingType,
-    PageNumber, SectionType, convertInchesToTwip,
   } = docxModule;
-  const saveAs = fileSaverModule.saveAs || fileSaverModule.default;
 
   const grantName = meta.grantName || filename || "Proposal";
   const funder = meta.funder || "";
@@ -901,65 +913,5 @@ export async function generateDocxFromSections(sections, order, filename, meta =
   }
 
   // ── BUILD DOCUMENT ──
-  const doc = new Document({
-    styles: {
-      default: {
-        document: {
-          run: { font: "Calibri", size: 22, color: GREY_800 },
-          paragraph: { spacing: { line: 360 } },
-        },
-      },
-    },
-    sections: [
-      {
-        properties: {
-          page: {
-            margin: { top: convertInchesToTwip(1), right: convertInchesToTwip(1.2), bottom: convertInchesToTwip(0.8), left: convertInchesToTwip(1.2) },
-          },
-        },
-        children: coverChildren,
-      },
-      {
-        properties: {
-          type: SectionType.NEXT_PAGE,
-          page: {
-            margin: { top: convertInchesToTwip(1), right: convertInchesToTwip(1.2), bottom: convertInchesToTwip(0.8), left: convertInchesToTwip(1.2) },
-            pageNumbers: { start: 1 },
-          },
-        },
-        headers: {
-          default: new Header({
-            children: [new Paragraph({
-              children: [
-                new TextRun({ text: orgName, size: 16, color: SAGE, font: "Calibri", bold: true }),
-                new TextRun({ text: `  \u00b7  ${grantName}`, size: 16, color: GREY_400, font: "Calibri" }),
-              ],
-              alignment: AlignmentType.LEFT,
-              border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 } },
-              spacing: { after: 200 },
-            })],
-          }),
-        },
-        footers: {
-          default: new Footer({
-            children: [new Paragraph({
-              children: [
-                new TextRun({ text: "Confidential", size: 16, color: GREY_400, font: "Calibri", italics: true }),
-                new TextRun({ text: `  \u00b7  ${orgName}  \u00b7  Page `, size: 16, color: GREY_400, font: "Calibri" }),
-                new TextRun({ children: [PageNumber.CURRENT], size: 16, color: GREY_400, font: "Calibri" }),
-              ],
-              alignment: AlignmentType.CENTER,
-              border: { top: { style: BorderStyle.SINGLE, size: 1, color: GREY_200 } },
-              spacing: { before: 200 },
-            })],
-          }),
-        },
-        children: contentChildren,
-      },
-    ],
-  });
-
-  const blob = await Packer.toBlob(doc);
-  const safeName = (filename || "proposal").replace(/[^a-zA-Z0-9_-]/g, "_");
-  saveAs(blob, `${safeName}.docx`);
+  await buildDocument(docxModule, fileSaverModule, { orgName, grantName, filename, coverChildren, contentChildren });
 }

@@ -151,7 +151,7 @@ const AIBlock = ({ label, sub, busy, result, onRun, btnLabel, busyLabel, accentC
 
 export default function Dashboard({
   grants, team, stages, complianceDocs = [], onSelectGrant, onNavigate,
-  onRunReport, onRunInsights, onRunStrategy, orgName, onLaunchTour,
+  onRunReport, onRunInsights, onRunStrategy, orgName,
 }) {
   const [reportBusy, setReportBusy] = useState(false);
   const [reportResult, setReportResult] = useState(null);
@@ -161,6 +161,13 @@ export default function Dashboard({
   const [strategyResult, setStrategyResult] = useState(null);
   const [expandedFunder, setExpandedFunder] = useState(null);
   const [showFullIntel, setShowFullIntel] = useState(false);
+
+  /* ── Team lookup (shared across analytics + urgent items) ── */
+  const teamById = useMemo(() => {
+    const m = new Map();
+    if (team) for (const t of team) m.set(t.id, t);
+    return m;
+  }, [team]);
 
   /* ── Core pipeline numbers ── */
   const pipe = useMemo(() => {
@@ -222,10 +229,6 @@ export default function Dashboard({
     const histCounts = [0, 0, 0, 0, 0];
     const histThresholds = [250000, 500000, 1000000, 2000000];
     const histLabels = ["<250K", "250-500K", "500K-1M", "1-2M", "2M+"];
-
-    // Build team lookup once
-    const teamById = new Map();
-    if (team) for (const t of team) teamById.set(t.id, t);
 
     for (const g of grants) {
       const ask = effectiveAsk(g);
@@ -324,7 +327,7 @@ export default function Dashboard({
       aiD, aiR, aiF, winF, lossF,
       wr: closed > 0 ? Math.round((won.length / closed) * 100) : null,
     };
-  }, [grants, team]);
+  }, [grants, team, teamById]);
 
   /* ── Funder Intelligence aggregation ── */
   const funders = useMemo(() => {
@@ -400,15 +403,8 @@ export default function Dashboard({
     busySetter(true);
     try { const r = await handler(); setter(r); }
     catch (e) { setter(`Error: ${e.message}`); }
-    busySetter(false);
+    finally { busySetter(false); }
   };
-
-  /* ── Build urgent/action items for Today view ── */
-  const teamById = useMemo(() => {
-    const m = new Map();
-    if (team) for (const t of team) m.set(t.id, t);
-    return m;
-  }, [team]);
 
   const urgentGrants = useMemo(() => {
     const items = [];
@@ -698,7 +694,6 @@ export default function Dashboard({
 
       {/* ═══════════ 3b. UPCOMING FOLLOW-UPS ═══════════ */}
       {(() => {
-        const now = new Date().toISOString().slice(0, 10);
         const upcoming = [];
         for (const g of grants) {
           if (!g.fups || !Array.isArray(g.fups)) continue;
@@ -762,7 +757,8 @@ export default function Dashboard({
         );
       })()}
 
-      {/* ═══════════ 4. AI TOOLS (Report, Insights, Strategy) ═══════════ */}
+      {/* ═══════════ 4. AI TOOLS (Quarterly Report) ═══════════ */}
+      {/* Note: Insights & Strategy render in the Pipeline Intelligence section. */}
       <div data-tour="dash-ai-tools">
       <Section title="AI Tools">
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
@@ -835,7 +831,9 @@ export default function Dashboard({
           </div>
 
           {/* ═══════════ FUNDER INTELLIGENCE CARDS (collapsed by default) ═══════════ */}
-          {funders.length > 0 && (
+          {funders.length > 0 && (() => {
+            const maxAsk = funders[0]?.totalAsk || 1; // constant across cards — hoisted out of the map
+            return (
             <>
               <Hd right={
                 <button onClick={() => setShowFullIntel(!showFullIntel)} style={{
@@ -862,7 +860,6 @@ export default function Dashboard({
                     : daysSinceActivity <= 21 ? "warm"
                     : "cold";
                   const momentumColor = { hot: C.ok, warm: C.amber, cold: C.t4, new: C.purple }[momentum];
-                  const maxAsk = funders[0]?.totalAsk || 1;
 
                   return (
                     <div key={f.name} onClick={() => setExpandedFunder(isExpanded ? null : f.name)}
@@ -1063,7 +1060,8 @@ export default function Dashboard({
                 })}
               </div>
             </>
-          )}
+            );
+          })()}
 
           {/* Row C: Relationships + Ask distribution */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>

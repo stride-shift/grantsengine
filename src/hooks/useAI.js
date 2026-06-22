@@ -710,7 +710,6 @@ SUSTAINABILITY MODEL — reference from the context:
 
       } else {
         // Targeted guidance for common section types that would otherwise get generic output
-        const isAppendices = sn.includes("appendix") || sn.includes("appendices");
         const isBBBEE = sn.includes("b-bbee") || sn.includes("bbee") || sn.includes("transformation") || sn.includes("equity");
         const isME = sn.includes("m&e") || sn.includes("monitoring") || sn.includes("evaluation") || sn.includes("framework");
         const isRisk = sn.includes("risk");
@@ -720,7 +719,7 @@ SUSTAINABILITY MODEL — reference from the context:
         const isTimeline = sn.includes("timeline") || sn.includes("implementation");
         const isBrand = sn.includes("brand") || sn.includes("visibility");
 
-        if (isAppendices) {
+        if (isAppendix) {
           sectionGuide = `APPENDICES — produce a structured list of supporting documents the organisation can provide.
 
 Use the registration numbers, accreditation details, and partner names from the organisation context. Typical documents include: tax exemption certificate, NPO/company registration, accreditation certificates, audited financial statements, board resolution, organogram, B-BBEE certificate, banking confirmation, key personnel CVs, partner letters of support, sample portfolios.
@@ -1272,50 +1271,6 @@ pageType values:
 Funder: ${grant.funder}
 Funder type: ${grant.type || "unknown"}`,
         true, 1200
-      );
-    }
-    if (type === "_DEAD_findApplyUrl_legacy") {
-      return await api(
-        `You are finding the best webpage where a non-profit could start a funding conversation with a specific organisation.
-
-CORE RULE: ALWAYS return a URL. The "url" field MUST be a real, working URL on the funder's own website. Returning null is forbidden EXCEPT in the one case where you can prove the funder has no website at all (which is extremely rare).
-
-WHAT TO LOOK FOR — in order of preference:
-1. A dedicated application form, RFP, or open call page.
-2. A "how to apply for funding" or "grants programme" page.
-3. A funding / corporate social investment / community / responsibility page that describes how the funder gives money.
-4. A "contact us about partnerships / funding / grants" page.
-5. The funder's homepage — only as an absolute last resort, but STILL return it rather than returning null.
-
-VALIDATION:
-- The URL MUST be on the funder's own domain. Subdomains and deep paths are fine.
-- The URL MUST be a real link you found via web search in this session.
-- Return the final destination URL, not a search-engine redirect URL.
-- If you found a useful page but it's not a literal application form, still return it. The user can navigate from there. A real page is always more useful than null.
-
-WRITE THE NOTE IN PLAIN ENGLISH. No internal jargon, no acronyms without explanation. Say what the page IS in language a first-time user would understand. Examples:
-- "Their main funding page. Lists priorities and tells you how to get in touch about a grant."
-- "An application form for their education grants programme."
-- "Their corporate giving page. Doesn't have a form but explains who to email."
-
-RESPOND WITH ONLY A JSON OBJECT — no markdown, no backticks, no preamble:
-{"url":"[real URL on funder's site]","confidence":"[high|medium|low]","pageType":"[form|info_page|contact|homepage]","note":"[plain-English description of the page in 1 sentence]"}
-
-Confidence:
-- "high" = dedicated application form, RFP, or open call
-- "medium" = grants programme overview / how-to-apply / funding directory page
-- "low" = general corporate giving / responsibility / contact page — still useful as a starting point
-
-pageType:
-- "form"      = the page has an actual online application form / submission portal
-- "info_page" = the page describes how to apply (priorities, eligibility, instructions) but has no form
-- "contact"   = the page just has email/phone for funding inquiries
-- "homepage"  = nothing better was findable, returning the bare homepage`,
-        `Find the best page on the funder's website for starting a funding conversation.
-
-Funder: ${grant.funder}
-Funder type: ${grant.type || "unknown"}`,
-        true, 600
       );
     }
     if (type === "urlextract") {
