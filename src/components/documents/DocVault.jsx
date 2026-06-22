@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
-import { C, FONT, MONO } from "../theme";
-import { Btn } from "./index";
-import { getUploads, uploadFile, deleteUpload, getUploadsByCategory, getUploadDownloadUrl, kvGet, kvSet } from "../api";
-import { ORG_DOCS } from "../data/constants";
+import { C, FONT, MONO } from "@/theme";
+import { Btn } from "@/components/ui";
+import { getUploads, uploadFile, deleteUpload, getUploadsByCategory, getUploadDownloadUrl, kvGet, kvSet } from "@/api";
+import { ORG_DOCS } from "@/data/constants";
 
 /* ── Document categories ── */
 const DOC_CATEGORIES = [
@@ -134,7 +134,7 @@ export default function DocVault({ grants, complianceDocs, currentMember, onLaun
 
   const changeDocCategory = async (docId, newCategory) => {
     try {
-      const { f: apiFetch } = await import("../api");
+      const { f: apiFetch } = await import("@/api");
     } catch {}
     // Update category via a PUT to the upload — we need a server endpoint for this
     // For now, use the existing pattern: delete + re-create is too destructive

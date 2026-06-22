@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { C, FONT, MONO } from "../theme";
-import { fmt, fmtK, dL, deadlineCtx, effectiveAsk, grantReadiness } from "../utils";
-import { Num, Timeline, Label, Btn, CopyBtn, stripMd, TypeBadge, DeadlineBadge, Avatar } from "./index";
-import { isFunderReturning } from "../data/funderStrategy";
+import { C, FONT, MONO } from "@/theme";
+import { fmt, fmtK, dL, deadlineCtx, effectiveAsk, grantReadiness } from "@/utils";
+import { Num, Timeline, Label, Btn, CopyBtn, stripMd, TypeBadge, DeadlineBadge, Avatar } from "@/components/ui";
+import { isFunderReturning } from "@/data/funderStrategy";
 
 const CLOSED = ["won", "lost", "deferred", "archived"];
 const PRE_SUB = ["scouted", "vetting", "qualifying", "drafting", "review"];

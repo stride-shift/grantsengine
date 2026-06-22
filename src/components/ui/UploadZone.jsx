@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
-import { C, FONT, MONO } from "../theme";
+import { C, FONT, MONO } from "@/theme";
 import { Btn, Label } from "./index";
-import { uploadFile, addYouTubeUrl, deleteUpload as apiDeleteUpload } from "../api";
+import { uploadFile, addYouTubeUrl, deleteUpload as apiDeleteUpload } from "@/api";
 
 const typeIcon = (mime) => {
   if (mime === 'video/youtube') return "\u25B6";

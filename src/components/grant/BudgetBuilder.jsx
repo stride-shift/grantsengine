@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
-import { C, FONT, MONO } from "../theme";
-import { PTYPES, detectType, multiCohortInfo } from "../data/funderStrategy";
-import { Btn } from "./index";
+import { C, FONT, MONO } from "@/theme";
+import { PTYPES, detectType, multiCohortInfo } from "@/data/funderStrategy";
+import { Btn } from "@/components/ui";
 
 /* ── Budget Builder ──
    Interactive budget calculator using real PTYPES line-item data.

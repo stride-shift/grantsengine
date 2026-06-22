@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, forwardRef, useImperativeHandle } from "react";
-import { C, FONT, MONO } from "../theme";
-import { uid, td, isGroundingRedirect, isUsableUrl, normaliseFunder } from "../utils";
-import { Btn } from "./index";
-import { scoutPrompt, scoutBriefPrompt } from "../prompts";
-import { kvGet, kvSet, verifyUrls } from "../api";
-import { CLOSED_STAGES } from "../data/constants";
+import { C, FONT, MONO } from "@/theme";
+import { uid, td, isGroundingRedirect, isUsableUrl, normaliseFunder } from "@/utils";
+import { Btn } from "@/components/ui";
+import { scoutPrompt, scoutBriefPrompt } from "@/prompts";
+import { kvGet, kvSet, verifyUrls } from "@/api";
+import { CLOSED_STAGES } from "@/data/constants";
 
 /* ── Constants ── */
 const SCOUT_TYPE_MAP = { corporate: "Corporate CSI", csi: "Corporate CSI", government: "Government/SETA", seta: "Government/SETA", international: "International", foundation: "Foundation", tech: "Tech Company", credit: "Tech Credit", "in-kind": "In-Kind", partnership: "Partnership", development: "Development Agency", impact: "Impact Investor" };

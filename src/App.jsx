@@ -11,10 +11,10 @@ import {
 } from "./api";
 import useAI from "./hooks/useAI";
 
-import OrgSelector from "./components/OrgSelector";
-import Login from "./components/Login";
-import { ToastProvider, useToast } from "./components/Toast";
-import TourOverlay from "./components/TourOverlay";
+import OrgSelector from "@/components/auth/OrgSelector";
+import Login from "@/components/auth/Login";
+import { ToastProvider, useToast } from "@/components/ui/Toast";
+import TourOverlay from "@/components/chrome/TourOverlay";
 import { hasSeenOverview } from "./data/tourSteps";
 
 /* Context-aware help button. On Dashboard, opens a popover so the user can pick
@@ -215,7 +215,7 @@ function HelpButton({ currentView, selectedGrant, onLaunch }) {
   );
 }
 import geLogo from "./grants-engine-logo.png";
-import NorthernLights from "./components/NorthernLights";
+import NorthernLights from "@/components/chrome/NorthernLights";
 
 // Error boundary — prevents white screen on component crash
 class ErrorBoundary extends Component {
@@ -241,17 +241,17 @@ class ErrorBoundary extends Component {
 }
 
 // Lazy-load major views — each becomes its own chunk
-const Dashboard = lazy(() => import("./components/Dashboard"));
-const Pipeline = lazy(() => import("./components/Pipeline"));
-const GrantDetail = lazy(() => import("./components/GrantDetail"));
-const Settings = lazy(() => import("./components/Settings"));
-const Funders = lazy(() => import("./components/Funders"));
-const Admin = lazy(() => import("./components/Admin"));
-const Calendar = lazy(() => import("./components/Calendar"));
-const Vetting = lazy(() => import("./components/Vetting"));
-const DocVault = lazy(() => import("./components/DocVault"));
-const Freebies = lazy(() => import("./components/Freebies"));
-const Archive = lazy(() => import("./components/Archive"));
+const Dashboard = lazy(() => import("@/components/dashboard/Dashboard"));
+const Pipeline = lazy(() => import("@/components/pipeline/Pipeline"));
+const GrantDetail = lazy(() => import("@/components/grant/GrantDetail"));
+const Settings = lazy(() => import("@/components/settings/Settings"));
+const Funders = lazy(() => import("@/components/funders/Funders"));
+const Admin = lazy(() => import("@/components/settings/Admin"));
+const Calendar = lazy(() => import("@/components/calendar/Calendar"));
+const Vetting = lazy(() => import("@/components/pipeline/Vetting"));
+const DocVault = lazy(() => import("@/components/documents/DocVault"));
+const Freebies = lazy(() => import("@/components/freebies/Freebies"));
+const Archive = lazy(() => import("@/components/pipeline/Archive"));
 
 injectFonts();
 

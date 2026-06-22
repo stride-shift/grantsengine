@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { C, FONT } from "../theme";
+import { C, FONT } from "@/theme";
 
 /* WelcomeTutorial — first-time onboarding walkthrough.
  * Shown automatically on first login (controlled by localStorage flag).

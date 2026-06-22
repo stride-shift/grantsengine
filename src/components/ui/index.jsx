@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { C, FONT, MONO } from "../theme";
-import { dL, fmtK, urgC, urgLabel, deadlineCtx, cp } from "../utils";
+import { C, FONT, MONO } from "@/theme";
+import { dL, fmtK, urgC, urgLabel, deadlineCtx, cp } from "@/utils";
 
 // Strip markdown bold/italic asterisks for inline display
 export const stripMd = (text) => {
@@ -494,7 +494,7 @@ export const AICard = ({ title, desc, onRun, busy, result, docName, docMeta, ste
           {/* Action bar */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
             {docName && <DownloadBtn text={result} filename={docName} onDocx={docMeta ? async (text, fn) => {
-              const { generateDocx } = await import("../docxGenerator.js");
+              const { generateDocx } = await import("@/docxGenerator.js");
               await generateDocx(text, fn, docMeta);
             } : null} />}
             <CopyBtn text={result} />

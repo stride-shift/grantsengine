@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { C, FONT, MONO } from "../theme";
-import { Btn } from "./index";
-import { TEAM } from "../data/constants";
+import { C, FONT, MONO } from "@/theme";
+import { Btn } from "@/components/ui";
+import { TEAM } from "@/data/constants";
 
 /* ── Vetting checklist fields ── */
 const VETTING_CHECKS = [

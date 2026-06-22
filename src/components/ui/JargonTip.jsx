@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { C, FONT } from "../theme";
-import { GLOSSARY } from "../data/glossary";
+import { C, FONT } from "@/theme";
+import { GLOSSARY } from "@/data/glossary";
 
 /* Build a fast lookup map: lowercase term → definition string.
  * Generated once from the glossary file. */

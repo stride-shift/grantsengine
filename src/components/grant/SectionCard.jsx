@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { C, FONT, MONO } from "../theme";
-import { Btn, CopyBtn, AILoadingPanel, stripMd, timeAgo } from "./index";
+import { C, FONT, MONO } from "@/theme";
+import { Btn, CopyBtn, AILoadingPanel, stripMd, timeAgo } from "@/components/ui";
 
 /* ── Render section content with markdown table + stat-callout support ── */
 // Matches `[STAT: <value> | <label>]` — e.g. [STAT: 92% | Programme completion vs 55% sector average]

@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { C, FONT, MONO } from "../theme";
-import { fmtK, effectiveAsk } from "../utils";
-import { Btn, TypeBadge } from "./index";
-import { funderStrategy, isFunderReturning, PTYPES } from "../data/funderStrategy";
-import { CAD, FTYPES, TEAM } from "../data/constants";
-import { kvGet, kvSet } from "../api";
+import { C, FONT, MONO } from "@/theme";
+import { fmtK, effectiveAsk } from "@/utils";
+import { Btn, TypeBadge } from "@/components/ui";
+import { funderStrategy, isFunderReturning, PTYPES } from "@/data/funderStrategy";
+import { CAD, FTYPES, TEAM } from "@/data/constants";
+import { kvGet, kvSet } from "@/api";
 
 /* ── Relationship owners (from CLAUDE.md Key People) ── */
 const REL_OWNERS = {

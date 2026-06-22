@@ -7,7 +7,7 @@ import {
   effectiveAsk,
   isAIError,
   assembleText,
-} from "../utils";
+} from "@/utils";
 
 // ── parseStructuredResearch ──
 describe("parseStructuredResearch", () => {

@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { C, FONT, MONO } from "../theme";
-import { Btn } from "./index";
-import { detectForm, updateAutofillMappings, runAutofill, submitAutofill, verifyUrls, getUploads, uploadFile, getAuth, deleteUpload } from "../api";
-import { detectSubmissionMethod, assembleText, isAIError } from "../utils";
-import { DOCS } from "../data/constants";
-import { buildGlossaryAppendix } from "../data/glossary";
+import { C, FONT, MONO } from "@/theme";
+import { Btn } from "@/components/ui";
+import { detectForm, updateAutofillMappings, runAutofill, submitAutofill, verifyUrls, getUploads, uploadFile, getAuth, deleteUpload } from "@/api";
+import { detectSubmissionMethod, assembleText, isAIError } from "@/utils";
+import { DOCS } from "@/data/constants";
+import { buildGlossaryAppendix } from "@/data/glossary";
 
 const CONFIDENCE_COLOR = { high: "#16A34A", medium: "#C17817", low: "#9CA3AF" };
 
@@ -214,7 +214,7 @@ export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, on
     const text = buildDownloadText();
     if (!text) return;
     try {
-      const { generateDocxFromSections } = await import("../docxGenerator");
+      const { generateDocxFromSections } = await import("@/docxGenerator");
       const sections = grant?.aiSections || {};
       const order = grant?.aiSectionsOrder || [];
       // If user has a glossary toggled on AND it's in the text, splice a Glossary

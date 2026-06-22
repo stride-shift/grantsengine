@@ -1,10 +1,10 @@
 import { useState, useMemo, useRef, useCallback } from "react";
-import { C, FONT, MONO } from "../theme";
-import { fmtK, dL, uid, td, effectiveAsk, grantReadiness, isAIError } from "../utils";
-import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "./index";
-import { detectType, PTYPES } from "../data/funderStrategy";
-import { GATES, ROLES, CLOSED_STAGES } from "../data/constants";
-import { uploadFile } from "../api";
+import { C, FONT, MONO } from "@/theme";
+import { fmtK, dL, uid, td, effectiveAsk, grantReadiness, isAIError } from "@/utils";
+import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "@/components/ui";
+import { detectType, PTYPES } from "@/data/funderStrategy";
+import { GATES, ROLES, CLOSED_STAGES } from "@/data/constants";
+import { uploadFile } from "@/api";
 import ScoutPanel from "./ScoutPanel";
 
 /* ── Readiness Chips — show missing items on kanban cards ── */

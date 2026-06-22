@@ -1,16 +1,16 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { C, FONT, MONO } from "../theme";
-import { fmtK, dL, td, uid, effectiveAsk, grantReadiness, isAIError, parseStructuredResearch, cleanProposalText } from "../utils";
-import { Btn, DeadlineBadge, TypeBadge, Tag, AICard, stripMd, timeAgo } from "./index";
-import UploadZone from "./UploadZone";
-import { getUploads, kvGet, kvSet } from "../api";
-import { detectType, PTYPES, multiCohortInfo, funderStrategy, selectOptimalBudget } from "../data/funderStrategy";
-import { DOCS, DOC_MAP, ORG_DOCS } from "../data/constants";
+import { C, FONT, MONO } from "@/theme";
+import { fmtK, dL, td, uid, effectiveAsk, grantReadiness, isAIError, parseStructuredResearch, cleanProposalText } from "@/utils";
+import { Btn, DeadlineBadge, TypeBadge, Tag, AICard, stripMd, timeAgo } from "@/components/ui";
+import UploadZone from "@/components/ui/UploadZone";
+import { getUploads, kvGet, kvSet } from "@/api";
+import { detectType, PTYPES, multiCohortInfo, funderStrategy, selectOptimalBudget } from "@/data/funderStrategy";
+import { DOCS, DOC_MAP, ORG_DOCS } from "@/data/constants";
 import ProposalWorkspace from "./ProposalWorkspace";
 import BudgetBuilder from "./BudgetBuilder";
-import { downloadICS } from "./Calendar";
+import { downloadICS } from "@/components/calendar/Calendar";
 import AutoFillPanel from "./AutoFillPanel";
-import { glossText } from "./JargonTip";
+import { glossText } from "@/components/ui/JargonTip";
 
 const fmtTs = (iso) => iso ? new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
 
@@ -1736,7 +1736,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                   up("owner", newOwner);
                   // Sync calendar: move event from old owner to new owner
                   if (newOwner !== oldOwner && g.deadline) {
-                    import("../api").then(({ reassignGcal }) => {
+                    import("@/api").then(({ reassignGcal }) => {
                       reassignGcal(g.id, oldOwner, newOwner, g).catch(() => {});
                     });
                   }
@@ -2208,7 +2208,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                     up("deadline", val);
                     if (val && val !== g.deadline) {
                       // Auto-sync to Google Calendar if connected
-                      import("../api").then(({ syncGrantToGcal }) => {
+                      import("@/api").then(({ syncGrantToGcal }) => {
                         syncGrantToGcal({ ...g, deadline: val }).catch(() => {});
                       });
                       setTimeout(() => downloadICS({ ...g, deadline: val }, "deadline"), 300);
@@ -3018,7 +3018,7 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
             log: [...(g.log || []), { d: new Date().toISOString().slice(0, 10), t: logEntry, by: currentMember?.id }],
           });
           if (g.deadline && fromMember?.id !== handover.toMember) {
-            import("../api").then(({ reassignGcal }) => {
+            import("@/api").then(({ reassignGcal }) => {
               reassignGcal(g.id, g.owner, handover.toMember, g).catch(() => {});
             });
           }

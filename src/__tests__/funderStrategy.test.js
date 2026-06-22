@@ -6,7 +6,7 @@ import {
   multiCohortInfo,
   selectOptimalBudget,
   funderStrategy,
-} from "../data/funderStrategy";
+} from "@/data/funderStrategy";
 
 // ── isFunderReturning ──
 describe("isFunderReturning", () => {

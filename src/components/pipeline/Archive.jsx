@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { C, FONT, MONO } from "../theme";
-import { CLOSED_STAGES } from "../data/constants";
+import { C, FONT, MONO } from "@/theme";
+import { CLOSED_STAGES } from "@/data/constants";
 
 /* Closed proposals archive.
  *

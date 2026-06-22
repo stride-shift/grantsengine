@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { C, FONT } from "../theme";
-import { FREEBIES, FREEBIE_CATEGORIES } from "../data/freebies";
+import { C, FONT } from "@/theme";
+import { FREEBIES, FREEBIE_CATEGORIES } from "@/data/freebies";
 
 /* Nonprofit resources / freebies directory.
  *

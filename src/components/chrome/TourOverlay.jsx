@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { C, FONT } from "../theme";
-import { stepsForTour, markOverviewSeen } from "../data/tourSteps";
+import { C, FONT } from "@/theme";
+import { stepsForTour, markOverviewSeen } from "@/data/tourSteps";
 
 /* Anchored guided tour with smooth animations.
  *

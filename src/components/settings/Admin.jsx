@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
-import { C, FONT, MONO } from "../theme";
-import { Label, Avatar, Btn, RoleBadge } from "./index";
-import { getAdminSessions, getAdminSessionHistory, getAdminActivity, upsertTeamMember, deleteTeamMember, adminResetPassword } from "../api";
+import { C, FONT, MONO } from "@/theme";
+import { Label, Avatar, Btn, RoleBadge } from "@/components/ui";
+import { getAdminSessions, getAdminSessionHistory, getAdminActivity, upsertTeamMember, deleteTeamMember, adminResetPassword } from "@/api";
 
 const ROLES = [
   { id: "director", label: "Admin", desc: "Full access, manage users" },

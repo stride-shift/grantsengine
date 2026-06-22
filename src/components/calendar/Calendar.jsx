@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback } from "react";
-import { C, FONT, MONO } from "../theme";
-import { dL, effectiveAsk, fmtK, deadlineCtx } from "../utils";
-import { Avatar } from "./index";
-import { getAuth } from "../api";
+import { C, FONT, MONO } from "@/theme";
+import { dL, effectiveAsk, fmtK, deadlineCtx } from "@/utils";
+import { Avatar } from "@/components/ui";
+import { getAuth } from "@/api";
 
 /* ── ICS helpers ── */
 export function generateICSEvent(grant, type = "deadline") {

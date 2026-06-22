@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { C, FONT, MONO, resetTheme } from "../theme";
-import { Btn, Label, Avatar, RoleBadge } from "./index";
-import UploadZone from "./UploadZone";
-import { checkHealth, getUploads, uploadFile, uploadOrgLogo, memberSetPassword, getGcalStatus, syncAllToGcal, disconnectGcal, getGcalAuthUrl } from "../api";
-import { ORG_DOCS } from "../data/constants";
+import { C, FONT, MONO, resetTheme } from "@/theme";
+import { Btn, Label, Avatar, RoleBadge } from "@/components/ui";
+import UploadZone from "@/components/ui/UploadZone";
+import { checkHealth, getUploads, uploadFile, uploadOrgLogo, memberSetPassword, getGcalStatus, syncAllToGcal, disconnectGcal, getGcalAuthUrl } from "@/api";
+import { ORG_DOCS } from "@/data/constants";
 
 // ── Compliance doc status helpers ──
 const statusIcon = (status, daysLeft) => {

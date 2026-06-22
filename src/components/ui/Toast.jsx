@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
-import { C, FONT, MONO } from "../theme";
+import { C, FONT, MONO } from "@/theme";
 
 /* ── Toast Context — provides showToast() to any component ── */
 const ToastContext = createContext(null);

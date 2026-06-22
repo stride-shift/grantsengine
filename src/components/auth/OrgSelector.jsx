@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { C, FONT, MONO } from "../theme";
-import { Btn } from "./index";
-import { getOrgs, createNewOrg, deleteOrg } from "../api";
-import NorthernLights from "./NorthernLights";
-import dlabLogo from "../dlab.png";
-import geLogo from "../grants-engine-logo.png";
-import geIcon from "../ge-icon.png";
+import { C, FONT, MONO } from "@/theme";
+import { Btn } from "@/components/ui";
+import { getOrgs, createNewOrg, deleteOrg } from "@/api";
+import NorthernLights from "@/components/chrome/NorthernLights";
+import dlabLogo from "@/dlab.png";
+import geLogo from "@/grants-engine-logo.png";
+import geIcon from "@/ge-icon.png";
 
 /* ── Shared avatar ── */
 function OrgAvatar({ name, logoUrl, slug, size = 40, radius = 10, fontSize = 16 }) {

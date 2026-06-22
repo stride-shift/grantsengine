@@ -1,11 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { C, FONT, MONO } from "../theme";
-import { Btn, CopyBtn, DownloadBtn } from "./index";
-import { assembleText, effectiveAsk, isAIError, cleanProposalText, validateProposalBreaks, readabilityScore, readabilityLabel } from "../utils";
-import { buildGlossaryAppendix } from "../data/glossary";
-import { funderStrategy, PTYPES } from "../data/funderStrategy";
+import { C, FONT, MONO } from "@/theme";
+import { Btn, CopyBtn, DownloadBtn } from "@/components/ui";
+import { assembleText, effectiveAsk, isAIError, cleanProposalText, validateProposalBreaks, readabilityScore, readabilityLabel } from "@/utils";
+import { buildGlossaryAppendix } from "@/data/glossary";
+import { funderStrategy, PTYPES } from "@/data/funderStrategy";
 import SectionCard from "./SectionCard";
-import { analyzeEditInBackground } from "../editLearner";
+import { analyzeEditInBackground } from "@/editLearner";
 
 /* ── Proposal Workspace ──
    Section-by-section proposal editor.
@@ -355,7 +355,7 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
     const assembled = assembleText(sections, order);
     if (!assembled.trim()) return;
     try {
-      const { generateDocxFromSections, generateDocx } = await import("../docxGenerator.js");
+      const { generateDocxFromSections, generateDocx } = await import("@/docxGenerator.js");
       const meta = { grantName: g.name, funder: g.funder, orgName: orgName || "the organisation", ask: effectiveAsk(g), type: g.type, budgetTable: g.budgetTable || null };
       if (generateDocxFromSections) {
         await generateDocxFromSections(sections, order, `${g.name}_proposal`, meta);
