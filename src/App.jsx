@@ -10,6 +10,7 @@ import {
   getCompliance, updateComplianceDoc, createComplianceDoc,
 } from "./api";
 import useAI from "./hooks/useAI";
+import useSave from "./hooks/useSave";
 
 import OrgSelector from "@/components/auth/OrgSelector";
 import Login from "@/components/auth/Login";
@@ -325,7 +326,9 @@ function AppInner() {
   const [complianceDocs, setComplianceDocs] = useState([]);
   // Phase 12: which tour (if any) is currently running. null = no tour.
   const [activeTour, setActiveTour] = useState(null);
-  const saveTimers = useRef({});
+
+  // Debounced persistence + save-state indicator (cancels pending saves on logout)
+  const { saveState, dSave } = useSave(toast, authed);
 
   // Auto-open the OVERVIEW tour the first time a member signs in. No artificial
   // delay — the TourOverlay polls for the target element internally, so it
@@ -629,43 +632,6 @@ function AppInner() {
     })();
   }, [grants, runAI, currentMember?.id]);
 
-  // ── Debounced save with status indicator ──
-  const [saveState, setSaveState] = useState("idle"); // "idle" | "saving" | "saved" | "error"
-  const saveStateTimer = useRef(null);
-
-  // Track last error toast time so we don't spam the user with identical messages
-  // from rapid-fire background saves. Suppresses dupes within a 10-second window.
-  const lastErrorToastRef = useRef({ msg: "", at: 0 });
-
-  const dSave = useCallback((grantId, data, opts = {}) => {
-    const { silent = false } = opts;
-    clearTimeout(saveTimers.current[grantId]);
-    saveTimers.current[grantId] = setTimeout(async () => {
-      if (!silent) setSaveState("saving");
-      try {
-        await saveGrant(data);
-        if (!silent) {
-          setSaveState("saved");
-          clearTimeout(saveStateTimer.current);
-          saveStateTimer.current = setTimeout(() => setSaveState("idle"), 2000);
-        }
-      } catch (err) {
-        console.error("Save failed:", err.message, "grant:", grantId);
-        if (silent) return; // background work — don't bother the user
-        setSaveState("error");
-        // De-duplicate toasts: same error within 10s gets suppressed
-        const now = Date.now();
-        const last = lastErrorToastRef.current;
-        if (last.msg !== err.message || now - last.at > 10000) {
-          toast(`Save failed: ${err.message}`, { type: "error", duration: 5000 });
-          lastErrorToastRef.current = { msg: err.message, at: now };
-        }
-        clearTimeout(saveStateTimer.current);
-        saveStateTimer.current = setTimeout(() => setSaveState("idle"), 5000);
-      }
-    }, 1000);
-  }, []);
-
   // ── Load data after auth ──
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -722,15 +688,6 @@ function AppInner() {
   useEffect(() => {
     if (authed) loadData();
   }, [authed, loadData]);
-
-  // ── Clean up save timers on unmount or org switch ──
-  useEffect(() => {
-    return () => {
-      Object.values(saveTimers.current).forEach(t => clearTimeout(t));
-      saveTimers.current = {};
-      clearTimeout(saveStateTimer.current);
-    };
-  }, [authed]);
 
   // ── URL handling (simple pushState, no router) ──
   useEffect(() => {
