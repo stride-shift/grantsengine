@@ -117,6 +117,24 @@ export const memberLogin = async (slug, memberId, password) => {
   return data;
 };
 
+// ── Auth (email-based, org-agnostic — primary login path) ──
+// User signs in with just email + password; the org is resolved server-side from
+// the globally-unique email. Stores token + resolved slug + member like memberLogin.
+export const loginWithEmail = async (email, password) => {
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Login failed');
+  }
+  const data = await res.json();
+  setAuth(data.token, data.slug || data.org?.slug, data.member);
+  return data;
+};
+
 // Authenticated password set/change (self or director). First-time setup for a
 // member with no password uses the emailed reset link instead (see requestPasswordReset).
 export const memberSetPassword = async (slug, memberId, password) => {

@@ -5,6 +5,7 @@ import {
   getOrgBySlug, getOrgAuth, setOrgPassword, createSession, deleteSession, getSession,
   getMemberWithAuth, setMemberPassword, createMemberSession, endSession, logActivity,
   getTeamMembers, createResetToken, validateResetToken, markResetTokenUsed,
+  getOrgAndMemberByEmail,
 } from '../db.js';
 import { sendResetEmail } from '../email.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -103,7 +104,39 @@ router.post('/org/:slug/auth/set-password', w(async (req, res) => {
   res.json({ token: session.token, expires: session.expires, org: { id: org.id, slug: org.slug, name: org.name } });
 }));
 
-// ── Member-level (individual login) ──
+// ── Email-based login (org-agnostic; resolves the org from a globally-unique email) ──
+// The primary login path: user enters email + password, no org picking. The legacy
+// org-scoped member-login below remains as a migration fallback until every member
+// has a backfilled email + password.
+router.post('/auth/login', w(async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+
+  const row = await getOrgAndMemberByEmail(email);
+  // Generic message — never reveal whether the email exists or has a password set.
+  if (!row || !row.password_hash) return res.status(401).json({ error: 'Invalid email or password' });
+
+  const valid = await bcrypt.compare(password, row.password_hash);
+  if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
+
+  const session = await createMemberSession(row.org_id, row.member_id);
+
+  await logActivity(row.org_id, 'login', {
+    memberId: row.member_id,
+    sessionToken: session.token,
+    meta: { member_name: row.name, method: 'email' },
+  });
+
+  res.json({
+    token: session.token,
+    expires: session.expires,
+    slug: row.slug,
+    org: { id: row.org_id, slug: row.slug },
+    member: { id: row.member_id, name: row.name, role: row.role, initials: row.initials },
+  });
+}));
+
+// ── Member-level (individual login) — legacy / migration fallback ──
 
 router.post('/org/:slug/auth/member-login', w(async (req, res) => {
   const { slug } = req.params;

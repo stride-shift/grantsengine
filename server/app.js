@@ -35,6 +35,8 @@ const authLimiter = rateLimit({
 app.use('/api/org/:slug/auth/login', authLimiter);
 app.use('/api/org/:slug/auth/set-password', authLimiter);
 app.use('/api/org/:slug/auth/member-login', authLimiter);
+// Email-based login (org-agnostic primary path)
+app.use('/api/auth/login', authLimiter);
 app.use('/api/org/:slug/auth/member-set-password', authLimiter);
 // Throttle the emailed password-reset request flow (replaces the removed admin-key path)
 app.use('/api/org/:slug/auth/request-reset', rateLimit({

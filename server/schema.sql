@@ -63,6 +63,11 @@ CREATE TABLE IF NOT EXISTS team_members (
 -- Google Calendar tokens per team member
 ALTER TABLE team_members ADD COLUMN IF NOT EXISTS gcal_tokens JSONB;
 
+-- Global-unique login email (case-insensitive). NULL / blank allowed so members
+-- not yet backfilled with an email still pass; enables email→org auto-resolution.
+CREATE UNIQUE INDEX IF NOT EXISTS team_members_email_lower_unique
+  ON team_members (LOWER(email)) WHERE email IS NOT NULL AND email <> '';
+
 CREATE TABLE IF NOT EXISTS org_auth (
   org_id TEXT PRIMARY KEY REFERENCES orgs(id) ON DELETE CASCADE,
   password_hash TEXT NOT NULL

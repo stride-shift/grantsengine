@@ -396,6 +396,22 @@ export const getMemberWithAuth = async (orgId, memberId) => {
   return rows[0] || null;
 };
 
+// Email → (org, member) resolution for org-agnostic email+password login.
+// Relies on the global-unique email index (case-insensitive); returns one row or null.
+export const getOrgAndMemberByEmail = async (email) => {
+  if (!email) return null;
+  const { rows } = await pool().query(
+    `SELECT tm.id AS member_id, tm.org_id, tm.name, tm.role, tm.initials,
+            tm.password_hash, o.slug
+       FROM team_members tm
+       JOIN orgs o ON o.id = tm.org_id
+      WHERE LOWER(tm.email) = LOWER($1)
+      LIMIT 1`,
+    [email]
+  );
+  return rows[0] || null;
+};
+
 export const setMemberPassword = async (memberId, hash) => {
   await pool().query('UPDATE team_members SET password_hash = $1 WHERE id = $2', [hash, memberId]);
 };
