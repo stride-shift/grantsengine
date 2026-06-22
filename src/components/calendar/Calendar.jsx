@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { C, FONT, MONO } from "@/theme";
 import { dL, effectiveAsk, fmtK, deadlineCtx } from "@/utils";
 import { Avatar } from "@/components/ui";
 import { getAuth } from "@/api";
+import useCalendar from "@/hooks/useCalendar";
 
 /* ── ICS helpers ── */
 export function generateICSEvent(grant, type = "deadline") {
@@ -45,13 +46,6 @@ export function downloadICS(grant, type = "deadline") {
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const CLOSED = ["won", "lost", "deferred", "archived"];
-
-function startOfWeek(d) {
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.getFullYear(), d.getMonth(), diff);
-}
 
 function sameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -81,11 +75,18 @@ const EVENT_LABELS = {
 };
 
 export default function Calendar({ grants, team, stages, onSelectGrant, onLaunchTour }) {
-  const [viewMode, setViewMode] = useState("month");
-  const [current, setCurrent] = useState(new Date());
-  const [activeTypes, setActiveTypes] = useState(new Set(["deadline", "followup", "submitted"]));
+  const today = useMemo(() => new Date(), []);
+  const {
+    viewMode, setViewMode,
+    current,
+    activeTypes, toggleType,
+    eventsByDate,
+    monthGrid, weekDays, upcomingEvents,
+    deadlinesThisWeek, deadlinesThisMonth, overdueEvents, overdueCount,
+    nav, goToday,
+  } = useCalendar(grants, today);
+
   const [showOverdue, setShowOverdue] = useState(false);
-  const today = new Date();
 
   const teamById = useMemo(() => {
     const m = new Map();
@@ -98,77 +99,6 @@ export default function Calendar({ grants, team, stages, onSelectGrant, onLaunch
     (stages || []).forEach(s => m.set(s.id, s));
     return m;
   }, [stages]);
-
-  const events = useMemo(() => {
-    const evts = [];
-    for (const g of grants) {
-      if (CLOSED.includes(g.stage)) continue;
-      if (g.deadline) evts.push({ type: "deadline", date: g.deadline.slice(0, 10), grant: g });
-      if (g.subDate) evts.push({ type: "submitted", date: g.subDate.slice(0, 10), grant: g });
-      if (Array.isArray(g.fups)) {
-        for (const fup of g.fups) {
-          if (!fup.done && fup.date) evts.push({ type: "followup", date: fup.date.slice(0, 10), grant: g, label: fup.label });
-        }
-      }
-    }
-    return evts;
-  }, [grants]);
-
-  const filteredEvents = useMemo(() => events.filter(e => activeTypes.has(e.type)), [events, activeTypes]);
-
-  const eventsByDate = useMemo(() => {
-    const map = {};
-    for (const e of filteredEvents) {
-      if (!e.date) continue;
-      if (!map[e.date]) map[e.date] = [];
-      map[e.date].push(e);
-    }
-    return map;
-  }, [filteredEvents]);
-
-  const monthGrid = useMemo(() => {
-    const year = current.getFullYear(), month = current.getMonth();
-    const firstDay = new Date(year, month, 1);
-    let start = startOfWeek(firstDay);
-    const weeks = [];
-    while (weeks.length < 6) {
-      const week = [];
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(start);
-        d.setDate(start.getDate() + i);
-        week.push(d);
-      }
-      weeks.push(week);
-      start.setDate(start.getDate() + 7);
-    }
-    return weeks;
-  }, [current]);
-
-  const weekDays = useMemo(() => {
-    const start = startOfWeek(current);
-    return Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
-  }, [current]);
-
-  const upcomingEvents = useMemo(() =>
-    filteredEvents.filter(e => e.date >= fmtDate(today)).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 50),
-    [filteredEvents, today]
-  );
-
-  const nav = (dir) => {
-    const d = new Date(current);
-    if (viewMode === "month") d.setMonth(d.getMonth() + dir);
-    else d.setDate(d.getDate() + dir * 7);
-    setCurrent(d);
-  };
-
-  const toggleType = (type) => {
-    setActiveTypes(prev => {
-      const next = new Set(prev);
-      if (next.has(type)) { if (next.size > 1) next.delete(type); }
-      else next.add(type);
-      return next;
-    });
-  };
 
   // ── Google Calendar style event chip ──
   const EventChip = ({ evt, compact = false }) => {
@@ -404,19 +334,6 @@ export default function Calendar({ grants, team, stages, onSelectGrant, onLaunch
     );
   };
 
-  // ── Stats ──
-  const todayStr = fmtDate(today);
-  const { deadlinesThisWeek, deadlinesThisMonth, overdueEvents, overdueCount } = useMemo(() => {
-    const thisWeekStart = startOfWeek(today);
-    const thisWeekEnd = new Date(thisWeekStart);
-    thisWeekEnd.setDate(thisWeekEnd.getDate() + 6);
-    const week = filteredEvents.filter(e => { const d = parseLocalDate(e.date); return d && d >= thisWeekStart && d <= thisWeekEnd && e.type === "deadline"; }).length;
-    const month = filteredEvents.filter(e => { const d = parseLocalDate(e.date); return d && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear() && e.type === "deadline"; }).length;
-    const overdue = filteredEvents.filter(e => e.type === "deadline" && e.date < todayStr).sort((a, b) => b.date.localeCompare(a.date));
-    return { deadlinesThisWeek: week, deadlinesThisMonth: month, overdueEvents: overdue, overdueCount: overdue.length };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredEvents, todayStr]);
-
   return (
     <div style={{ padding: "16px 12px", height: "100%", display: "flex", flexDirection: "column", fontFamily: FONT }}>
       {/* Header bar — Google Calendar style */}
@@ -485,7 +402,7 @@ export default function Calendar({ grants, team, stages, onSelectGrant, onLaunch
 
         {/* Navigation */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={() => setCurrent(new Date())} style={{
+          <button onClick={goToday} style={{
             padding: "5px 16px", fontSize: 12, fontWeight: 500, fontFamily: FONT,
             borderRadius: 6, border: `1px solid ${C.line}`, background: "#fff",
             color: "#333", cursor: "pointer",

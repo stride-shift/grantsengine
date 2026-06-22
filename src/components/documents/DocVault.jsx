@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { C, FONT, MONO } from "@/theme";
 import { Btn } from "@/components/ui";
-import { getUploads, uploadFile, deleteUpload, getUploadsByCategory, getUploadDownloadUrl, kvGet, kvSet } from "@/api";
+import useDocVault from "@/hooks/useDocVault";
 import { ORG_DOCS } from "@/data/constants";
 
 /* ── Document categories ── */
@@ -24,9 +24,6 @@ const ORG_DOC_CAT_MAP = {
   Org: "org",
 };
 
-/* ── Role → permission level ── */
-const ROLE_LEVELS = { director: 3, board: 3, hop: 2, pm: 1, coord: 1, comms: 0 };
-
 function formatBytes(bytes) {
   if (!bytes) return "—";
   if (bytes < 1024) return `${bytes} B`;
@@ -42,47 +39,15 @@ function daysSince(dateStr) {
 }
 
 export default function DocVault({ grants, complianceDocs, currentMember, onLaunchTour }) {
-  const memberLevel = ROLE_LEVELS[currentMember?.role] || 0;
-  const isAdmin = memberLevel >= 2;
-  const [uploads, setUploads] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    uploads, loading, uploading,
+    referenceIds, toggleReference,
+    triggerUpload, changeDocCategory, reExtract, handleDelete, handleView,
+  } = useDocVault(complianceDocs);
+
+  // Presentational state
   const [activeCategory, setActiveCategory] = useState("all");
-  const [uploading, setUploading] = useState(false);
-  const [uploadCat, setUploadCat] = useState("org");
-  const [uploadVisibility, setUploadVisibility] = useState("public");
-  const [showUpload, setShowUpload] = useState(false);
   const [proposalSubTab, setProposalSubTab] = useState("all"); // "all" | "references"
-  const [referenceIds, setReferenceIds] = useState(new Set()); // proposal IDs marked as AI reference
-
-  // Load reference IDs from KV store
-  useEffect(() => {
-    kvGet("proposal_references").then(data => {
-      if (data) {
-        const ids = Array.isArray(data) ? data : (data.value || []);
-        setReferenceIds(new Set(ids));
-      }
-    }).catch(() => {});
-  }, []);
-
-  const toggleReference = (id) => {
-    setReferenceIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      const arr = [...next];
-      kvSet("proposal_references", arr).catch(() => {});
-      return next;
-    });
-  };
-
-  // Load all org uploads
-  useEffect(() => {
-    setLoading(true);
-    getUploads().then(data => {
-      setUploads(data || []);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
 
   const filtered = useMemo(() => {
     if (activeCategory === "all") return uploads;
@@ -98,80 +63,6 @@ export default function DocVault({ grants, complianceDocs, currentMember, onLaun
     }
     return cats;
   }, [uploads]);
-
-  // Compliance doc status — which required docs are uploaded
-  const complianceStatus = useMemo(() => {
-    return {
-      total: ORG_DOCS.length,
-      uploaded: complianceDocs?.length || 0,
-    };
-  }, [uploads, complianceDocs]);
-
-  const handleUpload = async (e, category) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const cat = category || (activeCategory !== "all" ? activeCategory : "org");
-      await uploadFile(file, null, cat, uploadVisibility);
-      const data = await getUploads();
-      setUploads(data || []);
-    } catch (err) {
-      alert("Upload failed: " + err.message);
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  };
-
-  const triggerUpload = (cat) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".pdf,.doc,.docx,.xlsx,.xls,.csv,.txt,.md,.jpg,.jpeg,.png";
-    input.onchange = (e) => handleUpload(e, cat);
-    input.click();
-  };
-
-  const changeDocCategory = async (docId, newCategory) => {
-    try {
-      const { f: apiFetch } = await import("@/api");
-    } catch {}
-    // Update category via a PUT to the upload — we need a server endpoint for this
-    // For now, use the existing pattern: delete + re-create is too destructive
-    // Instead, add a PATCH-style update
-    try {
-      const res = await fetch(`/api/org/${localStorage.getItem("gt_slug")}/uploads/${docId}/category`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("gt_token")}` },
-        body: JSON.stringify({ category: newCategory }),
-      });
-      if (res.ok) {
-        setUploads(prev => prev.map(u => u.id === docId ? { ...u, category: newCategory } : u));
-      }
-    } catch (err) {
-      console.error("Category update failed:", err);
-    }
-  };
-
-  const handleDelete = async (id, e) => {
-    e.stopPropagation();
-    if (!confirm("Delete this document?")) return;
-    try {
-      await deleteUpload(id);
-      setUploads(prev => prev.filter(u => u.id !== id));
-    } catch (err) {
-      alert("Delete failed: " + err.message);
-    }
-  };
-
-  const handleView = async (doc) => {
-    try {
-      const { url } = await getUploadDownloadUrl(doc.id);
-      if (url) window.open(url, "_blank");
-    } catch (err) {
-      alert("Could not open file: " + err.message);
-    }
-  };
 
   return (
     <div style={{ padding: "20px 24px", maxWidth: 1200, margin: "0 auto" }}>
@@ -405,24 +296,17 @@ export default function DocVault({ grants, complianceDocs, currentMember, onLaun
                       <button onClick={async (e) => {
                         e.stopPropagation();
                         const btn = e.currentTarget;
-                        btn.textContent = "Extracting...";
-                        btn.disabled = true;
-                        try {
-                          const res = await fetch(`/api/org/${localStorage.getItem("gt_slug")}/uploads/${doc.id}/reextract`, {
-                            method: "POST", headers: { "Authorization": `Bearer ${localStorage.getItem("gt_token")}` },
-                          });
-                          const data = await res.json();
-                          if (data.extracted) {
-                            btn.textContent = "✓ Done";
-                            btn.style.color = C.ok;
-                            // Refresh uploads
-                            const fresh = await getUploads();
-                            setUploads(fresh || []);
-                          } else {
-                            btn.textContent = "Failed";
-                            btn.style.color = C.red;
-                          }
-                        } catch { btn.textContent = "Error"; btn.style.color = C.red; }
+                        const ok = await reExtract(doc.id, btn);
+                        if (ok === true) {
+                          btn.textContent = "✓ Done";
+                          btn.style.color = C.ok;
+                        } else if (ok === false) {
+                          btn.textContent = "Failed";
+                          btn.style.color = C.red;
+                        } else {
+                          btn.textContent = "Error";
+                          btn.style.color = C.red;
+                        }
                       }} style={{ fontSize: 10, fontWeight: 600, color: C.blue, background: "none", border: `1px solid ${C.blue}30`, borderRadius: 4, padding: "1px 6px", cursor: "pointer", fontFamily: FONT }}>
                         Re-extract text
                       </button>
@@ -471,7 +355,7 @@ export default function DocVault({ grants, complianceDocs, currentMember, onLaun
                   ))}
                 </select>
                 <button
-                  onClick={(e) => handleDelete(doc.id, e)}
+                  onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }}
                   style={{
                     fontSize: 14, color: C.t4, background: "none", border: "none",
                     cursor: "pointer", fontFamily: FONT, padding: "4px 8px", flexShrink: 0,
