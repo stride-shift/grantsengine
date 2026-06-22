@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { C, FONT, MONO } from "@/theme";
 import { Btn } from "@/components/ui";
-import { getOrgs, createNewOrg, deleteOrg } from "@/api";
+import useOrgSelector from "@/hooks/useOrgSelector";
 import NorthernLights from "@/components/chrome/NorthernLights";
 import dlabLogo from "@/dlab.png";
 import geLogo from "@/grants-engine-logo.png";
@@ -125,79 +125,33 @@ function DeleteConfirmModal({ target, confirmSlug, onConfirmChange, onConfirm, o
 }
 
 export default function OrgSelector({ onSelect }) {
-  const [orgs, setOrgs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [website, setWebsite] = useState("");
-  const [err, setErr] = useState("");
-  const [creating, setCreating] = useState(false);
+  const {
+    orgs, loading,
+    adminMode, setAdminMode, adminKey, setAdminKey, exitAdmin,
+    showCreate, setShowCreate,
+    name, slug, website,
+    setWebsite, autoSlug, setSlug,
+    err, logoStep, backFromLogoStep,
+    creating, handleCreateClick, doCreate,
+    deleteTarget, confirmSlug, setConfirmSlug,
+    deleteErr, deleting,
+    openDelete, cancelDelete, doDelete,
+  } = useOrgSelector(onSelect);
 
-  // Logo step: shown after form validation, before actual org creation
-  const [logoStep, setLogoStep] = useState(false);
+  // Render-only transient state for the logo step
   const [faviconLoaded, setFaviconLoaded] = useState(false);
   const [faviconFailed, setFaviconFailed] = useState(false);
   const [logoPreview, setLogoPreview] = useState(null); // data URL from file upload
 
-  // Super-admin mode
-  const [adminMode, setAdminMode] = useState(false);
-  const [adminKey, setAdminKey] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState(null); // org to delete
-  const [confirmSlug, setConfirmSlug] = useState("");
-  const [deleting, setDeleting] = useState(false);
-  const [deleteErr, setDeleteErr] = useState("");
+  const fav = faviconUrl(website);
 
-  useEffect(() => {
-    getOrgs().then(o => { setOrgs(o); setLoading(false); }).catch(() => setLoading(false));
-  }, []);
-
-  const autoSlug = (n) => {
-    setName(n);
-    if (!slug || slug === name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")) {
-      setSlug(n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
-    }
-  };
-
-  // Step 1: validate form → always show logo step
-  const handleCreateClick = (e) => {
-    e.preventDefault();
-    if (!name || !slug) return;
-    if (!adminKey) { setErr("An admin key is required to create an organisation."); return; }
-    setLogoStep(true);
+  // Reset the favicon-probe preview state each time we enter the logo step,
+  // then run the hook's validate → logo-step transition.
+  const onCreateClick = (e) => {
     setFaviconLoaded(false);
     setFaviconFailed(false);
+    handleCreateClick(e);
   };
-
-  // Step 2: actually create the org (with or without logo_url)
-  const doCreate = async (logoUrl) => {
-    setCreating(true); setErr("");
-    try {
-      const payload = { name, slug, website };
-      if (logoUrl) payload.logo_url = logoUrl;
-      const org = await createNewOrg(payload, adminKey);
-      onSelect(org.slug, true);
-    } catch (ex) {
-      setErr(ex.message);
-      setLogoStep(false);
-    }
-    setCreating(false);
-  };
-
-  const doDelete = async () => {
-    if (confirmSlug !== deleteTarget.slug) return;
-    setDeleting(true); setDeleteErr("");
-    try {
-      await deleteOrg(deleteTarget.slug, adminKey);
-      setOrgs(prev => prev.filter(o => o.slug !== deleteTarget.slug));
-      setDeleteTarget(null); setConfirmSlug("");
-    } catch (ex) {
-      setDeleteErr(ex.message);
-    }
-    setDeleting(false);
-  };
-
-  const fav = faviconUrl(website);
 
   // ── Logo step UI ──
   if (logoStep) {
@@ -258,7 +212,7 @@ export default function OrgSelector({ onSelect }) {
           <Btn onClick={() => doCreate(logoPreview || (faviconLoaded && !faviconFailed ? fav : null))} disabled={creating} style={{ width: "100%", marginBottom: 10 }}>
             {creating ? "Creating..." : "Create Organisation"}
           </Btn>
-          <button onClick={() => { setLogoStep(false); setLogoPreview(null); setErr(""); }}
+          <button onClick={() => { backFromLogoStep(); setLogoPreview(null); }}
             style={{
               fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.4)", background: "none",
               border: "none", cursor: "pointer", padding: "8px 16px", fontFamily: FONT,
@@ -276,7 +230,7 @@ export default function OrgSelector({ onSelect }) {
       confirmSlug={confirmSlug}
       onConfirmChange={setConfirmSlug}
       onConfirm={doDelete}
-      onCancel={() => { setDeleteTarget(null); setConfirmSlug(""); setDeleteErr(""); }}
+      onCancel={cancelDelete}
       deleting={deleting}
       err={deleteErr}
     />
@@ -335,7 +289,7 @@ export default function OrgSelector({ onSelect }) {
                 border: `1px solid ${C.red}30`,
               }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: C.red }}>🔓 Admin mode — click ✕ to delete orgs</span>
-                <button onClick={() => { setAdminMode(false); setAdminKey(""); }} style={{
+                <button onClick={exitAdmin} style={{
                   background: "none", border: "none", color: C.red, cursor: "pointer",
                   fontSize: 12, fontWeight: 600, fontFamily: FONT, textDecoration: "underline",
                 }}>Exit</button>
@@ -364,7 +318,7 @@ export default function OrgSelector({ onSelect }) {
                       </div>
                     </button>
                     {adminMode && adminKey && (
-                      <button onClick={() => { setDeleteTarget(org); setConfirmSlug(""); setDeleteErr(""); }}
+                      <button onClick={() => openDelete(org)}
                         title={`Delete ${org.name}`}
                         style={{
                           width: 44, height: "100%", minHeight: 56,
@@ -408,7 +362,7 @@ export default function OrgSelector({ onSelect }) {
                   )}
                 </>
               ) : (
-                <form onSubmit={handleCreateClick} style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 20, width: "100%" }}>
+                <form onSubmit={onCreateClick} style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 20, width: "100%" }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 16 }}>New Organisation</div>
                   <div style={{ marginBottom: 12 }}>
                     <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>Name</label>
@@ -417,7 +371,7 @@ export default function OrgSelector({ onSelect }) {
                   </div>
                   <div style={{ marginBottom: 12 }}>
                     <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>URL slug</label>
-                    <input value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="strideshift" className="ge-dark-input"
+                    <input value={slug} onChange={e => setSlug(e.target.value)} placeholder="strideshift" className="ge-dark-input"
                       style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, fontFamily: MONO, boxSizing: "border-box", background: "rgba(255,255,255,0.1)", color: "#fff", caretColor: "#fff" }} />
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 3 }}>URL will be: /org/{slug || "..."}</div>
                   </div>
@@ -434,7 +388,7 @@ export default function OrgSelector({ onSelect }) {
                   </div>
                   {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <Btn onClick={handleCreateClick} disabled={creating || !name || !slug || !adminKey} style={{ flex: 1 }}>
+                    <Btn onClick={onCreateClick} disabled={creating || !name || !slug || !adminKey} style={{ flex: 1 }}>
                       {creating ? "Creating..." : "Create Organisation"}
                     </Btn>
                     <Btn onClick={() => setShowCreate(false)} v="ghost">Cancel</Btn>

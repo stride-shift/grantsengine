@@ -1,13 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { C, FONT } from "@/theme";
 import { Btn, Avatar, RoleBadge } from "@/components/ui";
-import { getTeamPublic, requestPasswordReset, resetPasswordWithToken } from "@/api";
+import useLoginFlow from "@/hooks/useLoginFlow";
 import NorthernLights from "@/components/chrome/NorthernLights";
 import geLogo from "@/grants-engine-logo.png";
 import dlabLogo from "@/dlab.png";
 import geIcon from "@/ge-icon.png";
-
-const ROLE_ORDER = { director: 0, hop: 1, pm: 2, board: 3, none: 9 };
 
 // ── Shared layout components (defined outside to prevent remounting) ──
 
@@ -80,38 +78,18 @@ const Page = ({ children, onLogoClick }) => (
 );
 
 export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassword }) {
-  const [step, setStep] = useState("pick"); // pick | password | setup | forgot | sent | reset
-  const [members, setMembers] = useState([]);
-  const [selected, setSelected] = useState(null);
+  // Transient input text stays in the component; everything else is the view-model.
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
-  const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [resetToken, setResetToken] = useState(null);
 
-  // Check URL for reset token on mount
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("reset");
-    const tokenSlug = params.get("slug");
-    if (token && tokenSlug) {
-      setResetToken(token);
-      setStep("reset");
-      // Clean up URL
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-  }, []);
+  const {
+    step, members, selected, loading,
+    err, busy,
+    pickMember, submitPassword, sendResetLink, submitResetPassword,
+    goToForgot, backToPassword, goBack: goBackToPick,
+  } = useLoginFlow({ slug, onMemberLogin });
 
-  // Load public team list
-  useEffect(() => {
-    if (!slug) return;
-    getTeamPublic(slug).then(t => {
-      setMembers(t.sort((a, b) => (ROLE_ORDER[a.role] || 9) - (ROLE_ORDER[b.role] || 9)));
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, [slug]);
-
+  // Pure render helper — masks an email for display.
   const maskEmail = (email) => {
     if (!email) return null;
     const [local, domain] = email.split("@");
@@ -119,64 +97,10 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
     return local[0] + "***" + (local.length > 1 ? local[local.length - 1] : "") + "@" + domain;
   };
 
-  const pickMember = (m) => {
-    setSelected(m);
-    setPw("");
-    setPw2("");
-    setErr("");
-    // First-time members set their password via an emailed link, not inline
-    // (prevents anyone from claiming a passwordless account).
-    setStep(m.hasPassword ? "password" : "setup");
-  };
-
-  const submitPassword = async (e) => {
-    e.preventDefault();
-    if (!pw) return;
-    setBusy(true);
-    setErr("");
-    try {
-      await onMemberLogin(selected.id, pw);
-    } catch (ex) {
-      setErr(ex.message);
-    }
-    setBusy(false);
-  };
-
-  const sendResetLink = async () => {
-    setBusy(true);
-    setErr("");
-    try {
-      await requestPasswordReset(slug, selected.id);
-      setStep("sent");
-    } catch (ex) {
-      setErr(ex.message);
-    }
-    setBusy(false);
-  };
-
-  const submitResetPassword = async (e) => {
-    e.preventDefault();
-    if (!pw || pw.length < 6) { setErr("Password must be at least 6 characters"); return; }
-    if (pw !== pw2) { setErr("Passwords don't match"); return; }
-    setBusy(true);
-    setErr("");
-    try {
-      const data = await resetPasswordWithToken(slug, resetToken, pw);
-      // Auto-login: reload the app since auth is now set in localStorage
-      window.location.href = window.location.pathname;
-      return;
-    } catch (ex) {
-      setErr(ex.message);
-    }
-    setBusy(false);
-  };
-
-  const goBack = () => {
-    setPw("");
-    setPw2("");
-    setErr("");
-    setStep("pick");
-  };
+  // Wrap hook handlers that also need to clear the locally-owned input text,
+  // preserving the original behaviour (pick / goBack both reset pw + pw2).
+  const onPickMember = (m) => { setPw(""); setPw2(""); pickMember(m); };
+  const goBack = () => { setPw(""); setPw2(""); goBackToPick(); };
 
   return (
     <Page onLogoClick={onBack}>
@@ -197,7 +121,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
                 {members.map(m => (
                   <button
                     key={m.id}
-                    onClick={() => pickMember(m)}
+                    onClick={() => onPickMember(m)}
                     style={{
                       display: "flex", alignItems: "center", gap: 12, padding: "8px 12px",
                       borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)",
@@ -240,7 +164,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
               <RoleBadge role={selected.role} />
             </div>
           </div>
-          <form onSubmit={submitPassword}>
+          <form onSubmit={(e) => submitPassword(e, pw)}>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 6, letterSpacing: 0.5 }}>
               Your password
             </label>
@@ -253,12 +177,12 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
               onBlur={blurBorder}
             />
             {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
-            <Btn onClick={submitPassword} disabled={busy || !pw} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
+            <Btn onClick={(e) => submitPassword(e, pw)} disabled={busy || !pw} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
               {busy ? "Signing in..." : "Sign In"}
             </Btn>
           </form>
           <div style={{ textAlign: "center", marginTop: 16 }}>
-            <button onClick={() => { setPw(""); setErr(""); setStep("forgot"); }} style={{
+            <button onClick={() => { setPw(""); goToForgot(); }} style={{
               background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8,
               color: "rgba(255,255,255,0.4)", fontSize: 13, fontWeight: 500, padding: "8px 20px",
               cursor: "pointer", fontFamily: FONT, transition: "all 0.15s",
@@ -310,7 +234,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
       {step === "forgot" && selected && (
         <Card width={400}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-            <button onClick={() => { setErr(""); setStep("password"); }} style={backButtonStyle}>{"\u2190"}</button>
+            <button onClick={backToPassword} style={backButtonStyle}>{"\u2190"}</button>
             <Avatar member={selected} size={38} />
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{selected.name}</div>
@@ -349,7 +273,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
       {step === "reset" && (
         <Card width={380}>
           <Title slug={slug || "Grants Engine"} sub="Choose a new password" />
-          <form onSubmit={submitResetPassword}>
+          <form onSubmit={(e) => submitResetPassword(e, pw, pw2)}>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", marginBottom: 6, letterSpacing: 0.5 }}>
               New password
             </label>
@@ -373,7 +297,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
               onBlur={blurBorder}
             />
             {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{err}</div>}
-            <Btn onClick={submitResetPassword} disabled={busy || !pw || !pw2} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
+            <Btn onClick={(e) => submitResetPassword(e, pw, pw2)} disabled={busy || !pw || !pw2} style={{ width: "100%", padding: "11px 0", fontSize: 14 }}>
               {busy ? "Resetting..." : "Reset Password & Sign In"}
             </Btn>
           </form>

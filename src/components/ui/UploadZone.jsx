@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { C, FONT, MONO } from "@/theme";
 import { Btn, Label } from "./index";
-import { uploadFile, addYouTubeUrl, deleteUpload as apiDeleteUpload } from "@/api";
+import useUploadZone from "@/hooks/useUploadZone";
 
 const typeIcon = (mime) => {
   if (mime === 'video/youtube') return "\u25B6";
@@ -40,29 +40,16 @@ const fmtSize = (bytes) => {
 };
 
 export default function UploadZone({ uploads = [], grantId, onUploadsChange, label }) {
+  // Render-only state: drag highlight + the YouTube input text.
   const [dragging, setDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadingName, setUploadingName] = useState("");
   const [ytUrl, setYtUrl] = useState("");
-  const [ytBusy, setYtBusy] = useState(false);
-  const [error, setError] = useState(null);
   const inputRef = useRef(null);
 
-  const handleFiles = useCallback(async (files) => {
-    setError(null);
-    setUploading(true);
-    try {
-      for (const file of files) {
-        setUploadingName(file.name);
-        await uploadFile(file, grantId || null, null);
-      }
-      onUploadsChange();
-    } catch (err) {
-      setError(err.message);
-    }
-    setUploading(false);
-    setUploadingName("");
-  }, [grantId, onUploadsChange]);
+  // All upload/youtube/delete side effects + busy/error state live in the hook.
+  const {
+    uploading, uploadingName, ytBusy, error, setError,
+    handleFiles, handleYouTube, handleDelete,
+  } = useUploadZone(grantId, onUploadsChange);
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
@@ -70,28 +57,8 @@ export default function UploadZone({ uploads = [], grantId, onUploadsChange, lab
     if (e.dataTransfer.files.length) handleFiles(Array.from(e.dataTransfer.files));
   }, [handleFiles]);
 
-  const handleYouTube = async () => {
-    if (!ytUrl.trim()) return;
-    setError(null);
-    setYtBusy(true);
-    try {
-      await addYouTubeUrl(ytUrl.trim(), grantId || null, "youtube");
-      setYtUrl("");
-      onUploadsChange();
-    } catch (err) {
-      setError(err.message);
-    }
-    setYtBusy(false);
-  };
-
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`Delete "${name || "this file"}"? This cannot be undone.`)) return;
-    try {
-      await apiDeleteUpload(id);
-      onUploadsChange();
-    } catch (err) {
-      setError(err.message);
-    }
+  const submitYouTube = async () => {
+    if (await handleYouTube(ytUrl)) setYtUrl("");
   };
 
   return (
@@ -163,14 +130,14 @@ export default function UploadZone({ uploads = [], grantId, onUploadsChange, lab
           value={ytUrl}
           onChange={(e) => setYtUrl(e.target.value)}
           placeholder="Paste YouTube URL..."
-          onKeyDown={(e) => { if (e.key === "Enter") handleYouTube(); }}
+          onKeyDown={(e) => { if (e.key === "Enter") submitYouTube(); }}
           style={{
             flex: 1, padding: "8px 12px", fontSize: 13, fontFamily: FONT,
             border: `1.5px solid ${C.line}`, borderRadius: 10, outline: "none",
             background: C.white,
           }}
         />
-        <Btn onClick={handleYouTube} disabled={ytBusy || !ytUrl.trim()} v="ghost" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+        <Btn onClick={submitYouTube} disabled={ytBusy || !ytUrl.trim()} v="ghost" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
           {ytBusy ? "Summarising..." : "+ YouTube"}
         </Btn>
       </div>

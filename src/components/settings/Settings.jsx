@@ -1,9 +1,12 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import { C, FONT, MONO, resetTheme } from "@/theme";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { C, FONT, MONO } from "@/theme";
 import { Btn, Label, Avatar, RoleBadge } from "@/components/ui";
 import UploadZone from "@/components/ui/UploadZone";
-import { checkHealth, getUploads, uploadFile, uploadOrgLogo, memberSetPassword, getGcalStatus, syncAllToGcal, disconnectGcal, getGcalAuthUrl } from "@/api";
+import { checkHealth, memberSetPassword } from "@/api";
 import { ORG_DOCS } from "@/data/constants";
+import useOrgBranding from "@/hooks/useOrgBranding";
+import useGcal from "@/hooks/useGcal";
+import useComplianceUploads from "@/hooks/useComplianceUploads";
 
 // ── Compliance doc status helpers ──
 const statusIcon = (status, daysLeft) => {
@@ -379,60 +382,19 @@ function ProgrammesEditor({ programmes, onChange }) {
 
 export default function Settings({ org, profile, team, currentMember, complianceDocs = [], onUpsertCompDoc, onUpdateProfile, onUpdateOrg, onLogout }) {
   const [serverStatus, setServerStatus] = useState(null);
-  const [uploads, setUploads] = useState([]);
   const [expanded, setExpanded] = useState(null); // doc_id of expanded row
   const [editFields, setEditFields] = useState({}); // { [docId]: { expiry, notes } }
-  const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
-
-  // ── Branding state ──
-  const [brandPrimary, setBrandPrimary] = useState(org?.primary_color || "#4A7C59");
-  const [brandAccent, setBrandAccent] = useState(org?.accent_color || "#C17817");
-  const [brandSaving, setBrandSaving] = useState(false);
-  const [brandMsg, setBrandMsg] = useState("");
-  const [logoUploading, setLogoUploading] = useState(false);
   const logoRef = useRef(null);
 
-  // ── Google Calendar state ──
-  const [gcalConnected, setGcalConnected] = useState(false);
-  const [gcalLoading, setGcalLoading] = useState(false);
-  const [gcalMsg, setGcalMsg] = useState("");
+  // ── Branding (colours load/save/reset + logo upload) ──
+  const branding = useOrgBranding(org, onUpdateOrg);
 
-  useEffect(() => {
-    getGcalStatus().then(d => setGcalConnected(d.connected)).catch(() => {});
-    // Listen for OAuth callback
-    const handler = async (e) => {
-      if (e.data === "gcal-connected") {
-        setGcalConnected(true);
-        setGcalMsg("Connected! Syncing deadlines...");
-        try {
-          const r = await syncAllToGcal();
-          setGcalMsg(`Connected — ${r.synced} deadline${r.synced !== 1 ? "s" : ""} synced to your calendar`);
-        } catch { setGcalMsg("Connected — auto-sync failed, try again later"); }
-      }
-    };
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
-  }, []);
-
-  // Sync branding state when org changes
-  useEffect(() => {
-    if (org) {
-      setBrandPrimary(org.primary_color || "#4A7C59");
-      setBrandAccent(org.accent_color || "#C17817");
-    }
-  }, [org?.primary_color, org?.accent_color]);
-
-  const loadUploads = async () => {
-    try {
-      const data = await getUploads(); // no grantId = org-level
-      setUploads(data);
-    } catch (e) { console.warn("Failed to load uploads:", e.message); }
-  };
+  // ── Google Calendar (status/connect/disconnect/auto-sync) ──
+  const gcal = useGcal();
 
   useEffect(() => {
     checkHealth().then(setServerStatus);
-    loadUploads();
   }, []);
 
   // Build a map: doc_id → compliance record
@@ -441,6 +403,12 @@ export default function Settings({ org, profile, team, currentMember, compliance
     for (const c of complianceDocs) m[c.doc_id] = c;
     return m;
   }, [complianceDocs]);
+
+  const getEditField = useCallback((docId, field) => editFields[docId]?.[field] || "", [editFields]);
+
+  // ── Compliance docs (org-level uploads list + per-row upload/save-meta) ──
+  const { uploads, uploading, loadUploads, handleUpload, handleSaveMeta } =
+    useComplianceUploads(compMap, onUpsertCompDoc, getEditField);
 
   // Group ORG_DOCS by category
   const grouped = useMemo(() => {
@@ -481,98 +449,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       }
     }
   };
-  const getEditField = (docId, field) => editFields[docId]?.[field] || "";
   const setEditField = (docId, field, value) => setEditFields(prev => ({ ...prev, [docId]: { ...prev[docId], [field]: value } }));
-
-  // Handle file upload for a compliance doc
-  const handleUpload = async (orgDoc, file) => {
-    if (!file || !onUpsertCompDoc) return;
-    setUploading(true);
-    try {
-      const result = await uploadFile(file, null, "compliance");
-      const existing = compMap[orgDoc.id];
-      await onUpsertCompDoc({
-        ...(existing ? { id: existing.id } : {}),
-        doc_id: orgDoc.id,
-        name: orgDoc.name,
-        status: "uploaded",
-        upload_id: result.id,
-        file_name: result.original_name || file.name,
-        file_size: result.size || file.size,
-        uploaded_date: new Date().toISOString(),
-        expiry: getEditField(orgDoc.id, "expiry") || null,
-        notes: getEditField(orgDoc.id, "notes") || null,
-      });
-    } catch (err) {
-      console.error("Compliance upload failed:", err);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  // Save just expiry/notes without re-uploading
-  const handleSaveMeta = async (orgDoc) => {
-    const existing = compMap[orgDoc.id];
-    if (!existing || !onUpsertCompDoc) return;
-    await onUpsertCompDoc({
-      id: existing.id,
-      doc_id: orgDoc.id,
-      name: orgDoc.name,
-      status: existing.status,
-      upload_id: existing.upload_id,
-      file_name: existing.file_name,
-      file_size: existing.file_size,
-      uploaded_date: existing.uploaded_date,
-      expiry: getEditField(orgDoc.id, "expiry") || null,
-      notes: getEditField(orgDoc.id, "notes") || null,
-    });
-  };
-
-  // ── Branding handlers ──
-  const handleLogoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setLogoUploading(true);
-    try {
-      const result = await uploadOrgLogo(file);
-      if (result?.logo_url && onUpdateOrg) {
-        await onUpdateOrg({ logo_url: result.logo_url });
-      }
-    } catch (err) {
-      console.error("Logo upload failed:", err);
-    }
-    setLogoUploading(false);
-    e.target.value = "";
-  };
-
-  const saveBrandColors = async () => {
-    if (!onUpdateOrg) return;
-    setBrandSaving(true);
-    setBrandMsg("");
-    try {
-      await onUpdateOrg({
-        primary_color: brandPrimary === "#4A7C59" ? null : brandPrimary,
-        primary_dark: null, // auto-derived
-        accent_color: brandAccent === "#C17817" ? null : brandAccent,
-      });
-      setBrandMsg("✓ Saved");
-      setTimeout(() => setBrandMsg(""), 2000);
-    } catch (err) {
-      setBrandMsg("Failed: " + err.message);
-    }
-    setBrandSaving(false);
-  };
-
-  const resetBrandColors = async () => {
-    setBrandPrimary("#4A7C59");
-    setBrandAccent("#C17817");
-    if (onUpdateOrg) {
-      await onUpdateOrg({ primary_color: null, primary_dark: null, accent_color: null });
-      resetTheme();
-    }
-    setBrandMsg("✓ Reset to defaults");
-    setTimeout(() => setBrandMsg(""), 2000);
-  };
 
   return (
     <div style={{ padding: "16px 16px", maxWidth: 800 }}>
@@ -641,18 +518,18 @@ export default function Settings({ org, profile, team, currentMember, compliance
             ) : (
               <div style={{
                 width: 64, height: 64, borderRadius: 14,
-                background: `linear-gradient(135deg, ${brandPrimary} 0%, ${C.primaryDark} 100%)`,
+                background: `linear-gradient(135deg, ${branding.primary} 0%, ${C.primaryDark} 100%)`,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 24, fontWeight: 800, color: C.white, fontFamily: MONO,
               }}>{(org?.name)?.[0]?.toUpperCase() || "?"}</div>
             )}
             <div>
               <input ref={logoRef} type="file" accept="image/*" style={{ display: "none" }}
-                onChange={handleLogoUpload}
+                onChange={branding.handleLogoUpload}
               />
-              <Btn onClick={() => logoRef.current?.click()} v="ghost" disabled={logoUploading}
+              <Btn onClick={() => logoRef.current?.click()} v="ghost" disabled={branding.logoUploading}
                 style={{ fontSize: 12, padding: "6px 14px" }}>
-                {logoUploading ? "Uploading..." : org?.logo_url ? "Change Logo" : "Upload Logo"}
+                {branding.logoUploading ? "Uploading..." : org?.logo_url ? "Change Logo" : "Upload Logo"}
               </Btn>
               <div style={{ fontSize: 10, color: C.t4, marginTop: 4 }}>PNG, JPG or SVG. Max 5MB.</div>
             </div>
@@ -664,42 +541,42 @@ export default function Settings({ org, profile, team, currentMember, compliance
           <div>
             <div style={{ fontSize: 11, color: C.t4, fontWeight: 600, marginBottom: 6 }}>Primary Colour</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="color" aria-label="Primary colour picker" value={brandPrimary} onChange={e => setBrandPrimary(e.target.value)}
+              <input type="color" aria-label="Primary colour picker" value={branding.primary} onChange={e => branding.setPrimary(e.target.value)}
                 style={{ width: 40, height: 40, border: `2px solid ${C.line}`, borderRadius: 10, cursor: "pointer", padding: 2 }} />
-              <input type="text" aria-label="Primary colour hex value" value={brandPrimary} onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBrandPrimary(e.target.value); }}
+              <input type="text" aria-label="Primary colour hex value" value={branding.primary} onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) branding.setPrimary(e.target.value); }}
                 style={{ width: 80, fontSize: 12, padding: "6px 8px", borderRadius: 8, border: `1px solid ${C.line}`, fontFamily: MONO, textTransform: "uppercase" }} />
-              <div style={{ width: 24, height: 24, borderRadius: 6, background: brandPrimary, border: `1px solid ${C.line}` }} />
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: branding.primary, border: `1px solid ${C.line}` }} />
             </div>
           </div>
           <div>
             <div style={{ fontSize: 11, color: C.t4, fontWeight: 600, marginBottom: 6 }}>Accent Colour</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="color" aria-label="Accent colour picker" value={brandAccent} onChange={e => setBrandAccent(e.target.value)}
+              <input type="color" aria-label="Accent colour picker" value={branding.accent} onChange={e => branding.setAccent(e.target.value)}
                 style={{ width: 40, height: 40, border: `2px solid ${C.line}`, borderRadius: 10, cursor: "pointer", padding: 2 }} />
-              <input type="text" aria-label="Accent colour hex value" value={brandAccent} onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) setBrandAccent(e.target.value); }}
+              <input type="text" aria-label="Accent colour hex value" value={branding.accent} onChange={e => { if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) branding.setAccent(e.target.value); }}
                 style={{ width: 80, fontSize: 12, padding: "6px 8px", borderRadius: 8, border: `1px solid ${C.line}`, fontFamily: MONO, textTransform: "uppercase" }} />
-              <div style={{ width: 24, height: 24, borderRadius: 6, background: brandAccent, border: `1px solid ${C.line}` }} />
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: branding.accent, border: `1px solid ${C.line}` }} />
             </div>
           </div>
         </div>
 
         {/* Preview swatch bar */}
         <div style={{ display: "flex", gap: 4, marginBottom: 16, borderRadius: 8, overflow: "hidden" }}>
-          <div style={{ flex: 3, height: 32, background: brandPrimary }} />
-          <div style={{ flex: 1, height: 32, background: brandAccent }} />
+          <div style={{ flex: 3, height: 32, background: branding.primary }} />
+          <div style={{ flex: 1, height: 32, background: branding.accent }} />
           <div style={{ flex: 2, height: 32, background: C.navy }} />
         </div>
 
         {/* Actions */}
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <Btn v="primary" disabled={brandSaving} onClick={saveBrandColors} style={{ fontSize: 12, padding: "7px 18px" }}>
-            {brandSaving ? "Saving..." : "Save Colours"}
+          <Btn v="primary" disabled={branding.saving} onClick={branding.saveBrandColors} style={{ fontSize: 12, padding: "7px 18px" }}>
+            {branding.saving ? "Saving..." : "Save Colours"}
           </Btn>
-          <button onClick={resetBrandColors} style={{
+          <button onClick={branding.resetBrandColors} style={{
             background: "none", border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 14px",
             fontSize: 12, color: C.t3, cursor: "pointer", fontFamily: FONT,
           }}>Reset to Defaults</button>
-          {brandMsg && <span style={{ fontSize: 11, color: brandMsg.startsWith("✓") ? C.ok : C.red, fontWeight: 600 }}>{brandMsg}</span>}
+          {branding.msg && <span style={{ fontSize: 11, color: branding.msg.startsWith("✓") ? C.ok : C.red, fontWeight: 600 }}>{branding.msg}</span>}
         </div>
       </div>
 
@@ -743,26 +620,16 @@ export default function Settings({ org, profile, team, currentMember, compliance
           Connect your Google Calendar to automatically sync grant deadlines. Events are created with reminders (1 day and 2 hours before).
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {gcalConnected ? (
+          {gcal.connected ? (
             <>
               <span style={{ fontSize: 12, fontWeight: 600, color: C.ok, background: C.okSoft, padding: "4px 12px", borderRadius: 100 }}>✓ Connected</span>
               <span style={{ fontSize: 12, color: C.t3 }}>Deadlines sync automatically when set or changed.</span>
-              <Btn v="ghost" style={{ fontSize: 11, padding: "5px 12px", color: C.red, borderColor: C.red + "30" }} onClick={async () => {
-                await disconnectGcal();
-                setGcalConnected(false); setGcalMsg("Disconnected");
-              }}>Disconnect</Btn>
+              <Btn v="ghost" style={{ fontSize: 11, padding: "5px 12px", color: C.red, borderColor: C.red + "30" }} onClick={gcal.disconnect}>Disconnect</Btn>
             </>
           ) : (
-            <Btn v="primary" style={{ fontSize: 12, padding: "8px 16px" }} disabled={gcalLoading} onClick={async () => {
-              setGcalLoading(true);
-              try {
-                const { url } = await getGcalAuthUrl();
-                window.open(url, "gcal-auth", "width=500,height=600");
-              } catch (e) { setGcalMsg("Failed: " + e.message); }
-              setGcalLoading(false);
-            }}>{gcalLoading ? "Loading..." : "Connect Google Calendar"}</Btn>
+            <Btn v="primary" style={{ fontSize: 12, padding: "8px 16px" }} disabled={gcal.loading} onClick={gcal.connect}>{gcal.loading ? "Loading..." : "Connect Google Calendar"}</Btn>
           )}
-          {gcalMsg && <span style={{ fontSize: 11, color: C.t3 }}>{gcalMsg}</span>}
+          {gcal.msg && <span style={{ fontSize: 11, color: C.t3 }}>{gcal.msg}</span>}
         </div>
       </div>
 

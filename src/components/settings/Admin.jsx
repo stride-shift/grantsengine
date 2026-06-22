@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { C, FONT, MONO } from "@/theme";
 import { Label, Avatar, Btn, RoleBadge } from "@/components/ui";
-import { getAdminSessions, getAdminSessionHistory, getAdminActivity, upsertTeamMember, deleteTeamMember, adminResetPassword } from "@/api";
+import useTeamAdmin from "@/hooks/useTeamAdmin";
+import useAdminSessions from "@/hooks/useAdminSessions";
+import useAIReset from "@/hooks/useAIReset";
 
 const ROLES = [
   { id: "director", label: "Admin", desc: "Full access, manage users" },
@@ -79,42 +81,28 @@ const Input = ({ value, onChange, placeholder, type = "text", style: sx }) => (
   />
 );
 
-// AI fields to clear when resetting
-const AI_FIELDS = {
-  aiResearch: null, aiResearchAt: null, aiResearchStructured: null,
-  aiDraft: null, aiDraftAt: null,
-  aiFitscore: null, aiFitscoreAt: null,
-  aiFollowup: null, aiFollowupAt: null,
-  aiWinloss: null,
-  aiRecommendedAsk: null,
-  aiSections: null,
-  researchHistory: null,
-};
-
 export default function Admin({ org, team, grants = [], currentMember, onSaveGrant, onSetGrants, onTeamChanged }) {
-  const [activeSessions, setActiveSessions] = useState([]);
-  const [sessionHistory, setSessionHistory] = useState([]);
-  const [activity, setActivity] = useState([]);
-  const [filterMember, setFilterMember] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Sessions / history / activity + 30s auto-refresh (headless).
+  const {
+    activeSessions, sessionHistory, activity,
+    filterMember, setFilterMember, loading,
+  } = useAdminSessions();
 
-  // Data tools state
+  // Team CRUD handlers + flash/active-action state (headless).
+  const {
+    activeAction, setActiveAction,
+    actionBusy, actionMsg, flash,
+    handleAdd, handleRoleChange, handleResetPassword, handleDelete,
+  } = useTeamAdmin(onTeamChanged);
+
+  // ── Render-only form / dialog state ──
   const [confirmReset, setConfirmReset] = useState(false);
-  const [resetBusy, setResetBusy] = useState(false);
-  const [resetProgress, setResetProgress] = useState(null);
-
-  // User management state
   const [addMode, setAddMode] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState("pm");
-  // Single active inline action — only one row's action panel is open at a time.
-  // Shape: { id, mode } | null, where mode is 'edit' | 'reset' | 'delete'.
-  const [activeAction, setActiveAction] = useState(null);
   const [editRole, setEditRole] = useState("");
   const [resetPw, setResetPw] = useState("");
-  const [actionBusy, setActionBusy] = useState(false);
-  const [actionMsg, setActionMsg] = useState(null);
 
   const realTeam = useMemo(() => (team || []).filter(t => t.id !== "team"), [team]);
 
@@ -127,81 +115,22 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
     [grants]
   );
 
-  const loadData = async () => {
-    try {
-      const [sess, hist, act] = await Promise.all([
-        getAdminSessions(),
-        getAdminSessionHistory(30),
-        getAdminActivity(filterMember, 100),
-      ]);
-      setActiveSessions(sess);
-      setSessionHistory(hist);
-      setActivity(act);
-    } catch (err) {
-      console.error("Admin data load failed:", err);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => { loadData(); }, [filterMember]);
-
-  useEffect(() => {
-    const t = setInterval(async () => {
-      try { setActiveSessions(await getAdminSessions()); } catch { /* ignore */ }
-    }, 30000);
-    return () => clearInterval(t);
-  }, []);
+  // Reset-all-AI-content loop (headless).
+  const { reset: resetAI, busy: resetBusy, progress: resetProgress } =
+    useAIReset(withAI, onSaveGrant, onSetGrants, flash, grants.length);
 
   const getMember = (id) => realTeam.find(t => t.id === id) || { name: "Team", initials: "\u2014", role: "none" };
 
-  const flash = (msg) => { setActionMsg(msg); setTimeout(() => setActionMsg(null), 3000); };
-
-  // ── User management actions ──
-  const handleAdd = async () => {
-    if (!newName.trim()) return;
-    setActionBusy(true);
-    try {
-      const initials = newName.trim().split(/\s+/).map(w => w[0]).join("").toUpperCase().slice(0, 2);
-      const id = newName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-      await upsertTeamMember({ id, name: newName.trim(), initials, role: newRole, email: newEmail.trim() || null });
-      setNewName(""); setNewEmail(""); setNewRole("pm"); setAddMode(false);
-      flash(`${newName.trim()} added`);
-      onTeamChanged?.();
-    } catch (e) { flash(`Error: ${e.message}`); }
-    setActionBusy(false);
+  // Submit the add-member form, then clear it on success (form text is UI state).
+  const submitAdd = async () => {
+    const ok = await handleAdd({ name: newName, email: newEmail, role: newRole });
+    if (ok) { setNewName(""); setNewEmail(""); setNewRole("pm"); setAddMode(false); }
   };
 
-  const handleRoleChange = async (memberId) => {
-    setActionBusy(true);
-    try {
-      await upsertTeamMember({ id: memberId, role: editRole });
-      setActiveAction(null);
-      flash("Role updated");
-      onTeamChanged?.();
-    } catch (e) { flash(`Error: ${e.message}`); }
-    setActionBusy(false);
-  };
-
-  const handleResetPassword = async () => {
-    if (!resetPw || resetPw.length < 6) { flash("Password must be 6+ characters"); return; }
-    setActionBusy(true);
-    try {
-      await adminResetPassword(activeAction?.id, resetPw);
-      setActiveAction(null); setResetPw("");
-      flash("Password reset");
-    } catch (e) { flash(`Error: ${e.message}`); }
-    setActionBusy(false);
-  };
-
-  const handleDelete = async (id) => {
-    setActionBusy(true);
-    try {
-      await deleteTeamMember(id);
-      setActiveAction(null);
-      flash("User removed");
-      onTeamChanged?.();
-    } catch (e) { flash(`Error: ${e.message}`); }
-    setActionBusy(false);
+  // Reset password, then clear the (UI-owned) password input on success only.
+  const submitResetPassword = async () => {
+    const ok = await handleResetPassword(resetPw);
+    if (ok) setResetPw("");
   };
 
   if (loading) {
@@ -263,7 +192,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
               </select>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <Btn v="primary" onClick={handleAdd} disabled={actionBusy || !newName.trim()} style={{ fontSize: 12, padding: "6px 14px" }}>
+              <Btn v="primary" onClick={submitAdd} disabled={actionBusy || !newName.trim()} style={{ fontSize: 12, padding: "6px 14px" }}>
                 {actionBusy ? "Adding..." : "Add"}
               </Btn>
               <Btn v="ghost" onClick={() => { setAddMode(false); setNewName(""); setNewEmail(""); setNewRole("pm"); }} style={{ fontSize: 12, padding: "6px 14px" }}>
@@ -359,7 +288,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
                     >
                       {ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
                     </select>
-                    <Btn v="primary" onClick={() => handleRoleChange(m.id)} disabled={actionBusy || editRole === m.role}
+                    <Btn v="primary" onClick={() => handleRoleChange(m.id, editRole)} disabled={actionBusy || editRole === m.role}
                       style={{ fontSize: 11, padding: "4px 10px" }}>Save</Btn>
                     <Btn v="ghost" onClick={() => setActiveAction(null)} style={{ fontSize: 11, padding: "4px 10px" }}>Cancel</Btn>
                   </div>
@@ -371,7 +300,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
                     <span style={{ fontSize: 11, fontWeight: 600, color: C.t3 }}>New password:</span>
                     <Input value={resetPw} onChange={setResetPw} placeholder="Min 6 characters" type="password"
                       style={{ width: 180, padding: "5px 10px", fontSize: 12 }} />
-                    <Btn v="primary" onClick={handleResetPassword} disabled={actionBusy || resetPw.length < 6}
+                    <Btn v="primary" onClick={submitResetPassword} disabled={actionBusy || resetPw.length < 6}
                       style={{ fontSize: 11, padding: "4px 10px" }}>Reset</Btn>
                     <Btn v="ghost" onClick={() => { setActiveAction(null); setResetPw(""); }} style={{ fontSize: 11, padding: "4px 10px" }}>Cancel</Btn>
                   </div>
@@ -416,24 +345,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
             ) : (
               <div style={{ display: "flex", gap: 8, marginLeft: 16, flexShrink: 0 }}>
                 <Btn v="danger" disabled={resetBusy} onClick={async () => {
-                  setResetBusy(true);
-                  setResetProgress({ done: 0, total: grants.length });
-                  try {
-                    let done = 0;
-                    for (const g of withAI) {
-                      const cleaned = { ...g, ...AI_FIELDS };
-                      await onSaveGrant(cleaned);
-                      done++;
-                      setResetProgress({ done, total: withAI.length });
-                    }
-                    // Update local state
-                    onSetGrants(prev => prev.map(g => ({ ...g, ...AI_FIELDS })));
-                    flash(`AI content cleared from ${withAI.length} grant${withAI.length !== 1 ? "s" : ""}`);
-                  } catch (e) {
-                    flash(`Error: ${e.message}`);
-                  }
-                  setResetBusy(false);
-                  setResetProgress(null);
+                  await resetAI();
                   setConfirmReset(false);
                 }} style={{ fontSize: 12, padding: "6px 14px" }}>
                   {resetBusy
