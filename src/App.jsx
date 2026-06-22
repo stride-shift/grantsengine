@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback, useRef, lazy, Suspense, Component } f
 import { C, FONT, injectFonts, applyOrgTheme, resetTheme } from "./theme";
 import { dL, isUsableUrl, isHomepageOnly, normaliseFunder, grantCompleteness, sanitizeNotes, detectUnsolicited, isAIError } from "./utils";
 import {
-  isLoggedIn, getAuth, setAuth, getCurrentMember, login, logout, setPassword,
-  memberLogin,
+  logout,
   saveGrant,
   getTeam, getProfile, updateProfile as apiUpdateProfile, updateOrg as apiUpdateOrg, checkHealth, api, verifyUrls,
 } from "./api";
@@ -12,6 +11,7 @@ import useSave from "./hooks/useSave";
 import useComplianceDocs from "./hooks/useComplianceDocs";
 import useGrants from "./hooks/useGrants";
 import useDataLoad from "./hooks/useDataLoad";
+import useSession from "./hooks/useSession";
 
 import OrgSelector from "@/components/auth/OrgSelector";
 import Login from "@/components/auth/Login";
@@ -296,20 +296,11 @@ export default function App() {
 
 function AppInner() {
   const toast = useToast();
-  // ── Auth state ──
-  const [authed, setAuthed] = useState(isLoggedIn());
-  const params = new URLSearchParams(window.location.search);
-  const [orgSlug, setOrgSlug] = useState(getAuth().slug || (() => {
-    return params.get("reset") && params.get("slug") ? params.get("slug") : null;
-  })());
-  const [currentMember, setCurrentMember] = useState(getCurrentMember());
-  // Check for password reset link — auto-select org and go to login
-  const resetParams = (() => {
-    return params.get("reset") && params.get("slug") ? { token: params.get("reset"), slug: params.get("slug") } : null;
-  })();
-  const [selectingOrg, setSelectingOrg] = useState(!isLoggedIn() && !resetParams);
-  const [needsPassword, setNeedsPassword] = useState(false);
-  const [loggingIn, setLoggingIn] = useState(!!resetParams);
+  // ── Auth/org session (state + login handlers; teardown stays in resetSession) ──
+  const {
+    authed, orgSlug, currentMember, needsPassword, loggingIn, selectingOrg, resetParams,
+    handleOrgSelect, handleLogin, handleMemberLogin, goBackToOrgSelect, clearAuthState,
+  } = useSession();
 
   // ── App state ──
   const [org, setOrg] = useState(null);
@@ -671,44 +662,14 @@ function AppInner() {
     return () => window.removeEventListener("popstate", onPop);
   }, [orgSlug]);
 
-  // ── Auth handlers ──
-  const handleOrgSelect = (slug, isNew) => {
-    setOrgSlug(slug);
-    setNeedsPassword(isNew);
-    setLoggingIn(true);
-    setSelectingOrg(false);
-  };
-
-  const handleLogin = async (password) => {
-    if (needsPassword) {
-      await setPassword(orgSlug, password);
-    } else {
-      await login(orgSlug, password);
-    }
-    setCurrentMember(null); // legacy shared-password login — no member identity
-    setAuthed(true);
-    setLoggingIn(false);
-    setNeedsPassword(false);
-  };
-
-  const handleMemberLogin = async (memberId, password) => {
-    const data = await memberLogin(orgSlug, memberId, password);
-    setCurrentMember(data.member);
-    setAuthed(true);
-    setLoggingIn(false);
-    setNeedsPassword(false);
-  };
-
+  // ── Auth handlers (login flows live in useSession; teardown stays here) ──
   const resetSession = () => {
-    setAuthed(false);
-    setCurrentMember(null);
+    clearAuthState();
     setOrg(null);
     setGrants([]);
     setTeam([{ id: "team", name: "Unassigned", initials: "\u2014", role: "none" }]);
     setView("dashboard");
     setSel(null);
-    setSelectingOrg(true);
-    setLoggingIn(false);
     clearUploadsCache();
     resetTheme();
     window.history.pushState({}, "", "/");
@@ -737,7 +698,7 @@ function AppInner() {
         needsPassword={needsPassword}
         onLogin={handleLogin}
         onMemberLogin={handleMemberLogin}
-        onBack={() => { setSelectingOrg(true); setLoggingIn(false); }}
+        onBack={goBackToOrgSelect}
       />
     );
   }
