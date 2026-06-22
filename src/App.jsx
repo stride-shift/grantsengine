@@ -12,6 +12,7 @@ import useComplianceDocs from "./hooks/useComplianceDocs";
 import useGrants from "./hooks/useGrants";
 import useDataLoad from "./hooks/useDataLoad";
 import useSession from "./hooks/useSession";
+import useRouting from "./hooks/useRouting";
 
 import OrgSelector from "@/components/auth/OrgSelector";
 import Login from "@/components/auth/Login";
@@ -301,6 +302,8 @@ function AppInner() {
     authed, orgSlug, currentMember, needsPassword, loggingIn, selectingOrg, resetParams,
     handleOrgSelect, handleLogin, handleMemberLogin, goBackToOrgSelect, clearAuthState,
   } = useSession();
+  // View/selection state + URL sync (pushState/popstate)
+  const { view, sel, setView, setSel } = useRouting({ orgSlug, authed });
 
   // ── App state ──
   const [org, setOrg] = useState(null);
@@ -308,8 +311,6 @@ function AppInner() {
   const [team, setTeam] = useState([{ id: "team", name: "Unassigned", initials: "\u2014", role: "none" }]);
   const [stages, setStages] = useState(DEFAULT_STAGES);
   const [funderTypes, setFunderTypes] = useState(DEFAULT_FTYPES);
-  const [view, setView] = useState("dashboard");
-  const [sel, setSel] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Global search — sidebar input that surfaces any grant by funder, name, notes, type
   const [globalQ, setGlobalQ] = useState("");
@@ -628,39 +629,6 @@ function AppInner() {
 
 
 
-  // ── URL handling (simple pushState, no router) ──
-  useEffect(() => {
-    if (authed && orgSlug) {
-      const path = sel ? `/org/${orgSlug}/grant/${sel}` :
-        view === "dashboard" ? `/org/${orgSlug}` :
-          `/org/${orgSlug}/${view}`;
-      if (window.location.pathname !== path) {
-        window.history.pushState({}, "", path);
-      }
-    }
-  }, [authed, orgSlug, view, sel]);
-
-  useEffect(() => {
-    const onPop = () => {
-      const path = window.location.pathname;
-      const match = path.match(/^\/org\/([^/]+)\/?(.*)$/);
-      if (match) {
-        const [, slug, rest] = match;
-        if (slug !== orgSlug) return; // different org, ignore
-        if (rest.startsWith("grant/")) {
-          setSel(rest.replace("grant/", ""));
-        } else if (rest) {
-          setSel(null);
-          setView(rest);
-        } else {
-          setSel(null);
-          setView("dashboard");
-        }
-      }
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, [orgSlug]);
 
   // ── Auth handlers (login flows live in useSession; teardown stays here) ──
   const resetSession = () => {
