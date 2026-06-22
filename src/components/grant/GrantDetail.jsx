@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { C, FONT, MONO } from "@/theme";
-import { fmtK, dL, td, uid, effectiveAsk, grantReadiness, isAIError, parseStructuredResearch, cleanProposalText } from "@/utils";
+import { fmtK, dL, td, uid, effectiveAsk, grantReadiness, isAIError, cleanProposalText } from "@/utils";
 import { Btn, DeadlineBadge, TypeBadge, Tag, AICard, stripMd, timeAgo } from "@/components/ui";
 import UploadZone from "@/components/ui/UploadZone";
 import { getUploads, kvGet, kvSet } from "@/api";
-import { detectType, PTYPES, multiCohortInfo, funderStrategy, selectOptimalBudget } from "@/data/funderStrategy";
+import { detectType, PTYPES, multiCohortInfo, funderStrategy } from "@/data/funderStrategy";
 import { DOCS, DOC_MAP, ORG_DOCS } from "@/data/constants";
 import ProposalWorkspace from "./ProposalWorkspace";
 import BudgetBuilder from "./BudgetBuilder";
 import { downloadICS } from "@/components/calendar/Calendar";
 import AutoFillPanel from "./AutoFillPanel";
 import { glossText } from "@/components/ui/JargonTip";
+import useGrantAI from "@/hooks/useGrantAI";
+import useGrantReadiness from "@/hooks/useGrantReadiness";
 
 const fmtTs = (iso) => iso ? new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
 
@@ -227,62 +229,10 @@ function OutstandingActions({ grant, onUpdate, complianceDocs = [], missingDocs 
 
 export default function GrantDetail({ grant, team, stages, funderTypes, complianceDocs = [], currentMember, orgName = "the organisation", onUpdate, onDelete, onAddGrant, onSelectGrant, onBack, onRunAI, onUploadsChanged, onLaunchTour }) {
   const [showAll, setShowAll] = useState(false);
-  const [busy, setBusy] = useState({});
-  const [ai, setAi] = useState(() => ({
-    research: grant?.aiResearch || null,
-    draft: grant?.aiDraft || null,
-    followup: grant?.aiFollowup || null,
-    fitscore: grant?.aiFitscore || null,
-    winloss: grant?.aiWinloss || null,
-  }));
   const [confirmDel, setConfirmDel] = useState(false);
   const [overflow, setOverflow] = useState(false);
   const [showFullResearch, setShowFullResearch] = useState(false);
   const overflowRef = useRef(null);
-
-  // Auto-fetch funder brief when a grant opens with no brief yet.
-  // The background hygiene job (App.jsx) handles the bulk pre-fetch across all
-  // grants. This on-open trigger is the safety net for grants opened before the
-  // hygiene job got to them, or grants added after it ran.
-  //
-  // Small delay (3s) before firing so it doesn't race with the hygiene job's
-  // first Gemini call and trip rate limits.
-  const briefFetchedRef = useRef(new Set());
-  const [autoBriefBusy, setAutoBriefBusy] = useState(false);
-  useEffect(() => {
-    const gid = grant?.id;
-    if (!gid) return;
-    if (briefFetchedRef.current.has(gid)) return;
-    if (grant.funderBrief && grant.funderBrief.trim().length > 50) return; // already on file
-    if (!onRunAI || !onUpdate) return;
-    briefFetchedRef.current.add(gid);
-
-    const timer = setTimeout(() => {
-      setAutoBriefBusy(true);
-      (async () => {
-        try {
-          const raw = await onRunAI("fetchFunderBrief", grant);
-          const txt = String(raw || "").replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-          const sIdx = txt.indexOf("{"), eIdx = txt.lastIndexOf("}");
-          let parsed = null;
-          try { if (sIdx >= 0 && eIdx > sIdx) parsed = JSON.parse(txt.slice(sIdx, eIdx + 1)); } catch {}
-          if (parsed?.brief && parsed.brief.length > 100) {
-            // Only persist if the box is STILL empty when the fetch returns
-            const latestBrief = (grant.funderBrief || "").trim();
-            if (latestBrief.length < 50) {
-              const note = parsed.sourceUrl ? `\n\n---\nSource: ${parsed.sourceUrl}` : "";
-              onUpdate(gid, { funderBrief: parsed.brief + note });
-              aiLog(`AI auto-filled funder brief from ${parsed.sourceUrl || "funder site"}`);
-            }
-          }
-        } catch { /* silent — user can still trigger manually via the Re-fetch button */ }
-        setAutoBriefBusy(false);
-      })();
-    }, 3000);
-
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grant?.id]);
 
   // Close overflow on outside click
   useEffect(() => {
@@ -294,7 +244,6 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   const [editingAsk, setEditingAsk] = useState(false);
   const [askInput, setAskInput] = useState("");
   const [uploads, setUploads] = useState([]);
-  const [rollingDice, setRollingDice] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showAutoFill, setShowAutoFill] = useState(false);
   const [handover, setHandover] = useState(null); // null | { toMember: "id", note: "" }
@@ -321,106 +270,27 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
     setAiRefIds(next);
     kvSet("proposal_grant_references", next).catch(() => setAiRefIds(aiRefIds));
   };
-  const [diceStep, setDiceStep] = useState("");
+  // ── AI orchestration (state + async flows) lives in useGrantAI; readiness +
+  // AI-status parsing lives in useGrantReadiness. The two are linked through
+  // statusRef: useGrantReadiness derives fitDone/resDone from useGrantAI's `ai`,
+  // and rollTheDice reads them back via the ref at click time — preserving the
+  // exact original gate conditions without a render-order cycle. ──
+  const statusRef = useRef({ fitDone: false, resDone: false });
+  const {
+    ai, setAi, busy, setBusy,
+    rollingDice, setRollingDice, diceStep, setDiceStep,
+    autoBriefBusy, proposalRef, up, aiLog,
+    storeResearch, runResearch, runFitScore, rollTheDice,
+  } = useGrantAI({ grant, onUpdate, onRunAI, currentMember, statusRef });
 
-  // Sync AI state when switching between grants
-  useEffect(() => {
-    setAi({
-      research: grant?.aiResearch || null,
-      draft: grant?.aiDraft || null,
-      followup: grant?.aiFollowup || null,
-      fitscore: grant?.aiFitscore || null,
-      winloss: grant?.aiWinloss || null,
-    });
-  }, [grant?.id]);
-
-  // Auto-trigger AI actions queued from +Add wizard (_pendingAI field)
-  const pendingHandled = useRef(null); // tracks which grant ID was handled
-  useEffect(() => {
-    const pending = grant?._pendingAI;
-    if (!pending || pendingHandled.current === grant?.id) return;
-    pendingHandled.current = grant?.id;
-    // Clear the flag immediately
-    onUpdate(grant.id, { _pendingAI: null });
-    const g = grant;
-    const runPending = async () => {
-      if (pending.fitscore) {
-        setBusy(p => ({ ...p, fitscore: true }));
-        try {
-          const raw = await onRunAI("fitscore", g);
-          const r = isAIError(raw) ? raw : cleanProposalText(raw);
-          setAi(p => ({ ...p, fitscore: r }));
-          if (!isAIError(r)) onUpdate(g.id, { aiFitscore: r, aiFitscoreAt: new Date().toISOString() });
-        } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
-        setBusy(p => ({ ...p, fitscore: false }));
-      }
-      if (pending.research) {
-        setBusy(p => ({ ...p, research: true }));
-        try {
-          const r = await onRunAI("research", g);
-          if (!isAIError(r)) storeResearch(g.id, cleanProposalText(r));
-          else setAi(p => ({ ...p, research: r }));
-        } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
-        setBusy(p => ({ ...p, research: false }));
-      }
-      if (pending.draft) {
-        // Ensure research is done before drafting — run it now if missing
-        const hasResearch = !!(g.aiResearch && !isAIError(g.aiResearch));
-        if (!hasResearch && !pending.research) {
-          setBusy(p => ({ ...p, research: true }));
-          try {
-            const r = await onRunAI("research", g);
-            if (!isAIError(r)) storeResearch(g.id, cleanProposalText(r));
-            else setAi(p => ({ ...p, research: r }));
-          } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
-          setBusy(p => ({ ...p, research: false }));
-        }
-        setBusy(p => ({ ...p, draft: true }));
-        try {
-          const raw = await onRunAI("draft", g);
-          const r = isAIError(raw) ? raw : cleanProposalText(raw);
-          setAi(p => ({ ...p, draft: r }));
-          if (!isAIError(r)) onUpdate(g.id, { aiDraft: r, aiDraftAt: new Date().toISOString() });
-        } catch (e) { setAi(p => ({ ...p, draft: `Error: ${e.message}` })); }
-        setBusy(p => ({ ...p, draft: false }));
-      }
-    };
-    runPending();
-  }, [grant?.id]);
-
-  // Store research result — parse JSON structure, extract display text, persist both
-  const storeResearch = useCallback((grantId, rawResult) => {
-    const structured = parseStructuredResearch(rawResult);
-    const displayText = structured?.rawText || rawResult;
-    const now = new Date().toISOString();
-    const updates = { aiResearch: displayText, aiResearchAt: now };
-    if (structured) updates.aiResearchStructured = structured;
-    setAi(p => ({ ...p, research: displayText }));
-    onUpdate(grantId, updates);
-  }, [onUpdate]);
-
-  // Run research from child components (e.g. ProposalWorkspace gate)
-  const runResearch = useCallback(async () => {
-    const g = grant;
-    setBusy(p => ({ ...p, research: true }));
-    try {
-      const r = await onRunAI("research", g);
-      if (!isAIError(r)) {
-        storeResearch(g.id, cleanProposalText(r));
-        const prev = g.log || [];
-        onUpdate(g.id, { log: [...prev, { d: td(), t: `AI Funder Research completed for ${g.funder}` }] });
-      } else setAi(p => ({ ...p, research: r }));
-    } catch (e) {
-      setAi(p => ({ ...p, research: `Error: ${e.message}` }));
-    }
-    setBusy(p => ({ ...p, research: false }));
-  }, [grant, onRunAI, onUpdate, storeResearch]);
-
-  // Auto-log AI actions to activity feed — Phase 10: include actor attribution
-  const aiLog = (action) => {
-    const prev = grant?.log || [];
-    onUpdate(grant.id, { log: [...prev, { d: td(), t: action, by: currentMember?.id || "team" }] });
-  };
+  // Readiness + AI-status flags (must run before any early return — it's a hook).
+  const {
+    readiness,
+    fitDone, resDone, hasSections, draftDone, followupDone, winlossDone,
+    fitScoreNum, fitVerdict, fitError,
+  } = useGrantReadiness(grant, complianceDocs, ai);
+  // Keep statusRef current so rollTheDice / pending flows read the same gates.
+  statusRef.current = { fitDone, resDone };
 
   // Phase 10: log first-view per session so we know who looked at this grant
   const viewLoggedRef = useRef(null);
@@ -462,8 +332,6 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   const getMember = (id) => team.find(t => t.id === id) || team.find(t => t.id === "team") || { name: "Unassigned", initials: "\u2014" };
   const m = getMember(g.owner);
 
-  const up = (field, value) => onUpdate(g.id, { [field]: value });
-
   // ── Doc readiness for this grant's funder type ──
   const compMap = useMemo(() => {
     const m = {};
@@ -500,131 +368,17 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
     return missing;
   }, [g.type, compMap]);
 
-  // ── Grant readiness (computed once; used by sidebar, sticky bar, readiness bar) ──
-  const readiness = useMemo(() => {
-    try { return grantReadiness(g, complianceDocs); } catch { return null; }
-  }, [g, complianceDocs]);
-
   // ── Stage classification ──
   const isEarly = ["scouted", "vetting", "qualifying"].includes(g.stage);
   const isMiddle = ["drafting", "review"].includes(g.stage);
   const isLate = ["submitted", "awaiting"].includes(g.stage);
   const isClosed = ["won", "lost", "deferred", "archived"].includes(g.stage);
-
-  // ── Lifted AI status (shared by workflow strip + sections) ──
-  const fitDone = ai.fitscore && !isAIError(ai.fitscore);
-  const resDone = ai.research && !isAIError(ai.research);
-  const hasSections = g.aiSections && Object.values(g.aiSections).some(s => s?.text && !isAIError(s.text));
-  const draftDone = hasSections || (ai.draft && !isAIError(ai.draft));
-  const followupDone = ai.followup && !isAIError(ai.followup);
-  const winlossDone = ai.winloss && !isAIError(ai.winloss);
   const isClosedStage = ["won", "lost"].includes(g.stage);
   const isSubmittedPlus = ["submitted", "awaiting", "won", "lost", "deferred"].includes(g.stage);
 
-  const fitScoreNum = fitDone ? (() => { const m = ai.fitscore.match(/SCORE:\s*(\d+)/); return m ? parseInt(m[1]) : null; })() : null;
-  const fitVerdict = fitDone ? (() => { const m = ai.fitscore.match(/VERDICT:\s*(.+)/); return m ? m[1].trim() : null; })() : null;
-  const fitError = ai.fitscore && isAIError(ai.fitscore) ? ai.fitscore : null;
-
-  const runFitScore = async () => {
-    setBusy(p => ({ ...p, fitscore: true }));
-    try {
-      if (ai.fitscore && !isAIError(ai.fitscore)) {
-        const prev = g.fitscoreHistory || [];
-        const ts = g.aiFitscoreAt || new Date().toISOString();
-        onUpdate(g.id, { fitscoreHistory: [...prev, { ts, text: ai.fitscore }].slice(-5) });
-      }
-      const raw = await onRunAI("fitscore", g);
-      const r = isAIError(raw) ? raw : cleanProposalText(raw);
-      setAi(p => ({ ...p, fitscore: r }));
-      if (!isAIError(r)) {
-        const now = new Date().toISOString();
-        onUpdate(g.id, { aiFitscore: r, aiFitscoreAt: now });
-        aiLog("AI Fit Score calculated");
-      }
-    } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
-    setBusy(p => ({ ...p, fitscore: false }));
-  };
-
-  const proposalRef = useRef(null);
-
-  // ── Roll the Dice — full auto-generate chain ──
-  // Lifted to component scope (was recreated every render inside the workflow-strip IIFE).
-  const rollTheDice = useCallback(async () => {
-    setRollingDice(true);
-
-    try {
-      // Step 1: Fit Score
-      if (!fitDone) {
-        setDiceStep("Scoring fit...");
-        setBusy(p => ({ ...p, fitscore: true }));
-        try {
-          const rawFs = await onRunAI("fitscore", g);
-          const r = isAIError(rawFs) ? rawFs : cleanProposalText(rawFs);
-          setAi(p => ({ ...p, fitscore: r }));
-          if (!isAIError(r)) {
-            onUpdate(g.id, { aiFitscore: r, aiFitscoreAt: new Date().toISOString() });
-            aiLog("AI Fit Score calculated");
-          }
-        } catch (e) { setAi(p => ({ ...p, fitscore: `Error: ${e.message}` })); }
-        setBusy(p => ({ ...p, fitscore: false }));
-      }
-
-      // Step 2: Research
-      if (!resDone) {
-        setDiceStep(`Researching ${g.funder}...`);
-        setBusy(p => ({ ...p, research: true }));
-        try {
-          const r = await onRunAI("research", g);
-          if (!isAIError(r)) {
-            storeResearch(g.id, cleanProposalText(r));
-            aiLog(`AI Funder Research completed for ${g.funder}`);
-          } else setAi(p => ({ ...p, research: r }));
-        } catch (e) { setAi(p => ({ ...p, research: `Error: ${e.message}` })); }
-        setBusy(p => ({ ...p, research: false }));
-      }
-
-      // Step 3: Auto-budget (if not already set)
-      if (!g.budgetTable) {
-        setDiceStep("Building budget...");
-        const { typeNum, cohorts } = selectOptimalBudget(g);
-        const pt = PTYPES[typeNum];
-        if (pt?.table) {
-          const parseAmt = s => {
-            if (!s || s === "varies") return 0;
-            return parseInt(String(s).replace(/[,\s]/g, "")) || 0;
-          };
-          const items = pt.table
-            .filter(([label]) => label !== "TOTAL")
-            .map(([label, amount]) => ({ label, amount: parseAmt(amount), isCustom: false }));
-          const studentsPerCohort = pt.students || 0;
-          const itemTotal = items.reduce((s, it) => s + (it.amount || 0), 0);
-          const subtotal = itemTotal * cohorts;
-          const total = subtotal;
-          const totalStudents = studentsPerCohort * cohorts;
-          const perStudent = totalStudents > 0 ? Math.round(total / totalStudents) : 0;
-          const budgetTable = {
-            typeNum, typeLabel: pt.label || "", cohorts, studentsPerCohort,
-            duration: pt.duration || "", items,
-            includeOrgContribution: false, subtotal, orgContribution: 0,
-            total, perStudent, savedAt: new Date().toISOString(),
-          };
-          onUpdate(g.id, { budgetTable, ask: total, askSource: "budget-builder", aiRecommendedAsk: total });
-          aiLog(`Auto-budget: Type ${typeNum}, ${cohorts} cohort${cohorts > 1 ? "s" : ""}, R${total.toLocaleString()}`);
-        }
-      }
-
-      // Step 4: Advance stage to drafting (so Proposal Workspace section renders) and trigger auto-generate
-      setDiceStep("Writing proposal...");
-      if (["scouted", "vetting", "qualifying"].includes(g.stage)) up("stage", "drafting");
-      // Scroll to proposal section after a tick
-      setTimeout(() => proposalRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
-      // rollingDice stays true — ProposalWorkspace picks it up via autoGenerate prop
-
-    } catch (e) {
-      setDiceStep(`Error: ${e.message}`);
-      setRollingDice(false);
-    }
-  }, [fitDone, resDone, g, onRunAI, onUpdate, aiLog, storeResearch, up]);
+  // readiness + AI-status flags (fitDone/resDone/hasSections/draftDone/...) and the
+  // AI flows (runFitScore/runResearch/storeResearch/rollTheDice/aiLog) come from the
+  // useGrantReadiness / useGrantAI hooks destructured at the top of the component.
 
   // SectionWrap moved to module scope (above the component) so it has a stable identity.
   // Defining it here would create a new function reference on every render of GrantDetail,
