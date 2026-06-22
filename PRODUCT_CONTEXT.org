@@ -16,11 +16,14 @@ slug but used primarily by one org (d-lab).
 * Users & Roles
 | Role | Scope | Can do |
 |------|-------|--------|
+| Super admin | All orgs | Provision orgs (create/delete) via the hidden =?superadmin= route, gated by =SUPER_ADMIN_KEY= |
 | Org admin | One organisation | Manage members, org profile/onboarding, all grant + AI features |
 | Member | One organisation | Work the pipeline: scout, vet, draft, budget, track deadlines |
 
-Both authenticate per-org (=:slug=) with bcrypt-hashed passwords; password reset
-is email-based via Resend.
+Members sign in with **email + password**; the server resolves their org from a
+globally-unique email (no org picking). Passwords are bcrypt-hashed; reset is
+email-based via Resend. A legacy per-org member-picker login remains as a
+migration fallback until every member has a backfilled email.
 
 * Feature Lifecycle
 | Feature | Status | Note |
@@ -36,9 +39,12 @@ is email-based via Resend.
 | Document vault + uploads | Active | DocVault, UploadZone; URL/file/YouTube extraction |
 | Deadline reminders | Active | server/jobs/deadlineReminders.js (cron + email) |
 | Calendar / conferences / freebies | Active | Calendar, Freebies; conference + freebie data |
-| Org profile + onboarding | Active | WelcomeTutorial, TourOverlay, OrgSelector |
+| Org profile + onboarding | Active | WelcomeTutorial, TourOverlay; OrgSelector is now the fallback picker, not the default login |
 | Edit-learning | Active | editLearner.js adapts to user edits of AI output |
 | Admin panel | Active | Admin.jsx member + org management |
+| Email+password login | Active | Primary path: =POST /api/auth/login= → org auto-resolved; EmailLogin/useEmailLogin |
+| Org provisioning (super-admin) | Active | Hidden =?superadmin= route + =SUPER_ADMIN_KEY=; create/list/delete orgs |
+| Email backfill tooling | Active | =server/backfill-emails.js= — dry-run audit + collision-safe apply + setup links |
 
 * Intentional Decisions (do not re-flag)
 | Decision | Choice | Rationale |
@@ -51,6 +57,12 @@ is email-based via Resend.
 | Inline styles, no CSS framework | Design tokens in theme.js | Enables standalone single-HTML demo build |
 | CSP disabled in Helmet | =contentSecurityPolicy: false= | Vite injects inline scripts; intentional in app.js |
 | ZAR currency, B-BBEE/SETA/NPO domain terms | Throughout | South African NPO context — not typos or i18n gaps |
+| Email login primary; org auto-resolved | Single email+password screen, no org picker / admin-key field | Org resolved server-side from a global-unique email (=getOrgAndMemberByEmail=) |
+| Legacy member-picker kept as a fallback | "Use member sign-in" link + =?superadmin= picker | Transitional until every member has a backfilled email — not dead code |
+| Org creation = super-admin only | Hidden =?superadmin= route + =SUPER_ADMIN_KEY= header | Regular users never see create/delete; create/delete gated server-side |
+
+NOTE: email login can only be a member's sole path once their email is backfilled
+(=server/backfill-emails.js=); until then the member-picker fallback covers them.
 
 * Stable Reference Data
 Org/funding facts (financial model, GIDF cornerstone funder, 8 programme types

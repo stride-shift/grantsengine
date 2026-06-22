@@ -20,7 +20,7 @@ deadline reminders server-side.
 | AI — app | OpenAI =gpt-4o-mini= (default), =gpt-4o= (web-search) | Proxied via =server/routes/ai.js= |
 | AI — scraper | Anthropic Claude (Haiku) | Parsing/verification in =server/scraper/= |
 | Security | Helmet, CORS, express-rate-limit | Rate limits on auth, AI, upload endpoints |
-| Auth | bcryptjs password hashing | Org + member login flows |
+| Auth | bcryptjs; email→org login | Email+password resolves the org server-side (global-unique email); legacy per-slug member-login kept as a migration fallback |
 | Email | Resend | Password reset, deadline reminders |
 | Docs export | =docx= library | =src/docxGenerator.js= |
 | Scheduling | node-cron + Vercel cron | =server/jobs/=, =api/cron= |
@@ -29,6 +29,7 @@ deadline reminders server-side.
 * Data Flow
 | Step | Path |
 |------|------|
+| Login | =POST /api/auth/login {email,password}= → resolve org+member by global-unique email → bcrypt verify → member session ({token,slug,member}) |
 | Load | =GET /api/org/:slug/grants= → Supabase → frontend state |
 | Mutation | =up(id, changes)= → =PUT /api/org/:slug/grants/:id= → Supabase |
 | AI call | =api(system,user,search,maxTokens)= → =/api/org/:slug/ai/messages= → OpenAI → normalised ={content:[...]}= |
@@ -46,6 +47,7 @@ deadline reminders server-side.
 | Inline styles + tokens | No CSS framework | Portability to the standalone single-HTML demo build |
 | No router | =view= state toggle (Dashboard/Pipeline/Detail/Docs/Tools) | Single-page scope does not yet justify routing |
 | Components grouped by domain | =src/components/<domain>/= + a =@/= Vite alias (→ =/src=) | Related screens co-located; =@/= keeps imports depth-independent so future moves don't churn relative paths. Same-folder siblings stay =./=; the shared-primitive barrel is =@/components/ui= |
+| Email→org login + hidden super-admin provisioning | =POST /api/auth/login= (email+password, org auto-resolved via a global-unique email index); org create/delete gated by =SUPER_ADMIN_KEY= behind an unlinked =?superadmin= route | Users never pick an org or see an admin-key field. The legacy per-slug member-login + org picker remain as a migration fallback until every member has a backfilled email (=server/backfill-emails.js=) |
 
 * Key Domain Logic
 | Concept | Where | Note |

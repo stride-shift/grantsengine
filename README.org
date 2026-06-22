@@ -62,8 +62,16 @@ npm run build    # vite production build
 npm start        # production: serve dist/ from Express
 #+END_EXAMPLE
 
-Requires a =.env= with Supabase credentials, =OPENAI_API_KEY=, and (for the
-scraper) =ANTHROPIC_API_KEY=.
+Requires a =.env= with Supabase credentials, =OPENAI_API_KEY=, =ANTHROPIC_API_KEY=
+(scraper), and =SUPER_ADMIN_KEY= (gates org creation).
+
+* Authentication
+Users sign in with *email + password* (=POST /api/auth/login=); the org is
+resolved server-side from a globally-unique email — no org picking. Org creation
+is super-admin-only via the unlinked =?superadmin= route (gated by
+=SUPER_ADMIN_KEY=). Seed/assign member emails with the backfill tool:
+=node server/backfill-emails.js= (dry-run) → =--map emails.json --apply=. A legacy
+member-picker login stays as a migration fallback until emails are backfilled.
 
 * Documentation Map
 | Doc | Scope |
