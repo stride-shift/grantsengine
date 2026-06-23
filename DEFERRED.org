@@ -30,9 +30,9 @@ code that misbehaves), unless noted.
 
 | Bug | Location | Impact | Fix path |
 |-----|----------|--------|----------|
-| Broken import: =scoutPrompt= imported from a moved path | =server/jobs/scout.js= line 9 imports ={ scoutPrompt }= from ='../../src/prompts.js'= | =src/prompts.js= no longer exists — the prompt now lives at =src/prompts/scout.js= (the Phase-3 extract split =prompts.js= into the =src/prompts/= directory). The bad path makes the scout job throw on import, so the nightly scout cannot run. | Update the import to ='../../src/prompts/scout.js'= (the =scoutPrompt= export is there). Owner confirms whether the server should depend on a =src/= module at all, or whether the prompt belongs server-side. |
-| =funderStrategy= type→structure mapping is dead for unknown funders | =src/data/funderStrategy.js= ~L188 (=funderHasFullStructure=) | Any =sections= list containing ="budget"= is treated as a full structure, but the generic default sections already contain ="Budget"=, so the =structures= table is never consulted for funders lacking hand-written intel. The =\|\| includes("budget")= clause looks accidental. | Phase 7 logic fix. Pinned by characterization tests (=funderStrategy.test.js=, marked CURRENTLY…) so the current behaviour is locked before any change. Owner decides the intended mapping. |
-| =addD(date, n)= is timezone-sensitive | =src/utils.js= ~L297 | =new Date("YYYY-MM-DD")= parses as UTC midnight but =.setDate()= reads/writes local time, so a follow-up cadence date can land a day off behind UTC. | Phase 7: switch to UTC methods, then pin with a test. Deliberately untested for now (a TZ assertion would be flaky). |
+| Broken import: =scoutPrompt= imported from a moved path | =server/jobs/scout.js= line 9 imports ={ scoutPrompt }= from ='../../src/prompts.js'= | =src/prompts.js= no longer exists — the prompt now lives at =src/prompts/scout.js= (the Phase-3 extract split =prompts.js= into the =src/prompts/= directory). The bad path makes the scout job throw on import, so the nightly scout cannot run. *Verified 2026-06-22: this is a regression OUR cleanup introduced — =main= still ships =src/prompts.js= and the scout imports it fine there; our Phase-3 split deleted that file without updating this import.* | Update the import to ='../../src/prompts/scout.js'= (the =scoutPrompt= export is there). This *restores =main='s behaviour exactly* — it is a plumber fix, not new logic. (Open beyond that: owner confirms whether the server should depend on a =src/= module at all, or whether the prompt belongs server-side.) |
+| =funderStrategy= type→structure mapping is dead for unknown funders | =src/data/funderStrategy.js= ~L188 (=funderHasFullStructure=) | Any =sections= list containing ="budget"= is treated as a full structure, but the generic default sections already contain ="Budget"=, so the =structures= table is never consulted for funders lacking hand-written intel. The =\|\| includes("budget")= clause looks accidental. *Verified 2026-06-22: the =funderHasFullStructure= body is byte-identical to =main= — this is pre-existing logic in the creator's code, NOT introduced by cleanup.* | Phase 7 logic fix. Pinned by characterization tests (=funderStrategy.test.js=, marked CURRENTLY…) so the current behaviour is locked before any change. Owner decides the intended mapping. |
+| =addD(date, n)= is timezone-sensitive | =src/utils.js= ~L297 | =new Date("YYYY-MM-DD")= parses as UTC midnight but =.setDate()= reads/writes local time, so a follow-up cadence date can land a day off behind UTC. *Verified 2026-06-22: the =addD= body is byte-identical to =main= — pre-existing creator logic, NOT introduced by cleanup.* | Phase 7: switch to UTC methods, then pin with a test. Deliberately untested for now (a TZ assertion would be flaky). |
 
 Broader defect inventory (security, deploy, a11y, prompt-engineering) is catalogued
 in =EVALUATION.md= (the 25-agent evaluation report, *reconciled 2026-06-19* against
@@ -88,9 +88,13 @@ docs / =EVALUATION.md=; only the constraint is noted here.
 
 * Open Questions (intentional-vs-gap unresolved — owner to resolve)
 
-| Question | Present state | Why it's open |
-|----------|---------------|---------------|
-| Is the empty seed intentional? | =src/data/seed.js= exports =SEED = []= (its own comment reads "empty pipeline, grants added via Scout or manual entry", which leans *intentional clean slate*). | =CLAUDE.md= still documents a "bump storage version (=dlg12=→=dlg13=) to force fresh seed data" flow, but no =src/= code currently references =SEED= beyond its definition or shows that version-bump wiring — so the documented re-seed (if still wired anywhere) would seed an *empty* pipeline. Owner confirms whether the empty seed is the intended clean slate (and the =CLAUDE.md= re-seed note is stale) or a gap where seed data was lost. |
+(None currently open. Resolved questions are recorded below so they are not re-investigated.)
+
+* Resolved Questions
+
+| Question | Resolution (verified 2026-06-22 against =main=) |
+|----------|-------------------------------------------------|
+| Is the empty seed intentional? Was seed data lost in cleanup? | *Intentional, and nothing was lost.* The empty =SEED= was set by the *creator* on =main= — commit =71da1a0= (Alison Jacobson, 2026-02-25): "Pipeline should start empty — grants come in via Scout or manual add, not pre-populated." Our =johannes-plumbing= branch is byte-identical to =main= here, so cleanup did not touch it. Two further facts: (1) =src/data/seed.js= is effectively *dead* in the live app — =src/App.jsx= loads grants from the backend (=getGrants()= → =GET /grants= → Supabase), never from =SEED=; the empty array is a vestige of the old monolith's =setGrants(stored.length ? stored : SEED)= pattern. (2) The *real* seed (all 23 d-lab grants) lives server-side in =server/seed.js= and =server/seed-fn.js= and is *also identical to =main=* — intact, not lost. *New-machine setup:* run the server seed script against Supabase to populate the pipeline; the app itself boots empty and reads from the DB. *Stale doc note:* the "=dlg12=→=dlg13= version-bump to force fresh seed" flow no longer exists — it described the monolith's localStorage seeding. It survives only in the archived monolith and one line of =src/data/quick_reference.org= (~L233), which should be corrected. |
 
 * Related Docs
 
@@ -102,4 +106,4 @@ docs / =EVALUATION.md=; only the constraint is noted here.
 | =AGENT_AUDIT_WORKFLOW.org= | Lifecycle axis (Active / Intentionally Dormant / Scheduled for Removal / Stale) that consumes this file |
 
 ---
-/Last Updated/: 2026-06-19
+/Last Updated/: 2026-06-22 (seed question resolved against =main=; bug rows reconciled — A1 confirmed a cleanup regression, A5/B8 confirmed pre-existing on =main=)

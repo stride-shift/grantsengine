@@ -228,12 +228,17 @@ modals. Seen-state is per =(memberId, role)= in =localStorage=, namespaced by a
 - =GATES= only lists GATED transitions; any "from->to" not present is allowed
   without sign-off. =PERSONAS= (constants.js) is a legacy fallback used only when
   DB team data is missing; the active app uses DB team data.
-- =SEED= is currently an empty array — the app starts with an empty pipeline and
-  grants are added via Scout or manual entry. (App.jsx bumps a localStorage
-  version key, e.g. =dlg12→dlg13=, to force fresh seed data on load.)
+- =SEED= (=src/data/seed.js=) is an empty array *and is effectively dead in the
+  live app* — =App.jsx= loads grants from the backend (=getGrants()= → =GET /grants=
+  → Supabase), never from =SEED=. The empty array is an intentional clean slate
+  (creator's commit =71da1a0=) left over from the old monolith's
+  =setGrants(stored.length ? stored : SEED)= pattern. The *real* seed (23 grants)
+  lives server-side in =server/seed.js= / =server/seed-fn.js=. The old
+  "=dlg12→dlg13= localStorage version-bump to force fresh seed" flow no longer
+  exists (it was monolith-only). See =DEFERRED.org= → Resolved Questions.
 - =glossary.js= regexes are SHARED objects; =detectGlossaryTerms= resets
   =regex.lastIndex= after each use — relevant if a regex is ever given a global
   flag elsewhere.
 
 ---
-/Last Updated/: 2026-06-19
+/Last Updated/: 2026-06-22
