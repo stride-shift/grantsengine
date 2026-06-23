@@ -294,7 +294,7 @@ app.post('/verify-link', requireServiceKey, async (req, res) => {
         const liveOk = status >= 200 && status < 400;
         // Inspect the loaded DOM: does the page expose a real application form or
         // an apply/submit affordance, or is it just a funder homepage?
-        let applyKind = 'unknown';
+        let applyKind = liveOk ? 'unknown' : 'dead';
         if (liveOk) {
           try {
             applyKind = await page.evaluate(() => {
@@ -320,7 +320,7 @@ app.post('/verify-link', requireServiceKey, async (req, res) => {
           applyKind,
         });
       } catch (err) {
-        results.push({ url: u, ok: false, status: 0, finalUrl: null, title: null, error: err.message });
+        results.push({ url: u, ok: false, status: 0, finalUrl: null, title: null, applyKind: 'dead', error: err.message });
       } finally {
         await page.close().catch(() => {});
       }

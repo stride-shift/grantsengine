@@ -470,6 +470,18 @@ export const spliceSentences = (text, replacements) => {
   return out;
 };
 
+// ── Apply-link quality badge mapping ──
+// Maps a grant's applyLinkKind to a compact indicator. Returns null for
+// "unknown"/absent so unverified links show no clutter. `tone` resolves to
+// C.ok / C.amber / C.red in the component (utils stays theme-free). Single
+// source of truth for the label/colour across pipeline + scout + detail.
+export const applyLinkBadge = (kind) => {
+  if (kind === "apply-page") return { icon: "✓", tone: "ok", label: "Apply page", title: "Verified — this link leads to an application page" };
+  if (kind === "homepage-only") return { icon: "⚠", tone: "amber", label: "Homepage only", title: "This link looks like the funder's homepage, not an application page" };
+  if (kind === "dead") return { icon: "✕", tone: "red", label: "Dead link", title: "This link is unreachable — find a working application URL" };
+  return null;
+};
+
 // ── Grant Readiness Score ──
 // Returns { score: 0-100, missing: string[], nextAction: string }
 // Weighted: docs 40%, AI coverage 30%, metadata 30%

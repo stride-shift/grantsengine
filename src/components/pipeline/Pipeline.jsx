@@ -1,12 +1,20 @@
 import { useState, useRef } from "react";
 import { C, FONT, MONO } from "@/theme";
-import { fmtK, dL, td, effectiveAsk, grantReadiness } from "@/utils";
+import { fmtK, dL, td, effectiveAsk, grantReadiness, applyLinkBadge } from "@/utils";
 import { Btn, DeadlineBadge, TypeBadge, Avatar, Label } from "@/components/ui";
 import { detectType, PTYPES } from "@/data/funderStrategy";
 import { GATES, ROLES, CLOSED_STAGES } from "@/data/constants";
 import usePipelineView from "@/hooks/usePipelineView";
 import useGrantWizard from "@/hooks/useGrantWizard";
 import ScoutPanel from "./ScoutPanel";
+
+/* ── Link-quality indicator — compact apply-link status on pipeline cards ── */
+const LinkQ = ({ kind }) => {
+  const b = applyLinkBadge(kind);
+  if (!b) return null;
+  const col = b.tone === "ok" ? C.ok : b.tone === "amber" ? C.amber : C.red;
+  return <span title={b.title} style={{ fontSize: 10, fontWeight: 800, color: col, flexShrink: 0, lineHeight: 1 }}>{b.icon}</span>;
+};
 
 /* ── Readiness Chips — show missing items on kanban cards ── */
 const ReadinessChips = ({ missing }) => {
@@ -963,6 +971,7 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                                   title={g.applyUrl}
                                 >{"\u2197"} Apply</a>
                               )}
+                              <LinkQ kind={g.applyLinkKind} />
                             </div>
                           </div>
                         </div>
@@ -1076,7 +1085,8 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                 </div>
 
                 {/* Status badge */}
-                <div style={{ flexShrink: 0, minWidth: 110, textAlign: "right" }}>
+                <div style={{ flexShrink: 0, minWidth: 110, textAlign: "right", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
+                  <LinkQ kind={g.applyLinkKind} />
                   {statusText && (
                     <span style={{
                       fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 100,
@@ -1167,7 +1177,10 @@ export default function Pipeline({ grants, team, stages, funderTypes, compliance
                           <div style={{ fontSize: 11, color: C.t3, marginBottom: 6 }}>{g.funder}</div>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
                             <span style={{ fontSize: 12, fontWeight: 600, color: g.ask > 0 ? C.t2 : C.t4, fontFamily: MONO }}>{g.ask > 0 ? fmtK(g.ask) : g.funderBudget ? `~${fmtK(g.funderBudget)}` : "TBD"}</span>
-                            <DeadlineBadge d={d} deadline={g.deadline} stage={g.stage} />
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <LinkQ kind={g.applyLinkKind} />
+                              <DeadlineBadge d={d} deadline={g.deadline} stage={g.stage} />
+                            </div>
                           </div>
                         </div>
                       );

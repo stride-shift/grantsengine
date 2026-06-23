@@ -399,12 +399,13 @@ router.post('/org/:slug/ai/verify-urls', resolveOrg, requireAuth, async (req, re
       if (!attempt.ok) attempt = await fetchWithTimeout(url, 'HEAD');
 
       if (!attempt.ok) {
-        return { url, status: 0, ok: false, reason: 'unreachable', error: attempt.err?.message || 'fetch failed', applyKind: 'unknown' };
+        return { url, status: 0, ok: false, reason: 'unreachable', error: attempt.err?.message || 'fetch failed', applyKind: 'dead' };
       }
       const r = attempt.response;
       const cls = classifyStatus(r.status);
-      // Classify apply-page vs homepage from the HTML when we have a readable GET body.
-      let applyKind = 'unknown';
+      // Classify apply-page vs homepage from the HTML when we have a readable GET body;
+      // an unreachable/4xx/5xx link is 'dead' so a re-check can flag a rotted URL.
+      let applyKind = cls.ok ? 'unknown' : 'dead';
       if (cls.ok && gotGetBody) {
         try { applyKind = classifyApplyHtml(await r.text()); } catch { /* leave unknown */ }
       }

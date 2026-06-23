@@ -11,7 +11,18 @@ import {
   splitProseSentences,
   worstSentences,
   spliceSentences,
+  applyLinkBadge,
 } from "@/utils";
+
+describe("applyLinkBadge", () => {
+  it("maps each known kind to an icon + tone, and null for unknown/absent", () => {
+    expect(applyLinkBadge("apply-page")).toMatchObject({ icon: "✓", tone: "ok" });
+    expect(applyLinkBadge("homepage-only")).toMatchObject({ icon: "⚠", tone: "amber" });
+    expect(applyLinkBadge("dead")).toMatchObject({ icon: "✕", tone: "red" });
+    expect(applyLinkBadge("unknown")).toBe(null);
+    expect(applyLinkBadge(undefined)).toBe(null);
+  });
+});
 
 // ── Readability enforcement helpers ──
 describe("scoreSentence", () => {

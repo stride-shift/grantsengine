@@ -245,7 +245,12 @@ async function scoutForOrg(org, scraped = []) {
       for (const c of changes) {
         if (c.field === 'deadline') existing.deadline = c.to;
         else if (c.field === 'funderBudget') existing.funderBudget = c.to;
-        else if (c.field === 'applyUrl') existing.applyUrl = c.to;
+        else if (c.field === 'applyUrl') {
+          existing.applyUrl = c.to;
+          // The link changed — refresh its quality classification from this scout pass.
+          existing.applyLinkKind = s.applyLinkKind || 'unknown';
+          existing.applyLinkKindAt = s.applyLinkKind && s.applyLinkKind !== 'unknown' ? new Date().toISOString() : null;
+        }
       }
       existing.log = [...(existing.log || []), { d: td(), t: `Scout update (${label}): ${summary}` }];
       await upsertGrant(org.id, existing);
