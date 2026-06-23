@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { resolveOrg } from '../middleware/org.js';
 import { logAgentRun } from '../db.js';
 import { assertSafeUrl } from '../lib/ssrfGuard.js';
+import { classifyApplyHtml } from '../lib/applyLinkClassifier.js';
 
 const router = Router();
 const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
@@ -374,8 +375,7 @@ router.post('/org/:slug/ai/verify-urls', resolveOrg, requireAuth, async (req, re
         redirect: 'follow',
         headers: BROWSER_HEADERS,
       });
-      // Don't read body, just headers
-      if (method === 'GET') response.body?.cancel?.();
+      // Caller reads the GET body to classify apply-page vs homepage; HEAD has none.
       return { ok: true, response };
     } catch (err) {
       return { ok: false, err };
@@ -394,20 +394,27 @@ router.post('/org/:slug/ai/verify-urls', resolveOrg, requireAuth, async (req, re
       }
       // Try GET first — many servers (esp. Cloudflare-fronted) treat HEAD weirdly
       let attempt = await fetchWithTimeout(url, 'GET');
+      const gotGetBody = attempt.ok; // a GET response whose HTML we can classify
       // If GET fails, fall back to HEAD (some servers explicitly block GET to bots)
       if (!attempt.ok) attempt = await fetchWithTimeout(url, 'HEAD');
 
       if (!attempt.ok) {
-        return { url, status: 0, ok: false, reason: 'unreachable', error: attempt.err?.message || 'fetch failed' };
+        return { url, status: 0, ok: false, reason: 'unreachable', error: attempt.err?.message || 'fetch failed', applyKind: 'unknown' };
       }
       const r = attempt.response;
       const cls = classifyStatus(r.status);
+      // Classify apply-page vs homepage from the HTML when we have a readable GET body.
+      let applyKind = 'unknown';
+      if (cls.ok && gotGetBody) {
+        try { applyKind = classifyApplyHtml(await r.text()); } catch { /* leave unknown */ }
+      }
       return {
         url,
         status: r.status,
         ok: cls.ok,
         reason: cls.reason,
         redirect: r.redirected ? r.url : null,
+        applyKind,
       };
     })
   );

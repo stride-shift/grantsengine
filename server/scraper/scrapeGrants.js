@@ -472,6 +472,7 @@ export async function scrapeGrants(source) {
     s.fitScore = calcScoutFitScore(s);
     s.sourceKey = source.key;
     s.linkStatus = status ? String(status.status) : (c.url ? 'unverified' : 'no-url');
+    s.applyLinkKind = status ? (status.applyKind || 'unknown') : 'unknown';
     grants.push(s);
   }
 

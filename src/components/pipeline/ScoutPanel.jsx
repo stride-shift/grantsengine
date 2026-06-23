@@ -382,10 +382,10 @@ const ScoutPanel = forwardRef(function ScoutPanel({ orgContext, grants, onAddGra
                             {"●"} Already tracking
                           </span>
                         )}
-                        {s.genericLink && (
+                        {(s.applyLinkKind === "homepage-only" || ((s.applyLinkKind == null || s.applyLinkKind === "unknown") && s.genericLink)) && (
                           <span style={{ fontSize: 9, fontWeight: 600, color: C.amber, background: C.amberSoft, padding: "1px 6px", borderRadius: 100 }}
-                            title="URL points only to the funder homepage — AI did not find a specific application page">
-                            {"⚠"} generic link
+                            title="This link looks like the funder's homepage, not an application page — you'll need to find the real apply page">
+                            {"⚠"} Homepage only
                           </span>
                         )}
                         {isRejected && <span style={{ fontSize: 10, fontWeight: 600, color: C.t4, background: C.raised, padding: "1px 7px", borderRadius: 100 }}>Rejected</span>}

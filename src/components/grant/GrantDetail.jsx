@@ -1007,6 +1007,12 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                       <div style={{ gridColumn: "1 / -1" }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: C.t4, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>Application page</div>
                         <a href={g.applyUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: C.blue, textDecoration: "underline", wordBreak: "break-all" }}>{g.applyUrl}</a>
+                        {g.applyLinkKind === "homepage-only" && (
+                          <span title="This link looks like the funder's homepage, not an application page — you'll need to find the real apply page"
+                            style={{ display: "inline-block", marginLeft: 8, fontSize: 9, fontWeight: 600, color: C.amber, background: C.amberSoft, padding: "1px 6px", borderRadius: 100, verticalAlign: "middle" }}>
+                            ⚠ Homepage only
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>

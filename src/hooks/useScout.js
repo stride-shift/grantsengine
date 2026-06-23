@@ -313,7 +313,12 @@ export default function useScout({ orgContext, grants, onAddGrant, onScoutingCha
           // If after resolution the URL is STILL a grounding redirect or unreachable, the result is unusable.
           const stillBad = isGroundingRedirect(resolvedUrl) || (!check.ok && check.status === 0);
           const confidence = stillBad ? "low" : urlStatus === "dead" ? "low" : s.confidence;
-          return { ...s, url: resolvedUrl, urlStatus, confidence };
+          // Prefer the server's verified apply-page classification; fall back to the
+          // URL-path heuristic (genericLink) when verification couldn't judge.
+          const applyLinkKind = check.applyKind && check.applyKind !== "unknown"
+            ? check.applyKind
+            : (s.genericLink ? "homepage-only" : "unknown");
+          return { ...s, url: resolvedUrl, urlStatus, confidence, applyLinkKind };
         }));
       } catch { /* URL verification is best-effort */ }
     }
@@ -350,6 +355,8 @@ export default function useScout({ orgContext, grants, onAddGrant, onScoutingCha
       notes, market: scoutedMarket, source: "scout",
       log: [{ d: td(), t: `Scouted by AI · funder budget R${funderBudget.toLocaleString()}${s.access ? ` · ${s.access}` : ""} · ask TBD` }],
       on: "", of: [], owner: "team", docs: {}, fups: [], subDate: null, applyUrl: usableUrl,
+      applyLinkKind: s.applyLinkKind || (s.genericLink ? "homepage-only" : "unknown"),
+      applyLinkKindAt: (s.applyLinkKind && s.applyLinkKind !== "unknown") ? new Date().toISOString() : null,
     };
     onAddGrant(newG);
     setScoutResults(prev => prev.map(x => x.name === s.name && x.funder === s.funder ? { ...x, added: true } : x));

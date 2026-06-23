@@ -241,6 +241,11 @@ export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, on
                         </button>
                       </div>
                     )}
+                    {grant?.applyLinkKind === "homepage-only" && (submission.method === "form" || submission.method === "unknown") && (
+                      <div style={{ marginTop: 6, fontSize: 11, color: C.amber, lineHeight: 1.45 }}>
+                        ⚠ This looks like the funder's homepage, not an application page. Find the real apply page and replace the link above before auto-filling.
+                      </div>
+                    )}
                     {grant?.applyUrl && showManualUrl && (
                       <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
                         <input type="url" value={manualUrl}

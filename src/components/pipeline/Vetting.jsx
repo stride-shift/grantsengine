@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { C, FONT, MONO } from "@/theme";
 import { Btn } from "@/components/ui";
 import { TEAM } from "@/data/constants";
+import { verifyUrls } from "@/api";
 
 /* ── Vetting checklist fields ── */
 const VETTING_CHECKS = [
@@ -55,9 +56,25 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
   const saveUrlEdit = (grantId) => {
     const v = editUrlValue.trim();
     if (v && !/^https?:\/\//i.test(v)) { alert("URL must start with http:// or https://"); return; }
-    onUpdateGrant(grantId, { applyUrl: v });
+    // Clear any stale apply-page classification — the new URL hasn't been checked yet.
+    onUpdateGrant(grantId, { applyUrl: v, applyLinkKind: "unknown", applyLinkKindAt: null });
     setEditingUrlFor(null);
     setEditUrlValue("");
+  };
+
+  // Re-check whether the saved apply link actually leads to an application page
+  // (vs a funder homepage). Reuses the server URL-verification path, which now
+  // returns an apply-page classification, and persists it on the grant.
+  const [recheckingFor, setRecheckingFor] = useState(null);
+  const recheckLink = async (g) => {
+    if (!g.applyUrl) return;
+    setRecheckingFor(g.id);
+    try {
+      const results = await verifyUrls([g.applyUrl]);
+      const kind = results?.[0]?.applyKind || "unknown";
+      onUpdateGrant(g.id, { applyLinkKind: kind, applyLinkKindAt: new Date().toISOString() });
+    } catch { /* best-effort */ }
+    setRecheckingFor(null);
   };
 
   // Grants in scouted or vetting stage
@@ -362,11 +379,23 @@ export default function Vetting({ grants, team, stages, onSelectGrant, onUpdateG
                             style={{ fontSize: 11, color: C.blue, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 360 }}>
                             {g.applyUrl} ↗
                           </a>
+                          {g.applyLinkKind === "homepage-only" && (
+                            <span title="This link looks like the funder's homepage, not an application page — find the real apply page, then re-check"
+                              style={{ fontSize: 9, fontWeight: 600, color: C.amber, background: C.amberSoft, padding: "1px 6px", borderRadius: 100, whiteSpace: "nowrap" }}>
+                              ⚠ Homepage only
+                            </span>
+                          )}
                           <button onClick={() => startUrlEdit(g)} title="Edit URL"
                             style={{ fontSize: 10, fontWeight: 600, color: C.t4, background: "none", border: "none", cursor: "pointer", fontFamily: FONT, padding: "0 4px" }}
                             onMouseEnter={e => e.currentTarget.style.color = C.primary}
                             onMouseLeave={e => e.currentTarget.style.color = C.t4}>
                             ✎ edit
+                          </button>
+                          <button onClick={() => recheckLink(g)} disabled={recheckingFor === g.id} title="Re-check whether this link is an application page"
+                            style={{ fontSize: 10, fontWeight: 600, color: C.t4, background: "none", border: "none", cursor: recheckingFor === g.id ? "default" : "pointer", fontFamily: FONT, padding: "0 4px" }}
+                            onMouseEnter={e => e.currentTarget.style.color = C.primary}
+                            onMouseLeave={e => e.currentTarget.style.color = C.t4}>
+                            {recheckingFor === g.id ? "…" : "⟳ re-check"}
                           </button>
                         </>
                       ) : (

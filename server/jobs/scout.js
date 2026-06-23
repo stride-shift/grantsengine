@@ -105,6 +105,8 @@ export function scoutResultToGrant(s) {
     fups: [],
     subDate: null,
     applyUrl: s.url || '',
+    applyLinkKind: s.applyLinkKind || 'unknown',
+    applyLinkKindAt: s.applyLinkKind && s.applyLinkKind !== 'unknown' ? new Date().toISOString() : null,
   };
 }
 
@@ -322,6 +324,11 @@ async function scoutForOrg(org, scraped = []) {
         }
         return true;
       });
+      // Carry the apply-page classification from verification onto each result.
+      for (const s of clean) {
+        const st = s.url ? statusMap.get(s.url) : null;
+        s.applyLinkKind = st ? (st.applyKind || 'unknown') : 'unknown';
+      }
       await addHighFit(clean, market);
     }
   }

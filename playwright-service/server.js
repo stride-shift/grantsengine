@@ -291,12 +291,33 @@ app.post('/verify-link', requireServiceKey, async (req, res) => {
         const response = await page.goto(u, { waitUntil: 'domcontentloaded', timeout: 20000 });
         const status = response ? response.status() : 0;
         const title = await page.title().catch(() => '');
+        const liveOk = status >= 200 && status < 400;
+        // Inspect the loaded DOM: does the page expose a real application form or
+        // an apply/submit affordance, or is it just a funder homepage?
+        let applyKind = 'unknown';
+        if (liveOk) {
+          try {
+            applyKind = await page.evaluate(() => {
+              const APPLY_TEXT = /\bapply\b|how to apply|application (form|process|portal|guideline|deadline|window)|submit (a |your |an )?(application|proposal|expression)|expression of interest|request for proposals?|\brfp\b|\beoi\b|start (your )?application/i;
+              const APPLY_HREF = /(apply|application|grant-application|funding-application|submit-proposal|expression-of-interest)/i;
+              const forms = Array.from(document.querySelectorAll('form'));
+              const hasForm = forms.some((f) => f.querySelector('textarea, input[type="text"], input[type="email"], input[type="tel"], input[type="file"], select'));
+              const els = Array.from(document.querySelectorAll('a, button, input[type="submit"]'));
+              const hasApply = els.some((el) =>
+                APPLY_TEXT.test(el.textContent || '') ||
+                APPLY_HREF.test(el.getAttribute('href') || '') ||
+                APPLY_TEXT.test(el.value || ''));
+              return hasForm || hasApply ? 'apply-page' : 'homepage-only';
+            });
+          } catch { applyKind = 'unknown'; }
+        }
         results.push({
           url: u,
-          ok: status >= 200 && status < 400,
+          ok: liveOk,
           status,
           finalUrl: page.url(),
           title: (title || '').slice(0, 200),
+          applyKind,
         });
       } catch (err) {
         results.push({ url: u, ok: false, status: 0, finalUrl: null, title: null, error: err.message });
