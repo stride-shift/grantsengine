@@ -246,6 +246,11 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
   const [uploads, setUploads] = useState([]);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showAutoFill, setShowAutoFill] = useState(false);
+  // Full automation: one button → research + draft + readability → open the review
+  // (docs checklist + pre-filled form). `fullAutoRef` carries intent across the
+  // async draft so onAutoGenerateComplete knows to open the review when it lands.
+  const [autoFillPrepare, setAutoFillPrepare] = useState(false);
+  const fullAutoRef = useRef(false);
   const [handover, setHandover] = useState(null); // null | { toMember: "id", note: "" }
   const [emailExtract, setEmailExtract] = useState(null); // null | { pasted: "", extracting: false, result: "" }
   const [aiAskOpen, setAiAskOpen] = useState(false); // toggles "AI suggests" reasoning popover
@@ -773,8 +778,16 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
                 <Btn v="ghost" style={{ fontSize: 12 }}>{"\u2197"} Apply</Btn>
               </a>
             )}
+            {/* Full automation: research → draft (with readability) → review with docs + pre-filled form */}
+            {!isSubmittedPlus && (
+              <Btn v="primary" style={{ fontSize: 12 }} disabled={rollingDice}
+                onClick={() => { if (rollingDice) return; fullAutoRef.current = true; rollTheDice(); }}
+                title="Research, draft the full proposal with a readability pass, then open a review with the required-documents checklist and a pre-filled form">
+                {rollingDice ? (diceStep || "Working…") : "✨ Auto-draft & prepare"}
+              </Btn>
+            )}
             {/* Auto-fill is always available — the panel auto-searches for a URL via AI when none is on file */}
-            <Btn v="primary" style={{ fontSize: 12 }} onClick={() => setShowAutoFill(true)}>
+            <Btn v="ghost" style={{ fontSize: 12 }} onClick={() => setShowAutoFill(true)}>
               {"⚡"} Auto-fill
             </Btn>
             <button onClick={() => setOverflow(p => !p)}
@@ -2243,7 +2256,12 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
               busy={busy}
               setBusy={setBusy}
               autoGenerate={rollingDice}
-              onAutoGenerateComplete={() => { setRollingDice(false); setDiceStep(""); }}
+              onAutoGenerateComplete={() => {
+                setRollingDice(false); setDiceStep("");
+                // Full-automation: the draft has landed — open the review (docs +
+                // pre-filled form), which detects/maps off the finished proposal.
+                if (fullAutoRef.current) { fullAutoRef.current = false; setAutoFillPrepare(true); setShowAutoFill(true); }
+              }}
               isLocked={isSubmittedPlus}
             />
             {/* Ask confirmation */}
@@ -2740,11 +2758,13 @@ export default function GrantDetail({ grant, team, stages, funderTypes, complian
           grant={g}
           onRunAI={onRunAI}
           onUpdateGrant={onUpdate}
-          onClose={() => setShowAutoFill(false)}
+          onClose={() => { setShowAutoFill(false); setAutoFillPrepare(false); }}
           onSubmitted={() => {
             setShowAutoFill(false);
+            setAutoFillPrepare(false);
             up("stage", "submitted");
           }}
+          autoPrepare={autoFillPrepare}
           // Auto-trigger the full Make-the-Magic-Happen flow when AutoFill opens
           // and there's no proposal yet. ProposalWorkspace picks up rollingDice
           // via its autoGenerate prop and generates every section in the background;

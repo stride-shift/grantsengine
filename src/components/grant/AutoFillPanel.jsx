@@ -25,7 +25,7 @@ const STATUS_LABEL = {
   error: "Error",
 };
 
-export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, onUpdateGrant, onTriggerMagic, generatingProposal, generatingStep }) {
+export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, onUpdateGrant, onTriggerMagic, generatingProposal, generatingStep, autoPrepare }) {
   // Business logic lives in the hook; the component renders from it.
   const {
     job, mappings, fields, formType, requiresLogin, notes, fetchError, resolvedUrl, urlSource,
@@ -36,7 +36,7 @@ export default function AutoFillPanel({ grant, onClose, onSubmitted, onRunAI, on
     runExtractRequiredDocs, matchUpload, handleUploadFile, handleRemoveUpload,
     downloadAsDocx, downloadAsPdf, downloadAsTxt,
     findApplyUrlWithAI, handleDetect, updateMapping, saveEdits, handleAutoFill, handleFinalSubmit,
-  } = useAutofill({ grant, onSubmitted, onRunAI, onUpdateGrant, onTriggerMagic, generatingProposal });
+  } = useAutofill({ grant, onSubmitted, onRunAI, onUpdateGrant, onTriggerMagic, generatingProposal, autoPrepare });
 
   // ── Component-owned transient UI state (render-only) ──
   const [credentials, setCredentials] = useState({ username: "", password: "" });

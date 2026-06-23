@@ -40,7 +40,7 @@ export const renderPara = (line) => {
  * @param onRunAI       (action, grant) AI proxy used for doc extraction + URL find
  * @param onUpdateGrant (grantId, changes) persistence callback
  */
-export default function useAutofill({ grant, onSubmitted, onRunAI, onUpdateGrant, onTriggerMagic, generatingProposal }) {
+export default function useAutofill({ grant, onSubmitted, onRunAI, onUpdateGrant, onTriggerMagic, generatingProposal, autoPrepare }) {
   // Form-detection + mapping state
   const [job, setJob] = useState(null);
   const [mappings, setMappings] = useState([]);
@@ -441,10 +441,24 @@ export default function useAutofill({ grant, onSubmitted, onRunAI, onUpdateGrant
   const isFormBased = submission.method === "form";
 
   useEffect(() => {
-    // Only auto-analyse if explicitly form-based AND we already have a URL.
-    if (grant?.applyUrl && !job && isFormBased) handleDetect();
+    // Only auto-analyse once the proposal is in place (so the form maps from the
+    // finished draft, never mid-generation) and we have a form URL.
+    if (grant?.applyUrl && !job && isFormBased && !generatingProposal) handleDetect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grant?.applyUrl, isFormBased]);
+  }, [grant?.applyUrl, isFormBased, generatingProposal]);
+
+  // Full-automation prep: when the panel is opened by the auto-draft flow and the
+  // grant still has no apply URL, find it via AI (which persists it and auto-detects
+  // a form). Runs once, only after any proposal generation has finished.
+  const autoPrepRef = useRef(false);
+  useEffect(() => {
+    if (!autoPrepare || autoPrepRef.current) return;
+    if (generatingProposal || grant?.applyUrl) return;
+    if (!onRunAI || !onUpdateGrant) return;
+    autoPrepRef.current = true;
+    findApplyUrlWithAI();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPrepare, generatingProposal, grant?.applyUrl]);
 
   const updateMapping = (fieldName, newValue) => {
     setMappings(prev => prev.map(m => m.fieldName === fieldName ? { ...m, suggestedValue: newValue } : m));

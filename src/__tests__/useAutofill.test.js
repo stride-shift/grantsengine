@@ -108,6 +108,38 @@ describe("useAutofill — form detection", () => {
   });
 });
 
+describe("useAutofill — full automation", () => {
+  it("defers form detection until the proposal has finished generating", async () => {
+    detectSubmissionMethod.mockReturnValue({ method: "form", label: "", desc: "" });
+    detectForm.mockResolvedValue({ jobId: "j", fields: [], mappings: [] });
+    const props = makeProps({ grant: { applyUrl: "https://apply" }, generatingProposal: true });
+    const { rerender } = renderHook((p) => useAutofill(p), { initialProps: props });
+
+    await waitFor(() => expect(getUploads).toHaveBeenCalled()); // hook mounted, effects ran
+    expect(detectForm).not.toHaveBeenCalled();                  // still generating → no detect
+
+    rerender({ ...props, generatingProposal: false });          // generation finished
+    await waitFor(() => expect(detectForm).toHaveBeenCalled()); // now it detects off the final draft
+  });
+
+  it("auto-finds the apply URL via AI when opened in full-auto with no URL", async () => {
+    detectSubmissionMethod.mockReturnValue({ method: "unknown", label: "", desc: "" });
+    const onRunAI = vi.fn(async () => '{"candidates":[]}');
+    const props = makeProps({ grant: { applyUrl: "" }, autoPrepare: true, generatingProposal: false, onRunAI });
+    renderHook(() => useAutofill(props));
+    await waitFor(() => expect(onRunAI).toHaveBeenCalledWith("findApplyUrl", expect.any(Object)));
+  });
+
+  it("does NOT auto-find a URL when one already exists", async () => {
+    detectSubmissionMethod.mockReturnValue({ method: "unknown", label: "", desc: "" });
+    const onRunAI = vi.fn(async () => "AI body");
+    const props = makeProps({ grant: { applyUrl: "https://apply" }, autoPrepare: true, generatingProposal: false, onRunAI });
+    renderHook(() => useAutofill(props));
+    await waitFor(() => expect(getUploads).toHaveBeenCalled());
+    expect(onRunAI).not.toHaveBeenCalledWith("findApplyUrl", expect.any(Object));
+  });
+});
+
 describe("useAutofill — mapping edit + save payload", () => {
   it("updateMapping mutates the value and marks edited; saveEdits posts the mappings", async () => {
     detectSubmissionMethod.mockReturnValue({ method: "form", label: "", desc: "" });
