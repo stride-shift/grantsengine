@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { C, FONT, MONO } from "@/theme";
 import { Btn, CopyBtn, AILoadingPanel, stripMd, timeAgo } from "@/components/ui";
+import { readabilityLabel } from "@/utils";
 
 /* ── Render section content with markdown table + stat-callout support ── */
 // Matches `[STAT: <value> | <label>]` — e.g. [STAT: 92% | Programme completion vs 55% sector average]
@@ -241,7 +242,7 @@ function BudgetTable({ bt }) {
    Individual section of a section-by-section proposal.
    States: empty / loading / view / edit / error
 */
-export default function SectionCard({ name, index, section, busy, onGenerate, onSave, onRestore, budgetTable, isLocked = false }) {
+export default function SectionCard({ name, index, section, busy, onGenerate, onSave, onRestore, onSimplify, budgetTable, isLocked = false }) {
   const hasText = section?.text && !section.text.startsWith("Error");
   const isError = section?.text && (section.text.startsWith("Error") || section.text.startsWith("Rate limit") || section.text.startsWith("Connection"));
   const [expanded, setExpanded] = useState(!hasText);
@@ -249,6 +250,7 @@ export default function SectionCard({ name, index, section, busy, onGenerate, on
   const [editText, setEditText] = useState("");
   const [showInstructions, setShowInstructions] = useState(false);
   const [instructions, setInstructions] = useState(section?.customInstructions || "");
+  const [showChanges, setShowChanges] = useState(false);
 
   // Auto-expand when result arrives
   useEffect(() => { if (hasText && !busy) setExpanded(true); }, [hasText, busy]);
@@ -280,6 +282,12 @@ export default function SectionCard({ name, index, section, busy, onGenerate, on
 
   const nameLower = name.toLowerCase();
   const isBudget = nameLower.includes("budget");
+
+  // Readability — per-section score + any enforcement change-set
+  const readScore = typeof section?.readability === "number" ? section.readability : null;
+  const readMeta = readScore !== null ? readabilityLabel(readScore) : null;
+  const readColor = readMeta ? (readMeta.tone === "ok" ? C.ok : readMeta.tone === "amber" ? C.amber : C.red) : C.t4;
+  const readChanges = Array.isArray(section?.readabilityChanges) ? section.readabilityChanges : [];
 
   // Loading step title — match section name to loading steps
   const loadTitle = nameLower.includes("cover") ? "Cover Letter"
@@ -397,6 +405,42 @@ export default function SectionCard({ name, index, section, busy, onGenerate, on
             fontSize: 13, lineHeight: 1.75, color: C.t1, whiteSpace: "pre-wrap",
             maxHeight: 400, overflow: "auto",
           }}><RenderContent text={section.text} /></div>
+
+          {/* Readability — score badge, what-changed toggle, manual simplify */}
+          {(readMeta || readChanges.length > 0 || (!isLocked && onSimplify)) && (
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              {readMeta && (
+                <span title={readMeta.note} style={{ fontSize: 10, fontFamily: MONO, fontWeight: 700, color: readColor, background: `${readColor}10`, padding: "1px 6px", borderRadius: 4 }}>
+                  Readability {readScore} · {readMeta.label}
+                </span>
+              )}
+              {readChanges.length > 0 && (
+                <button onClick={(e) => { e.stopPropagation(); setShowChanges(s => !s); }}
+                  style={{ background: "none", border: "none", fontSize: 10, fontWeight: 600, color: C.primary, cursor: "pointer", fontFamily: FONT, padding: 0 }}>
+                  {section.readabilityBefore != null
+                    ? `simplified ${readChanges.length} sentence${readChanges.length > 1 ? "s" : ""} (${section.readabilityBefore}→${readScore})`
+                    : `${readChanges.length} simplified`} — {showChanges ? "hide" : "view changes"}
+                </button>
+              )}
+              {!isLocked && onSimplify && hasText && (
+                <button onClick={(e) => { e.stopPropagation(); onSimplify(); }}
+                  title="Rewrite the hardest-to-read sentences to be simpler"
+                  style={{ marginLeft: "auto", background: "none", border: `1px solid ${C.line}`, borderRadius: 6, padding: "3px 9px", fontSize: 10, fontWeight: 600, color: C.t3, cursor: "pointer", fontFamily: FONT }}>
+                  {"✎"} Simplify
+                </button>
+              )}
+            </div>
+          )}
+          {showChanges && readChanges.length > 0 && (
+            <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
+              {readChanges.map((c, i) => (
+                <div key={i} style={{ padding: "8px 10px", background: C.warm100, border: `1px solid ${C.line}`, borderRadius: 6, fontSize: 11, lineHeight: 1.5 }}>
+                  <div style={{ color: C.t4, textDecoration: "line-through", marginBottom: 3 }}>{stripMd(c.before)}</div>
+                  <div style={{ color: C.t1 }}>{stripMd(c.after)}</div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Custom instructions for regen */}
           <div style={{ marginTop: 8 }}>

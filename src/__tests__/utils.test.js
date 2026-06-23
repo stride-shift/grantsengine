@@ -7,7 +7,57 @@ import {
   effectiveAsk,
   isAIError,
   assembleText,
+  scoreSentence,
+  splitProseSentences,
+  worstSentences,
+  spliceSentences,
 } from "@/utils";
+
+// ── Readability enforcement helpers ──
+describe("scoreSentence", () => {
+  it("scores a long, complex sentence lower than a short, plain one", () => {
+    const hard = "The implementation of the aforementioned multidimensional intervention necessitates substantial interdepartmental collaboration notwithstanding considerable resource constraints.";
+    const easy = "We train youth in digital skills. They find jobs.";
+    expect(scoreSentence(hard)).toBeLessThan(scoreSentence(easy));
+  });
+  it("returns null for fragments too short to judge", () => {
+    expect(scoreSentence("Too short.")).toBe(null);
+  });
+});
+
+describe("splitProseSentences", () => {
+  it("returns sentence cores with offsets that index back into the original text", () => {
+    const text = "We train youth. They get jobs.";
+    const sents = splitProseSentences(text);
+    expect(sents.map(s => s.text)).toEqual(["We train youth.", "They get jobs."]);
+    for (const s of sents) expect(text.slice(s.start, s.end)).toBe(s.text);
+  });
+  it("skips table rows, [STAT:] callout lines and headings", () => {
+    const text = "## Heading\nReal prose sentence here.\n| col | col |\n[STAT: 92% | completion]";
+    expect(splitProseSentences(text).map(s => s.text)).toEqual(["Real prose sentence here."]);
+  });
+});
+
+describe("spliceSentences", () => {
+  it("replaces sentences by offset without disturbing the rest (round-trip)", () => {
+    const text = "We train youth. They get jobs.";
+    const [first] = splitProseSentences(text);
+    const out = spliceSentences(text, [{ start: first.start, end: first.end, after: "We teach skills." }]);
+    expect(out).toBe("We teach skills. They get jobs.");
+  });
+});
+
+describe("worstSentences", () => {
+  it("returns only sub-target sentences, worst first, capped", () => {
+    const hard = "The implementation of the aforementioned multidimensional intervention necessitates substantial interdepartmental collaboration notwithstanding considerable resource constraints and persistent structural impediments.";
+    const easy = "We train youth in digital skills so they can find good work.";
+    const text = `${easy} ${hard}`;
+    const worst = worstSentences(text, 50, 6);
+    expect(worst.length).toBeGreaterThanOrEqual(1);
+    expect(worst[0].text).toContain("implementation"); // the hard one ranks worst
+    expect(worst.every(w => w.score < 50)).toBe(true);
+  });
+});
 
 // ── parseStructuredResearch ──
 describe("parseStructuredResearch", () => {

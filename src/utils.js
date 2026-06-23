@@ -409,6 +409,67 @@ export const readabilityLabel = (score) => {
   return { label: "Very difficult", note: "Reads as grant-speak — needs editing", tone: "red" };
 };
 
+// Per-sentence Flesch score (treats the input as a single sentence). Used to find
+// the sentences dragging a section's readability down. Returns null for fragments
+// too short to judge.
+export const scoreSentence = (sentence) => {
+  if (!sentence || typeof sentence !== "string") return null;
+  const clean = sentence.replace(/[#*_>`~\[\]()]/g, " ").replace(/\s+/g, " ").trim();
+  const words = clean.split(/\s+/).filter(w => /[a-zA-Z]/.test(w));
+  if (words.length < 4) return null;
+  let syllables = 0;
+  for (const w of words) syllables += countSyllables(w);
+  const score = 206.835 - 1.015 * words.length - 84.6 * (syllables / words.length);
+  return Math.round(Math.max(0, Math.min(100, score)));
+};
+
+// Split prose into sentences with character offsets into the ORIGINAL text, so a
+// caller can replace specific sentences losslessly. Skips markdown table rows,
+// [STAT:] callout lines and headings so only prose is considered.
+export const splitProseSentences = (text) => {
+  if (!text || typeof text !== "string") return [];
+  const out = [];
+  const lines = text.split("\n");
+  let offset = 0;
+  for (const line of lines) {
+    const lineStart = offset;
+    offset += line.length + 1; // +1 for the consumed "\n"
+    const t = line.trim();
+    if (!t || /^\|.*\|$/.test(t) || /^(\[STAT:[^\]]+\]\s*)+$/.test(t) || /^#{1,6}\s/.test(t)) continue;
+    const re = /[^.!?]+[.!?]+|[^.!?]+$/g;
+    let m;
+    while ((m = re.exec(line)) !== null) {
+      const chunk = m[0];
+      const lead = chunk.length - chunk.trimStart().length;
+      const core = chunk.trim();
+      if (!core) continue;
+      const start = lineStart + m.index + lead;
+      out.push({ text: core, start, end: start + core.length });
+    }
+  }
+  return out;
+};
+
+// The worst `cap` prose sentences scoring below `target`, lowest first.
+export const worstSentences = (text, target = 50, cap = 6) => {
+  const scored = [];
+  for (const s of splitProseSentences(text)) {
+    const sc = scoreSentence(s.text);
+    if (sc !== null && sc < target) scored.push({ ...s, score: sc });
+  }
+  scored.sort((a, b) => a.score - b.score);
+  return scored.slice(0, cap);
+};
+
+// Replace sentences at given offsets with new text — offset-based, so there are
+// no substring collisions. `replacements`: [{ start, end, after }] into `text`.
+export const spliceSentences = (text, replacements) => {
+  const sorted = [...replacements].sort((a, b) => b.start - a.start);
+  let out = text;
+  for (const r of sorted) out = out.slice(0, r.start) + r.after + out.slice(r.end);
+  return out;
+};
+
 // ── Grant Readiness Score ──
 // Returns { score: 0-100, missing: string[], nextAction: string }
 // Weighted: docs 40%, AI coverage 30%, metadata 30%

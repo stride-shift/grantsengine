@@ -6,13 +6,21 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 // isAIError: treat anything starting with "Error" / "Rate limit" as an AI error
 // (mirrors the real predicate's relevant branches); assembleText / glossary kept
 // simple so we can assert observable output deterministically.
+// Controllable readability helpers so enforcement-path tests can drive the score.
+const u = vi.hoisted(() => ({
+  readabilityScore: vi.fn(() => 65),
+  worstSentences: vi.fn(() => []),
+  spliceSentences: vi.fn((t) => t),
+}));
 vi.mock("@/utils", () => ({
   isAIError: (r) => !r || (typeof r === "string" && (r.startsWith("Error") || r.startsWith("Rate limit"))),
   cleanProposalText: (t) => `CLEAN:${t}`,
   assembleText: (sections, order) =>
     order.filter((n) => sections[n]?.text).map((n) => `${n}::${sections[n].text}`).join("\n"),
-  readabilityScore: () => 65,
+  readabilityScore: u.readabilityScore,
   readabilityLabel: () => ({ tone: "ok", label: "Plain English", note: "" }),
+  worstSentences: u.worstSentences,
+  spliceSentences: u.spliceSentences,
   effectiveAsk: (g) => g.ask || 0,
 }));
 
@@ -65,7 +73,13 @@ function setup(grantOverrides = {}, overrides = {}) {
   return { hook, onUpdate, onRunAI, onRunResearch, setBusy, grant, params };
 }
 
-beforeEach(() => { vi.clearAllMocks(); });
+beforeEach(() => {
+  vi.clearAllMocks();
+  // Default: well-above-trigger score, no offending sentences (enforcement inert).
+  u.readabilityScore.mockReturnValue(65);
+  u.worstSentences.mockReturnValue([]);
+  u.spliceSentences.mockImplementation((t) => t);
+});
 
 describe("useProposalSections — derived state", () => {
   it("computes completed/total/pct and allDone", () => {
@@ -119,6 +133,39 @@ describe("useProposalSections — generateSection", () => {
     await act(async () => { await hook.result.current.generateSection("Need"); });
     const call = onUpdate.mock.calls.map((c) => c[1]).reverse().find((c) => c.aiSections);
     expect(call.aiSections.Need.text).toBe("Error: model exploded");
+  });
+});
+
+describe("useProposalSections — readability enforcement", () => {
+  it("rewrites the worst sentences and records the change-set when the score improves", async () => {
+    u.readabilityScore.mockReturnValueOnce(30).mockReturnValueOnce(55); // before, after
+    u.worstSentences.mockReturnValue([{ text: "a hard sentence", start: 0, end: 5 }]);
+    u.spliceSentences.mockReturnValue("SPLICED");
+    const onRunAI = vi.fn(async (kind) => kind === "rewriteForReadability" ? '["a clearer sentence"]' : "AI body");
+    const { hook, onUpdate } = setup({}, { onRunAI });
+
+    await act(async () => { await hook.result.current.generateSection("Need"); });
+
+    expect(onRunAI).toHaveBeenCalledWith("rewriteForReadability", expect.any(Object), expect.objectContaining({ sentences: ["a hard sentence"] }));
+    const sec = onUpdate.mock.calls.map((c) => c[1]).reverse().find((c) => c.aiSections).aiSections.Need;
+    expect(sec.text).toBe("CLEAN:SPLICED");      // spliced + cleaned
+    expect(sec.readability).toBe(55);
+    expect(sec.readabilityBefore).toBe(30);
+    expect(sec.readabilityChanges).toEqual([{ before: "a hard sentence", after: "a clearer sentence" }]);
+  });
+
+  it("keeps the original text when the rewrite does not improve the score (guard)", async () => {
+    u.readabilityScore.mockReturnValueOnce(30).mockReturnValueOnce(30); // before, after — no gain
+    u.worstSentences.mockReturnValue([{ text: "a hard sentence", start: 0, end: 5 }]);
+    u.spliceSentences.mockReturnValue("SPLICED");
+    const onRunAI = vi.fn(async (kind) => kind === "rewriteForReadability" ? '["no better"]' : "AI body");
+    const { hook, onUpdate } = setup({}, { onRunAI });
+
+    await act(async () => { await hook.result.current.generateSection("Need"); });
+
+    const sec = onUpdate.mock.calls.map((c) => c[1]).reverse().find((c) => c.aiSections).aiSections.Need;
+    expect(sec.text).toBe("CLEAN:AI body");       // original cleaned text kept
+    expect(sec.readabilityChanges).toBeUndefined();
   });
 });
 

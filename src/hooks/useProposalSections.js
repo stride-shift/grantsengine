@@ -5,6 +5,8 @@ import {
   cleanProposalText,
   readabilityScore,
   readabilityLabel,
+  worstSentences,
+  spliceSentences,
 } from "@/utils";
 import { buildGlossaryAppendix } from "@/data/glossary";
 import { funderStrategy, PTYPES } from "@/data/funderStrategy";
@@ -43,15 +45,30 @@ const pushHistory = (prev, tsFallbackKeys = ["generatedAt"]) => {
   return newHistory;
 };
 
-// Build a freshly-generated section object from cleaned AI text.
-const buildSection = (cleaned, prev, customInstructions, newHistory) => ({
+// Build a freshly-generated section object from cleaned AI text. `meta` carries
+// optional per-section readability fields (score + enforcement change-set).
+const buildSection = (cleaned, prev, customInstructions, newHistory, meta = {}) => ({
   text: cleaned,
   generatedAt: new Date().toISOString(),
   editedAt: null,
   isManualEdit: false,
   customInstructions: customInstructions ?? prev.customInstructions ?? "",
   history: newHistory,
+  ...meta,
 });
+
+// Pull the per-section readability fields out of an enforceReadability result.
+// Always carries the score; the before/changes/timestamp only when a rewrite was
+// actually applied — so a fresh section never inherits a stale change-set.
+const readabilityMeta = (enforced) => {
+  const meta = { readability: enforced.readability ?? null };
+  if (enforced.readabilityChanges) {
+    meta.readabilityBefore = enforced.readabilityBefore;
+    meta.readabilityChanges = enforced.readabilityChanges;
+    meta.readabilityEnforcedAt = enforced.readabilityEnforcedAt;
+  }
+  return meta;
+};
 
 // Parse the AI's recommended ask + reasoning from a Budget section.
 // Two formats are supported:
@@ -133,6 +150,74 @@ export default function useProposalSections({
   const anySectionBusy = Object.values(busySections).some(Boolean);
   const isGeneratingAll = busy.generateAll || false;
 
+  // ── Readability enforcement ──
+  // After a section generates, if it scores below the trigger, rewrite only its
+  // worst sentences (simpler/clearer, facts preserved) and rescore — applying the
+  // rewrite ONLY if the score actually improved. Returns the (possibly rewritten)
+  // text plus the per-section readability metadata to store on the section.
+  const READABILITY_TRIGGER = 45; // below this = "Difficult"/grant-speak — enforce
+  const READABILITY_TARGET = 50;  // lift toward the "Fairly difficult"/Plain English band
+  const READABILITY_CAP = 6;      // rewrite at most this many worst sentences
+  const enforceReadability = useCallback(async (text, grantArg) => {
+    const before = readabilityScore(text);
+    if (before === null || before >= READABILITY_TRIGGER) return { text, readability: before };
+    const worst = worstSentences(text, READABILITY_TARGET, READABILITY_CAP);
+    if (!worst.length) return { text, readability: before };
+    let rewrites = null;
+    try {
+      const raw = await onRunAI("rewriteForReadability", grantArg, { sentences: worst.map(w => w.text), target: READABILITY_TARGET });
+      if (isAIError(raw)) return { text, readability: before };
+      const cleaned = String(raw || "").replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+      const s = cleaned.indexOf("["), e = cleaned.lastIndexOf("]");
+      rewrites = s >= 0 && e > s ? JSON.parse(cleaned.slice(s, e + 1)) : null;
+    } catch { return { text, readability: before }; }
+    if (!Array.isArray(rewrites) || rewrites.length !== worst.length) return { text, readability: before };
+    const repls = [], changes = [];
+    for (let k = 0; k < worst.length; k++) {
+      const after = String(rewrites[k] || "").trim();
+      if (!after || after === worst[k].text.trim()) continue;
+      repls.push({ start: worst[k].start, end: worst[k].end, after });
+      changes.push({ before: worst[k].text, after });
+    }
+    if (!repls.length) return { text, readability: before };
+    const rewritten = cleanProposalText(spliceSentences(text, repls));
+    const afterScore = readabilityScore(rewritten);
+    // Guard: keep the original unless the rewrite genuinely improved the score.
+    if (afterScore === null || afterScore <= before) return { text, readability: before };
+    return {
+      text: rewritten,
+      readability: afterScore,
+      readabilityBefore: before,
+      readabilityChanges: changes,
+      readabilityEnforcedAt: new Date().toISOString(),
+    };
+  }, [onRunAI]);
+
+  // Manual: re-run the readability pass on an existing section on demand.
+  const simplifySection = useCallback(async (sectionName) => {
+    const sec = sections[sectionName];
+    if (!sec?.text || isAIError(sec.text)) return;
+    setBusy(p => ({ ...p, sections: { ...(p.sections || {}), [sectionName]: true } }));
+    try {
+      const enforced = await enforceReadability(sec.text, g);
+      const next = enforced.readabilityChanges
+        ? {
+            ...sec,
+            text: enforced.text,
+            history: pushHistory(sec, ["editedAt", "generatedAt"]),
+            readability: enforced.readability,
+            readabilityBefore: enforced.readabilityBefore,
+            readabilityChanges: enforced.readabilityChanges,
+            readabilityEnforcedAt: enforced.readabilityEnforcedAt,
+          }
+        : { ...sec, readability: enforced.readability ?? null };
+      onUpdate(g.id, { aiSections: { ...sections, [sectionName]: next }, aiSectionsOrder: order });
+    } catch (e) {
+      console.error("Simplify failed:", e);
+    }
+    setBusy(p => ({ ...p, sections: { ...(p.sections || {}), [sectionName]: false } }));
+  }, [g, sections, order, onUpdate, setBusy, enforceReadability]);
+
   // ── Generate a single section ──
   const generateSection = useCallback(async (sectionName, customInstructions) => {
     if (!researchDone) { onRunResearch?.(); return; }
@@ -164,10 +249,11 @@ export default function useProposalSections({
         const cleaned = cleanProposalText(result);
         const prev = sections[sectionName] || {};
         const newHistory = pushHistory(prev, ["generatedAt"]);
+        const enforced = await enforceReadability(cleaned, g);
 
         const newSections = {
           ...sections,
-          [sectionName]: buildSection(cleaned, prev, customInstructions || prev.customInstructions || "", newHistory),
+          [sectionName]: buildSection(enforced.text, prev, customInstructions || prev.customInstructions || "", newHistory, readabilityMeta(enforced)),
         };
 
         onUpdate(g.id, { aiSections: newSections, aiSectionsOrder: order });
@@ -187,7 +273,7 @@ export default function useProposalSections({
     }
 
     setBusy(p => ({ ...p, sections: { ...(p.sections || {}), [sectionName]: false } }));
-  }, [g, order, sections, totalCount, ai, onRunAI, onRunResearch, onUpdate, setBusy, researchDone]);
+  }, [g, order, sections, totalCount, ai, onRunAI, onRunResearch, onUpdate, setBusy, researchDone, enforceReadability]);
 
   // ── Generate All sections sequentially ──
   const generateAll = useCallback(async () => {
@@ -253,10 +339,11 @@ export default function useProposalSections({
           const cleaned = cleanProposalText(result);
           const prev = currentSections[sectionName] || {};
           const newHistory = pushHistory(prev, ["generatedAt"]);
+          const enforced = await enforceReadability(cleaned, gWithResearch);
 
           currentSections = {
             ...currentSections,
-            [sectionName]: buildSection(cleaned, prev, prev.customInstructions || "", newHistory),
+            [sectionName]: buildSection(enforced.text, prev, prev.customInstructions || "", newHistory, readabilityMeta(enforced)),
           };
         } else {
           currentSections = {
@@ -316,7 +403,7 @@ export default function useProposalSections({
 
     setBusy(p => ({ ...p, generateAll: false }));
     generatingAllRef.current = false;
-  }, [g, order, ai, onRunAI, onUpdate, setBusy]);
+  }, [g, order, ai, onRunAI, onUpdate, setBusy, enforceReadability]);
 
   // ── Stop Generate All ──
   const stopGenerateAll = useCallback(() => {
@@ -462,7 +549,7 @@ export default function useProposalSections({
     busySections, anySectionBusy, isGeneratingAll,
     hasLegacyDraft, assembledText, glossaryAppendix, readabilityBadgeProps,
     // actions
-    generateSection, generateAll, stopGenerateAll,
+    generateSection, generateAll, stopGenerateAll, simplifySection,
     saveSectionEdit, restoreSection, migrateToSections,
   };
 }

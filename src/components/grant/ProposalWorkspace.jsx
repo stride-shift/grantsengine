@@ -20,7 +20,7 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
     researchDone, completedCount, totalCount, allDone, pct, pendingCount,
     busySections, anySectionBusy, isGeneratingAll,
     hasLegacyDraft, assembledText, glossaryAppendix, readabilityBadgeProps,
-    generateSection, generateAll, stopGenerateAll,
+    generateSection, generateAll, stopGenerateAll, simplifySection,
     saveSectionEdit, restoreSection, migrateToSections,
   } = useProposalSections({
     grant: g, ai, onRunAI, onRunResearch, onUpdate, busy, setBusy,
@@ -405,6 +405,7 @@ export default function ProposalWorkspace({ grant, ai, orgName, onRunAI, onRunRe
             onGenerate={isLocked ? undefined : (customInstructions) => generateSection(name, customInstructions)}
             onSave={isLocked ? undefined : (newText) => saveSectionEdit(name, newText)}
             onRestore={isLocked ? undefined : (historyIdx) => restoreSection(name, historyIdx)}
+            onSimplify={isLocked ? undefined : () => simplifySection(name)}
             budgetTable={name.toLowerCase().includes("budget") ? g.budgetTable : undefined}
             isLocked={isLocked}
           />
