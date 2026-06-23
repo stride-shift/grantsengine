@@ -582,15 +582,17 @@ function ApplicationDocuments({ grant, docs, summary, extracting, uploads, orgUp
   const allFiles = [...uploads, ...orgUploads];
   const fileById = id => allFiles.find(u => u.id === id);
 
-  // Two sources of "what docs are required":
-  //   1. AI-extracted from the funder's own brief (`docs` prop) — funder-specific
-  //   2. Type-based defaults from DOCS[g.type] — what's typical for this funder type
+  // Sources of "what docs are required", in precedence order:
+  //   1. AI-extracted from the funder's own brief (`docs`, source "funder-brief") — best
+  //   2. AI-extracted from the funder's application page (source "apply-page")
+  //   3. Type-based defaults from DOCS[g.type] — what's typical for this funder type
   // Prefer AI extraction; fall back to type-based defaults so the user always sees
   // a useful checklist (and not "no documents specified").
   const aiHasDocs = Array.isArray(docs) && docs.length > 0;
+  const aiSource = grant?.requiredDocs?.source === "apply-page" ? "apply-page" : "funder-brief";
   const typeDocs = (DOCS[grant?.type] || []).map(name => ({ name, required: true, note: "" }));
   const effectiveDocs = aiHasDocs ? docs : typeDocs;
-  const docsSource = aiHasDocs ? "funder-brief" : typeDocs.length > 0 ? "type-default" : "none";
+  const docsSource = aiHasDocs ? aiSource : typeDocs.length > 0 ? "type-default" : "none";
 
   // Augment match: first check the explicit attachedDocs linkage; fall back to
   // automatic name-match so previously uploaded files still surface.
@@ -653,6 +655,11 @@ function ApplicationDocuments({ grant, docs, summary, extracting, uploads, orgUp
       {!aiHasDocs && docsSource === "type-default" && (
         <div style={{ fontSize: 10, color: C.t4, marginBottom: 10, padding: "6px 10px", background: C.warm100, borderRadius: 6, lineHeight: 1.5 }}>
           The funder's brief doesn't list specific required docs — showing the standard set for <strong style={{ color: C.t2 }}>{grant?.type || "this funder type"}</strong> instead. If you've since pasted the funder brief into the grant, click <strong>Re-scan brief</strong> above and the AI will pull the exact requirements from it.
+        </div>
+      )}
+      {aiHasDocs && docsSource === "apply-page" && (
+        <div style={{ fontSize: 10, color: C.t4, marginBottom: 10, padding: "6px 10px", background: C.warm100, borderRadius: 6, lineHeight: 1.5 }}>
+          Detected from the funder's <strong style={{ color: C.t2 }}>application page</strong>. If the funder's brief lists different requirements, paste it into the grant and click <strong>Re-scan brief</strong> to override.
         </div>
       )}
 

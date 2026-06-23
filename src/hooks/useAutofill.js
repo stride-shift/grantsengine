@@ -134,7 +134,7 @@ export default function useAutofill({ grant, onSubmitted, onRunAI, onUpdateGrant
       setRequiredDocs(docs);
       setReqDocsSummary(parsed.summary || "");
       // Cache on the grant so we don't re-extract every open
-      if (onUpdateGrant) onUpdateGrant(grant.id, { requiredDocs: { documents: docs, summary: parsed.summary || "" }, requiredDocsAt: new Date().toISOString() });
+      if (onUpdateGrant) onUpdateGrant(grant.id, { requiredDocs: { documents: docs, summary: parsed.summary || "", source: "funder-brief" }, requiredDocsAt: new Date().toISOString() });
     } catch (e) {
       console.error("Failed to extract required docs:", e);
       setRequiredDocs([]);
@@ -419,6 +419,16 @@ export default function useAutofill({ grant, onSubmitted, onRunAI, onUpdateGrant
       setFetchError(data.fetchError || null);
       setResolvedUrl(data.resolvedUrl || null);
       setUrlSource(data.urlSource || null);
+      // Apply-page-derived required docs: auto-fill the checklist, but never
+      // overwrite a brief-derived set (precedence: funder-brief > apply-page).
+      if (data.requiredDocs && Array.isArray(data.requiredDocs.documents) && data.requiredDocs.documents.length) {
+        const briefSourced = grant.requiredDocs?.source === "funder-brief";
+        if (!briefSourced) {
+          setRequiredDocs(data.requiredDocs.documents);
+          setReqDocsSummary(data.requiredDocs.summary || "");
+          if (onUpdateGrant) onUpdateGrant(grant.id, { requiredDocs: { documents: data.requiredDocs.documents, summary: data.requiredDocs.summary || "", source: "apply-page" }, requiredDocsAt: new Date().toISOString() });
+        }
+      }
     } catch (e) {
       setError(e.message);
     } finally {

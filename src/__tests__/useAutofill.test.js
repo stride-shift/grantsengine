@@ -280,7 +280,36 @@ describe("useAutofill — required docs extraction", () => {
     await waitFor(() => expect(result.current.requiredDocs).toEqual([{ name: "Budget" }]));
     expect(props.onRunAI).toHaveBeenCalledWith("extractRequiredDocs", expect.any(Object));
     expect(props.onUpdateGrant).toHaveBeenCalledWith("g1", expect.objectContaining({
-      requiredDocs: { documents: [{ name: "Budget" }], summary: "ok" },
+      requiredDocs: { documents: [{ name: "Budget" }], summary: "ok", source: "funder-brief" },
+    }));
+  });
+
+  it("auto-fills required docs from the apply page on detect when no brief exists", async () => {
+    detectSubmissionMethod.mockReturnValue({ method: "form", label: "", desc: "" });
+    detectForm.mockResolvedValue({
+      jobId: "job-2", fields: [], mappings: [],
+      requiredDocs: { documents: [{ name: "Tax Clearance" }], summary: "from page", source: "apply-page" },
+    });
+    const props = makeProps({ grant: { applyUrl: "https://apply" } });
+    const { result } = renderHook(() => useAutofill(props));
+    await waitFor(() => expect(result.current.requiredDocs).toEqual([{ name: "Tax Clearance" }]));
+    expect(result.current.reqDocsSummary).toBe("from page");
+    expect(props.onUpdateGrant).toHaveBeenCalledWith("g1", expect.objectContaining({
+      requiredDocs: { documents: [{ name: "Tax Clearance" }], summary: "from page", source: "apply-page" },
+    }));
+  });
+
+  it("does NOT overwrite brief-sourced required docs with apply-page docs", async () => {
+    detectSubmissionMethod.mockReturnValue({ method: "form", label: "", desc: "" });
+    detectForm.mockResolvedValue({
+      jobId: "job-3", fields: [], mappings: [],
+      requiredDocs: { documents: [{ name: "Tax Clearance" }], summary: "from page", source: "apply-page" },
+    });
+    const props = makeProps({ grant: { applyUrl: "https://apply", requiredDocs: { documents: [{ name: "PBO Cert" }], summary: "brief", source: "funder-brief" } } });
+    const { result } = renderHook(() => useAutofill(props));
+    await waitFor(() => expect(result.current.job).toEqual({ id: "job-3" }));
+    expect(props.onUpdateGrant).not.toHaveBeenCalledWith("g1", expect.objectContaining({
+      requiredDocs: expect.objectContaining({ source: "apply-page" }),
     }));
   });
 });

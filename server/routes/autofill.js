@@ -62,7 +62,12 @@ Return ONLY a JSON object with this exact structure:
     }
   ],
   "submitButtonText": "Submit Application",
-  "notes": "Any important observations about how to submit"
+  "notes": "Any important observations about how to submit",
+  "requiredDocuments": [
+    {"name": "Audited Financial Statements", "required": true, "note": "Last 2 years"},
+    {"name": "PBO Certificate", "required": true, "note": ""}
+  ],
+  "docsSummary": "1-2 sentence summary of what the funder requires applicants to attach"
 }
 
 Rules:
@@ -71,14 +76,15 @@ Rules:
 - Mark required fields from asterisks, "required" text, or HTML required attribute
 - For selects, extract all options
 - If the page shows "you must log in to apply" or similar, set requiresLogin: true
-- If the page is not a form (just info/PDF download), set formType accordingly`;
+- If the page is not a form (just info/PDF download), set formType accordingly
+- requiredDocuments: list ONLY documents this page explicitly says applicants must submit/attach (e.g. registration certificate, audited financials, tax clearance, B-BBEE certificate, board resolution, project budget). Use the funder's exact terms. Do NOT invent typical documents. If the page lists none, return []. Set required:true only when the page uses words like "must", "required", "mandatory"; otherwise required:false. docsSummary: 1-2 sentences, or "" if no documents are listed.`;
 
   const userMessage = `URL: ${url}\n\nHTML (truncated to 40k chars):\n${(html || '').slice(0, 40000)}`;
   const text = await callOpenAIJson(systemPrompt, userMessage, 4000);
   try {
     return JSON.parse(text);
   } catch {
-    return { formType: 'unknown', requiresLogin: false, fields: [], notes: 'Could not parse form structure' };
+    return { formType: 'unknown', requiresLogin: false, fields: [], notes: 'Could not parse form structure', requiredDocuments: [], docsSummary: '' };
   }
 }
 
@@ -260,6 +266,14 @@ router.post('/org/:slug/grants/:id/detect-form', ...orgAuth, w(async (req, res) 
     status: 'ready-for-review',
   });
 
+  // Required submission documents extracted from the same apply-page HTML. Only
+  // surfaced when the page actually lists documents — empty stays null so the
+  // client keeps its type-based defaults and never overwrites a brief-derived set.
+  const extractedDocs = Array.isArray(formStructure.requiredDocuments) ? formStructure.requiredDocuments : [];
+  const requiredDocs = extractedDocs.length
+    ? { documents: extractedDocs, summary: formStructure.docsSummary || '', source: 'apply-page' }
+    : null;
+
   res.json({
     jobId,
     formType: formStructure.formType,
@@ -268,6 +282,7 @@ router.post('/org/:slug/grants/:id/detect-form', ...orgAuth, w(async (req, res) 
     mappings,
     submitButtonText: formStructure.submitButtonText,
     notes: formStructure.notes,
+    requiredDocs,
     fetchError,
     resolvedUrl: finalUrl,
     urlSource: grant.applyUrl === applicationUrl ? 'applyUrl' : 'notes',
