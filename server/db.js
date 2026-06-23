@@ -400,12 +400,19 @@ export const getMemberWithAuth = async (orgId, memberId) => {
 // Relies on the global-unique email index (case-insensitive); returns one row or null.
 export const getOrgAndMemberByEmail = async (email) => {
   if (!email) return null;
+  // The email column normally holds a single address, but some legacy rows store a
+  // comma-separated list (e.g. "primary@x.com, alt@y.com"). Match the supplied
+  // address against ANY individual entry — split on comma, trim, case-insensitive —
+  // so those members still resolve for login / password reset.
   const { rows } = await pool().query(
     `SELECT tm.id AS member_id, tm.org_id, tm.name, tm.role, tm.initials,
             tm.password_hash, o.slug
        FROM team_members tm
        JOIN orgs o ON o.id = tm.org_id
-      WHERE LOWER(tm.email) = LOWER($1)
+      WHERE LOWER(TRIM($1)) IN (
+              SELECT LOWER(TRIM(e))
+                FROM unnest(string_to_array(COALESCE(tm.email, ''), ',')) AS e
+            )
       LIMIT 1`,
     [email]
   );

@@ -146,17 +146,26 @@ router.post('/auth/request-reset', w(async (req, res) => {
   if (!email) return res.status(400).json({ error: 'Email required' });
 
   const row = await getOrgAndMemberByEmail(email);
-  if (!row) return res.json({ ok: true }); // anti-enumeration — same response either way
+  if (!row) {
+    // Anti-enumeration: same response either way, but leave an internal trace so a
+    // legitimate user's failed lookup (typo / un-backfilled email) is debuggable.
+    console.warn('[auth] request-reset: no member matched the supplied email — returning ok (anti-enumeration).');
+    return res.json({ ok: true });
+  }
 
   const token = await createResetToken(row.member_id, row.org_id);
   const origin = req.headers.origin || `${req.protocol}://${req.headers.host}`;
   const resetUrl = `${origin}?reset=${token}&slug=${row.slug}`;
 
+  let sent = false;
   try {
-    await sendResetEmail(email, resetUrl, row.name);
+    sent = await sendResetEmail(email, resetUrl, row.name);
   } catch (err) {
     console.error('[auth] Failed to send reset email:', err.message);
     // Still return ok — don't reveal email delivery status
+  }
+  if (!sent) {
+    console.warn(`[auth] request-reset: reset email NOT delivered for member ${row.member_id} (send returned falsy — check RESEND_API_KEY / EMAIL_FROM).`);
   }
 
   await logActivity(row.org_id, 'password_reset_requested', {

@@ -490,4 +490,5 @@ export const sendResetEmail = async (toEmail, resetUrl, memberName) => {
 
   const ok = await sendViaResend({ to: toEmail, subject, html, tag: 'password-reset' });
   if (!ok) console.log('[email] Reset URL (for manual delivery):', resetUrl);
+  return ok;
 };
