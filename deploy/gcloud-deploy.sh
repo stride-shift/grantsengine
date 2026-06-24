@@ -156,9 +156,12 @@ echo "=== 8. Cloud Scheduler → cron endpoints (Bearer CRON_SECRET) ===========
 # bearer header (no OIDC needed; the service is public but the routes are gated).
 mk_job() {  # mk_job NAME SCHEDULE PATH
   gcloud scheduler jobs describe "$1" --location="$REGION" --project="$PROJECT" >/dev/null 2>&1 && local verb=update || local verb=create
+  # `create` takes --headers; `update` takes --update-headers (different flag).
+  local hdr_flag="--headers"
+  [ "$verb" = "update" ] && hdr_flag="--update-headers"
   gcloud scheduler jobs "$verb" http "$1" --location="$REGION" --project="$PROJECT" \
     --schedule="$2" --time-zone="$TZ_SCHED" --uri="${RUN_URL}$3" --http-method=POST \
-    --headers="Authorization=Bearer ${CRON_SECRET}"
+    "${hdr_flag}=Authorization=Bearer ${CRON_SECRET}"
 }
 mk_job "${PREFIX}-scout"     "0 0 * * *"    "/api/cron/scout"       # nightly 00:00 SAST
 mk_job "${PREFIX}-reminders" "*/30 * * * *" "/api/cron/reminders"   # every 30 min

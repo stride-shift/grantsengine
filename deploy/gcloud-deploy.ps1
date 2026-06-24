@@ -208,9 +208,11 @@ $CRON_SECRET = EnvVal "CRON_SECRET"
 function New-SchedulerJob([string]$name, [string]$schedule, [string]$path) {
   gcloud scheduler jobs describe $name --location=$REGION --project=$PROJECT 2>$null | Out-Null
   if ($LASTEXITCODE -eq 0) { $verb = "update" } else { $verb = "create" }
+  # `create` takes --headers; `update` takes --update-headers (different flag).
+  if ($verb -eq "update") { $hdrFlag = "--update-headers" } else { $hdrFlag = "--headers" }
   gcloud scheduler jobs $verb http $name --location=$REGION --project=$PROJECT `
     --schedule=$schedule --time-zone=$TZ_SCHED --uri="$RUN_URL$path" --http-method=POST `
-    "--headers=Authorization=Bearer $CRON_SECRET"
+    "$hdrFlag=Authorization=Bearer $CRON_SECRET"
   Assert-LastExit "Failed to $verb scheduler job $name"
 }
 New-SchedulerJob "$PREFIX-scout"     "0 0 * * *"    "/api/cron/scout"       # nightly 00:00 SAST
