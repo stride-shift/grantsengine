@@ -30,7 +30,7 @@ $PREFIX       = "grants-engine"
 $SQL_INSTANCE = "$PREFIX-pg"
 $SQL_DB       = "$PREFIX-db"
 $SQL_USER     = "$PREFIX-app"
-$SQL_TIER     = "db-f1-micro"            # smallest shared-core tier; scale later
+$SQL_TIER     = "db-perf-optimized-N-2"  # performance-optimized tier
 $AR_REPO      = "$PREFIX-repo"
 $SERVICE      = "$PREFIX"                # Cloud Run service name
 $RUNTIME_SA   = "$PREFIX-run@$PROJECT.iam.gserviceaccount.com"
@@ -108,7 +108,7 @@ Write-Host "=== 2. Cloud SQL instance + database + user ========================
 gcloud sql instances describe $SQL_INSTANCE --project=$PROJECT 2>$null | Out-Null
 if ($LASTEXITCODE -ne 0) {
   gcloud sql instances create $SQL_INSTANCE --database-version=POSTGRES_16 `
-    --tier=$SQL_TIER --region=$REGION --project=$PROJECT
+    --tier=$SQL_TIER --edition=ENTERPRISE --region=$REGION --project=$PROJECT
   Assert-LastExit "Failed to create Cloud SQL instance"
 }
 gcloud sql databases describe $SQL_DB --instance=$SQL_INSTANCE --project=$PROJECT 2>$null | Out-Null
