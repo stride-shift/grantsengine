@@ -61,24 +61,31 @@ app.listen(PORT, async () => {
     }
   }
 
-  // ── Nightly auto-scout: midnight SAST ──
-  // NB: in-process cron only runs on a long-lived host. On Vercel (the canonical
-  // deploy target) scheduling comes from vercel.json "crons" → /api/cron/* instead.
-  cron.schedule('0 0 * * *', async () => {
-    console.log('[Cron] Nightly auto-scout triggered');
-    try {
-      await runAutoScout();
-    } catch (e) {
-      console.error('[Cron] Auto-scout failed:', e.message);
-    }
-  }, { timezone: 'Africa/Johannesburg' });
-  console.log('Nightly auto-scout scheduled for 00:00 SAST');
+  // ── Scheduled jobs ──
+  // In-process node-cron only fires on a long-lived host (local / VM / always-on).
+  // On Cloud Run (K_SERVICE is set) idle containers are frozen, so the timers can't
+  // be trusted — Cloud Scheduler hits POST /api/cron/{scout,reminders} instead
+  // (server/routes/cron.js). Skip the in-process timers there to avoid double-firing.
+  if (process.env.K_SERVICE) {
+    console.log('Cloud Run detected — in-process cron disabled; Cloud Scheduler drives /api/cron/*');
+  } else {
+    // Nightly auto-scout: midnight SAST
+    cron.schedule('0 0 * * *', async () => {
+      console.log('[Cron] Nightly auto-scout triggered');
+      try {
+        await runAutoScout();
+      } catch (e) {
+        console.error('[Cron] Auto-scout failed:', e.message);
+      }
+    }, { timezone: 'Africa/Johannesburg' });
+    console.log('Nightly auto-scout scheduled for 00:00 SAST');
 
-  // ── Deadline reminders: every 30 minutes ──
-  cron.schedule('*/30 * * * *', async () => {
-    console.log('[Cron] Deadline reminder check');
-    try { await runDeadlineReminders(); }
-    catch (e) { console.error('[Cron] Deadline reminders failed:', e.message); }
-  }, { timezone: 'Africa/Johannesburg' });
-  console.log('Deadline reminders scheduled (every 30 min)');
+    // Deadline reminders: every 30 minutes
+    cron.schedule('*/30 * * * *', async () => {
+      console.log('[Cron] Deadline reminder check');
+      try { await runDeadlineReminders(); }
+      catch (e) { console.error('[Cron] Deadline reminders failed:', e.message); }
+    }, { timezone: 'Africa/Johannesburg' });
+    console.log('Deadline reminders scheduled (every 30 min)');
+  }
 });

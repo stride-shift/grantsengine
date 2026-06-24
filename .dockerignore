@@ -1,0 +1,22 @@
+# Rebuilt inside the image
+node_modules
+dist
+
+# Secrets — NEVER ship .env into the image (Cloud Run injects env from Secret Manager)
+.env
+.env.*
+!.env.example
+
+# Separate service (its own Cloud Run deploy)
+playwright-service
+
+# VCS / tooling / docs / scratch — not needed at build or runtime
+.git
+.gitignore
+.claude
+*.md
+*.org
+demo
+deploy
+scripts
+*.png

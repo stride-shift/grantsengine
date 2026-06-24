@@ -25,26 +25,36 @@ function pool() {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error('DATABASE_URL not set');
     const parsed = new URL(url);
-    // TLS: if a CA cert is supplied (PGSSLROOTCERT path or SUPABASE_CA_CERT PEM),
-    // verify the server certificate properly. Otherwise fall back to an encrypted-
-    // but-unverified connection (Supabase default) so existing deploys keep working.
-    let ssl = false;
-    if (url.includes('supabase') || process.env.PGSSLMODE === 'require') {
-      const caPem = process.env.SUPABASE_CA_CERT
-        || (process.env.PGSSLROOTCERT && fs.existsSync(process.env.PGSSLROOTCERT)
-            ? fs.readFileSync(process.env.PGSSLROOTCERT, 'utf8')
-            : null);
-      ssl = caPem ? { ca: caPem, rejectUnauthorized: true } : { rejectUnauthorized: false };
-      if (!caPem) console.warn('[db] TLS certificate verification disabled — set SUPABASE_CA_CERT or PGSSLROOTCERT to enable it.');
-    }
-    _pool = new Pool({
+    const cfg = {
       user: decodeURIComponent(parsed.username),
       password: decodeURIComponent(parsed.password),
-      host: parsed.hostname,
-      port: parseInt(parsed.port) || 5432,
       database: parsed.pathname.slice(1),
-      ssl,
-    });
+    };
+    // Cloud SQL unix socket (Cloud Run --add-cloudsql-instances): the URL has no
+    // host and carries the socket dir in a `host` query param, e.g.
+    //   postgresql://user:pass@/dbname?host=/cloudsql/PROJECT:REGION:INSTANCE
+    // The connection is local to the instance, so no TLS is used.
+    const socketHost = parsed.searchParams.get('host');
+    if (socketHost) {
+      cfg.host = socketHost;
+    } else {
+      cfg.host = parsed.hostname;
+      cfg.port = parseInt(parsed.port) || 5432;
+      // TLS: if a CA cert is supplied (PGSSLROOTCERT path or SUPABASE_CA_CERT PEM),
+      // verify the server certificate properly. Otherwise fall back to an encrypted-
+      // but-unverified connection (Supabase default) so existing deploys keep working.
+      let ssl = false;
+      if (url.includes('supabase') || process.env.PGSSLMODE === 'require') {
+        const caPem = process.env.SUPABASE_CA_CERT
+          || (process.env.PGSSLROOTCERT && fs.existsSync(process.env.PGSSLROOTCERT)
+              ? fs.readFileSync(process.env.PGSSLROOTCERT, 'utf8')
+              : null);
+        ssl = caPem ? { ca: caPem, rejectUnauthorized: true } : { rejectUnauthorized: false };
+        if (!caPem) console.warn('[db] TLS certificate verification disabled — set SUPABASE_CA_CERT or PGSSLROOTCERT to enable it.');
+      }
+      cfg.ssl = ssl;
+    }
+    _pool = new Pool(cfg);
   }
   return _pool;
 }
