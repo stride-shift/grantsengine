@@ -2,7 +2,7 @@
 # =============================================================================
 # Grant Engine → Google Cloud Run + Cloud SQL (Postgres) + Secret Manager
 # =============================================================================
-# Run this YOURSELF (it needs your gcloud auth + owner on project-dump).
+# Run this YOURSELF (it needs your gcloud auth + owner on project-dump-ss).
 # Run from the REPO ROOT:   bash deploy/gcloud-deploy.sh
 #
 # It reads the API keys / Supabase creds from your local .env and pushes them to
@@ -11,14 +11,14 @@
 #
 # PREREQS (one-time):
 #   - gcloud CLI installed + logged in:   gcloud auth login
-#   - Owner on the project:               gcloud config set project project-dump
+#   - Owner on the project:               gcloud config set project project-dump-ss
 #   - A .env in the repo root with the app's keys (OPENAI_API_KEY, SUPABASE_*, etc.)
 #   - The image is built by Cloud Build, so no local Docker is required.
 # =============================================================================
 set -euo pipefail
 
 # ── Config (edit if needed) ─────────────────────────────────────────────────
-PROJECT="project-dump"
+PROJECT="project-dump-ss"
 REGION="us-central1"            # matches the existing playwright-service
 PREFIX="grants-engine"
 SQL_INSTANCE="${PREFIX}-pg"
