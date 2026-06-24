@@ -35,7 +35,12 @@ TZ_SCHED="Africa/Johannesburg"
 
 # Load the app's env (API keys, Supabase, CRON_SECRET, ...). Ensure values with
 # spaces are quoted in .env (e.g. EMAIL_FROM="Grants Engine <...>").
-set -a; . ./.env; set +a
+# Strip Windows CRLF first — a trailing \r would otherwise corrupt every secret
+# value (e.g. an API key with a hidden carriage return).
+ENV_TMP="$(mktemp)"
+trap 'rm -f "$ENV_TMP"' EXIT
+tr -d '\r' < .env > "$ENV_TMP"
+set -a; . "$ENV_TMP"; set +a
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 SECRETS_FLAG=""   # accumulates "ENV=secret:latest,ENV2=secret2:latest,..."
