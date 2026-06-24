@@ -25,10 +25,11 @@ SQL_INSTANCE="${PREFIX}-pg"
 SQL_DB="${PREFIX}-db"
 SQL_USER="${PREFIX}-app"
 SQL_TIER="db-f1-micro"          # smallest ENTERPRISE (shared-core) tier; scale later
-AR_REPO="${PREFIX}-repo"
 SERVICE="${PREFIX}"             # Cloud Run service name
 RUNTIME_SA="${PREFIX}-run@${PROJECT}.iam.gserviceaccount.com"
-IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${AR_REPO}/${PREFIX}:v1"
+# Container Registry (gcr.io) — GCS-backed; the bucket is auto-created on first
+# push, so there's no repo to pre-create and no artifactregistry.writer needed.
+IMAGE="gcr.io/${PROJECT}/${PREFIX}:v1"
 TZ_SCHED="Africa/Johannesburg"
 
 [ -f .env ] || { echo "ERROR: run from the repo root (no .env found here)."; exit 1; }
@@ -65,13 +66,12 @@ add() {  # add ENV_NAME VALUE  → put secret AND register it in the --set-secre
 
 echo "=== 0. Enable APIs =========================================================="
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com sqladmin.googleapis.com \
-  secretmanager.googleapis.com cloudscheduler.googleapis.com artifactregistry.googleapis.com \
+  secretmanager.googleapis.com cloudscheduler.googleapis.com containerregistry.googleapis.com \
   --project="$PROJECT"
 
-echo "=== 1. Artifact Registry ===================================================="
-gcloud artifacts repositories describe "$AR_REPO" --location="$REGION" --project="$PROJECT" >/dev/null 2>&1 \
-  || gcloud artifacts repositories create "$AR_REPO" --repository-format=docker \
-       --location="$REGION" --description="Grant Engine images" --project="$PROJECT"
+echo "=== 1. Container Registry (gcr.io — no repo to create) ======================"
+# gcr.io is GCS-backed: the storage bucket is created automatically on the first
+# image push (Cloud Build, step 5), so there's nothing to provision here.
 
 echo "=== 2. Cloud SQL instance + database + user ================================="
 gcloud sql instances describe "$SQL_INSTANCE" --project="$PROJECT" >/dev/null 2>&1 \
