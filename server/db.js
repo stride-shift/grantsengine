@@ -24,20 +24,29 @@ function pool() {
   if (!_pool) {
     const url = process.env.DATABASE_URL;
     if (!url) throw new Error('DATABASE_URL not set');
-    const parsed = new URL(url);
-    const cfg = {
-      user: decodeURIComponent(parsed.username),
-      password: decodeURIComponent(parsed.password),
-      database: parsed.pathname.slice(1),
-    };
-    // Cloud SQL unix socket (Cloud Run --add-cloudsql-instances): the URL has no
-    // host and carries the socket dir in a `host` query param, e.g.
+    // new URL() rejects the Cloud SQL unix-socket form because it has no host:
     //   postgresql://user:pass@/dbname?host=/cloudsql/PROJECT:REGION:INSTANCE
-    // The connection is local to the instance, so no TLS is used.
-    const socketHost = parsed.searchParams.get('host');
-    if (socketHost) {
-      cfg.host = socketHost;
+    // Try the standard parser first; if it throws (hostless) or carries a `host`
+    // query param, parse the socket form by hand instead.
+    let parsed = null;
+    try { parsed = new URL(url); } catch { /* hostless Cloud SQL socket form — handled below */ }
+    const cfg = {};
+    if (!parsed || parsed.searchParams.get('host')) {
+      // Cloud SQL unix socket: scheme://USER:PASS@/DBNAME?host=/cloudsql/CONN
+      // The connection is local to the instance, so no TLS is used.
+      const m = /^[^:]+:\/\/([^@]*)@\/([^?#]+)(?:\?([^#]*))?/.exec(url);
+      if (!m) throw new Error('Invalid DATABASE_URL: could not parse Cloud SQL socket form');
+      const [, userinfo, dbname, query = ''] = m;
+      const ci = userinfo.indexOf(':');
+      cfg.user = decodeURIComponent(ci >= 0 ? userinfo.slice(0, ci) : userinfo);
+      cfg.password = decodeURIComponent(ci >= 0 ? userinfo.slice(ci + 1) : '');
+      cfg.database = decodeURIComponent(dbname);
+      cfg.host = new URLSearchParams(query).get('host'); // e.g. /cloudsql/PROJECT:REGION:INSTANCE
     } else {
+      // TCP (Supabase / public IP): host:port + optional TLS.
+      cfg.user = decodeURIComponent(parsed.username);
+      cfg.password = decodeURIComponent(parsed.password);
+      cfg.database = parsed.pathname.slice(1);
       cfg.host = parsed.hostname;
       cfg.port = parseInt(parsed.port) || 5432;
       // TLS: if a CA cert is supplied (PGSSLROOTCERT path or SUPABASE_CA_CERT PEM),
