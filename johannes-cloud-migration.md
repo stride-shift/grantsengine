@@ -1,8 +1,58 @@
 # Grants Engine — Cloud Migration Handover (Johannes)
 
 > Working doc. Captures Kiyasha's handover, the verified state of the GCP
-> deployment, and the Supabase → Cloud SQL data-migration plan.
-> **Created:** 2026-06-25 · **Owner:** Johannes · **Co-driver:** Kiyasha
+> deployment, and the Supabase → Cloud SQL data-migration.
+> **Created:** 2026-06-25 · **Updated:** 2026-06-26 · **Owner:** Johannes · **Co-driver:** Kiyasha
+
+---
+
+## 0. STATUS — ✅ MIGRATION COMPLETE (2026-06-26)
+
+The Supabase → Cloud SQL data migration is **done and verified**. The live Cloud
+SQL DB (`grants-engine-db`) now holds the real d-lab data; the app no longer runs
+on the seed.
+
+**Loaded — 3,187 rows, every migrated table matches source exactly:**
+orgs 2, org_profiles 2, org_config 2, org_auth 1, pipeline_config 1,
+team_members 11, grants 157, uploads 15, kv 33, **agent_runs 2,963**.
+**Deliberately dropped:** `activity_log` (21,696 rows — audit log, not carried over).
+**Skipped (ephemeral):** `sessions`, `password_reset_tokens` (users just re-login).
+
+**Integrity verified:** bcrypt login hashes intact (real logins work), `ai_data`
+round-tripped as valid JSON, timestamps preserved (grants span 2026-02-28 → 06-22),
+real team present (Alison / Barbara / David / Nolan / Kiyasha …).
+
+### Where the credentials live (nothing secret is in this repo)
+| What | Where | Notes |
+|---|---|---|
+| Supabase migration token (PAT `sbp_…`) | Secret Manager `grants-engine-supabase-migration-pat` | account-wide; **revoke when migration work is fully closed** |
+| Cloud SQL app connection | Secret Manager `grants-engine-database-url` | unix-socket form, used by the app |
+| Cloud SQL `postgres` admin pw | temporary dev pw — **ask Johannes**, or reset via `gcloud sql users set-password postgres --instance=grants-engine-pg --project=project-dump-ss --prompt-for-password` | rotate before it matters; not written here (public-IP instance) |
+| `run/load.sql`, `run/dest-seed-backup.sql` | **scratchpad only** (outside repo & iCloud) | contain real password hashes — never commit |
+
+### For the colleague picking this up
+1. **Verify the live app** — hit the Cloud Run URL (§2) and log in (see account below);
+   confirm grants/team load. The app auto-seeds **only an empty DB**, so there is no
+   reseed risk now.
+2. **Connect to the DB** if needed:
+   `gcloud auth application-default login` →
+   `cloud-sql-proxy project-dump-ss:us-central1:grants-engine-pg --port 5434` →
+   `psql 'postgresql://postgres:<admin-pw>@127.0.0.1:5434/grants-engine-db'`.
+   (`postgres` was granted the app role so it can see the tables — see §4 gotchas.)
+3. **Pull the PAT** (only if re-running the export):
+   `gcloud secrets versions access latest --secret=grants-engine-supabase-migration-pat --project=project-dump-ss`
+4. **Re-run the migration** (idempotent — wipes & reloads):
+   `SUPABASE_PAT=<pat> DEST_URL=<above> python3 migration/migrate_via_api.py --export --load --verify`
+
+### Dev login provisioned (Johannes)
+`johannes.backer@strideshift.ai` — director in **d-lab** (password held by Johannes).
+Login is email + password (resolves org by email). ⚠️ Remove from d-lab's roster when done.
+
+### Cleanup still open
+- [ ] Revoke the Supabase PAT once migration work is fully closed.
+- [ ] Delete scratchpad `run/load.sql` + `run/dest-seed-backup.sql`.
+- [ ] Rotate the temporary Cloud SQL `postgres` password.
+- [ ] Remove the temporary Johannes dev account from d-lab.
 
 ---
 
@@ -36,11 +86,12 @@
 | **Scheduler** | `grants-engine-reminders` (`*/30 * * * *`) · `grants-engine-scout` (`0 0 * * *`) · both TZ **Africa/Johannesburg**, ENABLED |
 | **Health** | `{"ok":true,"apiKeyConfigured":true,"dbConnected":true}` (per Kiyasha) |
 
-### Secret Manager (16 secrets, names only)
+### Secret Manager (17 secrets, names only)
 `anthropic-api-key`, `app-url`, `cors-origin`, `cron-secret`, `database-url`,
 `email-from`, `google-client-id`, `google-client-secret`, `google-redirect-uri`,
 `iati-api-key`, `openai-api-key`, `playwright-secret`, `playwright-service-url`,
-`resend-api-key`, `supabase-service-key`, `supabase-url`
+`resend-api-key`, `supabase-service-key`, `supabase-url`,
+**`supabase-migration-pat`** (added 2026-06-26 — the migration PAT)
 (all prefixed `grants-engine-`)
 
 ⚠️ **Missing:** `super-admin-key`. The app's `SUPER_ADMIN_KEY` gates org
@@ -48,11 +99,26 @@ creation/deletion (the `?superadmin` route). Not needed for the data migration
 (we write to the DB directly), but required if we ever create/delete orgs in
 prod. Confirm with Kiyasha whether this was intentional.
 
-### Source — Supabase project `ymqejaufpoiaedgjwohe`
+### Source — Supabase project `ymqejaufpoiaedgjwohe` (name "Grantsengine", eu-west-1)
 (authoritative: from the live `grants-engine-supabase-url` secret)
 - Holds all **real** orgs / members / grants (source of truth).
-- ✅ **Alive & reachable** — `/auth/v1/health` returns HTTP 401 "No API key found",
-  i.e. a running project. **NOT paused.**
+- ✅ **`ACTIVE_HEALTHY`, NOT paused** — confirmed via the Supabase Management API
+  (`GET /v1/projects`), not just the REST edge.
+- ✅ **Real data confirmed (counted 2026-06-25 via API):** orgs **2**
+  (`dlab` id `08d23855c7ae36cd` created 2026-02-28 + `test-org`), team_members **11**,
+  grants **157**, activity_log **21,696**, agent_runs **2,963**, uploads **15**,
+  kv **33**, org_profiles/org_config **2/2**, pipeline_config/org_auth **1/1**.
+  Ephemeral: sessions **1**, password_reset_tokens **26** (skip). Empty: approvals,
+  autofill_jobs, compliance_docs, funder_strategies.
+- ⚠️ **The pooler is unreachable FROM JOHANNES'S MACHINE** (`aws-1-eu-west-1.pooler.supabase.com`,
+  ports 5432 *and* 6543): TCP connects but the Postgres/TLS handshake times out.
+  Real vs wrong password behave identically → **network/MTU issue, not auth, not paused.**
+  So `pg_dump` over the pooler is OUT from here.
+- ✅ **Working read path: the PAT / Management-API SQL route** (`POST
+  /v1/projects/<ref>/database/query`) — same channel the Supabase MCP uses, reaches
+  the DB over a different network path. This is what the migration now uses.
+  (Token = a Supabase **Personal Access Token** `sbp_…` from dashboard → Account →
+  Access Tokens; account-wide, revoke after use.)
 - **File storage stays here** — Cloud Run reads files via the `supabase-url` +
   `supabase-service-key` secrets. We migrate the DB rows only, not the files.
 - ⚠️ **Do NOT use the `supabase-tr` MCP for this.** It is pointed at a *different,
@@ -112,61 +178,72 @@ and on primary keys**. This is exactly the breakage Kiyasha wanted eyes on.
 The destination holds only throwaway demo data, so wiping it loses nothing, and a
 faithful copy preserves ids/FKs/passwords so logins keep working.
 
-**Mechanism (decided):** `pg_dump --data-only` from Supabase → load into Cloud SQL
-via `psql`, run as an **isolated one-off script/transaction** (nothing permanent
-added to the app). Atomic: it either fully succeeds or rolls back.
+**Mechanism (decided — revised 2026-06-25):** the Supabase **pooler is unreachable
+from Johannes's machine** (TCP connects, Postgres/TLS handshake times out — network/MTU,
+not auth/paused), so `pg_dump` over the pooler is out. Instead we migrate via the
+**Supabase Management-API SQL route** (the MCP channel), which reaches the DB over a
+different, working path:
+- **Export:** per table, `SELECT json_agg(row)` via `POST /v1/projects/<ref>/database/query`,
+  chunked 1000 rows (big tables: activity_log 21,696; agent_runs 2,963).
+- **Load:** `INSERT INTO <t> SELECT * FROM json_populate_recordset(null::<t>, <json>)` —
+  Postgres casts JSON straight back into each table's row type, so timestamps / json
+  columns / arrays / nulls round-trip faithfully (no hand-built INSERTs).
+
+Script: `migration/migrate_via_api.py` (isolated; modes `--export/--backup/--load/--verify`).
+**Export already run & validated 2026-06-25: 24,883 rows across 15 tables → `run/load.sql`
+(9.6 MB), wrapped in one atomic transaction.** Nothing permanent added to the app.
 
 ### Decisions locked
-- ✅ Mechanism: `pg_dump --data-only` + `psql` (isolated temp script).
+- ✅ Mechanism: Management-API export + `json_populate_recordset` load (isolated script).
 - ✅ Approach: wipe seed → load real data (vs. merge/upsert).
-- 🔲 **Skip ephemeral tables** `sessions` + `password_reset_tokens` (tied to old
-  domain/login; users simply re-login). *Recommended — confirm with Kiyasha.*
-- 🔲 Timing: migrate today/tomorrow with Kiyasha on the call. Priority = robustness.
+- ✅ **Skip ephemeral tables** `sessions` + `password_reset_tokens` (users re-login).
+- 🔲 Timing: migrate with Kiyasha available. Priority = robustness.
 
-### Runbook
-1. **Wake Supabase**, confirm connectivity, snapshot **source row counts per table**.
-2. **Back up Cloud SQL first**: `gcloud sql backups create --instance=grants-engine-pg --project=project-dump-ss` → instant rollback.
-3. **Verify schema parity** (source vs Cloud SQL) before loading.
-4. `pg_dump --data-only --no-owner --no-acl --schema=public` from Supabase
-   (use the **direct 5432 connection, not the pooler**).
-5. Load into Cloud SQL inside **one transaction** with
-   `SET session_replication_role = replica;` (defers FK checks → any order, atomic).
-6. In that same transaction: `TRUNCATE … CASCADE` the seed, then load the dump
-   (excluding `sessions`, `password_reset_tokens`).
-7. **Verify**: counts match source; spot-check the d-lab org + 2 real orgs; test a
-   real login; then `COMMIT`.
+### Runbook — ✅ executed 2026-06-26
+1. ✅ Confirmed source data via API (counts in §2).
+2. ✅ Destination access: `gcloud auth application-default login` →
+   `cloud-sql-proxy …:grants-engine-pg --port 5434` →
+   `gcloud sql users set-password postgres …` (temp dev pw) →
+   `DEST_URL=postgresql://postgres:<admin-pw>@127.0.0.1:5434/grants-engine-db`.
+3. ✅ Schema-parity check: **185 columns each end, identical** (zero drift).
+4. ✅ Backup: local `pg_dump` of the dest seed → `run/dest-seed-backup.sql`
+   (the gcloud Admin-API backup was skipped — only disposable seed to protect).
+5. ✅ Load: one atomic transaction — `TRUNCATE orgs CASCADE` (clears seed incl.
+   colliding `slug='dlab'`) → load all tables parent→child → `COMMIT`.
+6. ✅ Verify: counts match source; real orgs present; a real login confirmed.
 
-### FK-safe load order (if we ever load without `replication_role=replica`)
+### ⚠️ Gotchas hit (matter for any re-run)
+- **Stale ADC** → proxy accepts TCP then drops it ("server closed connection
+  unexpectedly"). Fix: `gcloud auth application-default login`.
+- **Docker also binds 5433** → ran the proxy on **5434**.
+- **Tables owned by `grants-engine-app`**, invisible to `postgres` in
+  `information_schema`. Fix: `GRANT "grants-engine-app" TO postgres;` (left in place).
+- **Cloud SQL forbids `session_replication_role`** even for `cloudsqlsuperuser`, so the
+  FK-trigger-deferral trick is OUT. The script now loads in **topological parent→child
+  order** instead (the table list is topo-sorted; FK graph verified acyclic).
+
+⚠️ `run/load.sql` + `run/dest-seed-backup.sql` contain real password hashes — they live
+in the throwaway scratchpad (outside the repo & iCloud) and must **never** be committed.
+
+### FK-safe load order (used by the script — no trigger deferral)
 1. `orgs`
 2. `org_profiles`, `org_config`, `org_auth`, `pipeline_config`
 3. `team_members`
-4. `grants`, `funder_strategies`, `uploads`, `kv`, `agent_runs`, `activity_log`
+4. `grants`, `funder_strategies`, `uploads`, `kv`, `agent_runs`
 5. `approvals` (needs grants), `compliance_docs` (needs uploads), `autofill_jobs`
-   *(skip: `sessions`, `password_reset_tokens`)*
+   *(skip: `sessions`, `password_reset_tokens`, `activity_log`)*
 
 ---
 
 ## 5. Risks / blockers / loose ends
 
-### ⭐ The one thing needed from Kiyasha (the only blocker)
-We need the **source Supabase Postgres connection string** for project
-`ymqejaufpoiaedgjwohe`. It is **not** in Secret Manager (verified) and can't be
-constructed (password isn't derivable). To get it:
-
-1. Supabase dashboard → project `ymqejaufpoiaedgjwohe` → **Project Settings →
-   Database → Connection string → "Session pooler"** → copy the **URI** (it
-   includes host, region, and password).
-2. Put it in Secret Manager as a new secret so Johannes can access it without the
-   raw value being pasted around:
-   ```
-   printf '%s' '<the pooler URI>' | gcloud secrets create grants-engine-supabase-db-url \
-     --project=project-dump-ss --data-file=-
-   ```
-   (or just send it to Johannes directly if that's easier).
-
-That URI is the *only* missing credential. Everything else for the migration is in
-place. (Source confirmed **alive**, not paused — earlier "paused" call was wrong; it
-was the misconfigured `supabase-tr` MCP pointing at a dead project.)
+### ✅ RESOLVED — no source connection string was needed
+The original blocker (the Supabase Postgres pooler URI) turned out to be unnecessary:
+the pooler was unreachable from Johannes's machine anyway, so we migrated entirely over
+the **Management-API SQL route** using a Supabase **Personal Access Token**. That PAT now
+lives in Secret Manager as **`grants-engine-supabase-migration-pat`** — no raw credential
+is pasted in this repo or doc. (Source was confirmed alive throughout; the earlier
+"paused" call was the misconfigured `supabase-tr` MCP pointing at a dead project.)
 
 ### Other loose ends
 - ⚠️ **`super-admin-key` secret missing** — NOT needed for migration (we write to
@@ -178,15 +255,14 @@ was the misconfigured `supabase-tr` MCP pointing at a dead project.)
 - 🔁 **Scheduler cadence** differs from old `vercel.json` (reminders */30 vs hourly;
   scout 00:00 JHB vs 22:00). Cosmetic; confirm intended.
 
-## 6. Stress-test checklist (post- or pre-migration)
+## 6. Stress-test checklist (post-migration — for the colleague)
 - [ ] Health endpoint green.
-- [ ] Login as seed d-lab (`dlab` / `dlab2026`) — pre-migration only.
-- [ ] Login as a real org — post-migration.
-- [ ] Pipeline loads grants; create/edit a grant.
+- [ ] Login as a real org (e.g. `johannes.backer@strideshift.ai`, d-lab — pw from Johannes).
+- [ ] Pipeline loads the 157 real grants; create/edit a grant.
 - [ ] AI proxy works (OpenAI key configured).
-- [ ] File upload reads/writes against Supabase storage.
+- [ ] File upload reads/writes against Supabase storage (storage stayed on Supabase).
 - [ ] Cloud Run logs clean under load (`gcloud run services logs read grants-engine`).
 - [ ] Scout + reminder scheduler jobs fire without error.
 
 ---
-*Last updated: 2026-06-25*
+*Last updated: 2026-06-26 — migration complete.*
