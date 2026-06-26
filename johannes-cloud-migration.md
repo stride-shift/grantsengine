@@ -34,11 +34,37 @@ real team present (Alison / Barbara / David / Nolan / Kiyasha …).
 1. **Verify the live app** — hit the Cloud Run URL (§2) and log in (see account below);
    confirm grants/team load. The app auto-seeds **only an empty DB**, so there is no
    reseed risk now.
-2. **Connect to the DB** if needed:
-   `gcloud auth application-default login` →
-   `cloud-sql-proxy project-dump-ss:us-central1:grants-engine-pg --port 5434` →
-   `psql 'postgresql://postgres:<admin-pw>@127.0.0.1:5434/grants-engine-db'`.
-   (`postgres` was granted the app role so it can see the tables — see §4 gotchas.)
+2. **Connect to the DB** if needed — set up the Cloud SQL proxy (full steps below).
+
+#### Cloud SQL proxy setup (from scratch)
+The DB has no public access you should rely on; connect through the **Cloud SQL Auth
+proxy**, which tunnels `localhost:<port>` → the instance and authenticates as your ADC
+identity (so no DB password is sent over the wire to reach it).
+
+1. **Install** the proxy (one-off):
+   - macOS: `brew install cloud-sql-proxy` (this repo used v2.21.3)
+   - or download: https://cloud.google.com/sql/docs/postgres/connect-auth-proxy
+2. **IAM** — the identity you log in as needs `roles/cloudsql.client` on `project-dump-ss`
+   (already granted to the team; check with `gcloud projects get-iam-policy project-dump-ss --flatten='bindings[].members' --filter='bindings.role:cloudsql.client'`).
+3. **Refresh ADC** — the proxy authenticates via Application Default Credentials, *not*
+   your `gcloud` CLI login. If ADC is stale the proxy accepts the TCP connection then
+   immediately drops it ("server closed the connection unexpectedly"):
+   ```
+   gcloud auth application-default login
+   ```
+4. **Start the tunnel** in its own terminal and leave it running. Use port **5434**
+   (5433 is often taken by Docker on dev machines):
+   ```
+   cloud-sql-proxy project-dump-ss:us-central1:grants-engine-pg --port 5434
+   ```
+   (connection-name format is `PROJECT:REGION:INSTANCE`.) Wait for `Listening on 127.0.0.1:5434`.
+5. **Connect** from another terminal:
+   ```
+   psql 'postgresql://postgres:<admin-pw>@127.0.0.1:5434/grants-engine-db'
+   ```
+   (`postgres` admin pw: ask Johannes or reset it — see the credentials table above.
+   The app's tables are owned by `grants-engine-app`; `postgres` was granted that role
+   so it can see/operate on them — see §4 gotchas.)
 3. **Pull the PAT** (only if re-running the export):
    `gcloud secrets versions access latest --secret=grants-engine-supabase-migration-pat --project=project-dump-ss`
 4. **Re-run the migration** (idempotent — wipes & reloads):
