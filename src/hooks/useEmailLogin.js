@@ -16,7 +16,7 @@ import { requestPasswordResetByEmail } from "@/api";
  *
  * @param onEmailLogin (email, password) => Promise
  * @returns { email, setEmail, password, setPassword, err, busy, submit,
- *            forgotErr, forgotSent, forgotBusy, requestReset }
+ *            forgotErr, forgotSent, forgotBusy, requestReset, resetForgot }
  */
 export default function useEmailLogin({ onEmailLogin }) {
   const [email, setEmail] = useState("");
@@ -49,8 +49,11 @@ export default function useEmailLogin({ onEmailLogin }) {
     await forgot.run(email.trim());
   };
 
+  // Return from the "check your email" confirmation back to the sign-in form.
+  const resetForgot = () => { setForgotSent(false); setForgotErr(""); };
+
   return {
     email, setEmail, password, setPassword, err, busy: login.busy, submit,
-    forgotErr, forgotSent, forgotBusy: forgot.busy, requestReset,
+    forgotErr, forgotSent, forgotBusy: forgot.busy, requestReset, resetForgot,
   };
 }

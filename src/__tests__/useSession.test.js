@@ -22,26 +22,22 @@ beforeEach(() => {
 
 describe("useSession", () => {
   it("starts logged-out on the email-login screen (not the org picker)", () => {
-    // Primary path is now email+password; the org/member picker is a fallback
-    // reached via goToPicker — so selectingOrg defaults to false.
+    // Primary path is now email+password; the org/member picker is a dormant
+    // fallback (reached only on logout / ?superadmin) — so selectingOrg
+    // defaults to false.
     const { result } = renderHook(() => useSession());
     expect(result.current.authed).toBe(false);
     expect(result.current.selectingOrg).toBe(false);
     expect(result.current.resetParams).toBe(null);
   });
 
-  it("goToPicker switches to the legacy org/member picker", () => {
-    const { result } = renderHook(() => useSession());
-    act(() => result.current.goToPicker());
-    expect(result.current.selectingOrg).toBe(true);
-  });
-
   it("handleEmailLogin authenticates and clears a stale selectingOrg (regression)", async () => {
-    // Repro: user had toggled the picker (selectingOrg=true), then signs in by email.
-    // The successful login must clear it so the app — not OrgSelector — renders.
+    // Repro: the picker was surfaced (selectingOrg=true, e.g. via goBackToOrgSelect),
+    // then the user signs in by email. The successful login must clear it so the
+    // app — not OrgSelector — renders.
     loginWithEmail.mockResolvedValue({ slug: "dlab", member: { id: "alison" } });
     const { result } = renderHook(() => useSession());
-    act(() => result.current.goToPicker());
+    act(() => result.current.goBackToOrgSelect());
     expect(result.current.selectingOrg).toBe(true);
 
     await act(async () => { await result.current.handleEmailLogin("alison@d-lab.co.za", "pw"); });

@@ -11,6 +11,7 @@ tagging deliberately-postponed work as /Stale/.
 |---------|-------------|-------------------|
 | =src/prompts.js= LEGACY exports | Superseded by inline prompts in App.jsx; only =scoutPrompt= wired in | Re-import and replace the corresponding inline prompt when consolidating prompt management |
 | =grant-engine.monolith.jsx= | Original single-file artifact build, kept as a working reference | Used directly only in the Claude-artifacts/standalone demo path |
+| Member-picker login (=Login.jsx= pick/password/setup/forgot steps, =memberLogin= API, =/org/:slug/auth/member-login=) | "Use member sign-in" link removed from the email-login screen 2026-06-28; email login is the sole linked path. Code retained — the =sent= + =reset= steps still host the password-reset deep-link | Re-link by passing an =onUsePicker= entry to =EmailLogin= again (restore =goToPicker= in =useSession=), or surface the =?superadmin= picker, if a member-selection login is needed before all emails are backfilled |
 
 * Deferred (not yet built)
 | Item | Reason for deferral | Trigger to revisit |
@@ -25,4 +26,4 @@ tagging deliberately-postponed work as /Stale/.
 - <none yet>
 
 ---
-/Last Updated/: 2026-06-22
+/Last Updated/: 2026-06-28

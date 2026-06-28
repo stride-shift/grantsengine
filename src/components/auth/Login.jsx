@@ -2,6 +2,7 @@ import { useState } from "react";
 import { C, FONT } from "@/theme";
 import { Btn, Avatar, RoleBadge } from "@/components/ui";
 import useLoginFlow from "@/hooks/useLoginFlow";
+import CheckEmailScreen from "@/components/auth/CheckEmailScreen";
 import NorthernLights from "@/components/chrome/NorthernLights";
 import geLogo from "@/grants-engine-logo.png";
 import dlabLogo from "@/dlab.png";
@@ -258,14 +259,7 @@ export default function Login({ slug, onLogin, onMemberLogin, onBack, needsPassw
       {/* ── Step 4b: Reset link sent ── */}
       {step === "sent" && (
         <Card width={400}>
-          <div style={{ textAlign: "center", padding: "12px 0" }}>
-            <div style={{ fontSize: 36, marginBottom: 16 }}>{"\u2709\uFE0F"}</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 10 }}>Check your email</div>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: 24 }}>
-              If an email is on file, we've sent a reset link. Check your inbox and click the link to set a new password.
-            </div>
-            <BackLink onClick={goBack} label="Back to sign in" />
-          </div>
+          <CheckEmailScreen onBack={goBack} backLabel="Back to sign in" />
         </Card>
       )}
 

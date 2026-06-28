@@ -61,12 +61,20 @@ migration fallback until every member has a backfilled email.
 | CSP disabled in Helmet | =contentSecurityPolicy: false= | Vite injects inline scripts; intentional in app.js |
 | ZAR currency, B-BBEE/SETA/NPO domain terms | Throughout | South African NPO context — not typos or i18n gaps |
 | Email login primary; org auto-resolved | Single email+password screen, no org picker / admin-key field | Org resolved server-side from a global-unique email (=getOrgAndMemberByEmail=) |
-| Legacy member-picker kept as a fallback | "Use member sign-in" link + =?superadmin= picker | Transitional until every member has a backfilled email — not dead code |
+| Member-picker now an unlinked dormant fallback | "Use member sign-in" link REMOVED from the email-login screen (2026-06-28); picker code retained | Email login is the sole linked path; picker reachable only on logout / =?superadmin= and still hosts the reset deep-link screens — see DEFERRED.org |
 | Org creation = super-admin only | Hidden =?superadmin= route + =SUPER_ADMIN_KEY= header | Regular users never see create/delete; create/delete gated server-side |
 | Auto-submission is opt-in, never automatic | Playwright fill + submit are explicit, confirmed, form-only, service-gated | The one-click "Auto-draft & prepare" flow stops at a fully-prepared review; submitting to a funder is irreversible, so a human always confirms (=handleFinalSubmit= confirm dialog) |
 
-NOTE: email login can only be a member's sole path once their email is backfilled
-(=server/backfill-emails.js=); until then the member-picker fallback covers them.
+NOTE: email login requires a member's email to be backfilled
+(=server/backfill-emails.js=). The member-picker fallback is no longer linked from
+the login screen (as of 2026-06-28); any member without a backfilled email must be
+backfilled (or reached via the =?superadmin= picker) rather than self-serving via
+the removed "Use member sign-in" link.
+
+NOTE: "Forgot password?" is the primary recovery path on the email-login screen. It
+sends an email-only reset and shows the shared =CheckEmailScreen= ("Check your email
+— if an account exists, we've sent a reset link"); the emailed link
+(=?reset=<token>&slug=<org>=) opens the choose-new-password screen and auto-logs in.
 
 * Stable Reference Data
 Org/funding facts (financial model, GIDF cornerstone funder, 8 programme types
@@ -74,4 +82,4 @@ with exact budgets, relationship owners, proposal strategy) are canonical in
 =CLAUDE.md= and =src/data/context.js=. Do not duplicate them here.
 
 ---
-/Last Updated/: 2026-06-23
+/Last Updated/: 2026-06-28

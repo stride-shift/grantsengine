@@ -302,7 +302,7 @@ function AppInner() {
   // ── Auth/org session (state + login handlers; teardown stays in resetSession) ──
   const {
     authed, orgSlug, currentMember, needsPassword, loggingIn, selectingOrg, resetParams,
-    handleOrgSelect, handleLogin, handleMemberLogin, handleEmailLogin, goToPicker,
+    handleOrgSelect, handleLogin, handleMemberLogin, handleEmailLogin,
     goBackToOrgSelect, clearAuthState,
   } = useSession();
   // View/selection state + URL sync (pushState/popstate)
@@ -406,8 +406,9 @@ function AppInner() {
   // Login screens render ONLY when not authenticated — a successful login (authed)
   // always proceeds to the app, so a stale selectingOrg/loggingIn flag can never
   // surface the org picker over a signed-in session. Primary path is email login;
-  // the org/member picker is a fallback (goToPicker); loggingIn also serves the
-  // password-reset deep-link (it defaults true when ?reset= is present).
+  // the org/member picker is a dormant fallback (reached only on logout / via the
+  // ?superadmin route); loggingIn also serves the password-reset deep-link (it
+  // defaults true when ?reset= is present).
   if (!authed && selectingOrg) {
     return <OrgSelector onSelect={handleOrgSelect} />;
   }
@@ -425,7 +426,7 @@ function AppInner() {
   }
 
   if (!authed) {
-    return <EmailLogin onLogin={handleEmailLogin} onUsePicker={goToPicker} />;
+    return <EmailLogin onLogin={handleEmailLogin} />;
   }
 
   if (loading) {

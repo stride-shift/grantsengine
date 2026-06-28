@@ -22,8 +22,9 @@ export default function useSession() {
   const [authed, setAuthed] = useState(isLoggedIn());
   const [orgSlug, setOrgSlug] = useState(getAuth().slug || (resetParams ? resetParams.slug : null));
   const [currentMember, setCurrentMember] = useState(getCurrentMember());
-  // Default to the email-login screen; the org/member picker is now a fallback
-  // (reached via goToPicker) used until every member has a backfilled email.
+  // Default to the email-login screen; the org/member picker is now a dormant
+  // fallback (reached only on logout / via the ?superadmin route — no longer
+  // linked from the login screen).
   const [selectingOrg, setSelectingOrg] = useState(false);
   const [needsPassword, setNeedsPassword] = useState(false);
   const [loggingIn, setLoggingIn] = useState(!!resetParams);
@@ -69,9 +70,6 @@ export default function useSession() {
     return data;
   };
 
-  // Fallback entry: show the legacy org/member picker (migration aid).
-  const goToPicker = () => { setSelectingOrg(true); };
-
   const goBackToOrgSelect = () => {
     setSelectingOrg(true);
     setLoggingIn(false);
@@ -88,7 +86,7 @@ export default function useSession() {
 
   return {
     authed, orgSlug, currentMember, needsPassword, loggingIn, selectingOrg, resetParams,
-    handleOrgSelect, handleLogin, handleMemberLogin, handleEmailLogin, goToPicker,
+    handleOrgSelect, handleLogin, handleMemberLogin, handleEmailLogin,
     goBackToOrgSelect, clearAuthState,
   };
 }

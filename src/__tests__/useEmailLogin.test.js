@@ -64,4 +64,15 @@ describe("useEmailLogin — forgot password (email-only)", () => {
     await act(async () => { await result.current.requestReset(); });
     expect(result.current.forgotSent).toBe(true);
   });
+
+  it("resetForgot returns from the confirmation back to the sign-in form", async () => {
+    requestPasswordResetByEmail.mockResolvedValue({ ok: true });
+    const { result } = renderHook(() => useEmailLogin({ onEmailLogin: vi.fn() }));
+    act(() => { result.current.setEmail("a@x.com"); });
+    await act(async () => { await result.current.requestReset(); });
+    expect(result.current.forgotSent).toBe(true);
+    act(() => { result.current.resetForgot(); });
+    expect(result.current.forgotSent).toBe(false);
+    expect(result.current.forgotErr).toBe("");
+  });
 });
