@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import {
-  getSuperAdminByEmail, createSuperAdminSession, deleteSuperAdminSession,
   getAllOrgs, getOrgUsage, getActivityLog, getActiveSessions, getSessionHistory,
-  getAgentRuns, setOrgSubscription,
+  getAgentRuns, setOrgSubscription, createOrg, getOrgBySlug, getOrgById,
+  upsertTeamMember, deleteOrg, createResetToken,
 } from '../db.js';
+import { sendResetEmail } from '../email.js';
 import { requireSuperAdmin } from '../middleware/superadmin.js';
 
 const router = Router();
@@ -12,36 +13,16 @@ const router = Router();
 // Wrap async route handlers to catch unhandled errors (same pattern as auth.js)
 const w = (fn) => (req, res, next) => fn(req, res, next).catch(next);
 
-// ── Login (public) ──
-router.post('/superadmin/login', w(async (req, res) => {
-  const { email, password } = req.body;
-  // Generic error — never reveal whether the email exists (no enumeration).
-  if (!email || !password) return res.status(401).json({ error: 'Invalid email or password' });
-
-  const admin = await getSuperAdminByEmail(email);
-  if (!admin) return res.status(401).json({ error: 'Invalid email or password' });
-
-  const valid = await bcrypt.compare(password, admin.password_hash);
-  if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
-
-  const session = await createSuperAdminSession(admin.id);
-  res.json({
-    token: session.token,
-    expires: session.expires,
-    admin: { name: admin.name, email: admin.email },
-  });
-}));
-
-// ── Logout ──
-router.post('/superadmin/logout', requireSuperAdmin, w(async (req, res) => {
-  await deleteSuperAdminSession(req.superAdminToken);
-  res.json({ ok: true });
-}));
-
-// ── Verify session ──
-router.get('/superadmin/verify', requireSuperAdmin, w(async (req, res) => {
-  res.json({ admin: req.superAdmin });
-}));
+// Derive initials from a name: first letter of up to the first two words, uppercased.
+const initialsFromName = (name) =>
+  (name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase() || '?';
 
 // ── List all orgs with usage ──
 router.get('/superadmin/orgs', requireSuperAdmin, w(async (req, res) => {
@@ -100,6 +81,56 @@ router.put('/superadmin/orgs/:orgId/subscription', requireSuperAdmin, w(async (r
     if (req.body[k] !== undefined) updates[k] = req.body[k];
   }
   await setOrgSubscription(req.params.orgId, updates);
+  res.json({ ok: true });
+}));
+
+// ── Provision a new org ──
+router.post('/superadmin/orgs', requireSuperAdmin, w(async (req, res) => {
+  const { name, slug, website, industry, country, currency } = req.body;
+  if (!name || !slug) return res.status(400).json({ error: 'Name and slug are required' });
+  if (!/^[a-z0-9-]+$/.test(slug)) {
+    return res.status(400).json({ error: 'Slug must contain only lowercase letters, numbers and hyphens' });
+  }
+
+  const existing = await getOrgBySlug(slug);
+  if (existing) return res.status(409).json({ error: 'An organisation with that slug already exists' });
+
+  const id = await createOrg({ name, slug, website, industry, country, currency });
+  res.status(201).json({ id, slug, name });
+}));
+
+// ── Provision a member in an org (sends a password-setup / reset email) ──
+router.post('/superadmin/orgs/:orgId/members', requireSuperAdmin, w(async (req, res) => {
+  const { orgId } = req.params;
+  const { name, email, role } = req.body;
+  if (!name) return res.status(400).json({ error: 'Name is required' });
+
+  // TEXT id matching the convention used elsewhere (db.uid → 16 hex chars).
+  const id = crypto.randomBytes(8).toString('hex');
+  const initials = initialsFromName(name);
+  await upsertTeamMember(orgId, { id, name, email: email || null, role: role || 'pm', initials });
+
+  // Best-effort: email a reset/setup link so the member can set their own password.
+  // Mirrors the request-reset handler's URL shape (?reset=<token>&slug=<orgSlug>).
+  if (email) {
+    try {
+      const org = await getOrgById(orgId);
+      const token = await createResetToken(id, orgId);
+      const origin = req.headers.origin || `${req.protocol}://${req.headers.host}`;
+      const resetUrl = `${origin}?reset=${token}&slug=${org?.slug || ''}`;
+      await sendResetEmail(email, resetUrl, name);
+    } catch (err) {
+      console.error('[superadmin] Failed to send setup email for new member:', err.message);
+      // Don't fail the request — the member is created; the email can be re-sent.
+    }
+  }
+
+  res.status(201).json({ id, name, email: email || null, role: role || 'pm', initials });
+}));
+
+// ── Delete an org (cascades to all child rows) ──
+router.delete('/superadmin/orgs/:orgId', requireSuperAdmin, w(async (req, res) => {
+  await deleteOrg(req.params.orgId);
   res.json({ ok: true });
 }));
 

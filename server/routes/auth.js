@@ -5,7 +5,7 @@ import {
   getOrgBySlug, getOrgAuth, setOrgPassword, createSession, deleteSession, getSession,
   getMemberWithAuth, setMemberPassword, createMemberSession, endSession, logActivity,
   getTeamMembers, createResetToken, validateResetToken, markResetTokenUsed,
-  getOrgAndMemberByEmail,
+  getOrgAndMemberByEmail, getSuperAdminByEmail,
 } from '../db.js';
 import { sendResetEmail } from '../email.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -85,7 +85,21 @@ router.get('/auth/verify', w(async (req, res) => {
   const session = await getSession(token);
   if (!session) return res.status(401).json({ error: 'Invalid or expired session' });
 
-  res.json({ ok: true, orgId: session.org_id, memberId: session.member_id || null });
+  // Resolve the member (if this is a member-scoped session) to expose isSuperAdmin
+  // so the frontend can gate the super-admin UI. Legacy org-level sessions have no
+  // member → isSuperAdmin is false.
+  let isSuperAdmin = false;
+  if (session.member_id) {
+    const member = await getMemberWithAuth(session.org_id, session.member_id);
+    if (member?.email) isSuperAdmin = !!(await getSuperAdminByEmail(member.email));
+  }
+
+  res.json({
+    ok: true,
+    orgId: session.org_id,
+    memberId: session.member_id || null,
+    member: { id: session.member_id || null, isSuperAdmin },
+  });
 }));
 
 router.post('/org/:slug/auth/set-password', w(async (req, res) => {
@@ -127,12 +141,14 @@ router.post('/auth/login', w(async (req, res) => {
     meta: { member_name: row.name, method: 'email' },
   });
 
+  const isSuperAdmin = !!(await getSuperAdminByEmail(email));
+
   res.json({
     token: session.token,
     expires: session.expires,
     slug: row.slug,
     org: { id: row.org_id, slug: row.slug },
-    member: { id: row.member_id, name: row.name, role: row.role, initials: row.initials },
+    member: { id: row.member_id, name: row.name, role: row.role, initials: row.initials, isSuperAdmin },
   });
 }));
 
@@ -201,11 +217,13 @@ router.post('/org/:slug/auth/member-login', w(async (req, res) => {
     meta: { member_name: member.name },
   });
 
+  const isSuperAdmin = !!(await getSuperAdminByEmail(member.email));
+
   res.json({
     token: session.token,
     expires: session.expires,
     org: { id: org.id, slug: org.slug, name: org.name },
-    member: { id: member.id, name: member.name, role: member.role, initials: member.initials },
+    member: { id: member.id, name: member.name, role: member.role, initials: member.initials, isSuperAdmin },
   });
 }));
 
