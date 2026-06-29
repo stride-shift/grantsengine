@@ -11,7 +11,7 @@
  * each annotated with fitScore, sourceKey, and linkStatus.
  */
 
-import { callClaude, callOpenAI } from '../routes/ai.js';
+import { callClaude, callOpenAI } from '../lib/ai.js';
 import { calcScoutFitScore } from '../jobs/scout.js';
 
 // ── AI parser: Claude Haiku preferred, OpenAI fallback ──

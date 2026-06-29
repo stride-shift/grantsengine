@@ -7,7 +7,7 @@
  */
 
 import { scoutPrompt } from '../../src/prompts.js';
-import { callOpenAI } from '../routes/ai.js';
+import { callOpenAI } from '../lib/ai.js';
 import { SOURCES } from '../scraper/sources.js';
 import { scrapeGrants, verifyLinks } from '../scraper/scrapeGrants.js';
 import { getAllOrgs, getGrants, upsertGrant, logAgentRun, getOrgProfile } from '../db.js';
