@@ -89,8 +89,10 @@ router.get('/auth/verify', w(async (req, res) => {
   // so the frontend can gate the super-admin UI. Legacy org-level sessions have no
   // member → isSuperAdmin is false.
   let isSuperAdmin = false;
+  let accessLevel = 'user';
   if (session.member_id) {
     const member = await getMemberWithAuth(session.org_id, session.member_id);
+    if (member?.access_level) accessLevel = member.access_level;
     if (member?.email) isSuperAdmin = !!(await getSuperAdminByEmail(member.email));
   }
 
@@ -98,7 +100,7 @@ router.get('/auth/verify', w(async (req, res) => {
     ok: true,
     orgId: session.org_id,
     memberId: session.member_id || null,
-    member: { id: session.member_id || null, isSuperAdmin },
+    member: { id: session.member_id || null, isSuperAdmin, accessLevel },
   });
 }));
 
@@ -142,13 +144,16 @@ router.post('/auth/login', w(async (req, res) => {
   });
 
   const isSuperAdmin = !!(await getSuperAdminByEmail(email));
+  // access_level gates the org Admin page independently of pipeline role.
+  const memberRow = await getMemberWithAuth(row.org_id, row.member_id);
+  const accessLevel = memberRow?.access_level || 'user';
 
   res.json({
     token: session.token,
     expires: session.expires,
     slug: row.slug,
     org: { id: row.org_id, slug: row.slug },
-    member: { id: row.member_id, name: row.name, role: row.role, initials: row.initials, isSuperAdmin },
+    member: { id: row.member_id, name: row.name, role: row.role, initials: row.initials, isSuperAdmin, accessLevel },
   });
 }));
 
@@ -218,12 +223,13 @@ router.post('/org/:slug/auth/member-login', w(async (req, res) => {
   });
 
   const isSuperAdmin = !!(await getSuperAdminByEmail(member.email));
+  const accessLevel = member.access_level || 'user';
 
   res.json({
     token: session.token,
     expires: session.expires,
     org: { id: org.id, slug: org.slug, name: org.name },
-    member: { id: member.id, name: member.name, role: member.role, initials: member.initials, isSuperAdmin },
+    member: { id: member.id, name: member.name, role: member.role, initials: member.initials, isSuperAdmin, accessLevel },
   });
 }));
 

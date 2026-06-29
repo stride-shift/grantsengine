@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import {
   getAllOrgs, getOrgUsage, getActivityLog, getActiveSessions, getSessionHistory,
   getAgentRuns, setOrgSubscription, createOrg, getOrgBySlug, getOrgById,
   upsertTeamMember, deleteOrg, createResetToken,
+  getSuperAdminByEmail, createSuperAdminSession, deleteSuperAdminSession, createSuperAdmin,
 } from '../db.js';
 import { sendResetEmail } from '../email.js';
 import { requireSuperAdmin } from '../middleware/superadmin.js';
@@ -23,6 +25,39 @@ const initialsFromName = (name) =>
     .map((w) => w[0])
     .join('')
     .toUpperCase() || '?';
+
+// ── Standalone super-admin login ──
+// A platform-level account (super_admins table) with its own session, not tied to
+// any org. Rate-limited in app.js (/api/superadmin/login — 10/15min). Returns a
+// generic 401 on any failure so the response never reveals whether an email exists.
+router.post('/superadmin/login', w(async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(401).json({ error: 'Invalid email or password' });
+
+  const admin = await getSuperAdminByEmail(email);
+  if (!admin || !admin.password_hash) return res.status(401).json({ error: 'Invalid email or password' });
+
+  const valid = await bcrypt.compare(password, admin.password_hash);
+  if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
+
+  const session = await createSuperAdminSession(admin.id);
+  res.json({
+    token: session.token,
+    expires: session.expires,
+    admin: { name: admin.name, email: admin.email },
+  });
+}));
+
+// ── Standalone super-admin logout ──
+router.post('/superadmin/logout', requireSuperAdmin, w(async (req, res) => {
+  if (req.superAdminToken) await deleteSuperAdminSession(req.superAdminToken);
+  res.json({ ok: true });
+}));
+
+// ── Verify a super-admin credential (either standalone or org-member) ──
+router.get('/superadmin/verify', requireSuperAdmin, w(async (req, res) => {
+  res.json({ admin: req.superAdmin });
+}));
 
 // ── List all orgs with usage ──
 router.get('/superadmin/orgs', requireSuperAdmin, w(async (req, res) => {
@@ -102,13 +137,35 @@ router.post('/superadmin/orgs', requireSuperAdmin, w(async (req, res) => {
 // ── Provision a member in an org (sends a password-setup / reset email) ──
 router.post('/superadmin/orgs/:orgId/members', requireSuperAdmin, w(async (req, res) => {
   const { orgId } = req.params;
-  const { name, email, role } = req.body;
+  const { name, email, role, accessLevel } = req.body;
   if (!name) return res.status(400).json({ error: 'Name is required' });
+
+  // Platform access level (super_admin | admin | user), separate from pipeline role.
+  const validLevels = ['super_admin', 'admin', 'user'];
+  const level = validLevels.includes(accessLevel) ? accessLevel : 'user';
 
   // TEXT id matching the convention used elsewhere (db.uid → 16 hex chars).
   const id = crypto.randomBytes(8).toString('hex');
   const initials = initialsFromName(name);
-  await upsertTeamMember(orgId, { id, name, email: email || null, role: role || 'pm', initials });
+  await upsertTeamMember(orgId, {
+    id, name, email: email || null, role: role || 'pm', initials,
+    access_level: level === 'super_admin' ? 'super_admin' : level,
+  });
+
+  // A super_admin access level promotes them to a standalone platform admin too,
+  // so they can use the dedicated super-admin login. Random temp password — they
+  // set a real one via the setup email below. Ignore if already a super-admin.
+  if (level === 'super_admin' && email) {
+    try {
+      if (!(await getSuperAdminByEmail(email))) {
+        const tempHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+        await createSuperAdmin({ email, name, passwordHash: tempHash });
+      }
+    } catch (err) {
+      console.error('[superadmin] Failed to create standalone super-admin for new member:', err.message);
+      // Don't fail the request — the org member exists regardless.
+    }
+  }
 
   // Best-effort: email a reset/setup link so the member can set their own password.
   // Mirrors the request-reset handler's URL shape (?reset=<token>&slug=<orgSlug>).
@@ -125,7 +182,29 @@ router.post('/superadmin/orgs/:orgId/members', requireSuperAdmin, w(async (req, 
     }
   }
 
-  res.status(201).json({ id, name, email: email || null, role: role || 'pm', initials });
+  res.status(201).json({ id, name, email: email || null, role: role || 'pm', initials, access_level: level === 'super_admin' ? 'super_admin' : level });
+}));
+
+// ── Create a standalone super-admin (no org) ──
+// A platform account in super_admins with no org membership. Created with a random
+// temp password — until a password-set flow exists, use create-superadmin.js to set
+// a known one (noted in the response message). 409 if the email is already a super-admin.
+router.post('/superadmin/admins', requireSuperAdmin, w(async (req, res) => {
+  const { email, name } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  if (await getSuperAdminByEmail(email)) {
+    return res.status(409).json({ error: 'A super-admin with that email already exists' });
+  }
+
+  const tempHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+  await createSuperAdmin({ email, name: name || null, passwordHash: tempHash });
+
+  res.status(201).json({
+    ok: true,
+    email,
+    message: 'Super-admin created with a temporary password. Set a known password with `node server/create-superadmin.js <email> <password> "<name>"` (it reports if the email already exists) until a self-service password-set flow is available.',
+  });
 }));
 
 // ── Delete an org (cascades to all child rows) ──

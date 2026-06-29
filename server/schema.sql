@@ -315,3 +315,11 @@ CREATE TABLE IF NOT EXISTS super_admin_sessions (
   expires_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sa_sessions_admin ON super_admin_sessions(super_admin_id);
+
+-- ═══ Platform Access Level (separate from org role) ═══
+-- Gates the org Admin page independently of the funding-pipeline `role`. Values:
+--   super_admin | admin | user. A member whose email is in super_admins is
+--   effectively super_admin regardless of this column. Existing org directors
+--   keep Admin access via the one-time data migration below.
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS access_level TEXT DEFAULT 'user';
+UPDATE team_members SET access_level = 'admin' WHERE role = 'director' AND (access_level IS NULL OR access_level = 'user');
