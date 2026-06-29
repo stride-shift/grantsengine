@@ -253,13 +253,9 @@ const Dashboard = lazy(() => import("@/components/dashboard/Dashboard"));
 const Pipeline = lazy(() => import("@/components/pipeline/Pipeline"));
 const GrantDetail = lazy(() => import("@/components/grant/GrantDetail"));
 const Settings = lazy(() => import("@/components/settings/Settings"));
-const Funders = lazy(() => import("@/components/funders/Funders"));
 const Admin = lazy(() => import("@/components/settings/Admin"));
-const Calendar = lazy(() => import("@/components/calendar/Calendar"));
 const Vetting = lazy(() => import("@/components/pipeline/Vetting"));
-const DocVault = lazy(() => import("@/components/documents/DocVault"));
 const ResourcesHub = lazy(() => import("@/components/resources/ResourcesHub"));
-const Archive = lazy(() => import("@/components/pipeline/Archive"));
 const SuperAdminLogin = lazy(() => import("@/components/superadmin/SuperAdminLogin"));
 const SuperAdminDashboard = lazy(() => import("@/components/superadmin/SuperAdminDashboard"));
 
@@ -289,6 +285,10 @@ const SIDEBAR_ITEMS = [
   { id: "resources", label: "Resources", icon: "\u2606" },
   { id: "settings", label: "Settings", icon: "\u2699" },
 ];
+
+// Legacy top-level views now nested as Resources sub-tabs. A deep-link to one of
+// these redirects into ResourcesHub on the matching sub-tab (id \u2192 sub-tab id).
+const RESOURCE_VIEW_TABS = { calendar: "calendar", docs: "documents", funders: "funders", archive: "archive" };
 
 export default function App() {
   return (
@@ -694,39 +694,13 @@ function AppInner() {
             onNavigate={(v) => { setSel(null); setView(v); }}
             onLaunchTour={setActiveTour}
           />
-        ) : view === "calendar" ? (
-          <Calendar
-            grants={grants}
-            team={team}
-            stages={stages}
-            onSelectGrant={(id) => setSel(id)}
-            onLaunchTour={setActiveTour}
-          />
-        ) : view === "docs" ? (
-          <DocVault
-            grants={grants}
-            complianceDocs={complianceDocs}
-            currentMember={currentMember}
-            onLaunchTour={setActiveTour}
-          />
-        ) : view === "funders" ? (
-          <Funders
-            grants={grants}
-            team={team}
-            stages={stages}
-            onSelectGrant={(id) => setSel(id)}
-            onNavigate={(v) => { setSel(null); setView(v); }}
-            onLaunchTour={setActiveTour}
-          />
-        ) : view === "archive" ? (
-          <Archive
-            grants={grants}
-            team={team}
-            stages={stages}
-            onSelectGrant={(id) => setSel(id)}
-          />
-        ) : view === "resources" ? (
+        ) : (view === "resources" || RESOURCE_VIEW_TABS[view]) ? (
+          // Calendar / Documents / Funders / Archive now live inside Resources as
+          // sub-tabs. Deep-link URLs to the old top-level views redirect here onto
+          // the matching sub-tab (key={view} remounts so initialTab re-applies).
           <ResourcesHub
+            key={view}
+            initialTab={RESOURCE_VIEW_TABS[view] || "resources"}
             org={org}
             profile={profile}
             grants={grants}
