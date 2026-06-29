@@ -26,6 +26,16 @@ const daysUntil = (dateStr) => {
 
 const CAT_ORDER = ["Registration", "Compliance", "Financial", "Governance", "Org"];
 
+const SETTINGS_TABS = [
+  { id: "organisation", label: "Organisation" },
+  { id: "knowledge", label: "Knowledge Base" },
+  { id: "team", label: "Team" },
+  { id: "compliance", label: "Compliance" },
+  { id: "branding", label: "Branding" },
+  { id: "integrations", label: "Integrations" },
+  { id: "account", label: "Account" },
+];
+
 function ChangePassword({ memberId, slug }) {
   const [open, setOpen] = useState(false);
   const [pw, setPw] = useState("");
@@ -383,6 +393,7 @@ function ProgrammesEditor({ programmes, onChange }) {
 
 export default function Settings({ org, profile, team, currentMember, complianceDocs = [], onUpsertCompDoc, onUpdateProfile, onUpdateOrg, onLogout }) {
   const [serverStatus, setServerStatus] = useState(null);
+  const [tab, setTab] = useState("organisation");
   const [expanded, setExpanded] = useState(null); // doc_id of expanded row
   const [editFields, setEditFields] = useState({}); // { [docId]: { expiry, notes } }
   const fileRef = useRef(null);
@@ -463,8 +474,27 @@ export default function Settings({ org, profile, team, currentMember, compliance
         Organisation profile, branding, knowledge base, and integrations.
       </div>
 
+      {/* Sub-tab strip */}
+      <div style={{
+        display: "flex", gap: 4, flexWrap: "wrap",
+        borderBottom: `1px solid ${C.line}`, marginBottom: 18,
+      }}>
+        {SETTINGS_TABS.map(t => {
+          const active = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
+              padding: "8px 14px", border: "none", background: "transparent",
+              fontSize: 13, fontWeight: 600, fontFamily: FONT, cursor: "pointer",
+              color: active ? C.primary : C.t3,
+              borderBottom: `2px solid ${active ? C.primary : "transparent"}`,
+              marginBottom: -1,
+            }}>{t.label}</button>
+          );
+        })}
+      </div>
+
       {/* Logged-in-as banner */}
-      {currentMember && (
+      {tab === "account" && currentMember && (
         <div style={{
           background: C.white, borderRadius: 10, padding: "12px 16px", boxShadow: C.cardShadow, marginBottom: 16,
           border: `1px solid ${C.primary}25`, display: "flex", alignItems: "center", gap: 14,
@@ -479,6 +509,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       )}
 
       {/* Org info */}
+      {tab === "organisation" && (
       <div style={cardStyle}>
         <Label>Organisation</Label>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -528,8 +559,10 @@ export default function Settings({ org, profile, team, currentMember, compliance
           </div>
         </div>
       </div>
+      )}
 
       {/* ═══ Branding ═══ */}
+      {tab === "branding" && (
       <div style={cardStyle}>
         <Label>Branding</Label>
         <div style={{ fontSize: 11, color: C.t4, marginBottom: 16, lineHeight: 1.5 }}>
@@ -606,8 +639,10 @@ export default function Settings({ org, profile, team, currentMember, compliance
           {branding.msg && <span style={{ fontSize: 11, color: branding.msg.startsWith("✓") ? C.ok : C.red, fontWeight: 600 }}>{branding.msg}</span>}
         </div>
       </div>
+      )}
 
       {/* Knowledge Base */}
+      {tab === "knowledge" && (
       <div style={cardStyle}>
         <Label>Knowledge Base</Label>
         <div style={{ fontSize: 11, color: C.t4, marginBottom: 14, lineHeight: 1.5 }}>
@@ -639,8 +674,10 @@ export default function Settings({ org, profile, team, currentMember, compliance
           Extracted text is combined with the org context above for AI prompts.
         </div>
       </div>
+      )}
 
       {/* ═══ Google Calendar ═══ */}
+      {tab === "integrations" && (
       <div style={cardStyle}>
         <Label>Google Calendar Integration</Label>
         <div style={{ fontSize: 12, color: C.t3, marginBottom: 12, lineHeight: 1.5 }}>
@@ -659,8 +696,10 @@ export default function Settings({ org, profile, team, currentMember, compliance
           {gcal.msg && <span style={{ fontSize: 11, color: C.t3 }}>{gcal.msg}</span>}
         </div>
       </div>
+      )}
 
       {/* ═══ Compliance Documents ═══ */}
+      {tab === "compliance" && (
       <div data-tour="settings-compliance" style={cardStyle}>
         {/* Header + summary bar */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -849,8 +888,10 @@ export default function Settings({ org, profile, team, currentMember, compliance
           );
         })}
       </div>
+      )}
 
       {/* Team */}
+      {tab === "team" && (
       <div data-tour="settings-team" style={cardStyle}>
         <Label>Team</Label>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -874,8 +915,10 @@ export default function Settings({ org, profile, team, currentMember, compliance
           ))}
         </div>
       </div>
+      )}
 
       {/* Server status */}
+      {tab === "organisation" && (
       <div style={cardStyle}>
         <Label>System</Label>
         <div style={{ display: "flex", gap: 20 }}>
@@ -895,9 +938,12 @@ export default function Settings({ org, profile, team, currentMember, compliance
           </div>
         </div>
       </div>
+      )}
 
       {/* Logout */}
+      {tab === "account" && (
       <Btn onClick={onLogout} v="ghost" style={{ fontSize: 13 }}>Log out</Btn>
+      )}
     </div>
   );
 }
