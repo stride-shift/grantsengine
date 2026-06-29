@@ -511,6 +511,79 @@ export const getSessionHistory = async (orgId, limit = 30) => {
   return rows;
 };
 
+// ── Super-admin helpers ──
+
+export const createSuperAdmin = async ({ email, passwordHash, name }) => {
+  const id = uid();
+  await pool().query(
+    'INSERT INTO super_admins (id, email, password_hash, name) VALUES ($1, $2, $3, $4)',
+    [id, String(email).trim().toLowerCase(), passwordHash, name || null]
+  );
+  return id;
+};
+
+export const getSuperAdminByEmail = async (email) => {
+  if (!email) return null;
+  const { rows } = await pool().query(
+    'SELECT * FROM super_admins WHERE LOWER(email) = LOWER(TRIM($1))',
+    [email]
+  );
+  return rows[0] || null;
+};
+
+export const createSuperAdminSession = async (superAdminId) => {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  await pool().query(
+    'INSERT INTO super_admin_sessions (token, super_admin_id, expires_at) VALUES ($1, $2, $3)',
+    [token, superAdminId, expires]
+  );
+  return { token, expires };
+};
+
+export const getSuperAdminSession = async (token) => {
+  if (!token) return null;
+  const { rows } = await pool().query(
+    `SELECT s.token, s.super_admin_id, s.created_at, s.expires_at,
+            sa.id AS admin_id, sa.email, sa.name
+       FROM super_admin_sessions s
+       JOIN super_admins sa ON sa.id = s.super_admin_id
+      WHERE s.token = $1 AND s.expires_at > NOW()`,
+    [token]
+  );
+  return rows[0] || null;
+};
+
+export const deleteSuperAdminSession = async (token) => {
+  await pool().query('DELETE FROM super_admin_sessions WHERE token = $1', [token]);
+};
+
+// Cross-org usage aggregate for the super-admin dashboard.
+export const getOrgUsage = async (orgId) => {
+  const [grantsRes, membersRes, runsRes, activityRes] = await Promise.all([
+    pool().query('SELECT COUNT(*)::int AS n FROM grants WHERE org_id = $1', [orgId]),
+    pool().query('SELECT COUNT(*)::int AS n FROM team_members WHERE org_id = $1', [orgId]),
+    pool().query(
+      `SELECT COUNT(*)::int AS ai_calls,
+              COALESCE(SUM(tokens_in), 0)::int AS tokens_in,
+              COALESCE(SUM(tokens_out), 0)::int AS tokens_out,
+              COALESCE(SUM(cost_usd), 0)::float AS cost_usd
+         FROM agent_runs WHERE org_id = $1`,
+      [orgId]
+    ),
+    pool().query('SELECT MAX(created_at) AS last_activity_at FROM activity_log WHERE org_id = $1', [orgId]),
+  ]);
+  return {
+    grants: grantsRes.rows[0].n,
+    members: membersRes.rows[0].n,
+    aiCalls: runsRes.rows[0].ai_calls,
+    tokensIn: runsRes.rows[0].tokens_in,
+    tokensOut: runsRes.rows[0].tokens_out,
+    costUsd: runsRes.rows[0].cost_usd,
+    lastActivityAt: activityRes.rows[0].last_activity_at || null,
+  };
+};
+
 // ── Password reset token helpers ──
 
 export const createResetToken = async (memberId, orgId) => {

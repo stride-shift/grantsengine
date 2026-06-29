@@ -615,6 +615,102 @@ export const submitAutofill = async (jobId) => {
   return res.json();
 };
 
+// ── Super Admin (platform-level, separate token from org auth) ──
+// Stored under a distinct localStorage key so it never collides with the
+// org-scoped token. saFetch prepends /api/superadmin and never touches _slug.
+
+let _saToken = localStorage.getItem('ge_sa_token');
+
+const setSaToken = (token) => {
+  _saToken = token;
+  if (token) localStorage.setItem('ge_sa_token', token);
+  else localStorage.removeItem('ge_sa_token');
+};
+
+export const saGetToken = () => _saToken;
+export const saIsLoggedIn = () => !!_saToken;
+
+// Fetch wrapper for super-admin endpoints. Prepends /api/superadmin, attaches the
+// super-admin bearer token + JSON content-type, and throws friendly errors.
+const saFetch = async (path, opts = {}) => {
+  const headers = { ...opts.headers };
+  if (!(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+  if (_saToken) headers['Authorization'] = `Bearer ${_saToken}`;
+
+  const res = await fetch(`/api/superadmin${path}`, { ...opts, headers });
+
+  if (res.status === 401) {
+    setSaToken(null);
+    throw new Error('Session expired');
+  }
+  if (!res.ok && !opts._skipOkCheck) {
+    let msg = `Request failed (${res.status})`;
+    try {
+      const errBody = await res.clone().json();
+      const err = errBody.error;
+      msg = (typeof err === 'object' ? err?.message : err) || errBody.message || msg;
+    } catch { /* non-JSON error body */ }
+    throw new Error(msg);
+  }
+  return res;
+};
+
+export const superAdminLogin = async (email, password) => {
+  const res = await fetch('/api/superadmin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    let msg = 'Login failed';
+    try { const err = await res.json(); msg = err.error || msg; } catch { /* ignore */ }
+    throw new Error(msg);
+  }
+  const data = await res.json();
+  setSaToken(data.token);
+  return data;
+};
+
+export const superAdminLogout = async () => {
+  try {
+    await saFetch('/logout', { method: 'POST', _skipOkCheck: true });
+  } catch { /* ignore */ }
+  setSaToken(null);
+};
+
+export const superAdminVerify = async () => {
+  const res = await saFetch('/verify');
+  return res.json();
+};
+
+export const saGetOrgs = async () => {
+  const res = await saFetch('/orgs');
+  return res.json();
+};
+
+export const saGetOrgActivity = async (orgId, limit = 100) => {
+  const res = await saFetch(`/orgs/${orgId}/activity?limit=${limit}`);
+  return res.json();
+};
+
+export const saGetOrgSessions = async (orgId) => {
+  const res = await saFetch(`/orgs/${orgId}/sessions`);
+  return res.json();
+};
+
+export const saGetOrgUsage = async (orgId) => {
+  const res = await saFetch(`/orgs/${orgId}/usage`);
+  return res.json();
+};
+
+export const saSetSubscription = async (orgId, body) => {
+  const res = await saFetch(`/orgs/${orgId}/subscription`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+  return res.json();
+};
+
 // ── Health ──
 
 export const checkHealth = async () => {

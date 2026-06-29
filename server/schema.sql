@@ -294,3 +294,24 @@ CREATE INDEX IF NOT EXISTS idx_autofill_jobs_org ON autofill_jobs(org_id);
 ALTER TABLE org_profiles ADD COLUMN IF NOT EXISTS legal_address TEXT;
 ALTER TABLE org_profiles ADD COLUMN IF NOT EXISTS bank_details JSONB;
 ALTER TABLE org_profiles ADD COLUMN IF NOT EXISTS reg_numbers JSONB;
+
+-- ═══ Super-Admin (platform-level operators, not tied to any org) ═══
+-- Separate identity + session tables from the per-org member auth above. A
+-- super-admin manages subscriptions and views cross-org usage (see
+-- server/routes/superadmin.js). Seed the first one with
+-- `node server/create-superadmin.js`.
+CREATE TABLE IF NOT EXISTS super_admins (
+  id TEXT PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  name TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS super_admin_sessions (
+  token TEXT PRIMARY KEY,
+  super_admin_id TEXT NOT NULL REFERENCES super_admins(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sa_sessions_admin ON super_admin_sessions(super_admin_id);

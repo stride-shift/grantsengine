@@ -13,6 +13,7 @@ import adminRoutes from './routes/admin.js';
 import gcalRoutes from './routes/gcal.js';
 import autofillRoutes from './routes/autofill.js';
 import cronRoutes from './routes/cron.js';
+import superadminRoutes from './routes/superadmin.js';
 import pool from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -51,6 +52,12 @@ app.use('/api/auth/request-reset', rateLimit({
   message: { error: 'Too many password reset attempts. Try again in 1 hour.' },
   standardHeaders: true, legacyHeaders: false,
 }));
+// Super-admin login — 10 attempts per 15 minutes per IP
+app.use('/api/superadmin/login', rateLimit({
+  windowMs: 15 * 60 * 1000, max: 10,
+  message: { error: 'Too many login attempts. Try again in 15 minutes.' },
+  standardHeaders: true, legacyHeaders: false,
+}));
 app.use('/api/org/:slug/ai/messages', rateLimit({
   windowMs: 60 * 1000, max: 30,
   message: { error: 'AI rate limit reached. Wait a moment before trying again.' },
@@ -74,6 +81,7 @@ app.use('/api', adminRoutes);
 app.use('/api', gcalRoutes);
 app.use('/api', autofillRoutes);
 app.use('/api', cronRoutes);
+app.use('/api', superadminRoutes);
 
 // Health check (includes DB connectivity)
 app.get('/api/health', async (req, res) => {

@@ -15,6 +15,7 @@ import SubscriptionBanner from "@/components/subscription/SubscriptionBanner";
 import useDataLoad from "./hooks/useDataLoad";
 import useSession from "./hooks/useSession";
 import useRouting from "./hooks/useRouting";
+import { saIsLoggedIn } from "./api";
 import usePipelineHygiene from "./hooks/usePipelineHygiene";
 
 import OrgSelector from "@/components/auth/OrgSelector";
@@ -259,6 +260,8 @@ const Vetting = lazy(() => import("@/components/pipeline/Vetting"));
 const DocVault = lazy(() => import("@/components/documents/DocVault"));
 const ResourcesHub = lazy(() => import("@/components/resources/ResourcesHub"));
 const Archive = lazy(() => import("@/components/pipeline/Archive"));
+const SuperAdminLogin = lazy(() => import("@/components/superadmin/SuperAdminLogin"));
+const SuperAdminDashboard = lazy(() => import("@/components/superadmin/SuperAdminDashboard"));
 
 injectFonts();
 
@@ -313,6 +316,8 @@ function AppInner() {
   const [stages, setStages] = useState(DEFAULT_STAGES);
   const [funderTypes, setFunderTypes] = useState(DEFAULT_FTYPES);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Super-admin console auth (separate token); local state so login/logout re-renders.
+  const [saAuthed, setSaAuthed] = useState(saIsLoggedIn());
   // Global search — sidebar input that surfaces any grant by funder, name, notes, type
   const [globalQ, setGlobalQ] = useState("");
   const { complianceDocs, setComplianceDocs, upsertCompDoc } = useComplianceDocs(toast);
@@ -396,10 +401,16 @@ function AppInner() {
 
   // ── Render ──
 
-  // Hidden super-admin org console (create/list/delete) — reached only via the
-  // unlinked ?superadmin URL; the key field gates create/delete server-side.
+  // Hidden super-admin platform console — reached only via the unlinked ?superadmin
+  // URL. Uses a separate super-admin token; logging in/out flips saAuthed to re-render.
   if (new URLSearchParams(window.location.search).get("superadmin")) {
-    return <OrgSelector superAdmin onSelect={handleOrgSelect} />;
+    return (
+      <Suspense fallback={<div style={{ minHeight: "100vh", background: C.bg }} />}>
+        {saAuthed
+          ? <SuperAdminDashboard onLogout={() => setSaAuthed(false)} />
+          : <SuperAdminLogin onAuthed={() => setSaAuthed(true)} />}
+      </Suspense>
+    );
   }
 
   // Login screens render ONLY when not authenticated — a successful login (authed)
