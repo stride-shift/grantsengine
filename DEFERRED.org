@@ -11,7 +11,8 @@ tagging deliberately-postponed work as /Stale/.
 |---------|-------------|-------------------|
 | =src/prompts.js= LEGACY exports | Superseded by inline prompts in App.jsx; only =scoutPrompt= wired in | Re-import and replace the corresponding inline prompt when consolidating prompt management |
 | =grant-engine.monolith.jsx= | Original single-file artifact build, kept as a working reference | Used directly only in the Claude-artifacts/standalone demo path |
-| Member-picker login (=Login.jsx= pick/password/setup/forgot steps, =memberLogin= API, =/org/:slug/auth/member-login=) | "Use member sign-in" link removed from the email-login screen 2026-06-28; email login is the sole linked path. Code retained — the =sent= + =reset= steps still host the password-reset deep-link | Re-link by passing an =onUsePicker= entry to =EmailLogin= again (restore =goToPicker= in =useSession=), or surface the =?superadmin= picker, if a member-selection login is needed before all emails are backfilled |
+| Member-picker login (=Login.jsx= pick/password/setup/forgot steps, =memberLogin= API, =/org/:slug/auth/member-login=) | "Use member sign-in" link removed from the email-login screen 2026-06-28; email login is the sole linked path. Code retained — the =sent= + =reset= steps still host the password-reset deep-link | Re-link by passing an =onUsePicker= entry to =EmailLogin= again (restore =goToPicker= in =useSession=) if a member-selection login is needed before all emails are backfilled |
+| Legacy =SUPER_ADMIN_KEY= org create/delete UI (=OrgSelector superAdmin= mode + =POST/DELETE /orgs= key gate) | Superseded 2026-06-29 by the account-based super-admin dashboard, which took over the =?superadmin= route. Backend create/delete endpoints + the key still exist but have no UI entry | Add a create/delete panel to =SuperAdminDashboard= (call the existing key-gated endpoints, or move them behind =requireSuperAdmin=) when org provisioning from the dashboard is needed |
 
 * Deferred (not yet built)
 | Item | Reason for deferral | Trigger to revisit |
@@ -21,6 +22,8 @@ tagging deliberately-postponed work as /Stale/.
 | TypeScript migration | Plain JSX works; migration cost not yet justified | When type-related defects or onboarding friction accumulate |
 | Per-module quick_reference.org files | Created as modules are documented, not at bootstrap | When a module gains 3+ files with non-obvious patterns (see DOCUMENTATION.org) |
 | Service-level server/ARCHITECTURE.org · API.org (1B) | Backend documented at 1A level for now | When backend cross-module decisions outgrow ARCHITECTURE.org |
+| Stripe / real payment processing for subscriptions | Manual model first (2026-06-29): super-admins set plan/status by hand; no checkout or card capture | When self-serve billing is needed — add Stripe Checkout + webhooks writing the existing =orgs= subscription columns (=subscription_status/plan/period_end=) |
+| Subscription enforcement beyond grant-edits + AI generation | Read-only lock currently gates =useGrants= mutations + =useAI= generation only (2026-06-29) | Extend to other write surfaces (uploads, profile edits, exports) if a stricter lock is required |
 
 * Open Product Questions
 - <none yet>
