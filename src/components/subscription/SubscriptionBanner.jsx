@@ -1,5 +1,4 @@
 import { C, FONT } from "@/theme";
-import { formatZar, PRICING } from "@/data/subscription";
 
 /* Non-blocking subscription banner. Shows only when the org's trial has expired
  * (or was cancelled). If a super-admin has also enabled the read-only lock, the
@@ -22,9 +21,8 @@ export default function SubscriptionBanner({ subscription, orgName }) {
       <span style={{ flex: "1 1 320px", lineHeight: 1.45 }}>
         <strong>{locked ? "Read-only — subscription expired." : "Your free trial has ended."}</strong>{" "}
         {locked
-          ? "Viewing still works, but editing and AI generation are disabled until you upgrade."
-          : "Upgrade to keep editing and generating."}{" "}
-        Plans: <strong>{formatZar(PRICING.monthly)}/mo</strong> or <strong>{formatZar(PRICING.yearly)}/yr</strong>.
+          ? "Viewing still works, but editing and AI generation are disabled until you upgrade to a Monthly or Annual plan."
+          : "Upgrade to a Monthly or Annual plan to keep editing and generating."}
       </span>
       <a
         href={`mailto:hello@d-lab.co.za?subject=${encodeURIComponent(`Upgrade ${orgName || "our"} Grants Engine subscription`)}`}

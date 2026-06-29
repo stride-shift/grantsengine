@@ -1,18 +1,16 @@
 /* Subscription model (manual billing — no payment processor yet).
  *
  * On sign-up an org gets a 1-week free trial (set by DB defaults). After that a
- * super-admin manually moves them onto a paid plan. Prices are in ZAR. By default
- * an expired org just sees a banner; a super-admin can additionally enable a
- * read-only lock per org (resolveSubscription → readOnlyLock).
+ * super-admin manually moves them onto a paid tier (Monthly / Annual). Tiers are
+ * named only — no prices are shown in-app. By default an expired org just sees a
+ * banner; a super-admin can additionally enable a read-only lock per org
+ * (resolveSubscription → readOnlyLock).
  */
-
-export const CURRENCY = "ZAR";
-export const PRICING = { monthly: 950, yearly: 7600 }; // ZAR — ≈ $50/mo, $400/yr
 
 export const PLAN_LABELS = {
   free_week: "Free trial",
-  monthly: "Monthly (R950/mo)",
-  yearly: "Annual (R7,600/yr)",
+  monthly: "Monthly",
+  yearly: "Annual",
 };
 
 export const STATUS_LABELS = {
@@ -21,8 +19,6 @@ export const STATUS_LABELS = {
   expired: "Expired",
   cancelled: "Cancelled",
 };
-
-export const formatZar = (n) => `R${Number(n || 0).toLocaleString("en-ZA")}`;
 
 /**
  * Resolve an org's effective subscription state from its raw DB fields.

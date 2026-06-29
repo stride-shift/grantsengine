@@ -7,7 +7,7 @@ import {
   saGetOrgs, saGetOrgActivity, saGetOrgSessions, saGetOrgUsage, saSetSubscription,
 } from "@/api";
 import {
-  PLAN_LABELS, STATUS_LABELS, PRICING, formatZar, resolveSubscription,
+  PLAN_LABELS, STATUS_LABELS, resolveSubscription,
 } from "@/data/subscription";
 
 /* ── Time helpers (matched to Admin.jsx) ── */
@@ -494,10 +494,6 @@ function SubscriptionTab({ org, onSaved }) {
     setMsg("");
   }, [org.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const priceFor = (p) => p === "monthly" ? formatZar(PRICING.monthly) + "/mo"
-    : p === "yearly" ? formatZar(PRICING.yearly) + "/yr"
-    : "Free";
-
   const dirty = plan !== (org.subscription_plan || "free_week")
     || status !== (org.subscription_status || "trial")
     || lock !== !!org.readonly_lock
@@ -550,7 +546,7 @@ function SubscriptionTab({ org, onSaved }) {
           <div style={{ fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6 }}>Plan</div>
           <select value={plan} onChange={e => setPlan(e.target.value)} style={selectStyle}>
             {PLAN_OPTIONS.map(p => (
-              <option key={p} value={p}>{PLAN_LABELS[p]} — {priceFor(p)}</option>
+              <option key={p} value={p}>{PLAN_LABELS[p]}</option>
             ))}
           </select>
         </div>
