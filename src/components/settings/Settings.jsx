@@ -452,10 +452,16 @@ export default function Settings({ org, profile, team, currentMember, compliance
   };
   const setEditField = (docId, field, value) => setEditFields(prev => ({ ...prev, [docId]: { ...prev[docId], [field]: value } }));
 
+  // Shared card style so every section is visually uniform (one source of truth).
+  const cardStyle = { background: C.white, borderRadius: 12, padding: 20, boxShadow: C.cardShadow, marginBottom: 18, border: `1px solid ${C.primary}25` };
+
   return (
-    <div style={{ padding: "16px 16px", maxWidth: 800 }}>
-      <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, color: C.dark, marginBottom: 6 }}>Settings</div>
-      <div style={{ width: 32, height: 3, background: C.primary, borderRadius: 2, marginBottom: 20 }} />
+    <div style={{ padding: "24px 32px", maxWidth: 900, margin: "0 auto" }}>
+      <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: -0.5, color: C.dark, marginBottom: 6 }}>Settings</div>
+      <div style={{ width: 32, height: 3, background: C.primary, borderRadius: 2, marginBottom: 8 }} />
+      <div style={{ fontSize: 13, color: C.t3, marginBottom: 24, lineHeight: 1.5 }}>
+        Organisation profile, branding, knowledge base, and integrations.
+      </div>
 
       {/* Logged-in-as banner */}
       {currentMember && (
@@ -473,7 +479,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       )}
 
       {/* Org info */}
-      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
+      <div style={cardStyle}>
         <Label>Organisation</Label>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div>
@@ -524,7 +530,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       </div>
 
       {/* ═══ Branding ═══ */}
-      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
+      <div style={cardStyle}>
         <Label>Branding</Label>
         <div style={{ fontSize: 11, color: C.t4, marginBottom: 16, lineHeight: 1.5 }}>
           Customise your organisation's appearance. Changes apply across the entire app.
@@ -602,7 +608,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       </div>
 
       {/* Knowledge Base */}
-      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
+      <div style={cardStyle}>
         <Label>Knowledge Base</Label>
         <div style={{ fontSize: 11, color: C.t4, marginBottom: 14, lineHeight: 1.5 }}>
           Everything below feeds into all AI-generated proposals, funder research, and scout results.
@@ -635,7 +641,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       </div>
 
       {/* ═══ Google Calendar ═══ */}
-      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
+      <div style={cardStyle}>
         <Label>Google Calendar Integration</Label>
         <div style={{ fontSize: 12, color: C.t3, marginBottom: 12, lineHeight: 1.5 }}>
           Connect your Google Calendar to automatically sync grant deadlines. Events are created with reminders (1 day and 2 hours before).
@@ -655,7 +661,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       </div>
 
       {/* ═══ Compliance Documents ═══ */}
-      <div data-tour="settings-compliance" style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
+      <div data-tour="settings-compliance" style={cardStyle}>
         {/* Header + summary bar */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <Label style={{ marginBottom: 0 }}>Compliance Documents</Label>
@@ -845,7 +851,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       </div>
 
       {/* Team */}
-      <div data-tour="settings-team" style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
+      <div data-tour="settings-team" style={cardStyle}>
         <Label>Team</Label>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {team.filter(t => t.id !== "team").map(m => (
@@ -870,7 +876,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       </div>
 
       {/* Server status */}
-      <div style={{ background: C.white, borderRadius: 10, padding: 18, boxShadow: C.cardShadow, marginBottom: 16, border: `1px solid ${C.primary}25` }}>
+      <div style={cardStyle}>
         <Label>System</Label>
         <div style={{ display: "flex", gap: 20 }}>
           <div>

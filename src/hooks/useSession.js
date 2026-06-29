@@ -23,8 +23,8 @@ export default function useSession() {
   const [orgSlug, setOrgSlug] = useState(getAuth().slug || (resetParams ? resetParams.slug : null));
   const [currentMember, setCurrentMember] = useState(getCurrentMember());
   // Default to the email-login screen; the org/member picker is now a dormant
-  // fallback (reached only on logout / via the ?superadmin route — no longer
-  // linked from the login screen).
+  // fallback (reached only via the Login screen's "Back to organisations" action —
+  // no longer linked from the login screen, and logout returns here to login).
   const [selectingOrg, setSelectingOrg] = useState(false);
   const [needsPassword, setNeedsPassword] = useState(false);
   const [loggingIn, setLoggingIn] = useState(!!resetParams);
@@ -75,12 +75,12 @@ export default function useSession() {
     setLoggingIn(false);
   };
 
-  // Reset ONLY the auth atoms (matches the auth half of the old resetSession).
-  // orgSlug / needsPassword are intentionally left as-is, exactly as before.
+  // Reset ONLY the auth atoms. Logout lands on the email-login screen (the primary
+  // path) — NOT the org picker — so selectingOrg is cleared, not set.
   const clearAuthState = () => {
     setAuthed(false);
     setCurrentMember(null);
-    setSelectingOrg(true);
+    setSelectingOrg(false);
     setLoggingIn(false);
   };
 

@@ -95,14 +95,14 @@ describe("useSession", () => {
     expect(result.current.authed).toBe(true);
   });
 
-  it("clearAuthState resets the auth atoms", () => {
+  it("clearAuthState resets the auth atoms and lands on login (not the org picker)", () => {
     isLoggedIn.mockReturnValue(true);
     const { result } = renderHook(() => useSession());
     expect(result.current.authed).toBe(true);
     act(() => result.current.clearAuthState());
     expect(result.current.authed).toBe(false);
     expect(result.current.currentMember).toBe(null);
-    expect(result.current.selectingOrg).toBe(true);
+    expect(result.current.selectingOrg).toBe(false);
     expect(result.current.loggingIn).toBe(false);
   });
 
