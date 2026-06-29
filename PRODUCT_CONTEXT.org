@@ -16,7 +16,7 @@ slug but used primarily by one org (d-lab).
 * Users & Roles
 | Role | Scope | Can do |
 |------|-------|--------|
-| Super admin | All orgs | Provision orgs (create/delete) via the hidden =?superadmin= route, gated by =SUPER_ADMIN_KEY= |
+| Super admin | All orgs | A "Super Admin" sub-tab inside Admin, shown only to members whose email is in =super_admins=; view every org's usage/activity, manage subscriptions, create/delete orgs, add members |
 | Org admin | One organisation | Manage members, org profile/onboarding, all grant + AI features |
 | Member | One organisation | Work the pipeline: scout, vet, draft, budget, track deadlines |
 
@@ -46,7 +46,7 @@ migration fallback until every member has a backfilled email.
 | Edit-learning | Active | editLearner.js adapts to user edits of AI output |
 | Admin panel | Active | Admin.jsx member + org management |
 | Email+password login | Active | Primary path: =POST /api/auth/login= → org auto-resolved; EmailLogin/useEmailLogin |
-| Org provisioning (super-admin) | Active | Hidden =?superadmin= route + =SUPER_ADMIN_KEY=; create/list/delete orgs |
+| Org provisioning (super-admin) | Active | Super Admin sub-tab in Admin (=requireSuperAdmin=-gated =/api/superadmin/orgs=): create/list/delete orgs + add members |
 | Email backfill tooling | Active | =server/backfill-emails.js= — dry-run audit + collision-safe apply + setup links |
 
 * Intentional Decisions (do not re-flag)
@@ -62,7 +62,7 @@ migration fallback until every member has a backfilled email.
 | ZAR currency, B-BBEE/SETA/NPO domain terms | Throughout | South African NPO context — not typos or i18n gaps |
 | Email login primary; org auto-resolved | Single email+password screen, no org picker / admin-key field | Org resolved server-side from a global-unique email (=getOrgAndMemberByEmail=) |
 | Member-picker now an unlinked dormant fallback | "Use member sign-in" link REMOVED from the email-login screen (2026-06-28); picker code retained | Email login is the sole linked path; picker reachable only on logout (OrgSelector) and still hosts the reset deep-link screens — see DEFERRED.org |
-| Super-admin = real accounts + cross-org dashboard | =?superadmin= now requires a super-admin login (=super_admins= table, bcrypt, cross-org session token); dashboard lists every org with usage + activity and manages subscriptions (2026-06-29) | Replaces the old key-only provisioning. Legacy =SUPER_ADMIN_KEY=-gated org create/delete UI is superseded — see DEFERRED.org. Cross-tenant visibility is intentional (platform owner) |
+| Super-admin = super_admins-flagged org member, surfaced as a gated Admin sub-tab | A super-admin is a logged-in org member whose email is in =super_admins= (registered via =server/create-superadmin.js=). The console is a "Super Admin" sub-tab inside Admin, shown only when =member.isSuperAdmin=; there is NO separate login and NO =?superadmin= URL. Every =/api/superadmin/*= endpoint is gated server-side by =requireSuperAdmin= (valid org session + member email in super_admins), so it's unreachable by non-super-admins regardless of URL. Lists all orgs (usage/activity), manages subscriptions, and provisions orgs + members (2026-06-30) | Replaces the earlier separate-login design. Cross-tenant visibility is intentional (platform owner). super_admins is the source of truth for who is a super-admin |
 | Subscription = manual tiers (no prices shown) | Free 1-week trial on sign-up → Monthly / Annual tiers (named only, no amounts in-app); super-admin sets plan/status by hand (no payment processor) | Expiry derived live from =trial_expires_at=; default is a non-blocking banner, with an opt-in per-org read-only lock (blocks edits + AI; viewing always works). Stripe + pricing deferred — see DEFERRED.org |
 | Resources hub | Calendar / Documents / Funders / Archive are sub-tabs inside Resources (removed from sidebar; deep-link fallbacks kept); resource directory filtered by org type | =org_type= inferred from org details (=src/data/orgType.js=), overridable in Settings; corporate orgs no longer see NGO-only offers (2026-06-29) |
 | Single "Log out" | Sidebar shows one "Log out" (real server logout); "Switch Organisation" removed | Avoided two near-identical buttons; switch-org returned to the picker without ending the session (2026-06-29) |
