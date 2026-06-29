@@ -103,7 +103,10 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
   const [subTab, setSubTab] = useState("team");
   const isSuperAdmin = !!currentMember?.isSuperAdmin;
   const subTabs = [
-    { id: "team", label: "Team & Activity" },
+    { id: "team", label: "Team" },
+    { id: "sessions", label: "Sessions" },
+    { id: "activity", label: "Activity" },
+    { id: "data", label: "Data" },
     ...(isSuperAdmin ? [{ id: "superadmin", label: "Super Admin" }] : []),
   ];
   const [confirmReset, setConfirmReset] = useState(false);
@@ -219,6 +222,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
       )}
 
       {/* ═══ 1. USER MANAGEMENT ═══ */}
+      {subTab === "team" && (
       <Card>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <Label>Team Members</Label>
@@ -379,8 +383,10 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
           })}
         </div>
       </Card>
+      )}
 
       {/* ═══ DATA TOOLS ═══ */}
+      {subTab === "data" && (
       <Card>
         <Label>Data Tools</Label>
         <div style={{ marginTop: 8 }}>
@@ -421,7 +427,10 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
         </div>
       </Card>
 
+      )}
+
       {/* ═══ 2. WHO'S ONLINE ═══ */}
+      {subTab === "sessions" && (
       <Card>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <Label>Active Sessions</Label>
@@ -466,7 +475,10 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
         )}
       </Card>
 
+      )}
+
       {/* ═══ 3. LOGIN HISTORY ═══ */}
+      {subTab === "sessions" && (
       <Card>
         <Label>Login History</Label>
         {sessionHistory.length === 0 ? (
@@ -500,7 +512,10 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
         )}
       </Card>
 
+      )}
+
       {/* ═══ 4. ACTIVITY FEED ═══ */}
+      {subTab === "activity" && (
       <Card>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <Label>Activity</Label>
@@ -574,7 +589,10 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
         )}
       </Card>
 
+      )}
+
       {/* ═══ 5. TEAM SUMMARY ═══ */}
+      {subTab === "team" && (
       <Card>
         <Label>Team Summary</Label>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
@@ -602,6 +620,7 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
           })}
         </div>
       </Card>
+      )}
     </div>
   );
 }
