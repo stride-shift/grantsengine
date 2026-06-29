@@ -1,16 +1,14 @@
-# Playwright's official image includes Chromium + system deps
-FROM mcr.microsoft.com/playwright:v1.48.0-jammy
+# Playwright's official image ships Chromium (incl. chromium-headless-shell) + system
+# deps. The tag MUST match the exact playwright version pinned in package.json — a
+# mismatch means headless chromium.launch() looks for a browser revision the image
+# doesn't contain (the cold-start "Executable doesn't exist" failure). Keep these in lockstep.
+FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
 WORKDIR /app
 
-# Install production deps only
+# Install production deps only (browsers already baked into the matched base image)
 COPY package*.json ./
 RUN npm ci --omit=dev
-# The base image's bundled browsers can lag the installed playwright version
-# (package.json uses ^1.48 so the lockfile may resolve newer). Install the
-# matching Chromium + headless shell into PLAYWRIGHT_BROWSERS_PATH (/ms-playwright)
-# so browserType.launch() finds the executable at runtime.
-RUN npx playwright install chromium
 
 # Copy app code
 COPY . .
