@@ -12,6 +12,7 @@
  */
 
 import { callClaude, callOpenAI } from '../lib/ai.js';
+import { serviceAuthHeaders } from '../lib/gcpAuth.js';
 import { calcScoutFitScore } from '../jobs/scout.js';
 
 // ── AI parser: Claude Haiku preferred, OpenAI fallback ──
@@ -52,7 +53,7 @@ async function pw(path, body) {
   if (!PW_CONFIGURED) throw new Error('PLAYWRIGHT_SERVICE_URL / PLAYWRIGHT_SECRET not configured');
   const res = await fetch(`${PW_URL}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Service-Key': PW_KEY },
+    headers: await serviceAuthHeaders(PW_URL, PW_KEY),
     body: JSON.stringify(body),
   });
   if (!res.ok) {

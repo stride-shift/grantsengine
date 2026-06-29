@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { resolveOrg } from '../middleware/org.js';
 import { assertSafeUrl } from '../lib/ssrfGuard.js';
+import { serviceAuthHeaders } from '../lib/gcpAuth.js';
 import {
   getGrantById, getOrgProfile, getComplianceDocs,
   createAutofillJob, getAutofillJob, updateAutofillJob, getAutofillJobsByGrant,
@@ -330,7 +331,7 @@ router.post('/org/:slug/autofill/:jobId/fill', ...orgAuth, w(async (req, res) =>
   try {
     const fillRes = await fetch(`${serviceUrl}/fill`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Service-Key': serviceKey },
+      headers: await serviceAuthHeaders(serviceUrl, serviceKey),
       body: JSON.stringify({
         jobId: job.id,
         url: job.apply_url,
@@ -366,7 +367,7 @@ router.post('/org/:slug/autofill/:jobId/submit', ...orgAuth, w(async (req, res) 
   try {
     const submitRes = await fetch(`${serviceUrl}/submit`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Service-Key': serviceKey },
+      headers: await serviceAuthHeaders(serviceUrl, serviceKey),
       body: JSON.stringify({ sessionId: job.session_id }),
     });
     const data = await submitRes.json();
