@@ -1,9 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { C, FONT, MONO } from "@/theme";
 import { Label, Avatar, Btn, RoleBadge } from "@/components/ui";
 import useTeamAdmin from "@/hooks/useTeamAdmin";
 import useAdminSessions from "@/hooks/useAdminSessions";
 import useAIReset from "@/hooks/useAIReset";
+
+const SuperAdminDashboard = lazy(() => import("@/components/superadmin/SuperAdminDashboard"));
 
 const ROLES = [
   { id: "director", label: "Admin", desc: "Full access, manage users" },
@@ -96,6 +98,14 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
   } = useTeamAdmin(onTeamChanged);
 
   // ── Render-only form / dialog state ──
+  // In-page sub-tabs. The Super Admin tab is only added to the strip for members
+  // whose session is flagged isSuperAdmin (the server independently enforces access).
+  const [subTab, setSubTab] = useState("team");
+  const isSuperAdmin = !!currentMember?.isSuperAdmin;
+  const subTabs = [
+    { id: "team", label: "Team & Activity" },
+    ...(isSuperAdmin ? [{ id: "superadmin", label: "Super Admin" }] : []),
+  ];
   const [confirmReset, setConfirmReset] = useState(false);
   const [addMode, setAddMode] = useState(false);
   const [newName, setNewName] = useState("");
@@ -133,10 +143,57 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
     if (ok) setResetPw("");
   };
 
-  if (loading) {
+  // Sub-tab strip (matched to ResourcesHub): active = primary text + 2px bottom
+  // border, inactive = C.t3, strip baseline = C.line. Only rendered when there's
+  // more than one tab (i.e. a super-admin).
+  const tabStrip = subTabs.length > 1 ? (
+    <div style={{
+      display: "flex", gap: 4, flexWrap: "wrap",
+      borderBottom: `1px solid ${C.line}`, marginBottom: 20,
+    }}>
+      {subTabs.map(t => {
+        const active = subTab === t.id;
+        return (
+          <button key={t.id} onClick={() => setSubTab(t.id)} style={{
+            padding: "8px 14px", border: "none", background: "transparent",
+            fontSize: 13, fontWeight: 600, fontFamily: FONT, cursor: "pointer",
+            color: active ? C.primary : C.t3,
+            borderBottom: `2px solid ${active ? C.primary : "transparent"}`,
+            marginBottom: -1,
+          }}>{t.label}</button>
+        );
+      })}
+    </div>
+  ) : null;
+
+  // Guard: only super-admins ever see the Super Admin tab content (the strip
+  // already hides the tab for everyone else; this protects against a stale subTab).
+  const showSuperAdmin = subTab === "superadmin" && isSuperAdmin;
+
+  if (loading && !showSuperAdmin) {
     return (
-      <div style={{ padding: 32, fontFamily: FONT }}>
+      <div style={{ padding: "16px 16px", fontFamily: FONT, maxWidth: 900 }}>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Admin</div>
+          <div style={{ fontSize: 13, color: C.t3, marginTop: 2 }}>Manage users, sessions and activity</div>
+        </div>
+        {tabStrip}
         <div style={{ fontSize: 13, color: C.t3 }}>Loading admin data...</div>
+      </div>
+    );
+  }
+
+  if (showSuperAdmin) {
+    return (
+      <div style={{ padding: "16px 16px", fontFamily: FONT, maxWidth: 1100 }}>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Admin</div>
+          <div style={{ fontSize: 13, color: C.t3, marginTop: 2 }}>Platform-wide organisation management</div>
+        </div>
+        {tabStrip}
+        <Suspense fallback={<div style={{ fontSize: 13, color: C.t3 }}>Loading…</div>}>
+          <SuperAdminDashboard />
+        </Suspense>
       </div>
     );
   }
@@ -148,6 +205,8 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
         <div style={{ fontSize: 20, fontWeight: 800, color: C.dark, letterSpacing: -0.5 }}>Admin</div>
         <div style={{ fontSize: 13, color: C.t3, marginTop: 2 }}>Manage users, sessions and activity</div>
       </div>
+
+      {tabStrip}
 
       {/* Flash message */}
       {actionMsg && (

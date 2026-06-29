@@ -3,8 +3,8 @@ import { C, FONT, MONO } from "@/theme";
 import { Btn, Label } from "@/components/ui";
 import { OrgAvatar } from "@/components/auth/OrgSelector";
 import {
-  superAdminVerify, superAdminLogout,
   saGetOrgs, saGetOrgActivity, saGetOrgSessions, saGetOrgUsage, saSetSubscription,
+  saCreateOrg, saAddMember, saDeleteOrg,
 } from "@/api";
 import {
   PLAN_LABELS, STATUS_LABELS, resolveSubscription,
@@ -113,16 +113,40 @@ const TABS = [
   { id: "details", label: "Org details" },
   { id: "actions", label: "Actions" },
   { id: "usage", label: "Usage" },
+  { id: "members", label: "Add member" },
   { id: "subscription", label: "Subscription" },
 ];
 
-export default function SuperAdminDashboard({ onLogout }) {
-  const [admin, setAdmin] = useState(null);
+/* Shared text input (matched to Admin.jsx) */
+const TextInput = ({ value, onChange, placeholder, type = "text", style: sx }) => (
+  <input
+    type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+    style={{
+      width: "100%", padding: "8px 12px", fontSize: 13, fontFamily: FONT,
+      border: `1px solid ${C.line}`, borderRadius: 8, outline: "none",
+      color: C.dark, background: C.white, boxSizing: "border-box", ...sx,
+    }}
+    onFocus={e => e.target.style.borderColor = C.primary}
+    onBlur={e => e.target.style.borderColor = C.line}
+  />
+);
+
+const Field = ({ label, children }) => (
+  <div style={{ marginBottom: 12 }}>
+    <div style={{ fontSize: 12, fontWeight: 600, color: C.t3, marginBottom: 6 }}>{label}</div>
+    {children}
+  </div>
+);
+
+/* Embedded inside Admin (not a standalone page) — authenticates via the org
+   session token through saFetch; no token/login props, no page chrome. */
+export default function SuperAdminDashboard() {
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const [tab, setTab] = useState("details");
+  const [creating, setCreating] = useState(false);
 
   // Per-tab lazy data for the selected org
   const [activity, setActivity] = useState(null);
@@ -137,11 +161,7 @@ export default function SuperAdminDashboard({ onLogout }) {
     setLoading(true);
     setErr("");
     try {
-      const [v, list] = await Promise.all([
-        superAdminVerify().catch(() => null),
-        saGetOrgs(),
-      ]);
-      if (v?.admin) setAdmin(v.admin);
+      const list = await saGetOrgs();
       const arr = Array.isArray(list) ? list : [];
       setOrgs(arr);
       setSelectedId(prev => prev && arr.some(o => o.id === prev) ? prev : (arr[0]?.id ?? null));
@@ -192,57 +212,31 @@ export default function SuperAdminDashboard({ onLogout }) {
     setTab("details");
   }, [selectedId]);
 
-  const handleLogout = async () => {
-    await superAdminLogout();
-    onLogout?.();
-  };
-
-  // ── Top bar ──
-  const topBar = (
-    <div style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "12px 20px", background: C.white, borderBottom: `1px solid ${C.line}`,
-      position: "sticky", top: 0, zIndex: 5,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: 16, fontWeight: 800, color: C.dark, letterSpacing: -0.3 }}>Grants Engine</span>
-        <span style={{
-          fontSize: 10, fontWeight: 700, color: C.primary, background: C.primarySoft,
-          padding: "2px 8px", borderRadius: 6, textTransform: "uppercase", letterSpacing: 0.5,
-        }}>Super-admin</span>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        {admin && (
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.dark }}>{admin.name}</div>
-            <div style={{ fontSize: 11, color: C.t3 }}>{admin.email}</div>
-          </div>
-        )}
-        <Btn v="ghost" onClick={handleLogout} style={{ fontSize: 12, padding: "6px 14px" }}>Log out</Btn>
-      </div>
-    </div>
-  );
-
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: FONT }}>
-        {topBar}
-        <div style={{ padding: 32, fontSize: 13, color: C.t3 }}>Loading organisations…</div>
-      </div>
+      <div style={{ padding: 32, fontFamily: FONT, fontSize: 13, color: C.t3 }}>Loading organisations…</div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: FONT }}>
-      {topBar}
-
+    <div style={{ fontFamily: FONT }}>
       {err && (
-        <div style={{ margin: 20, padding: "10px 16px", borderRadius: 10, background: C.redSoft, color: C.red, fontSize: 13, fontWeight: 600 }}>
+        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 10, background: C.redSoft, color: C.red, fontSize: 13, fontWeight: 600 }}>
           {err}
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 16, padding: 20, alignItems: "flex-start" }} className="ge-tablet-stack">
+      {/* Create organisation */}
+      <CreateOrgForm
+        open={creating} onOpen={() => setCreating(true)} onCancel={() => setCreating(false)}
+        onCreated={async (newOrg) => {
+          setCreating(false);
+          await loadOrgs();
+          if (newOrg?.id) setSelectedId(newOrg.id);
+        }}
+      />
+
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }} className="ge-tablet-stack">
         {/* ── Left: org list ── */}
         <div style={{ flex: "0 0 320px", maxWidth: 320 }} className="ge-tablet-full">
           <Card style={{ marginBottom: 0 }}>
@@ -297,10 +291,11 @@ export default function SuperAdminDashboard({ onLogout }) {
               {/* Header */}
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
                 <OrgAvatar name={selected.name} logoUrl={selected.logo_url} slug={selected.slug} size={44} radius={10} fontSize={18} />
-                <div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 18, fontWeight: 800, color: C.dark, letterSpacing: -0.3 }}>{selected.name}</div>
                   <div style={{ fontSize: 12, color: C.t3, fontFamily: MONO }}>/{selected.slug}</div>
                 </div>
+                <DeleteOrgControl org={selected} onDeleted={async () => { setSelectedId(null); await loadOrgs(); }} />
               </div>
 
               {/* Mini-tabs */}
@@ -327,6 +322,7 @@ export default function SuperAdminDashboard({ onLogout }) {
               {tab === "details" && <OrgDetailsTab org={selected} />}
               {tab === "actions" && <ActionsTab activity={activity} loading={tabLoading} />}
               {tab === "usage" && <UsageTab usage={usage} sessions={sessions} loading={tabLoading} />}
+              {tab === "members" && <AddMemberTab org={selected} />}
               {tab === "subscription" && (
                 <SubscriptionTab org={selected} onSaved={loadOrgs} />
               )}
@@ -335,6 +331,188 @@ export default function SuperAdminDashboard({ onLogout }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/* ════ Create organisation form ════ */
+const ROLE_OPTIONS = [
+  { id: "director", label: "Admin" },
+  { id: "board", label: "Board" },
+  { id: "hop", label: "Head of Programmes" },
+  { id: "pm", label: "Programme Manager" },
+];
+
+const selectStyleBase = {
+  width: "100%", padding: "8px 12px", fontSize: 13, fontFamily: FONT,
+  border: `1px solid ${C.line}`, borderRadius: 8, outline: "none",
+  color: C.dark, background: C.white, cursor: "pointer", boxSizing: "border-box",
+};
+
+// Auto-slugify a name → lowercase, hyphenated, alnum only.
+const slugify = (s) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+function CreateOrgForm({ open, onOpen, onCancel, onCreated }) {
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [website, setWebsite] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [country, setCountry] = useState("");
+  const [currency, setCurrency] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const reset = () => {
+    setName(""); setSlug(""); setSlugTouched(false);
+    setWebsite(""); setIndustry(""); setCountry(""); setCurrency(""); setMsg("");
+  };
+
+  if (!open) {
+    return (
+      <Card>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <Label style={{ marginBottom: 2 }}>Provisioning</Label>
+            <div style={{ fontSize: 12, color: C.t3 }}>Create a new organisation on the platform.</div>
+          </div>
+          <Btn v="primary" onClick={onOpen} style={{ fontSize: 12, padding: "6px 14px" }}>+ Create organisation</Btn>
+        </div>
+      </Card>
+    );
+  }
+
+  const submit = async () => {
+    setBusy(true); setMsg("");
+    try {
+      const body = { name: name.trim(), slug: (slug || slugify(name)).trim() };
+      if (website.trim()) body.website = website.trim();
+      if (industry.trim()) body.industry = industry.trim();
+      if (country.trim()) body.country = country.trim();
+      if (currency.trim()) body.currency = currency.trim();
+      const created = await saCreateOrg(body);
+      reset();
+      await onCreated?.(created);
+    } catch (ex) {
+      setMsg(`Error: ${ex.message || "Create failed"}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card>
+      <Label>Create organisation</Label>
+      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+        <Field label="Name *">
+          <TextInput value={name} onChange={v => { setName(v); if (!slugTouched) setSlug(slugify(v)); }} placeholder="Acme Foundation" />
+        </Field>
+        <Field label="Slug *">
+          <TextInput value={slug} onChange={v => { setSlug(slugify(v)); setSlugTouched(true); }} placeholder="acme-foundation" />
+        </Field>
+        <Field label="Website"><TextInput value={website} onChange={setWebsite} placeholder="https://…" /></Field>
+        <Field label="Industry"><TextInput value={industry} onChange={setIndustry} placeholder="Education" /></Field>
+        <Field label="Country"><TextInput value={country} onChange={setCountry} placeholder="South Africa" /></Field>
+        <Field label="Currency"><TextInput value={currency} onChange={setCurrency} placeholder="ZAR" /></Field>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>
+        <Btn v="primary" onClick={submit} disabled={busy || !name.trim() || !(slug || slugify(name))} style={{ fontSize: 13, padding: "8px 18px" }}>
+          {busy ? "Creating…" : "Create"}
+        </Btn>
+        <Btn v="ghost" onClick={() => { reset(); onCancel?.(); }} disabled={busy} style={{ fontSize: 13, padding: "8px 18px" }}>Cancel</Btn>
+        {msg && <span style={{ fontSize: 12, fontWeight: 600, color: msg.startsWith("Error") ? C.red : C.ok }}>{msg}</span>}
+      </div>
+    </Card>
+  );
+}
+
+/* ════ Delete organisation (guarded) ════ */
+function DeleteOrgControl({ org, onDeleted }) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  // Reset confirm state when the selected org changes.
+  useEffect(() => { setConfirming(false); setErr(""); }, [org.id]);
+
+  const del = async () => {
+    setBusy(true); setErr("");
+    try {
+      await saDeleteOrg(org.id);
+      await onDeleted?.();
+    } catch (ex) {
+      setErr(ex.message || "Delete failed");
+      setBusy(false);
+    }
+  };
+
+  if (!confirming) {
+    return (
+      <Btn v="ghost" onClick={() => setConfirming(true)}
+        style={{ fontSize: 12, padding: "6px 14px", color: C.red, whiteSpace: "nowrap", flexShrink: 0 }}>
+        Delete org
+      </Btn>
+    );
+  }
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+      {err && <span style={{ fontSize: 11, color: C.red, fontWeight: 600 }}>{err}</span>}
+      <span style={{ fontSize: 12, fontWeight: 600, color: C.red }}>Delete {org.name}?</span>
+      <Btn v="danger" onClick={del} disabled={busy} style={{ fontSize: 11, padding: "4px 10px" }}>
+        {busy ? "Deleting…" : "Yes, delete"}
+      </Btn>
+      <Btn v="ghost" onClick={() => setConfirming(false)} disabled={busy} style={{ fontSize: 11, padding: "4px 10px" }}>Cancel</Btn>
+    </div>
+  );
+}
+
+/* ════ Tab: Add member ════ */
+function AddMemberTab({ org }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("pm");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  // Clear the form when switching org.
+  useEffect(() => { setName(""); setEmail(""); setRole("pm"); setMsg(""); }, [org.id]);
+
+  const submit = async () => {
+    setBusy(true); setMsg("");
+    try {
+      const body = { name: name.trim(), role };
+      if (email.trim()) body.email = email.trim();
+      await saAddMember(org.id, body);
+      setName(""); setEmail(""); setRole("pm");
+      setMsg(`Added — a setup email was sent${email.trim() ? ` to ${email.trim()}` : ""}.`);
+    } catch (ex) {
+      setMsg(`Error: ${ex.message || "Failed to add member"}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card>
+      <Label>Add member to {org.name}</Label>
+      <div style={{ fontSize: 12, color: C.t3, marginBottom: 12 }}>
+        The new member receives an email with a link to set their password.
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+        <Field label="Name *"><TextInput value={name} onChange={setName} placeholder="Full name" /></Field>
+        <Field label="Email"><TextInput value={email} onChange={setEmail} placeholder="name@org.com" type="email" /></Field>
+        <Field label="Role">
+          <select value={role} onChange={e => setRole(e.target.value)} style={selectStyleBase}>
+            {ROLE_OPTIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+        </Field>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
+        <Btn v="primary" onClick={submit} disabled={busy || !name.trim()} style={{ fontSize: 13, padding: "8px 18px" }}>
+          {busy ? "Adding…" : "Add member"}
+        </Btn>
+        {msg && <span style={{ fontSize: 12, fontWeight: 600, color: msg.startsWith("Error") ? C.red : C.ok }}>{msg}</span>}
+      </div>
+    </Card>
   );
 }
 

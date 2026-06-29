@@ -615,32 +615,22 @@ export const submitAutofill = async (jobId) => {
   return res.json();
 };
 
-// ── Super Admin (platform-level, separate token from org auth) ──
-// Stored under a distinct localStorage key so it never collides with the
-// org-scoped token. saFetch prepends /api/superadmin and never touches _slug.
+// ── Super Admin (platform-level) ──
+// A super-admin is a normal org member whose email is registered server-side in
+// super_admins. These endpoints authenticate with the SAME org session token as
+// every other call (the server 403s unless the member is a super-admin). saFetch
+// prepends /api/superadmin and never touches _slug.
 
-let _saToken = localStorage.getItem('ge_sa_token');
-
-const setSaToken = (token) => {
-  _saToken = token;
-  if (token) localStorage.setItem('ge_sa_token', token);
-  else localStorage.removeItem('ge_sa_token');
-};
-
-export const saGetToken = () => _saToken;
-export const saIsLoggedIn = () => !!_saToken;
-
-// Fetch wrapper for super-admin endpoints. Prepends /api/superadmin, attaches the
-// super-admin bearer token + JSON content-type, and throws friendly errors.
 const saFetch = async (path, opts = {}) => {
   const headers = { ...opts.headers };
   if (!(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
-  if (_saToken) headers['Authorization'] = `Bearer ${_saToken}`;
+  if (_token) headers['Authorization'] = `Bearer ${_token}`;
 
   const res = await fetch(`/api/superadmin${path}`, { ...opts, headers });
 
   if (res.status === 401) {
-    setSaToken(null);
+    setAuth(null, null);
+    window.location.reload();
     throw new Error('Session expired');
   }
   if (!res.ok && !opts._skipOkCheck) {
@@ -653,34 +643,6 @@ const saFetch = async (path, opts = {}) => {
     throw new Error(msg);
   }
   return res;
-};
-
-export const superAdminLogin = async (email, password) => {
-  const res = await fetch('/api/superadmin/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!res.ok) {
-    let msg = 'Login failed';
-    try { const err = await res.json(); msg = err.error || msg; } catch { /* ignore */ }
-    throw new Error(msg);
-  }
-  const data = await res.json();
-  setSaToken(data.token);
-  return data;
-};
-
-export const superAdminLogout = async () => {
-  try {
-    await saFetch('/logout', { method: 'POST', _skipOkCheck: true });
-  } catch { /* ignore */ }
-  setSaToken(null);
-};
-
-export const superAdminVerify = async () => {
-  const res = await saFetch('/verify');
-  return res.json();
 };
 
 export const saGetOrgs = async () => {
@@ -708,6 +670,23 @@ export const saSetSubscription = async (orgId, body) => {
     method: 'PUT',
     body: JSON.stringify(body),
   });
+  return res.json();
+};
+
+// Provision a new organisation. body: { name, slug, website?, industry?, country?, currency? }
+export const saCreateOrg = async (body) => {
+  const res = await saFetch('/orgs', { method: 'POST', body: JSON.stringify(body) });
+  return res.json();
+};
+
+// Add a member to an org (server emails them a setup link). body: { name, email?, role? }
+export const saAddMember = async (orgId, body) => {
+  const res = await saFetch(`/orgs/${orgId}/members`, { method: 'POST', body: JSON.stringify(body) });
+  return res.json();
+};
+
+export const saDeleteOrg = async (orgId) => {
+  const res = await saFetch(`/orgs/${orgId}`, { method: 'DELETE' });
   return res.json();
 };
 

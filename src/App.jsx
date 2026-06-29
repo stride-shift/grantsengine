@@ -15,7 +15,6 @@ import SubscriptionBanner from "@/components/subscription/SubscriptionBanner";
 import useDataLoad from "./hooks/useDataLoad";
 import useSession from "./hooks/useSession";
 import useRouting from "./hooks/useRouting";
-import { saIsLoggedIn } from "./api";
 import usePipelineHygiene from "./hooks/usePipelineHygiene";
 
 import OrgSelector from "@/components/auth/OrgSelector";
@@ -256,8 +255,6 @@ const Settings = lazy(() => import("@/components/settings/Settings"));
 const Admin = lazy(() => import("@/components/settings/Admin"));
 const Vetting = lazy(() => import("@/components/pipeline/Vetting"));
 const ResourcesHub = lazy(() => import("@/components/resources/ResourcesHub"));
-const SuperAdminLogin = lazy(() => import("@/components/superadmin/SuperAdminLogin"));
-const SuperAdminDashboard = lazy(() => import("@/components/superadmin/SuperAdminDashboard"));
 
 injectFonts();
 
@@ -316,8 +313,6 @@ function AppInner() {
   const [stages, setStages] = useState(DEFAULT_STAGES);
   const [funderTypes, setFunderTypes] = useState(DEFAULT_FTYPES);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  // Super-admin console auth (separate token); local state so login/logout re-renders.
-  const [saAuthed, setSaAuthed] = useState(saIsLoggedIn());
   // Global search — sidebar input that surfaces any grant by funder, name, notes, type
   const [globalQ, setGlobalQ] = useState("");
   const { complianceDocs, setComplianceDocs, upsertCompDoc } = useComplianceDocs(toast);
@@ -401,23 +396,11 @@ function AppInner() {
 
   // ── Render ──
 
-  // Hidden super-admin platform console — reached only via the unlinked ?superadmin
-  // URL. Uses a separate super-admin token; logging in/out flips saAuthed to re-render.
-  if (new URLSearchParams(window.location.search).get("superadmin")) {
-    return (
-      <Suspense fallback={<div style={{ minHeight: "100vh", background: C.bg }} />}>
-        {saAuthed
-          ? <SuperAdminDashboard onLogout={() => setSaAuthed(false)} />
-          : <SuperAdminLogin onAuthed={() => setSaAuthed(true)} />}
-      </Suspense>
-    );
-  }
-
   // Login screens render ONLY when not authenticated — a successful login (authed)
   // always proceeds to the app, so a stale selectingOrg/loggingIn flag can never
   // surface the org picker over a signed-in session. Primary path is email login;
-  // the org/member picker is a dormant fallback (reached only on logout / via the
-  // ?superadmin route); loggingIn also serves the password-reset deep-link (it
+  // the org/member picker is a dormant fallback (reached only on logout);
+  // loggingIn also serves the password-reset deep-link (it
   // defaults true when ?reset= is present).
   if (!authed && selectingOrg) {
     return <OrgSelector onSelect={handleOrgSelect} />;
@@ -537,7 +520,7 @@ function AppInner() {
 
         {/* Nav items */}
         <div style={{ flex: 1, padding: "14px 10px" }}>
-          {[...SIDEBAR_ITEMS, ...(currentMember?.role === "director" ? [{ id: "admin", label: "Admin", icon: "\u25CA" }] : [])].map(item => {
+          {[...SIDEBAR_ITEMS, ...((currentMember?.role === "director" || currentMember?.isSuperAdmin) ? [{ id: "admin", label: "Admin", icon: "\u25CA" }] : [])].map(item => {
             const active = !sel && view === item.id;
             return (
               <button key={item.id}
@@ -735,7 +718,7 @@ function AppInner() {
             onLogout={handleLogout}
             onLaunchTour={setActiveTour}
           />
-        ) : view === "admin" && currentMember?.role === "director" ? (
+        ) : view === "admin" && (currentMember?.role === "director" || currentMember?.isSuperAdmin) ? (
           <Admin org={org} team={team} grants={grants} currentMember={currentMember} onSaveGrant={saveGrant} onSetGrants={setGrants} onTeamChanged={async () => {
             try { const t = await getTeam(); setTeam(t); } catch (e) { console.error("Team refresh failed:", e); }
           }} />
