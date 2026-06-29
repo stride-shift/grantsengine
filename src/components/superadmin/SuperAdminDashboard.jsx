@@ -4,7 +4,7 @@ import { Btn, Label } from "@/components/ui";
 import { OrgAvatar } from "@/components/auth/OrgSelector";
 import {
   saGetOrgs, saGetOrgActivity, saGetOrgSessions, saGetOrgUsage, saSetSubscription,
-  saCreateOrg, saAddMember, saDeleteOrg,
+  saCreateOrg, saAddMember, saDeleteOrg, saCreateAdmin,
 } from "@/api";
 import {
   PLAN_LABELS, STATUS_LABELS, resolveSubscription,
@@ -342,6 +342,14 @@ const ROLE_OPTIONS = [
   { id: "pm", label: "Programme Manager" },
 ];
 
+// Platform access level — separate axis from org role. Controls super-admin
+// reach (super_admin), the Admin page (admin), or standard access (user).
+const ACCESS_LEVEL_OPTIONS = [
+  { id: "user", label: "User" },
+  { id: "admin", label: "Admin" },
+  { id: "super_admin", label: "Super admin" },
+];
+
 const selectStyleBase = {
   width: "100%", padding: "8px 12px", fontSize: 13, fontFamily: FONT,
   border: `1px solid ${C.line}`, borderRadius: 8, outline: "none",
@@ -470,19 +478,20 @@ function AddMemberTab({ org }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("pm");
+  const [accessLevel, setAccessLevel] = useState("user");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
   // Clear the form when switching org.
-  useEffect(() => { setName(""); setEmail(""); setRole("pm"); setMsg(""); }, [org.id]);
+  useEffect(() => { setName(""); setEmail(""); setRole("pm"); setAccessLevel("user"); setMsg(""); }, [org.id]);
 
   const submit = async () => {
     setBusy(true); setMsg("");
     try {
-      const body = { name: name.trim(), role };
+      const body = { name: name.trim(), role, accessLevel };
       if (email.trim()) body.email = email.trim();
       await saAddMember(org.id, body);
-      setName(""); setEmail(""); setRole("pm");
+      setName(""); setEmail(""); setRole("pm"); setAccessLevel("user");
       setMsg(`Added — a setup email was sent${email.trim() ? ` to ${email.trim()}` : ""}.`);
     } catch (ex) {
       setMsg(`Error: ${ex.message || "Failed to add member"}`);
@@ -492,23 +501,73 @@ function AddMemberTab({ org }) {
   };
 
   return (
+    <>
+      <Card>
+        <Label>Add member to {org.name}</Label>
+        <div style={{ fontSize: 12, color: C.t3, marginBottom: 12 }}>
+          The new member receives an email with a link to set their password.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+          <Field label="Name *"><TextInput value={name} onChange={setName} placeholder="Full name" /></Field>
+          <Field label="Email"><TextInput value={email} onChange={setEmail} placeholder="name@org.com" type="email" /></Field>
+          <Field label="Org role">
+            <select value={role} onChange={e => setRole(e.target.value)} style={selectStyleBase}>
+              {ROLE_OPTIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+            </select>
+          </Field>
+          <Field label="Access level">
+            <select value={accessLevel} onChange={e => setAccessLevel(e.target.value)} style={selectStyleBase}>
+              {ACCESS_LEVEL_OPTIONS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+            </select>
+          </Field>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
+          <Btn v="primary" onClick={submit} disabled={busy || !name.trim()} style={{ fontSize: 13, padding: "8px 18px" }}>
+            {busy ? "Adding…" : "Add member"}
+          </Btn>
+          {msg && <span style={{ fontSize: 12, fontWeight: 600, color: msg.startsWith("Error") ? C.red : C.ok }}>{msg}</span>}
+        </div>
+      </Card>
+
+      <CreateAdminForm />
+    </>
+  );
+}
+
+/* ════ Create standalone super-admin (no org) ════ */
+function CreateAdminForm() {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const submit = async () => {
+    setBusy(true); setMsg("");
+    try {
+      const res = await saCreateAdmin({ email: email.trim(), name: name.trim() });
+      setEmail(""); setName("");
+      setMsg(res?.message || `Super-admin created for ${res?.email || "the address"}.`);
+    } catch (ex) {
+      setMsg(`Error: ${ex.message || "Failed to create super-admin"}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
     <Card>
-      <Label>Add member to {org.name}</Label>
+      <Label>Create super-admin (no org)</Label>
       <div style={{ fontSize: 12, color: C.t3, marginBottom: 12 }}>
-        The new member receives an email with a link to set their password.
+        Creates a standalone platform super-admin not tied to any organisation.
+        They set their password via the create-superadmin.js server script.
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-        <Field label="Name *"><TextInput value={name} onChange={setName} placeholder="Full name" /></Field>
-        <Field label="Email"><TextInput value={email} onChange={setEmail} placeholder="name@org.com" type="email" /></Field>
-        <Field label="Role">
-          <select value={role} onChange={e => setRole(e.target.value)} style={selectStyleBase}>
-            {ROLE_OPTIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
-          </select>
-        </Field>
+        <Field label="Email *"><TextInput value={email} onChange={setEmail} placeholder="admin@platform.com" type="email" /></Field>
+        <Field label="Name"><TextInput value={name} onChange={setName} placeholder="Full name" /></Field>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
-        <Btn v="primary" onClick={submit} disabled={busy || !name.trim()} style={{ fontSize: 13, padding: "8px 18px" }}>
-          {busy ? "Adding…" : "Add member"}
+        <Btn v="primary" onClick={submit} disabled={busy || !email.trim()} style={{ fontSize: 13, padding: "8px 18px" }}>
+          {busy ? "Creating…" : "Create super-admin"}
         </Btn>
         {msg && <span style={{ fontSize: 12, fontWeight: 600, color: msg.startsWith("Error") ? C.red : C.ok }}>{msg}</span>}
       </div>

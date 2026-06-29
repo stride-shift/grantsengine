@@ -616,19 +616,72 @@ export const submitAutofill = async (jobId) => {
 };
 
 // ── Super Admin (platform-level) ──
-// A super-admin is a normal org member whose email is registered server-side in
-// super_admins. These endpoints authenticate with the SAME org session token as
-// every other call (the server 403s unless the member is a super-admin). saFetch
-// prepends /api/superadmin and never touches _slug.
+// A super-admin is EITHER a standalone platform account (dedicated super-admin
+// session token, stored under `ge_sa_token`) OR a normal org member whose email is
+// registered server-side in super_admins. The backend's requireSuperAdmin accepts
+// BOTH a super-admin session token and an org session token whose member is a
+// super-admin. saFetch sends the dedicated super-admin token when one is present
+// (standalone ?superadmin console), otherwise falls back to the org session token
+// (embedded Admin sub-tab). It prepends /api/superadmin and never touches _slug.
+
+let _saToken = localStorage.getItem('ge_sa_token');
+export const getSaToken = () => _saToken;
+export const setSaToken = (t) => {
+  _saToken = t;
+  if (t) localStorage.setItem('ge_sa_token', t);
+  else localStorage.removeItem('ge_sa_token');
+};
+export const saIsLoggedIn = () => !!_saToken;
+
+// Standalone super-admin login → stores a dedicated super-admin session token.
+export const superAdminLogin = async (email, password) => {
+  const res = await fetch('/api/superadmin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Login failed');
+  }
+  const data = await res.json();
+  setSaToken(data.token);
+  return data;
+};
+
+export const superAdminLogout = async () => {
+  try {
+    if (_saToken) {
+      await fetch('/api/superadmin/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${_saToken}` },
+      });
+    }
+  } catch { /* best-effort */ }
+  setSaToken(null);
+};
+
+export const superAdminVerify = async () => {
+  const res = await saFetch('/verify');
+  return res.json();
+};
 
 const saFetch = async (path, opts = {}) => {
   const headers = { ...opts.headers };
   if (!(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
-  if (_token) headers['Authorization'] = `Bearer ${_token}`;
+  const tok = _saToken || _token;
+  if (tok) headers['Authorization'] = `Bearer ${tok}`;
 
   const res = await fetch(`/api/superadmin${path}`, { ...opts, headers });
 
   if (res.status === 401) {
+    // A dead super-admin token shouldn't nuke the org session; clear only the SA
+    // token in that case. Otherwise fall back to the org-session expiry handling.
+    if (_saToken) {
+      setSaToken(null);
+      window.location.reload();
+      throw new Error('Session expired');
+    }
     setAuth(null, null);
     window.location.reload();
     throw new Error('Session expired');
@@ -679,9 +732,18 @@ export const saCreateOrg = async (body) => {
   return res.json();
 };
 
-// Add a member to an org (server emails them a setup link). body: { name, email?, role? }
+// Add a member to an org (server emails them a setup link).
+// body: { name, email?, role?, accessLevel? } — accessLevel ∈ super_admin|admin|user.
 export const saAddMember = async (orgId, body) => {
   const res = await saFetch(`/orgs/${orgId}/members`, { method: 'POST', body: JSON.stringify(body) });
+  return res.json();
+};
+
+// Create a standalone super-admin (no org). body: { email, name }. Returns
+// { ok, email, message } — the message explains how to set the password (via the
+// create-superadmin.js server script). 409 if the email is already a super-admin.
+export const saCreateAdmin = async (body) => {
+  const res = await saFetch('/admins', { method: 'POST', body: JSON.stringify(body) });
   return res.json();
 };
 

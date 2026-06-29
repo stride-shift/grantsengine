@@ -5,6 +5,7 @@ import {
   logout,
   saveGrant,
   getTeam, getProfile, updateProfile as apiUpdateProfile, updateOrg as apiUpdateOrg, checkHealth, api,
+  saIsLoggedIn, superAdminLogout,
 } from "./api";
 import useAI from "./hooks/useAI";
 import useSave from "./hooks/useSave";
@@ -255,6 +256,8 @@ const Settings = lazy(() => import("@/components/settings/Settings"));
 const Admin = lazy(() => import("@/components/settings/Admin"));
 const Vetting = lazy(() => import("@/components/pipeline/Vetting"));
 const ResourcesHub = lazy(() => import("@/components/resources/ResourcesHub"));
+const SuperAdminLogin = lazy(() => import("@/components/superadmin/SuperAdminLogin"));
+const SuperAdminDashboard = lazy(() => import("@/components/superadmin/SuperAdminDashboard"));
 
 injectFonts();
 
@@ -306,6 +309,11 @@ function AppInner() {
   // View/selection state + URL sync (pushState/popstate)
   const { view, sel, setView, setSel } = useRouting({ orgSlug, authed });
 
+  // Standalone super-admin console (reached via ?superadmin). Uses its own
+  // dedicated session token (ge_sa_token) — independent of the org session.
+  const [saAuthed, setSaAuthed] = useState(saIsLoggedIn());
+  const isSuperAdminRoute = new URLSearchParams(window.location.search).get("superadmin") != null;
+
   // ── App state ──
   const [org, setOrg] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -323,6 +331,14 @@ function AppInner() {
   // enabled the per-org read-only lock; by default an expired org just sees a banner.
   const subscription = resolveSubscription(org);
   const readOnly = subscription.readOnlyLock;
+
+  // Admin page visibility is gated by access_level (admin or super_admin), with a
+  // back-compat fallback to the legacy director role + isSuperAdmin flag for
+  // sessions issued before access_level existed.
+  const canSeeAdmin = currentMember?.accessLevel === "admin"
+    || currentMember?.accessLevel === "super_admin"
+    || currentMember?.isSuperAdmin
+    || currentMember?.role === "director";
 
   // Debounced persistence + save-state indicator (cancels pending saves on logout)
   const { saveState, dSave } = useSave(toast, authed);
@@ -395,6 +411,41 @@ function AppInner() {
   };
 
   // ── Render ──
+
+  // Standalone super-admin console — a hidden ?superadmin route, entirely separate
+  // from the org-scoped app. Shows the login when no super-admin token is held,
+  // otherwise a full-page wrapper (top bar + log out) around the dashboard.
+  if (isSuperAdminRoute) {
+    return (
+      <Suspense fallback={
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#030712", color: C.white, fontFamily: FONT }}>Loading…</div>
+      }>
+        {saAuthed ? (
+          <div style={{ minHeight: "100vh", background: C.warm100, fontFamily: FONT }}>
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "12px 24px", background: C.navy, color: C.white,
+            }}>
+              <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: -0.3 }}>Super Admin Console</div>
+              <button
+                onClick={async () => { await superAdminLogout(); setSaAuthed(false); }}
+                style={{
+                  background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
+                  color: C.white, fontSize: 12, fontWeight: 600, fontFamily: FONT,
+                  padding: "6px 14px", borderRadius: 8, cursor: "pointer",
+                }}
+              >Log out</button>
+            </div>
+            <div style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
+              <SuperAdminDashboard />
+            </div>
+          </div>
+        ) : (
+          <SuperAdminLogin onAuthed={() => setSaAuthed(true)} />
+        )}
+      </Suspense>
+    );
+  }
 
   // Login screens render ONLY when not authenticated — a successful login (authed)
   // always proceeds to the app, so a stale selectingOrg/loggingIn flag can never
@@ -520,7 +571,7 @@ function AppInner() {
 
         {/* Nav items */}
         <div style={{ flex: 1, padding: "14px 10px" }}>
-          {[...SIDEBAR_ITEMS, ...((currentMember?.role === "director" || currentMember?.isSuperAdmin) ? [{ id: "admin", label: "Admin", icon: "\u25CA" }] : [])].map(item => {
+          {[...SIDEBAR_ITEMS, ...(canSeeAdmin ? [{ id: "admin", label: "Admin", icon: "\u25CA" }] : [])].map(item => {
             const active = !sel && view === item.id;
             return (
               <button key={item.id}
@@ -718,7 +769,7 @@ function AppInner() {
             onLogout={handleLogout}
             onLaunchTour={setActiveTour}
           />
-        ) : view === "admin" && (currentMember?.role === "director" || currentMember?.isSuperAdmin) ? (
+        ) : view === "admin" && canSeeAdmin ? (
           <Admin org={org} team={team} grants={grants} currentMember={currentMember} onSaveGrant={saveGrant} onSetGrants={setGrants} onTeamChanged={async () => {
             try { const t = await getTeam(); setTeam(t); } catch (e) { console.error("Team refresh failed:", e); }
           }} />
