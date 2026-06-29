@@ -4,6 +4,7 @@ import { Btn, Label, Avatar, RoleBadge } from "@/components/ui";
 import UploadZone from "@/components/ui/UploadZone";
 import { checkHealth, memberSetPassword } from "@/api";
 import { ORG_DOCS } from "@/data/constants";
+import { ORG_TYPES, orgTypeLabel, deriveOrgType } from "@/data/orgType";
 import useOrgBranding from "@/hooks/useOrgBranding";
 import useGcal from "@/hooks/useGcal";
 import useComplianceUploads from "@/hooks/useComplianceUploads";
@@ -498,6 +499,26 @@ export default function Settings({ org, profile, team, currentMember, compliance
           <div>
             <span style={{ fontSize: 11, color: C.t4, fontWeight: 600 }}>Currency</span>
             <div style={{ fontSize: 14, color: C.t2, marginTop: 2 }}>{org?.currency || "ZAR"}</div>
+          </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <span style={{ fontSize: 11, color: C.t4, fontWeight: 600 }}>Organisation type</span>
+            <select
+              value={org?.org_type || ""}
+              onChange={(e) => onUpdateOrg({ org_type: e.target.value || null })}
+              style={{
+                display: "block", marginTop: 4, padding: "7px 10px", fontSize: 13,
+                fontFamily: FONT, color: C.dark, background: C.white,
+                border: `1px solid ${C.line}`, borderRadius: 8, outline: "none", minWidth: 240,
+              }}
+            >
+              <option value="">Auto-detect ({orgTypeLabel(deriveOrgType(org, profile))})</option>
+              {ORG_TYPES.map((t) => (
+                <option key={t.id} value={t.id}>{t.label}</option>
+              ))}
+            </select>
+            <div style={{ fontSize: 11, color: C.t4, marginTop: 4, lineHeight: 1.45 }}>
+              Controls which Resources are shown. Leave on Auto-detect to infer from your details.
+            </div>
           </div>
         </div>
       </div>

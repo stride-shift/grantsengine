@@ -255,7 +255,7 @@ const Admin = lazy(() => import("@/components/settings/Admin"));
 const Calendar = lazy(() => import("@/components/calendar/Calendar"));
 const Vetting = lazy(() => import("@/components/pipeline/Vetting"));
 const DocVault = lazy(() => import("@/components/documents/DocVault"));
-const Freebies = lazy(() => import("@/components/freebies/Freebies"));
+const ResourcesHub = lazy(() => import("@/components/resources/ResourcesHub"));
 const Archive = lazy(() => import("@/components/pipeline/Archive"));
 
 injectFonts();
@@ -281,10 +281,6 @@ const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "\u25A6" },
   { id: "pipeline", label: "Pipeline", icon: "\u25B7" },
   { id: "vetting", label: "Vetting", icon: "\u2714" },
-  { id: "calendar", label: "Calendar", icon: "\u25CB" },
-  { id: "docs", label: "Documents", icon: "\u25A1" },
-  { id: "funders", label: "Funders", icon: "\u2661" },
-  { id: "archive", label: "Archive", icon: "\u25a4" },
   { id: "resources", label: "Resources", icon: "\u2606" },
   { id: "settings", label: "Settings", icon: "\u2699" },
 ];
@@ -709,7 +705,18 @@ function AppInner() {
             onSelectGrant={(id) => setSel(id)}
           />
         ) : view === "resources" ? (
-          <Freebies />
+          <ResourcesHub
+            org={org}
+            profile={profile}
+            grants={grants}
+            team={team}
+            stages={stages}
+            complianceDocs={complianceDocs}
+            currentMember={currentMember}
+            onSelectGrant={(id) => setSel(id)}
+            onNavigate={(v) => { setSel(null); setView(v); }}
+            onLaunchTour={setActiveTour}
+          />
         ) : view === "settings" ? (
           <Settings
             org={org}

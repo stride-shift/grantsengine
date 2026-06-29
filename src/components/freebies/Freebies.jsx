@@ -1,41 +1,52 @@
 import { useState, useMemo } from "react";
 import { C, FONT } from "@/theme";
 import { FREEBIES, FREEBIE_CATEGORIES } from "@/data/freebies";
+import { orgTypeLabel } from "@/data/orgType";
 
-/* Nonprofit resources / freebies directory.
+/* Resources / freebies directory, tailored to the org's type.
  *
- * Static curated list from data/freebies.js. Filter by category, search by name.
- * The list isn't an exhaustive catalogue — it's the things NPOs in this kind of
- * org actually use. Edit data/freebies.js to keep it current.
+ * Static curated list from data/freebies.js. `orgType` filters the list so a
+ * corporate org isn't shown NGO-only offers; entries without `orgTypes` are
+ * universal. Filter by category, search by name. Edit data/freebies.js to keep
+ * it current.
  */
 
-export default function Freebies() {
+export default function Freebies({ orgType }) {
   const [cat, setCat] = useState("all");
   const [q, setQ] = useState("");
 
+  // Org-type gate: universal entries (no orgTypes) always show; otherwise the
+  // resolved org type must be listed. Unknown type → show everything.
+  const applicable = useMemo(
+    () => FREEBIES.filter(f => !f.orgTypes || !orgType || f.orgTypes.includes(orgType)),
+    [orgType]
+  );
+
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
-    return FREEBIES.filter(f => {
+    return applicable.filter(f => {
       if (cat !== "all" && f.category !== cat) return false;
       if (!query) return true;
       const hay = `${f.name} ${f.offer} ${f.eligibility} ${f.notes}`.toLowerCase();
       return hay.includes(query);
     });
-  }, [cat, q]);
+  }, [applicable, cat, q]);
 
   const counts = useMemo(() => {
-    const c = { all: FREEBIES.length };
-    for (const f of FREEBIES) c[f.category] = (c[f.category] || 0) + 1;
+    const c = { all: applicable.length };
+    for (const f of applicable) c[f.category] = (c[f.category] || 0) + 1;
     return c;
-  }, []);
+  }, [applicable]);
 
   return (
     <div style={{ padding: "24px 32px", fontFamily: FONT, maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ marginBottom: 18 }}>
-        <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, letterSpacing: -0.4 }}>Nonprofit resources</div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: C.dark, letterSpacing: -0.4 }}>
+          {orgType ? `Resources for ${orgTypeLabel(orgType)}` : "Resources"}
+        </div>
         <div style={{ fontSize: 13, color: C.t3, marginTop: 4, lineHeight: 1.5 }}>
-          Curated freebies, discounts, and ad grants for verified nonprofits.
-          Apply where eligible — most require proof of NPO/PBO registration.
+          Curated freebies, discounts, and credits matched to your organisation type.
+          Apply where eligible — check each provider's requirements before applying.
         </div>
       </div>
 

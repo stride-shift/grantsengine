@@ -254,6 +254,9 @@ CREATE INDEX IF NOT EXISTS idx_prt_member ON password_reset_tokens(member_id);
 ALTER TABLE orgs ADD COLUMN IF NOT EXISTS primary_color TEXT;
 ALTER TABLE orgs ADD COLUMN IF NOT EXISTS primary_dark TEXT;
 ALTER TABLE orgs ADD COLUMN IF NOT EXISTS accent_color TEXT;
+-- Org type drives the Resources tab (which freebies/credits show). Inferred from
+-- org details when unset; can be overridden in Settings. See src/data/orgType.js.
+ALTER TABLE orgs ADD COLUMN IF NOT EXISTS org_type TEXT;
 
 -- ═══ Auto-Fill Jobs (for Playwright form-filling) ═══
 CREATE TABLE IF NOT EXISTS autofill_jobs (
