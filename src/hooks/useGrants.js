@@ -18,14 +18,26 @@ import { CAD } from "@/data/constants";
  * Mutations are intentionally NOT memoised (recreated each render, reading the
  * latest stages/team/dSave) — matching the original inline behaviour.
  *
- * @param deps { stages, team, dSave, toast }
+ * When `readOnly` is set (org's subscription expired AND a super-admin enabled the
+ * read-only lock), all mutations no-op with an explanatory toast — viewing still
+ * works.
+ *
+ * @param deps { stages, team, dSave, toast, readOnly }
  * @returns { grants, setGrants, updateGrant, addGrant, deleteGrant }
  */
-export default function useGrants({ stages = [], team = [], dSave, toast } = {}) {
+export default function useGrants({ stages = [], team = [], dSave, toast, readOnly = false } = {}) {
   const [grants, setGrants] = useState([]);
   const pendingDeletes = useRef({});
 
+  // Subscription read-only lock: block writes, keep reads.
+  const blockedByReadOnly = () => {
+    if (!readOnly) return false;
+    toast?.("Read-only — your subscription has expired. Upgrade to make changes.", { type: "warning", duration: 4000 });
+    return true;
+  };
+
   const updateGrant = (id, updates) => {
+    if (blockedByReadOnly()) return;
     setGrants(prev => {
       const old = prev.find(g => g.id === id);
       if (!old) return prev;
@@ -84,6 +96,7 @@ export default function useGrants({ stages = [], team = [], dSave, toast } = {})
   };
 
   const addGrant = async (grant) => {
+    if (blockedByReadOnly()) return;
     const g = { ...grant, id: grant.id || uid() };
     setGrants(prev => [...prev, g]);
     try {
@@ -97,6 +110,7 @@ export default function useGrants({ stages = [], team = [], dSave, toast } = {})
   };
 
   const deleteGrant = (id) => {
+    if (blockedByReadOnly()) return;
     const backup = grants.find(g => g.id === id);
     if (!backup) return;
     setGrants(prev => prev.filter(g => g.id !== id));

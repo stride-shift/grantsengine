@@ -10,6 +10,8 @@ import useAI from "./hooks/useAI";
 import useSave from "./hooks/useSave";
 import useComplianceDocs from "./hooks/useComplianceDocs";
 import useGrants from "./hooks/useGrants";
+import { resolveSubscription } from "@/data/subscription";
+import SubscriptionBanner from "@/components/subscription/SubscriptionBanner";
 import useDataLoad from "./hooks/useDataLoad";
 import useSession from "./hooks/useSession";
 import useRouting from "./hooks/useRouting";
@@ -317,10 +319,15 @@ function AppInner() {
   // Phase 12: which tour (if any) is currently running. null = no tour.
   const [activeTour, setActiveTour] = useState(null);
 
+  // Subscription state (manual billing). readOnly = trial expired AND a super-admin
+  // enabled the per-org read-only lock; by default an expired org just sees a banner.
+  const subscription = resolveSubscription(org);
+  const readOnly = subscription.readOnlyLock;
+
   // Debounced persistence + save-state indicator (cancels pending saves on logout)
   const { saveState, dSave } = useSave(toast, authed);
   // Grants collection + mutations (auto-log, auto-followups, optimistic add/delete+undo)
-  const { grants, setGrants, updateGrant, addGrant, deleteGrant } = useGrants({ stages, team, dSave, toast });
+  const { grants, setGrants, updateGrant, addGrant, deleteGrant } = useGrants({ stages, team, dSave, toast, readOnly });
   // Initial workspace load after auth (fetch + migrate + apply to state)
   const { loading } = useDataLoad({ authed, setOrg, setProfile, setTeam, setStages, setFunderTypes, setComplianceDocs, setGrants, dSave, toast });
 
@@ -361,7 +368,7 @@ function AppInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel, currentMember?.id]);
 
-  const { runAI, clearUploadsCache } = useAI({ org, profile, team, grants, stages });
+  const { runAI, clearUploadsCache } = useAI({ org, profile, team, grants, stages, readOnly });
 
   // Background hygiene: 4 silent passes (sanitize/dedupe/URL/brief), once per member+version
   usePipelineHygiene({ grants, runAI, currentMember, setGrants, dSave, toast });
@@ -599,6 +606,9 @@ function AppInner() {
 
       {/* Main content */}
       <div className="ge-main" style={{ flex: 1, overflow: "auto", background: C.bg, marginLeft: 240 }}>
+        <div style={{ position: "sticky", top: 0, zIndex: 20 }}>
+          <SubscriptionBanner subscription={subscription} orgName={org?.name} />
+        </div>
         <ErrorBoundary>
         <Suspense fallback={
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", gap: 10 }}>

@@ -4,7 +4,7 @@ import { funderStrategy, isFunderReturning, detectType, PTYPES } from "../data/f
 import { api, getUploadsContext, getUploadsByCategory, getUploadFull, kvGet } from "../api";
 import { getWritingLearnings } from "../editLearner";
 
-export default function useAI({ org, profile, team, grants, stages }) {
+export default function useAI({ org, profile, team, grants, stages, readOnly = false }) {
   const uploadsCache = useRef({});
   const learningsCache = useRef({ text: null, fetchedAt: 0 });
   const proposalLibraryCache = useRef({ proposals: null, fetchedAt: 0 });
@@ -76,6 +76,9 @@ export default function useAI({ org, profile, team, grants, stages }) {
 
   // ── AI handler (enriched with uploads context + optional prior research) ──
   const runAI = async (type, grant, priorResearch, priorFitScore) => {
+    // Subscription read-only lock: block AI generation, keep everything viewable.
+    if (readOnly) return "Read-only mode — your subscription has expired. Upgrade to generate with AI.";
+
     // Dynamic org identity — used throughout all prompts instead of hardcoded org names
     const orgName = org?.name || "the organisation";
 

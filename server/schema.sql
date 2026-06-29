@@ -258,6 +258,18 @@ ALTER TABLE orgs ADD COLUMN IF NOT EXISTS accent_color TEXT;
 -- org details when unset; can be overridden in Settings. See src/data/orgType.js.
 ALTER TABLE orgs ADD COLUMN IF NOT EXISTS org_type TEXT;
 
+-- ═══ Subscription (manual billing — no payment processor yet) ═══
+-- New orgs get a 1-week free trial via these defaults; a super-admin moves them
+-- onto a paid plan manually. Expiry is derived live from trial_expires_at.
+-- readonly_lock is an opt-in per-org enforcement (default: banner only).
+ALTER TABLE orgs ADD COLUMN IF NOT EXISTS subscription_plan TEXT DEFAULT 'free_week';   -- free_week | monthly | yearly
+ALTER TABLE orgs ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'trial';     -- trial | active | expired | cancelled
+ALTER TABLE orgs ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE orgs ADD COLUMN IF NOT EXISTS trial_expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '7 days';
+ALTER TABLE orgs ADD COLUMN IF NOT EXISTS subscription_period_end TIMESTAMPTZ;
+ALTER TABLE orgs ADD COLUMN IF NOT EXISTS readonly_lock BOOLEAN DEFAULT FALSE;
+ALTER TABLE orgs ADD COLUMN IF NOT EXISTS subscription_updated_at TIMESTAMPTZ;
+
 -- ═══ Auto-Fill Jobs (for Playwright form-filling) ═══
 CREATE TABLE IF NOT EXISTS autofill_jobs (
   id TEXT PRIMARY KEY,

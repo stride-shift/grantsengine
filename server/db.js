@@ -98,7 +98,7 @@ export const getOrgById = async (id) => {
 };
 
 export const getAllOrgs = async () => {
-  const { rows } = await pool().query('SELECT id, slug, name, website, logo_url, industry, country, currency, org_type, setup_phase FROM orgs ORDER BY name');
+  const { rows } = await pool().query('SELECT id, slug, name, website, logo_url, industry, country, currency, org_type, setup_phase, subscription_plan, subscription_status, trial_started_at, trial_expires_at, subscription_period_end, readonly_lock, subscription_updated_at, created_at FROM orgs ORDER BY name');
   return rows;
 };
 
@@ -130,6 +130,24 @@ export const updateOrg = async (id, data) => {
   }
   if (!fields.length) return;
   fields.push('updated_at = NOW()');
+  vals.push(id);
+  await pool().query(`UPDATE orgs SET ${fields.join(', ')} WHERE id = $${i}`, vals);
+};
+
+// Super-admin: set an org's subscription plan/status/period and the read-only lock.
+export const setOrgSubscription = async (id, data) => {
+  const allowed = ['subscription_plan', 'subscription_status', 'subscription_period_end', 'trial_expires_at', 'readonly_lock'];
+  const fields = [];
+  const vals = [];
+  let i = 1;
+  for (const [k, v] of Object.entries(data)) {
+    if (allowed.includes(k)) {
+      fields.push(`${k} = $${i++}`);
+      vals.push(v);
+    }
+  }
+  if (!fields.length) return;
+  fields.push('subscription_updated_at = NOW()');
   vals.push(id);
   await pool().query(`UPDATE orgs SET ${fields.join(', ')} WHERE id = $${i}`, vals);
 };
