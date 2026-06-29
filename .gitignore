@@ -8,5 +8,7 @@ dist/
 .env.save
 .claude/
 mcp.json
+.mcp.json
+/demo/
 playwright-service/node_modules/
 deploy/.cloudsql-password
