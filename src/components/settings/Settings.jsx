@@ -870,7 +870,7 @@ export default function Settings({ org, profile, team, currentMember, compliance
       </div>
 
       {/* Logout */}
-      <Btn onClick={onLogout} v="ghost" style={{ fontSize: 13 }}>Sign Out</Btn>
+      <Btn onClick={onLogout} v="ghost" style={{ fontSize: 13 }}>Log out</Btn>
     </div>
   );
 }

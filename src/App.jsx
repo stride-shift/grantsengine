@@ -391,10 +391,6 @@ function AppInner() {
     resetSession();
   };
 
-  const handleSwitchOrg = () => {
-    resetSession();
-  };
-
   // ── Render ──
 
   // Hidden super-admin org console (create/list/delete) — reached only via the
@@ -587,20 +583,6 @@ function AppInner() {
             </div>
           </div>
           <div style={{ padding: "4px 10px 10px", display: "flex", flexDirection: "column", gap: 1 }}>
-            <button onClick={handleSwitchOrg}
-              style={{
-                display: "flex", alignItems: "center", gap: 8, width: "100%",
-                padding: "7px 12px", border: "none",
-                background: "transparent", color: "rgba(255,255,255,0.4)",
-                fontSize: 12, fontWeight: 500, cursor: "pointer",
-                borderRadius: 8, fontFamily: FONT, textAlign: "left",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "#E2E8F0"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}>
-              <span style={{ fontSize: 13 }}>{"\u21C4"}</span>
-              Switch Organisation
-            </button>
             <button onClick={handleLogout}
               style={{
                 display: "flex", alignItems: "center", gap: 8, width: "100%",
@@ -613,7 +595,7 @@ function AppInner() {
               onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "#E2E8F0"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}>
               <span style={{ fontSize: 13 }}>{"\u21AA"}</span>
-              Sign Out
+              Log out
             </button>
           </div>
         </div>
