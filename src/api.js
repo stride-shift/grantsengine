@@ -739,6 +739,27 @@ export const saAddMember = async (orgId, body) => {
   return res.json();
 };
 
+// List the members of an org (no password_hash; the 'team' placeholder excluded).
+export const saGetMembers = async (orgId) => {
+  const res = await saFetch(`/orgs/${orgId}/members`);
+  return res.json();
+};
+
+// Update a member. body: { name?, email?, role?, accessLevel? }. Returns the
+// updated member (404 if not found / wrong org).
+export const saUpdateMember = async (orgId, memberId, body) => {
+  const res = await saFetch(`/orgs/${orgId}/members/${memberId}`, {
+    method: 'PUT', body: JSON.stringify(body),
+  });
+  return res.json();
+};
+
+// Delete a member. Returns { ok: true }.
+export const saDeleteMember = async (orgId, memberId) => {
+  const res = await saFetch(`/orgs/${orgId}/members/${memberId}`, { method: 'DELETE' });
+  return res.json();
+};
+
 // Create a standalone super-admin (no org). body: { email, name }. Returns
 // { ok, email, message } — the message explains how to set the password (via the
 // create-superadmin.js server script). 409 if the email is already a super-admin.

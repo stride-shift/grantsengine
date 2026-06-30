@@ -5,6 +5,7 @@ import { OrgAvatar } from "@/components/auth/OrgSelector";
 import {
   saGetOrgs, saGetOrgActivity, saGetOrgSessions, saGetOrgUsage, saSetSubscription,
   saCreateOrg, saAddMember, saDeleteOrg, saCreateAdmin,
+  saGetMembers, saUpdateMember, saDeleteMember,
 } from "@/api";
 import {
   PLAN_LABELS, STATUS_LABELS, resolveSubscription,
@@ -113,7 +114,7 @@ const TABS = [
   { id: "details", label: "Org details" },
   { id: "actions", label: "Actions" },
   { id: "usage", label: "Usage" },
-  { id: "members", label: "Add member" },
+  { id: "members", label: "Members" },
   { id: "subscription", label: "Subscription" },
 ];
 
@@ -319,10 +320,10 @@ export default function SuperAdminDashboard() {
                 </Card>
               )}
 
-              {tab === "details" && <OrgDetailsTab org={selected} />}
+              {tab === "details" && <OrgDetailsTab org={selected} onViewMembers={() => setTab("members")} />}
               {tab === "actions" && <ActionsTab activity={activity} loading={tabLoading} />}
               {tab === "usage" && <UsageTab usage={usage} sessions={sessions} loading={tabLoading} />}
-              {tab === "members" && <AddMemberTab org={selected} />}
+              {tab === "members" && <MembersTab org={selected} onChanged={loadOrgs} />}
               {tab === "subscription" && (
                 <SubscriptionTab org={selected} onSaved={loadOrgs} />
               )}
@@ -473,8 +474,205 @@ function DeleteOrgControl({ org, onDeleted }) {
   );
 }
 
-/* ════ Tab: Add member ════ */
-function AddMemberTab({ org }) {
+/* ── Access-level badge ── */
+const ACCESS_STYLE = {
+  user:        { color: C.t2,      bg: C.warm200 },
+  admin:       { color: C.blue,    bg: C.blueSoft },
+  super_admin: { color: C.primary, bg: C.primarySoft },
+};
+const ACCESS_LABEL = { user: "User", admin: "Admin", super_admin: "Super admin" };
+const ROLE_LABEL = Object.fromEntries(ROLE_OPTIONS.map(r => [r.id, r.label]));
+
+const AccessBadge = ({ level }) => {
+  const s = ACCESS_STYLE[level] || ACCESS_STYLE.user;
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+      color: s.color, background: s.bg, whiteSpace: "nowrap",
+    }}>
+      {ACCESS_LABEL[level] || level || "User"}
+    </span>
+  );
+};
+
+/* ════ Tab: Members (list + inline edit + delete + add) ════ */
+function MembersTab({ org, onChanged }) {
+  const [members, setMembers] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true); setErr("");
+    try {
+      const list = await saGetMembers(org.id);
+      setMembers(Array.isArray(list) ? list : []);
+    } catch (ex) {
+      setErr(ex.message || "Failed to load members");
+      setMembers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [org.id]);
+
+  // (Re)fetch when the selected org changes.
+  useEffect(() => { load(); }, [load]);
+
+  // Refresh the list locally and bubble up so the org-list member count updates.
+  const refresh = async () => { await load(); await onChanged?.(); };
+
+  return (
+    <>
+      <Card>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <Label style={{ marginBottom: 0 }}>Members of {org.name}</Label>
+          <span style={{ fontSize: 11, color: C.t4 }}>{members?.length ?? 0}</span>
+        </div>
+
+        {loading || members === null ? (
+          <div style={{ fontSize: 13, color: C.t3, padding: "8px 0" }}>Loading members…</div>
+        ) : err ? (
+          <div style={{ fontSize: 13, color: C.red, fontWeight: 600, padding: "8px 0" }}>{err}</div>
+        ) : members.length === 0 ? (
+          <div style={{ fontSize: 13, color: C.t4, padding: "8px 0" }}>No members yet.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {members.map(m => (
+              <MemberRow key={m.id} org={org} member={m} onChanged={refresh} />
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <AddMemberForm org={org} onAdded={refresh} />
+
+      <CreateAdminForm />
+    </>
+  );
+}
+
+/* ── Single member row with inline edit + delete confirm ── */
+function MemberRow({ org, member, onChanged }) {
+  const [mode, setMode] = useState(null); // null | "edit" | "delete"
+  const [name, setName] = useState(member.name || "");
+  const [email, setEmail] = useState(member.email || "");
+  const [role, setRole] = useState(member.role || "pm");
+  const [accessLevel, setAccessLevel] = useState(member.access_level || "user");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const startEdit = () => {
+    setName(member.name || ""); setEmail(member.email || "");
+    setRole(member.role || "pm"); setAccessLevel(member.access_level || "user");
+    setErr(""); setMode("edit");
+  };
+
+  const cancel = () => { setMode(null); setErr(""); };
+
+  const save = async () => {
+    setBusy(true); setErr("");
+    try {
+      await saUpdateMember(org.id, member.id, {
+        name: name.trim(), email: email.trim(), role, accessLevel,
+      });
+      setMode(null);
+      await onChanged?.();
+    } catch (ex) {
+      setErr(ex.message || "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const del = async () => {
+    setBusy(true); setErr("");
+    try {
+      await saDeleteMember(org.id, member.id);
+      await onChanged?.();
+    } catch (ex) {
+      setErr(ex.message || "Delete failed");
+      setBusy(false);
+    }
+  };
+
+  const active = mode !== null;
+
+  return (
+    <div style={{
+      padding: "10px 12px", borderRadius: 10,
+      background: active ? C.warm100 : "transparent",
+      border: `1px solid ${active ? C.line : "transparent"}`,
+      transition: "background 0.15s",
+    }}>
+      {/* Main row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.dark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {member.name || "—"}
+          </div>
+          <div style={{ fontSize: 11, color: member.email ? C.t3 : C.t4, marginTop: 2 }}>
+            {member.email || "— no email"}
+          </div>
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 600, color: C.t3, whiteSpace: "nowrap" }}>
+          {ROLE_LABEL[member.role] || member.role || "—"}
+        </span>
+        <AccessBadge level={member.access_level} />
+        <div style={{ display: "flex", gap: 6 }}>
+          <Btn v="ghost" onClick={() => mode === "edit" ? cancel() : startEdit()}
+            style={{ fontSize: 11, padding: "4px 10px" }}>
+            {mode === "edit" ? "Close" : "Edit"}
+          </Btn>
+          <Btn v="ghost" onClick={() => setMode(mode === "delete" ? null : "delete")}
+            style={{ fontSize: 11, padding: "4px 10px", color: C.red }}>
+            Delete
+          </Btn>
+        </div>
+      </div>
+
+      {/* Inline editor */}
+      {mode === "edit" && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            <Field label="Name"><TextInput value={name} onChange={setName} placeholder="Full name" /></Field>
+            <Field label="Email"><TextInput value={email} onChange={setEmail} placeholder="name@org.com" type="email" /></Field>
+            <Field label="Org role">
+              <select value={role} onChange={e => setRole(e.target.value)} style={selectStyleBase}>
+                {ROLE_OPTIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Access level">
+              <select value={accessLevel} onChange={e => setAccessLevel(e.target.value)} style={selectStyleBase}>
+                {ACCESS_LEVEL_OPTIONS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+              </select>
+            </Field>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+            <Btn v="primary" onClick={save} disabled={busy || !name.trim()} style={{ fontSize: 12, padding: "6px 14px" }}>
+              {busy ? "Saving…" : "Save"}
+            </Btn>
+            <Btn v="ghost" onClick={cancel} disabled={busy} style={{ fontSize: 12, padding: "6px 14px" }}>Cancel</Btn>
+            {err && <span style={{ fontSize: 12, fontWeight: 600, color: C.red }}>{err}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Inline delete confirm */}
+      {mode === "delete" && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: C.red }}>Remove {member.name || "this member"}?</span>
+          <Btn v="danger" onClick={del} disabled={busy} style={{ fontSize: 11, padding: "4px 10px" }}>
+            {busy ? "Removing…" : "Yes, remove"}
+          </Btn>
+          <Btn v="ghost" onClick={cancel} disabled={busy} style={{ fontSize: 11, padding: "4px 10px" }}>Cancel</Btn>
+          {err && <span style={{ fontSize: 11, fontWeight: 600, color: C.red }}>{err}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ════ Add member form ════ */
+function AddMemberForm({ org, onAdded }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("pm");
@@ -493,6 +691,7 @@ function AddMemberTab({ org }) {
       await saAddMember(org.id, body);
       setName(""); setEmail(""); setRole("pm"); setAccessLevel("user");
       setMsg(`Added — a setup email was sent${email.trim() ? ` to ${email.trim()}` : ""}.`);
+      await onAdded?.();
     } catch (ex) {
       setMsg(`Error: ${ex.message || "Failed to add member"}`);
     } finally {
@@ -501,36 +700,32 @@ function AddMemberTab({ org }) {
   };
 
   return (
-    <>
-      <Card>
-        <Label>Add member to {org.name}</Label>
-        <div style={{ fontSize: 12, color: C.t3, marginBottom: 12 }}>
-          The new member receives an email with a link to set their password.
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-          <Field label="Name *"><TextInput value={name} onChange={setName} placeholder="Full name" /></Field>
-          <Field label="Email"><TextInput value={email} onChange={setEmail} placeholder="name@org.com" type="email" /></Field>
-          <Field label="Org role">
-            <select value={role} onChange={e => setRole(e.target.value)} style={selectStyleBase}>
-              {ROLE_OPTIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
-            </select>
-          </Field>
-          <Field label="Access level">
-            <select value={accessLevel} onChange={e => setAccessLevel(e.target.value)} style={selectStyleBase}>
-              {ACCESS_LEVEL_OPTIONS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
-            </select>
-          </Field>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
-          <Btn v="primary" onClick={submit} disabled={busy || !name.trim()} style={{ fontSize: 13, padding: "8px 18px" }}>
-            {busy ? "Adding…" : "Add member"}
-          </Btn>
-          {msg && <span style={{ fontSize: 12, fontWeight: 600, color: msg.startsWith("Error") ? C.red : C.ok }}>{msg}</span>}
-        </div>
-      </Card>
-
-      <CreateAdminForm />
-    </>
+    <Card>
+      <Label>Add member to {org.name}</Label>
+      <div style={{ fontSize: 12, color: C.t3, marginBottom: 12 }}>
+        The new member receives an email with a link to set their password.
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+        <Field label="Name *"><TextInput value={name} onChange={setName} placeholder="Full name" /></Field>
+        <Field label="Email"><TextInput value={email} onChange={setEmail} placeholder="name@org.com" type="email" /></Field>
+        <Field label="Org role">
+          <select value={role} onChange={e => setRole(e.target.value)} style={selectStyleBase}>
+            {ROLE_OPTIONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+        </Field>
+        <Field label="Access level">
+          <select value={accessLevel} onChange={e => setAccessLevel(e.target.value)} style={selectStyleBase}>
+            {ACCESS_LEVEL_OPTIONS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+          </select>
+        </Field>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
+        <Btn v="primary" onClick={submit} disabled={busy || !name.trim()} style={{ fontSize: 13, padding: "8px 18px" }}>
+          {busy ? "Adding…" : "Add member"}
+        </Btn>
+        {msg && <span style={{ fontSize: 12, fontWeight: 600, color: msg.startsWith("Error") ? C.red : C.ok }}>{msg}</span>}
+      </div>
+    </Card>
   );
 }
 
@@ -576,7 +771,7 @@ function CreateAdminForm() {
 }
 
 /* ════ Tab: Org details ════ */
-function OrgDetailsTab({ org }) {
+function OrgDetailsTab({ org, onViewMembers }) {
   const u = org.usage || {};
   return (
     <Card>
@@ -589,7 +784,12 @@ function OrgDetailsTab({ org }) {
         <Row k="Country" v={org.country} />
         <Row k="Org type" v={org.org_type} />
         <Row k="Created" v={fmtDate(org.created_at)} />
-        <Row k="Members" v={u.members ?? "—"} />
+        <Row k="Members" v={
+          <button onClick={onViewMembers} style={{
+            border: "none", background: "transparent", padding: 0, cursor: "pointer",
+            fontFamily: FONT, fontSize: 13, color: C.primary, fontWeight: 600,
+          }}>{u.members ?? 0} — manage</button>
+        } />
       </div>
     </Card>
   );
