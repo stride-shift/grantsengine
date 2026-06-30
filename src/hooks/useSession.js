@@ -60,6 +60,12 @@ export default function useSession() {
   // already persisted token+slug+member to localStorage; mirror that into state.
   const handleEmailLogin = async (email, password) => {
     const data = await loginWithEmail(email, password);
+    // Standalone super-admin (no org): loginWithEmail already stored the
+    // super-admin token. Don't touch org session state — the caller routes to the
+    // full-page console based on data.superAdmin.
+    if (data?.superAdmin) {
+      return data;
+    }
     setOrgSlug(data.slug || data.org?.slug || null);
     setCurrentMember(data.member || null);
     // Clear any login-screen state so a successful login can't be overridden by a

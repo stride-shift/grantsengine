@@ -131,7 +131,15 @@ export const loginWithEmail = async (email, password) => {
     throw new Error(err.error || 'Login failed');
   }
   const data = await res.json();
-  setAuth(data.token, data.slug || data.org?.slug, data.member);
+  // The unified login route returns EITHER an org-member session OR a standalone
+  // super-admin session. A standalone super-admin has no org: store the dedicated
+  // super-admin token and DON'T open an org session — the caller routes to the
+  // full-page console. Org logins persist token+slug+member as before.
+  if (data.superAdmin) {
+    setSaToken(data.token);
+  } else {
+    setAuth(data.token, data.slug || data.org?.slug, data.member);
+  }
   return data;
 };
 
@@ -633,21 +641,9 @@ export const setSaToken = (t) => {
 };
 export const saIsLoggedIn = () => !!_saToken;
 
-// Standalone super-admin login → stores a dedicated super-admin session token.
-export const superAdminLogin = async (email, password) => {
-  const res = await fetch('/api/superadmin/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'Login failed');
-  }
-  const data = await res.json();
-  setSaToken(data.token);
-  return data;
-};
+// NOTE: The standalone super-admin login route is gone — the unified
+// /api/auth/login (loginWithEmail) now returns a super-admin session for an email
+// that isn't an org member but IS a super-admin, and stores ge_sa_token there.
 
 export const superAdminLogout = async () => {
   try {

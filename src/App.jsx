@@ -256,7 +256,6 @@ const Settings = lazy(() => import("@/components/settings/Settings"));
 const Admin = lazy(() => import("@/components/settings/Admin"));
 const Vetting = lazy(() => import("@/components/pipeline/Vetting"));
 const ResourcesHub = lazy(() => import("@/components/resources/ResourcesHub"));
-const SuperAdminLogin = lazy(() => import("@/components/superadmin/SuperAdminLogin"));
 const SuperAdminDashboard = lazy(() => import("@/components/superadmin/SuperAdminDashboard"));
 
 injectFonts();
@@ -309,10 +308,10 @@ function AppInner() {
   // View/selection state + URL sync (pushState/popstate)
   const { view, sel, setView, setSel } = useRouting({ orgSlug, authed });
 
-  // Standalone super-admin console (reached via ?superadmin). Uses its own
-  // dedicated session token (ge_sa_token) — independent of the org session.
+  // Standalone super-admin console. A super-admin with no org logs in via the
+  // normal email login; loginWithEmail stores a dedicated session token
+  // (ge_sa_token) and we flip saAuthed to render the full-page console below.
   const [saAuthed, setSaAuthed] = useState(saIsLoggedIn());
-  const isSuperAdminRoute = new URLSearchParams(window.location.search).get("superadmin") != null;
 
   // ── App state ──
   const [org, setOrg] = useState(null);
@@ -412,41 +411,6 @@ function AppInner() {
 
   // ── Render ──
 
-  // Standalone super-admin console — a hidden ?superadmin route, entirely separate
-  // from the org-scoped app. Shows the login when no super-admin token is held,
-  // otherwise a full-page wrapper (top bar + log out) around the dashboard.
-  if (isSuperAdminRoute) {
-    return (
-      <Suspense fallback={
-        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#030712", color: C.white, fontFamily: FONT }}>Loading…</div>
-      }>
-        {saAuthed ? (
-          <div style={{ minHeight: "100vh", background: C.warm100, fontFamily: FONT }}>
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "12px 24px", background: C.navy, color: C.white,
-            }}>
-              <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: -0.3 }}>Super Admin Console</div>
-              <button
-                onClick={async () => { await superAdminLogout(); setSaAuthed(false); }}
-                style={{
-                  background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
-                  color: C.white, fontSize: 12, fontWeight: 600, fontFamily: FONT,
-                  padding: "6px 14px", borderRadius: 8, cursor: "pointer",
-                }}
-              >Log out</button>
-            </div>
-            <div style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
-              <SuperAdminDashboard />
-            </div>
-          </div>
-        ) : (
-          <SuperAdminLogin onAuthed={() => setSaAuthed(true)} />
-        )}
-      </Suspense>
-    );
-  }
-
   // Login screens render ONLY when not authenticated — a successful login (authed)
   // always proceeds to the app, so a stale selectingOrg/loggingIn flag can never
   // surface the org picker over a signed-in session. Primary path is email login;
@@ -469,8 +433,46 @@ function AppInner() {
     );
   }
 
+  // Standalone super-admin console — a super-admin with no org session. Reached by
+  // logging in via the normal email login with super-admin credentials (which sets
+  // saAuthed). Full-page wrapper (top bar + log out) around the dashboard. An
+  // org-member super-admin is authed=true and never lands here — they get the
+  // gated "Super Admin" sub-tab inside the normal app instead.
+  if (saAuthed && !authed) {
+    return (
+      <Suspense fallback={
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#030712", color: C.white, fontFamily: FONT }}>Loading…</div>
+      }>
+        <div style={{ minHeight: "100vh", background: C.warm100, fontFamily: FONT }}>
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "12px 24px", background: C.navy, color: C.white,
+          }}>
+            <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: -0.3 }}>Super Admin Console</div>
+            <button
+              onClick={async () => { await superAdminLogout(); setSaAuthed(false); }}
+              style={{
+                background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
+                color: C.white, fontSize: 12, fontWeight: 600, fontFamily: FONT,
+                padding: "6px 14px", borderRadius: 8, cursor: "pointer",
+              }}
+            >Log out</button>
+          </div>
+          <div style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
+            <SuperAdminDashboard />
+          </div>
+        </div>
+      </Suspense>
+    );
+  }
+
   if (!authed) {
-    return <EmailLogin onLogin={handleEmailLogin} />;
+    return (
+      <EmailLogin onLogin={async (e, p) => {
+        const data = await handleEmailLogin(e, p);
+        if (data?.superAdmin) setSaAuthed(true);
+      }} />
+    );
   }
 
   if (loading) {
