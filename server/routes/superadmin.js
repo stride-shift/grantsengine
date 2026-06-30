@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import {
   getAllOrgs, getOrgUsage, getActivityLog, getActiveSessions, getSessionHistory,
   getAgentRuns, setOrgSubscription, createOrg, getOrgBySlug, getOrgById,
-  upsertTeamMember, deleteOrg, createResetToken,
+  getTeamMembers, getMemberById, upsertTeamMember, deleteTeamMember, deleteOrg, createResetToken,
   getSuperAdminByEmail, createSuperAdminSession, deleteSuperAdminSession, createSuperAdmin,
 } from '../db.js';
 import { sendResetEmail } from '../email.js';
@@ -183,6 +183,79 @@ router.post('/superadmin/orgs/:orgId/members', requireSuperAdmin, w(async (req, 
   }
 
   res.status(201).json({ id, name, email: email || null, role: role || 'pm', initials, access_level: level === 'super_admin' ? 'super_admin' : level });
+}));
+
+// ── List an org's members ──
+// Strips password_hash from every row and drops the synthetic `team` placeholder.
+router.get('/superadmin/orgs/:orgId/members', requireSuperAdmin, w(async (req, res) => {
+  const team = await getTeamMembers(req.params.orgId);
+  res.json(
+    team
+      .filter((m) => m.id !== 'team')
+      .map(({ password_hash, ...m }) => m)
+  );
+}));
+
+// ── Edit an existing member ──
+// Merges supplied fields over the existing record (unspecified fields keep their
+// current value — never blanked), recomputes initials from the final name, and
+// persists. accessLevel is COALESCEd in upsertTeamMember, so omitting it won't
+// downgrade. Promoting to super_admin also ensures a standalone platform admin
+// exists (so they get cross-org login); downgrading does NOT remove that account.
+router.put('/superadmin/orgs/:orgId/members/:memberId', requireSuperAdmin, w(async (req, res) => {
+  const { orgId, memberId } = req.params;
+  const { name, email, role, accessLevel } = req.body;
+
+  // getMemberById queries by id alone; confirm the row belongs to this org.
+  const existing = await getMemberById(memberId);
+  if (!existing || existing.org_id !== orgId) {
+    return res.status(404).json({ error: 'Member not found' });
+  }
+
+  // Merge: prefer the supplied value, else keep the existing one.
+  const merged = {
+    name: name !== undefined ? name : existing.name,
+    email: email !== undefined ? email : existing.email,
+    role: role !== undefined ? role : existing.role,
+  };
+  const initials = initialsFromName(merged.name);
+
+  await upsertTeamMember(orgId, {
+    id: memberId,
+    name: merged.name,
+    email: merged.email || null,
+    role: merged.role || 'pm',
+    initials,
+    // Pass accessLevel only when supplied; undefined → COALESCE keeps the current level.
+    access_level: accessLevel,
+  });
+
+  // Promotion to super_admin → ensure a standalone platform admin too. Random temp
+  // password; they set a real one via create-superadmin.js or a future flow.
+  if (accessLevel === 'super_admin' && merged.email) {
+    try {
+      if (!(await getSuperAdminByEmail(merged.email))) {
+        const tempHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
+        await createSuperAdmin({ email: merged.email, name: merged.name, passwordHash: tempHash });
+      }
+    } catch (err) {
+      console.error('[superadmin] Failed to sync standalone super-admin on member update:', err.message);
+      // Don't fail the request — the member update succeeded regardless.
+    }
+  }
+
+  const updated = await getMemberById(memberId);
+  const { password_hash, ...safe } = updated;
+  res.json(safe);
+}));
+
+// ── Delete a member ──
+router.delete('/superadmin/orgs/:orgId/members/:memberId', requireSuperAdmin, w(async (req, res) => {
+  const { orgId, memberId } = req.params;
+  // The synthetic `team` row is a shared placeholder, not a real member — never delete it.
+  if (memberId === 'team') return res.status(400).json({ error: 'Cannot delete the shared team placeholder' });
+  await deleteTeamMember(memberId, orgId);
+  res.json({ ok: true });
 }));
 
 // ── Create a standalone super-admin (no org) ──
