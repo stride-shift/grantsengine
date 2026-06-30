@@ -671,16 +671,18 @@ const saFetch = async (path, opts = {}) => {
   const res = await fetch(`/api/superadmin${path}`, { ...opts, headers });
 
   if (res.status === 401) {
-    // A dead super-admin token shouldn't nuke the org session; clear only the SA
-    // token in that case. Otherwise fall back to the org-session expiry handling.
+    // Standalone super-admin console: a dead SA token returns to login.
     if (_saToken) {
       setSaToken(null);
       window.location.reload();
       throw new Error('Session expired');
     }
-    setAuth(null, null);
-    window.location.reload();
-    throw new Error('Session expired');
+    // Embedded (org-session) super-admin call — no separate SA token. A 401/403 on a
+    // /superadmin route here is a permission problem with THIS request, not proof the
+    // org session is dead, so don't tear down the whole org login. Surface it as an
+    // error for the dashboard to show. A genuinely expired org token is caught by the
+    // ordinary org-scoped requests' own expiry handling.
+    throw new Error('Super-admin access required.');
   }
   if (!res.ok && !opts._skipOkCheck) {
     let msg = `Request failed (${res.status})`;

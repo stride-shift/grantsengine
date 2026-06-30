@@ -67,7 +67,7 @@ d-lab NPC (The Field Lab NPC) trains unemployed South African youth in AI-native
 - `App.jsx` (~2400 lines) contains all views and AI functions — this is the main file to work in
 - `src/data/` has all static data, org context, funder strategy, seed grants
 - `src/components/` has shared UI primitives (Btn, Tag, Avatar, CalendarStrip, etc.) + major views (Dashboard, Pipeline, GrantDetail, etc.)
-- `src/prompts.js` — only `scoutPrompt` is active (used by Pipeline.jsx). All other exports are LEGACY; App.jsx has its own inline prompts
+- `src/prompts.js` — `scoutPrompt` (used by Pipeline.jsx) and `scoutBriefPrompt` (used by `src/hooks/useScout.js`) are active. All other exports are LEGACY; App.jsx has its own inline prompts
 - `server/` — Express 5 backend: auth, data (grants CRUD), AI proxy, uploads, admin
 - `grant-engine.monolith.jsx` is the original single-file version that runs in Claude artifacts — keep it as a working reference
 

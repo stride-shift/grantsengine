@@ -300,9 +300,6 @@ export default function Admin({ org, team, grants = [], currentMember, onSaveGra
                     {m.email && <div style={{ fontSize: 11, color: C.t3 }}>{m.email}</div>}
                   </div>
                   <RoleBadge role={m.role} />
-                  <div style={{ fontSize: 10, color: m.password_hash !== undefined ? C.t4 : C.amber, fontWeight: 500 }}>
-                    {/* password_hash is stripped from API, so we check hasPassword flag */}
-                  </div>
                   {/* Action buttons — don't show for self */}
                   {!isMe && (
                     <div style={{ display: "flex", gap: 4 }}>

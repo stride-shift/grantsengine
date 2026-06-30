@@ -19,6 +19,8 @@ const sha256 = (pw) => crypto.createHash('sha256').update(pw).digest('hex');
 const hashPw = async (pw) => bcrypt.hash(pw, 10);
 // Compare: try bcrypt first, fallback to SHA-256 for legacy hashes
 const comparePw = async (pw, hash) => {
+  // No stored hash → no match (guard against a null/undefined hash throwing).
+  if (!hash) return false;
   // Bcrypt hashes start with $2b$ or $2a$
   if (hash.startsWith('$2')) return bcrypt.compare(pw, hash);
   // Legacy SHA-256 comparison
@@ -130,13 +132,12 @@ router.post('/auth/login', w(async (req, res) => {
 
   const row = await getOrgAndMemberByEmail(email);
 
-  // Org-member path (unchanged). If the email belongs to an org member, this is the
-  // only path — a wrong password returns 401 here and does NOT fall through to the
-  // standalone super-admin check below.
-  if (row) {
-    // Generic message — never reveal whether the email exists or has a password set.
-    if (!row.password_hash) return res.status(401).json({ error: 'Invalid email or password' });
-
+  // Org-member path. Taken only when the email maps to a member who has actually set
+  // a password — a wrong password returns 401 here and does NOT fall through to the
+  // super-admin check (no enumeration of which real accounts exist). A member row
+  // with NO password set is treated as "no org match" so a standalone super-admin
+  // who happens to share that email isn't locked out of the super-admin branch below.
+  if (row && row.password_hash) {
     const valid = await bcrypt.compare(password, row.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
 
@@ -162,7 +163,8 @@ router.post('/auth/login', w(async (req, res) => {
     });
   }
 
-  // Standalone super-admin fallback — ONLY when no org member matched the email.
+  // Standalone super-admin fallback — reached when no org member matched the email
+  // OR the matched member has no password (so they can't log in via the org path).
   // An account in super_admins that is not an org member authenticates here and the
   // response tells the frontend it's a super-admin-only session (UI redirects to the
   // console). Generic 401 on any failure so the response never reveals which case.
@@ -390,11 +392,17 @@ router.post('/org/:slug/auth/reset-password', w(async (req, res) => {
     meta: { member_name: member.name, method: 'email_link' },
   });
 
+  // Include the access-gate fields so the auto-login lands with a complete member
+  // identity (matches the login/verify responses) rather than relying on the
+  // post-reset reload to repopulate isSuperAdmin/accessLevel.
+  const isSuperAdmin = !!(await getSuperAdminByEmail(member.email));
+  const accessLevel = member.access_level || 'user';
+
   res.json({
     token: session.token,
     expires: session.expires,
     org: { id: org.id, slug: org.slug, name: org.name },
-    member: { id: member.id, name: member.name, role: member.role, initials: member.initials },
+    member: { id: member.id, name: member.name, role: member.role, initials: member.initials, isSuperAdmin, accessLevel },
   });
 }));
 

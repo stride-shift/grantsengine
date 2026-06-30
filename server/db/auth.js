@@ -45,14 +45,18 @@ export const getMemberWithAuth = async (orgId, memberId) => {
   return rows[0] || null;
 };
 
-// Email → (org, member) resolution for org-agnostic email+password login.
-// Relies on the global-unique email index (case-insensitive); returns one row or null.
+// Email → (org, member) resolution for org-agnostic email+password login. A
+// case-insensitive unique index on team_members(LOWER(email)) keeps single-address
+// emails 1:1, so the normal case returns exactly one row.
 export const getOrgAndMemberByEmail = async (email) => {
   if (!email) return null;
   // The email column normally holds a single address, but some legacy rows store a
   // comma-separated list (e.g. "primary@x.com, alt@y.com"). Match the supplied
   // address against ANY individual entry — split on comma, trim, case-insensitive —
-  // so those members still resolve for login / password reset.
+  // so those members still resolve for login / password reset. The unique index
+  // doesn't cover an address buried inside a comma list, so order deterministically:
+  // prefer a member who has actually set a password, then the oldest stable id, so a
+  // rare multi-match can never resolve to an arbitrary (e.g. passwordless) row.
   const { rows } = await pool().query(
     `SELECT tm.id AS member_id, tm.org_id, tm.name, tm.role, tm.initials,
             tm.password_hash, o.slug
@@ -62,6 +66,7 @@ export const getOrgAndMemberByEmail = async (email) => {
               SELECT LOWER(TRIM(e))
                 FROM unnest(string_to_array(COALESCE(tm.email, ''), ',')) AS e
             )
+      ORDER BY (tm.password_hash IS NOT NULL) DESC, tm.id ASC
       LIMIT 1`,
     [email]
   );

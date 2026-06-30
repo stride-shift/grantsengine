@@ -5,7 +5,7 @@ import {
   logout,
   saveGrant,
   getTeam, getProfile, updateProfile as apiUpdateProfile, updateOrg as apiUpdateOrg, checkHealth, api,
-  saIsLoggedIn, superAdminLogout,
+  saIsLoggedIn, superAdminLogout, superAdminVerify,
 } from "./api";
 import useAI from "./hooks/useAI";
 import useSave from "./hooks/useSave";
@@ -312,6 +312,20 @@ function AppInner() {
   // normal email login; loginWithEmail stores a dedicated session token
   // (ge_sa_token) and we flip saAuthed to render the full-page console below.
   const [saAuthed, setSaAuthed] = useState(saIsLoggedIn());
+
+  // Validate a persisted super-admin token on mount: if it's expired/revoked, drop
+  // it and fall back to the login screen immediately rather than rendering the
+  // console until its first data call 401s.
+  useEffect(() => {
+    if (!saAuthed || authed) return;
+    let cancelled = false;
+    // saFetch already reloads to login on a 401, so simply resolving here means the
+    // token is valid; the catch covers any other failure (verify returns { admin }).
+    superAdminVerify()
+      .then((r) => { if (!cancelled && !r?.admin) throw new Error("invalid"); })
+      .catch(async () => { if (!cancelled) { await superAdminLogout(); setSaAuthed(false); } });
+    return () => { cancelled = true; };
+  }, [saAuthed, authed]);
 
   // ── App state ──
   const [org, setOrg] = useState(null);
