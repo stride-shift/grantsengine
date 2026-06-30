@@ -52,12 +52,7 @@ app.use('/api/auth/request-reset', rateLimit({
   message: { error: 'Too many password reset attempts. Try again in 1 hour.' },
   standardHeaders: true, legacyHeaders: false,
 }));
-// Super-admin login — 10 attempts per 15 minutes per IP
-app.use('/api/superadmin/login', rateLimit({
-  windowMs: 15 * 60 * 1000, max: 10,
-  message: { error: 'Too many login attempts. Try again in 15 minutes.' },
-  standardHeaders: true, legacyHeaders: false,
-}));
+// (Super-admin login is unified into /api/auth/login, which is already rate-limited above.)
 app.use('/api/org/:slug/ai/messages', rateLimit({
   windowMs: 60 * 1000, max: 30,
   message: { error: 'AI rate limit reached. Wait a moment before trying again.' },

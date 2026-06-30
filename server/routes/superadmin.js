@@ -5,7 +5,7 @@ import {
   getAllOrgs, getOrgUsage, getActivityLog, getActiveSessions, getSessionHistory,
   getAgentRuns, setOrgSubscription, createOrg, getOrgBySlug, getOrgById,
   getTeamMembers, getMemberById, upsertTeamMember, deleteTeamMember, deleteOrg, createResetToken,
-  getSuperAdminByEmail, createSuperAdminSession, deleteSuperAdminSession, createSuperAdmin,
+  getSuperAdminByEmail, deleteSuperAdminSession, createSuperAdmin,
 } from '../db.js';
 import { sendResetEmail } from '../email.js';
 import { requireSuperAdmin } from '../middleware/superadmin.js';
@@ -27,26 +27,9 @@ const initialsFromName = (name) =>
     .toUpperCase() || '?';
 
 // ── Standalone super-admin login ──
-// A platform-level account (super_admins table) with its own session, not tied to
-// any org. Rate-limited in app.js (/api/superadmin/login — 10/15min). Returns a
-// generic 401 on any failure so the response never reveals whether an email exists.
-router.post('/superadmin/login', w(async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(401).json({ error: 'Invalid email or password' });
-
-  const admin = await getSuperAdminByEmail(email);
-  if (!admin || !admin.password_hash) return res.status(401).json({ error: 'Invalid email or password' });
-
-  const valid = await bcrypt.compare(password, admin.password_hash);
-  if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
-
-  const session = await createSuperAdminSession(admin.id);
-  res.json({
-    token: session.token,
-    expires: session.expires,
-    admin: { name: admin.name, email: admin.email },
-  });
-}));
+// Login is unified into POST /api/auth/login: an email with no org member that
+// matches a super_admins row authenticates there and gets a super-admin session
+// (response: { superAdmin: true, token, ... }). There is no separate login here.
 
 // ── Standalone super-admin logout ──
 router.post('/superadmin/logout', requireSuperAdmin, w(async (req, res) => {

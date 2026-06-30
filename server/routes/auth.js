@@ -5,7 +5,7 @@ import {
   getOrgBySlug, getOrgAuth, setOrgPassword, createSession, deleteSession, getSession,
   getMemberWithAuth, setMemberPassword, createMemberSession, endSession, logActivity,
   getTeamMembers, createResetToken, validateResetToken, markResetTokenUsed,
-  getOrgAndMemberByEmail, getSuperAdminByEmail,
+  getOrgAndMemberByEmail, getSuperAdminByEmail, createSuperAdminSession,
 } from '../db.js';
 import { sendResetEmail } from '../email.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -129,32 +129,55 @@ router.post('/auth/login', w(async (req, res) => {
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
   const row = await getOrgAndMemberByEmail(email);
-  // Generic message — never reveal whether the email exists or has a password set.
-  if (!row || !row.password_hash) return res.status(401).json({ error: 'Invalid email or password' });
 
-  const valid = await bcrypt.compare(password, row.password_hash);
-  if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
+  // Org-member path (unchanged). If the email belongs to an org member, this is the
+  // only path — a wrong password returns 401 here and does NOT fall through to the
+  // standalone super-admin check below.
+  if (row) {
+    // Generic message — never reveal whether the email exists or has a password set.
+    if (!row.password_hash) return res.status(401).json({ error: 'Invalid email or password' });
 
-  const session = await createMemberSession(row.org_id, row.member_id);
+    const valid = await bcrypt.compare(password, row.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
 
-  await logActivity(row.org_id, 'login', {
-    memberId: row.member_id,
-    sessionToken: session.token,
-    meta: { member_name: row.name, method: 'email' },
-  });
+    const session = await createMemberSession(row.org_id, row.member_id);
 
-  const isSuperAdmin = !!(await getSuperAdminByEmail(email));
-  // access_level gates the org Admin page independently of pipeline role.
-  const memberRow = await getMemberWithAuth(row.org_id, row.member_id);
-  const accessLevel = memberRow?.access_level || 'user';
+    await logActivity(row.org_id, 'login', {
+      memberId: row.member_id,
+      sessionToken: session.token,
+      meta: { member_name: row.name, method: 'email' },
+    });
 
-  res.json({
-    token: session.token,
-    expires: session.expires,
-    slug: row.slug,
-    org: { id: row.org_id, slug: row.slug },
-    member: { id: row.member_id, name: row.name, role: row.role, initials: row.initials, isSuperAdmin, accessLevel },
-  });
+    const isSuperAdmin = !!(await getSuperAdminByEmail(email));
+    // access_level gates the org Admin page independently of pipeline role.
+    const memberRow = await getMemberWithAuth(row.org_id, row.member_id);
+    const accessLevel = memberRow?.access_level || 'user';
+
+    return res.json({
+      token: session.token,
+      expires: session.expires,
+      slug: row.slug,
+      org: { id: row.org_id, slug: row.slug },
+      member: { id: row.member_id, name: row.name, role: row.role, initials: row.initials, isSuperAdmin, accessLevel },
+    });
+  }
+
+  // Standalone super-admin fallback — ONLY when no org member matched the email.
+  // An account in super_admins that is not an org member authenticates here and the
+  // response tells the frontend it's a super-admin-only session (UI redirects to the
+  // console). Generic 401 on any failure so the response never reveals which case.
+  const admin = await getSuperAdminByEmail(email);
+  if (admin && admin.password_hash && (await bcrypt.compare(password, admin.password_hash))) {
+    const session = await createSuperAdminSession(admin.id);
+    return res.json({
+      superAdmin: true,
+      token: session.token,
+      expires: session.expires,
+      admin: { name: admin.name, email: admin.email },
+    });
+  }
+
+  return res.status(401).json({ error: 'Invalid email or password' });
 }));
 
 // ── Email-based password reset request (org-agnostic) ──
