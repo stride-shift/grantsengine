@@ -101,8 +101,18 @@ app.use((err, req, res, _next) => {
 // ── Production: serve Vite build ──
 if (process.env.NODE_ENV === 'production') {
   const distPath = path.join(__dirname, '..', 'dist');
-  app.use(express.static(distPath));
+  // Hashed assets (index-*.js, chunks) are content-addressed → cache forever.
+  // index.html must always revalidate, otherwise a browser on a cached index can
+  // try to lazy-load an old chunk hash that a redeploy removed ("Failed to fetch
+  // dynamically imported module ...").
+  app.use(express.static(distPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache');
+      else res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    },
+  }));
   app.use((req, res) => {
+    res.set('Cache-Control', 'no-cache');
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }

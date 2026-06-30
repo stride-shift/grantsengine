@@ -1,5 +1,6 @@
 import { FONT } from "@/theme";
 import { Btn } from "@/components/ui";
+import geLogo from "@/grants-engine-logo.png";
 import NorthernLights from "@/components/chrome/NorthernLights";
 import CheckEmailScreen from "@/components/auth/CheckEmailScreen";
 import useEmailLogin from "@/hooks/useEmailLogin";
@@ -39,6 +40,7 @@ export default function EmailLogin({ onLogin }) {
         </div>
       ) : (
         <form onSubmit={submit} style={cardStyle}>
+          <img src={geLogo} alt="Grants Engine" style={{ height: 40, objectFit: "contain", display: "block", marginBottom: 18 }} />
           <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: -0.3 }}>Sign in</div>
           <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 4, marginBottom: 22 }}>
             Enter your work email and password.
